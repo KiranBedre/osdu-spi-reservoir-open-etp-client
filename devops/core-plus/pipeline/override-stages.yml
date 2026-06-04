@@ -45,11 +45,6 @@ cimpl-test:
   retry: 1
   extends:
     - .cimpl-variables
-  variables:
-    # Override values pulled in from .cimpl-variables (job-level wins over template-level).
-    COLLECTION_PATH: "Postman%20Collection/45_CICD_Reservoir_DDMS/Reservoir%20DDMS%20CI-CD%20v3.1.postman_collection.json"
-    # Pin to qa MR branch until osdu/qa!175 merges, then revert to default (main).
-    CIMPL_COLLECTION_BRANCH: "risbansal/reservoir-ddms-ci-cd-v3.1"
   script:
     - !reference [.cimpl_postman_tests, script]
 
@@ -67,11 +62,6 @@ cimpl-dev2-test:
   retry: 1
   extends:
     - .cimpl-dev2-variables
-  variables:
-    # Override values pulled in from .cimpl-dev2-variables (job-level wins over template-level).
-    COLLECTION_PATH: "Postman%20Collection/45_CICD_Reservoir_DDMS/Reservoir%20DDMS%20CI-CD%20v3.1.postman_collection.json"
-    # Pin to qa MR branch until osdu/qa!175 merges, then revert to default (main).
-    CIMPL_COLLECTION_BRANCH: "risbansal/reservoir-ddms-ci-cd-v3.1"
   script:
     - !reference [.cimpl_postman_tests, script]
 
