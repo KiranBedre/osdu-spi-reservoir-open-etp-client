@@ -9,7 +9,11 @@ variables:
   # Combined with CIMPL_COLLECTION_HOST + CIMPL_COLLECTION_BRANCH (defined in
   # .cimpl-variables / .cimpl-dev2-variables) to form GET_COLLECTION_URL in
   # .cimpl_postman_tests. Not defined upstream, so must be set here.
-  COLLECTION_PATH: "Postman%20Collection/45_CICD_Reservoir_DDMS/Reservoir%20DDMS%20CI-CD%20v3.1.postman_collection.json"
+  # Named RESERVOIR_DDMS_COLLECTION_PATH (not COLLECTION_PATH) to avoid
+  # collision with an inherited group-level CI variable named COLLECTION_PATH
+  # that points at the stale v3.0 *_NotRun.json file (group vars outrank YAML
+  # per GitLab variable precedence).
+  RESERVOIR_DDMS_COLLECTION_PATH: "Postman%20Collection/45_CICD_Reservoir_DDMS/Reservoir%20DDMS%20CI-CD%20v3.1.postman_collection.json"
 
 cimpl-containerize-gitlab:
   tags: ["osdu-medium"]
@@ -23,7 +27,7 @@ cimpl-containerize-bootstrap-gitlab:
 
 .cimpl_postman_tests:
   script:
-    - export GET_COLLECTION_URL="${CIMPL_COLLECTION_HOST}/${CIMPL_COLLECTION_BRANCH}/${COLLECTION_PATH}?inline=false"
+    - export GET_COLLECTION_URL="${CIMPL_COLLECTION_HOST}/${CIMPL_COLLECTION_BRANCH}/${RESERVOIR_DDMS_COLLECTION_PATH}?inline=false"
     - echo "Get a collection from ${GET_COLLECTION_URL}"
     - >
       if [[ -v TEST_SOURCE_FILES_DIR ]]; then
