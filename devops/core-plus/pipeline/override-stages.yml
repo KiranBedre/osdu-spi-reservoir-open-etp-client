@@ -5,6 +5,11 @@ variables:
   CIMPL_DNS_NAME: "osdu.$CIMPL_DOMAIN"
   CIMPL_HELM_DEPLOYMENT_DIR: "devops/core-plus/deploy"
   CIMPL_HELM_PACKAGE_NAME: "cimpl-$CIMPL_SERVICE-deploy"
+  # Path to the Reservoir DDMS postman collection within osdu/qa.
+  # Combined with CIMPL_COLLECTION_HOST + CIMPL_COLLECTION_BRANCH (defined in
+  # .cimpl-variables / .cimpl-dev2-variables) to form GET_COLLECTION_URL in
+  # .cimpl_postman_tests. Not defined upstream, so must be set here.
+  COLLECTION_PATH: "Postman%20Collection/45_CICD_Reservoir_DDMS/Reservoir%20DDMS%20CI-CD%20v3.1.postman_collection.json"
 
 cimpl-containerize-gitlab:
   tags: ["osdu-medium"]
