@@ -10,6 +10,8 @@ import {
   LocalBoundaryFeature
 } from "./Generated/work-product-component/LocalBoundaryFeature.1.2.0";
 
+import { MasterDataBoundaryFeatureManifest } from "./MasterDataBoundaryFeature";
+
 export class LocalBoundaryFeatureOSDU
   extends ResqmlWorkProductComponent<SimpleJson<resqml20.obj_BoundaryFeature>>
   implements LocalBoundaryFeature
@@ -57,5 +59,12 @@ export const LocalBoundaryFeatureManifest = async (
   xml: SimpleJson<resqml20.obj_BoundaryFeature>,
   context: OSDUContext,
   _client: ResqmlClient
-): Promise<LocalBoundaryFeatureOSDU> =>
-  new LocalBoundaryFeatureOSDU(xml, context).initData(uri, xml);
+): Promise<LocalBoundaryFeatureOSDU> => {
+  // S3: Also produce master-data--BoundaryFeature if it doesn't already exist
+  const masterData = await MasterDataBoundaryFeatureManifest(uri, xml, context, _client);
+  if (masterData !== undefined && masterData.id) {
+    context.created.set(masterData.id, masterData);
+  }
+
+  return new LocalBoundaryFeatureOSDU(xml, context).initData(uri, xml);
+};

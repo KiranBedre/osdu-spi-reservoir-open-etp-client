@@ -99,10 +99,21 @@ export class GenericRepresentation22OSDU
     } else if (xml.$type === "resqml22.PointSetRepresentation") {
       const points = xml as SimpleJson<resqml22.PointSetRepresentation>;
       let NodeCount = 0;
-      points.NodePatchGeometry.forEach(p => {
-        const arr = this.arrayInfos(p.Points);
-        if (arr.rowCount) {
-          NodeCount += arr.rowCount / 3;
+      const patches = points.NodePatchGeometry
+        ? Array.isArray(points.NodePatchGeometry)
+          ? points.NodePatchGeometry
+          : [points.NodePatchGeometry]
+        : [];
+      patches.forEach(p => {
+        if (p?.Points) {
+          try {
+            const arr = this.arrayInfos(p.Points);
+            if (arr.rowCount) {
+              NodeCount += arr.rowCount / 3;
+            }
+          } catch {
+            // Array data not fully resolved — skip
+          }
         }
       });
       return NodeCount
