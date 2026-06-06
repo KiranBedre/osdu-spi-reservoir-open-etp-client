@@ -1,6 +1,7 @@
 import * as resqml20 from "../mlTypes/xmlns/www.energistics.org/energyml/resqmlv201/resqmlv2";
 import type { SimpleJson } from "../mlTypes/XmlJsonUtil";
 import { EtpUri, ResqmlClient } from "../client/ResqmlClient";
+import { normalizeUom } from "./UomNormalize";
 
 import { IDataSubarray } from "../common/EtpTypes";
 import { OSDUContext } from "./OsduContext";
@@ -261,7 +262,7 @@ export class GenericPropertyOSDU
       PropertyTopologyID,
       PropertyUnitID: context.addReferenceData(
         "UnitOfMeasure",
-        continuous ? continuous.UOM : "Euc"
+        normalizeUom(continuous ? continuous.UOM : "Euc")
       ),
       RealizationIndices: xml.RealizationIndex
         ? [xml.RealizationIndex]

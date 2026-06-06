@@ -1,6 +1,7 @@
 import * as resqml20 from "../mlTypes/xmlns/www.energistics.org/energyml/resqmlv201/resqmlv2";
 import { ResqmlClient } from "../client/ResqmlClient";
 import type { SimpleJson } from "../mlTypes/XmlJsonUtil";
+import { normalizeUom } from "./UomNormalize";
 
 import { OSDUContext } from "./OsduContext";
 import { ResqmlResource } from "./WorkProductComponent";
@@ -79,7 +80,7 @@ export class PropertyTypeOSDU
        * The relationship to a UnitQuantity, which connects to frame of reference conversion.
        */
       UnitQuantityID:
-        context.addReferenceData("UnitQuantity", xml.RepresentativeUom) || "",
+        context.addReferenceData("UnitQuantity", normalizeUom(xml.RepresentativeUom)) || "",
 
       ExtensionProperties: undefined
     };
