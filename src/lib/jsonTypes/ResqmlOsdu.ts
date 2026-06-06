@@ -7,6 +7,7 @@ import { ActivityTemplateManifest } from "./ActivityTemplate";
 import { ActivityTemplate23Manifest } from "./ActivityTemplate23";
 import { ColumnBasedTableManifest } from "./ColumnBasedTable";
 import { ColumnBasedTable23Manifest } from "./ColumnBasedTable23";
+import { DoubleTableLookupManifest } from "./DoubleTableLookup";
 import { EarthModelInterpretationManifest } from "./EarthModelInterpretation";
 import { EarthModelInterpretation22Manifest } from "./EarthModelInterpretation22";
 import { FaultInterpretationManifest } from "./FaultInterpretation";
@@ -404,6 +405,11 @@ ResqmlOSDU.add(
   "resqml22.obj_StringTableLookup",
   () => getKindOrFallback("ColumnBasedTable"),
   ColumnBasedTable23Manifest
+);
+ResqmlOSDU.add(
+  "resqml20.obj_DoubleTableLookup",
+  () => getKindOrFallback("ColumnBasedTable"),
+  DoubleTableLookupManifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_SubRepresentation",
