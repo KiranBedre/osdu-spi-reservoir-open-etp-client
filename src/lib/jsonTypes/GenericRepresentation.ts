@@ -6,6 +6,7 @@ import {
   ResqmlClient
 } from "../client/ResqmlClient";
 
+import { getKindOrFallback } from "./MilestoneKinds";
 import { OSDUContext } from "./OsduContext";
 import {
   ResqmlWorkProductComponent,
@@ -231,11 +232,11 @@ export const GenericRepresentationToOsduKind = (
     const geometries = getGeometries(xml);
     for (const p of geometries) {
       if (p.SeismicCoordinates !== undefined) {
-        return "osdu:wks:work-product-component--SeismicFault.2.0.0";
+        return getKindOrFallback("SeismicFault");
       }
     }
   }
-  return "osdu:wks:work-product-component--GenericRepresentation:1.1.0";
+  return getKindOrFallback("GenericRepresentation");
 };
 
 export const GenericRepresentationManifest = async (
@@ -245,7 +246,7 @@ export const GenericRepresentationManifest = async (
   client: ResqmlClient
 ): Promise<GenericRepresentationOSDU | SeismicFaultOSDU> => {
   const kind = GenericRepresentationToOsduKind(xml);
-  if (kind === "osdu:wks:work-product-component--SeismicFault.2.0.0") {
+  if (kind === getKindOrFallback("SeismicFault")) {
     return new SeismicFaultOSDU(xml, context).initData(uri, xml, client);
   }
   return new GenericRepresentationOSDU(xml, context).initData(uri, xml, client);

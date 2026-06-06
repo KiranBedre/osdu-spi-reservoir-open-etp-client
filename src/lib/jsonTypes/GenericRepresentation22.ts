@@ -1,7 +1,8 @@
 import * as resqml22 from "../mlTypes/xmlns/www.energistics.org/energyml/resqmlv22/resqmlv2";
 import type { SimpleJson } from "../mlTypes/XmlJsonUtil";
-import { EtpUri, ResqmlClient } from "../client/ResqmlClient";
+import { EtpUri, IResqmlDataObject, ResqmlClient } from "../client/ResqmlClient";
 
+import { getKindOrFallback } from "./MilestoneKinds";
 import { OSDUContext } from "./OsduContext";
 import {
   getGeometries,
@@ -285,7 +286,7 @@ export class GenericRepresentation22OSDU
  * @return {string}
  */
 export const GenericRepresentation22ToOsduKind = (
-  xml: SimpleJson<resqml22.AbstractRepresentation>
+  xml: IResqmlDataObject
 ): string => {
   const genRep = xml as SimpleJson<resqml22.AbstractRepresentation>;
   if (
@@ -294,11 +295,11 @@ export const GenericRepresentation22ToOsduKind = (
     const geometries = getGeometries(xml);
     for (const p of geometries) {
       if (p.SeismicCoordinates !== undefined) {
-        return "osdu:wks:work-product-component--SeismicFault.2.0.0";
+        return getKindOrFallback("SeismicFault");
       }
     }
   }
-  return "osdu:wks:work-product-component--GenericRepresentation:1.1.0";
+  return getKindOrFallback("GenericRepresentation");
 };
 
 export const GenericRepresentation22Manifest = async (
