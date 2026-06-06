@@ -100,6 +100,7 @@ import { SealedVolumeFrameworkManifest } from "./SealedVolumeFramework";
 import { SealedVolumeFramework22Manifest } from "./SealedVolumeFramework22";
 
 export { EtpDataspaceManifest } from "./ETPDataspace";
+export { CollaborationProjectManifest, deriveCollaborationId } from "./CollaborationProject";
 export { WorkProductManifest } from "./WorkProduct";
 
 const ResqmlOSDU = ResqmlOSDUMap.getInstance();

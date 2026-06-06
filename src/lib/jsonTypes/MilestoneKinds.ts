@@ -89,6 +89,7 @@ const KIND_VERSIONS = new Map<string, VersionPair>([
   md("ActivityTemplate", { M26: "1.0.0", M27: "1.1.0" }),
   md("SeismicAcquisitionSurvey", { M26: "1.3.0", M27: "1.4.0" }),
   md("BoundaryFeature", { M26: "1.1.0", M27: "1.2.0" }),
+  md("CollaborationProject", { M27: "1.0.0" }),
 
   // ─── Work Product Components — Wells ───────────────────────────────────────
   wpc("WellLog", { M26: "1.2.0", M27: "1.3.0" }),

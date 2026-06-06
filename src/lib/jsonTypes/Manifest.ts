@@ -14,6 +14,10 @@ import {
   OSDUResourceType
 } from "./OsduContext";
 import ResqmlOSDU, { EtpDataspaceManifest } from "./ResqmlOsdu";
+import {
+  CollaborationProjectManifest,
+  deriveCollaborationId
+} from "./CollaborationProject";
 
 import { ErrorCode, EtpError } from "../common/EtpTypes";
 
@@ -257,6 +261,44 @@ export const createManifest = async (
 
     manifests.Data.WorkProductComponents = [];
     manifests.MasterData = [];
+
+    // S5: Emit a CollaborationProject master-data record per dataspace.
+    // Maps each ETP dataspace to an OSDU CollaborationProject (SOE namespace).
+    // Uses idempotent upsert: checks existing version in OSDU and bumps version
+    // to ensure consistency across multiple manifest builds.
+    for (const dataspaceUri of context.dataspaceACLs.keys()) {
+      const dsEtpUri = new EtpUri(dataspaceUri);
+      const collabId = deriveCollaborationId(dsEtpUri.dataSpace);
+      const dsInfo = await client
+        .getDataspaceInfo([dataspaceUri])
+        .then(
+          ds => (ds.length === 1 ? ds[0] : undefined),
+          () => undefined
+        );
+      if (dsInfo) {
+        const cpRecord = CollaborationProjectManifest(
+          dsInfo,
+          context,
+          collabId
+        ) as any;
+
+        // Check if CP already exists in OSDU — version bump for consistency
+        const existingVersion = await context
+          .getOSDUResourceVersion(cpRecord.id)
+          .catch(() => undefined);
+        if (existingVersion !== undefined) {
+          cpRecord.version = existingVersion + 1;
+          logger.info(
+            `S5: Updating existing CollaborationProject v${existingVersion} → v${cpRecord.version}`
+          );
+        }
+
+        manifests.MasterData.push(cpRecord);
+        logger.info(
+          `S5: CollaborationProject '${dsEtpUri.dataSpace}' → ${cpRecord.id}`
+        );
+      }
+    }
 
     const dataspaceObjects: Record<string, string[]> = {};
 
