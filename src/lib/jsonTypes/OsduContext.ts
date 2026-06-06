@@ -89,6 +89,10 @@ export class ResqmlOSDUMap {
     return this.resqml2osdu.get(resqmlType);
   }
 
+  public getAll(): Map<string, OSDUEntry> {
+    return this.resqml2osdu;
+  }
+
   public buildReference(
     id: string,
     context: OSDUContext
@@ -145,6 +149,8 @@ export class OSDUContext {
   public createMissingReferences?: boolean = true;
   public useDataArrayForManifest: boolean = false;
   public bearer?: string;
+  public collaboration?: string;
+  public generateLineageActivity: boolean = true;
 
   public created: Map<string, OSDUResourceType> = new Map();
 
@@ -643,7 +649,8 @@ export class OSDUContext {
   ): Promise<T | undefined> {
     const headers: HeadersInit = {
       Authorization: `Bearer ${this.bearer}`,
-      "data-partition-id": this.partition
+      "data-partition-id": this.partition,
+      ...(this.collaboration ? { "x-collaboration": this.collaboration } : {})
     };
     if (init === undefined) {
       init = { headers };
@@ -720,7 +727,7 @@ export class ReferenceData {
     let Code: string | undefined;
     let kind = "";
     const idSplit = id.split(":");
-    if (idSplit.length !== 3) {
+    if (idSplit.length >= 3) {
       Code = idSplit[2];
       kind = `osdu:wks:${idSplit[1]}:1.0.0`;
     }

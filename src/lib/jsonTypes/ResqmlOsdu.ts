@@ -48,6 +48,7 @@ import { PropertyTypeManifest } from "./PropertyType";
 import { PropertyType23Manifest } from "./PropertyType23";
 import { SeismicLatticeFeatureManifest } from "./SeismicLatticeFeature";
 import { SeismicLatticeFeature22Manifest } from "./SeismicLatticeFeature22";
+import { SeismicLineGeometryManifest } from "./SeismicLineGeometry";
 import { StratigraphicColumnManifest } from "./StratigraphicColumn";
 import { StratigraphicColumnRankInterpretationManifest } from "./StratigraphicColumnRankInterpretation";
 import { StratigraphicUnitInterpretationManifest } from "./StratigraphicUnitInterpretation";
@@ -62,11 +63,51 @@ import { StratigraphicUnitInterpretation22Manifest } from "./StratigraphicUnitIn
 import { SubRepresentation22Manifest } from "./SubRepresentation22";
 import { TimeSeries23Manifest } from "./TimeSeries23";
 import { UnstructuredGridRepresentation22Manifest } from "./UnstructuredGridRepresentation22";
+import { WitsmlWellManifest } from "./WitsmlWell";
+import { WitsmlWellboreManifest } from "./WitsmlWellbore";
+import { WitsmlWellLogManifest } from "./WitsmlWellLog";
+import { WitsmlTrajectoryManifest } from "./WitsmlTrajectory";
+import { WitsmlRigManifest } from "./WitsmlRig";
+import { WitsmlFluidsReportManifest } from "./WitsmlFluidsReport";
+import { WitsmlTubularManifest } from "./WitsmlTubular";
+import { WitsmlBhaRunManifest } from "./WitsmlBhaRun";
+import { WitsmlWellCompletionManifest } from "./WitsmlWellCompletion";
+import { WellboreFrameToWellLogManifest } from "./WellboreFrameToWellLog";
+import { WellboreFrameToWellLog22Manifest } from "./WellboreFrameToWellLog22";
+import { MasterDataBoundaryFeatureManifest } from "./MasterDataBoundaryFeature";
+import { MasterDataBoundaryFeature22Manifest } from "./MasterDataBoundaryFeature22";
+
+import { WellboreInterpretation22Manifest } from "./WellboreInterpretation22";
+import { WellboreTrajectoryRepresentation22Manifest } from "./WellboreTrajectoryRepresentation22";
+import { StructuralOrganizationInterpretationManifest } from "./StructuralOrganizationInterpretation";
+import { StructuralOrganizationInterpretation22Manifest } from "./StructuralOrganizationInterpretation22";
+import { RockFluidOrganizationInterpretationManifest } from "./RockFluidOrganizationInterpretation";
+import { RockFluidOrganizationInterpretation22Manifest } from "./RockFluidOrganizationInterpretation22";
+import { RockFluidUnitInterpretationManifest } from "./RockFluidUnitInterpretation";
+import { RockFluidUnitInterpretation22Manifest } from "./RockFluidUnitInterpretation22";
+import { FluidBoundaryFeatureManifest } from "./FluidBoundaryInterpretation";
+import { FluidBoundaryInterpretation22Manifest } from "./FluidBoundaryInterpretation22";
+import { SealedSurfaceFrameworkManifest } from "./SealedSurfaceFramework";
+import { SealedSurfaceFramework22Manifest } from "./SealedSurfaceFramework22";
+import { SealedVolumeFrameworkManifest } from "./SealedVolumeFramework";
+import { SealedVolumeFramework22Manifest } from "./SealedVolumeFramework22";
 
 export { EtpDataspaceManifest } from "./ETPDataspace";
 export { WorkProductManifest } from "./WorkProduct";
 
 const ResqmlOSDU = ResqmlOSDUMap.getInstance();
+
+ResqmlOSDU.add(
+  "resqml22.WellboreInterpretation",
+  () => "osdu:wks:work-product-component--WellboreInterpretation:1.2.0",
+  WellboreInterpretation22Manifest
+);
+
+ResqmlOSDU.add(
+  "resqml22.WellboreTrajectoryRepresentation",
+  () => "osdu:wks:work-product-component--WellboreTrajectory:1.3.0",
+  WellboreTrajectoryRepresentation22Manifest
+);
 
 ResqmlOSDU.add(
   "resqml20.obj_Activity",
@@ -296,6 +337,11 @@ ResqmlOSDU.add(
   SeismicLatticeFeature22Manifest
 );
 ResqmlOSDU.add(
+  "resqml20.obj_SeismicLineFeature",
+  () => "osdu:wks:work-product-component--SeismicLineGeometry:1.2.0",
+  SeismicLineGeometryManifest
+);
+ResqmlOSDU.add(
   "resqml20.obj_StratigraphicColumn",
   () => "osdu:wks:work-product-component--StratigraphicColumn:1.2.0",
   StratigraphicColumnManifest
@@ -398,6 +444,156 @@ ResqmlOSDU.add(
   "resqml22.UnstructuredGridRepresentation",
   () => "osdu:wks:work-product-component--UnstructuredGridRepresentation:1.2.0",
   UnstructuredGridRepresentation22Manifest
+);
+
+// ─── Organization & Fluid Interpretations ────────────────────────────────────
+
+ResqmlOSDU.add(
+  "resqml20.obj_StructuralOrganizationInterpretation",
+  () =>
+    "osdu:wks:work-product-component--StructuralOrganizationInterpretation:1.2.0",
+  StructuralOrganizationInterpretationManifest
+);
+ResqmlOSDU.add(
+  "resqml22.StructuralOrganizationInterpretation",
+  () =>
+    "osdu:wks:work-product-component--StructuralOrganizationInterpretation:1.2.0",
+  StructuralOrganizationInterpretation22Manifest
+);
+ResqmlOSDU.add(
+  "resqml20.obj_RockFluidOrganizationInterpretation",
+  () =>
+    "osdu:wks:work-product-component--RockFluidOrganizationInterpretation:1.2.0",
+  RockFluidOrganizationInterpretationManifest
+);
+ResqmlOSDU.add(
+  "resqml22.RockFluidOrganizationInterpretation",
+  () =>
+    "osdu:wks:work-product-component--RockFluidOrganizationInterpretation:1.2.0",
+  RockFluidOrganizationInterpretation22Manifest
+);
+ResqmlOSDU.add(
+  "resqml20.obj_RockFluidUnitInterpretation",
+  () =>
+    "osdu:wks:work-product-component--RockFluidUnitInterpretation:1.3.0",
+  RockFluidUnitInterpretationManifest
+);
+ResqmlOSDU.add(
+  "resqml22.RockFluidUnitInterpretation",
+  () =>
+    "osdu:wks:work-product-component--RockFluidUnitInterpretation:1.3.0",
+  RockFluidUnitInterpretation22Manifest
+);
+ResqmlOSDU.add(
+  "resqml20.obj_FluidBoundaryFeature",
+  () =>
+    "osdu:wks:work-product-component--FluidBoundaryInterpretation:1.2.0",
+  FluidBoundaryFeatureManifest
+);
+ResqmlOSDU.add(
+  "resqml22.FluidBoundaryInterpretation",
+  () =>
+    "osdu:wks:work-product-component--FluidBoundaryInterpretation:1.2.0",
+  FluidBoundaryInterpretation22Manifest
+);
+
+// ─── Framework & Wellbore Representations ────────────────────────────────────
+
+ResqmlOSDU.add(
+  "resqml20.obj_SealedSurfaceFrameworkRepresentation",
+  () => "osdu:wks:work-product-component--SealedSurfaceFramework:1.2.0",
+  SealedSurfaceFrameworkManifest
+);
+ResqmlOSDU.add(
+  "resqml22.SealedSurfaceFrameworkRepresentation",
+  () => "osdu:wks:work-product-component--SealedSurfaceFramework:1.2.0",
+  SealedSurfaceFramework22Manifest
+);
+ResqmlOSDU.add(
+  "resqml20.obj_SealedVolumeFrameworkRepresentation",
+  () => "osdu:wks:work-product-component--SealedVolumeFramework:1.2.0",
+  SealedVolumeFrameworkManifest
+);
+ResqmlOSDU.add(
+  "resqml22.SealedVolumeFrameworkRepresentation",
+  () => "osdu:wks:work-product-component--SealedVolumeFramework:1.2.0",
+  SealedVolumeFramework22Manifest
+);
+ResqmlOSDU.add(
+  "resqml20.obj_BlockedWellboreRepresentation",
+  () => "osdu:wks:work-product-component--GenericRepresentation:1.2.0",
+  GenericRepresentationManifest
+);
+ResqmlOSDU.add(
+  "resqml22.BlockedWellboreRepresentation",
+  () => "osdu:wks:work-product-component--GenericRepresentation:1.2.0",
+  GenericRepresentation22Manifest
+);
+ResqmlOSDU.add(
+  "resqml20.obj_WellboreMarkerFrameRepresentation",
+  () => "osdu:wks:work-product-component--GenericRepresentation:1.2.0",
+  GenericRepresentationManifest
+);
+
+// ─── WITSML Types ────────────────────────────────────────────────────────────
+
+ResqmlOSDU.add(
+  "witsml21.Well",
+  () => "osdu:wks:master-data--Well:1.3.0",
+  WitsmlWellManifest
+);
+ResqmlOSDU.add(
+  "witsml21.Wellbore",
+  () => "osdu:wks:master-data--Wellbore:1.3.0",
+  WitsmlWellboreManifest
+);
+ResqmlOSDU.add(
+  "witsml21.Log",
+  () => "osdu:wks:work-product-component--WellLog:1.3.0",
+  WitsmlWellLogManifest
+);
+ResqmlOSDU.add(
+  "witsml21.Trajectory",
+  () => "osdu:wks:work-product-component--WellboreTrajectory:1.3.0",
+  WitsmlTrajectoryManifest
+);
+ResqmlOSDU.add(
+  "witsml21.Rig",
+  () => "osdu:wks:work-product-component--Rig:1.3.0",
+  WitsmlRigManifest
+);
+ResqmlOSDU.add(
+  "witsml21.FluidsReport",
+  () => "osdu:wks:work-product-component--FluidsReport:1.3.0",
+  WitsmlFluidsReportManifest
+);
+ResqmlOSDU.add(
+  "witsml21.Tubular",
+  () => "osdu:wks:work-product-component--Tubular:1.3.0",
+  WitsmlTubularManifest
+);
+ResqmlOSDU.add(
+  "witsml21.BhaRun",
+  () => "osdu:wks:work-product-component--BHARunReport:1.3.0",
+  WitsmlBhaRunManifest
+);
+ResqmlOSDU.add(
+  "witsml21.WellCompletion",
+  () => "osdu:wks:work-product-component--WellboreCompletion:1.3.0",
+  WitsmlWellCompletionManifest
+);
+
+// ─── S2: WellboreFrameRepresentation → WellLog (flatten) ────────────────────
+
+ResqmlOSDU.add(
+  "resqml20.obj_WellboreFrameRepresentation",
+  () => "osdu:wks:work-product-component--WellLog:1.3.0",
+  WellboreFrameToWellLogManifest
+);
+ResqmlOSDU.add(
+  "resqml22.WellboreFrameRepresentation",
+  () => "osdu:wks:work-product-component--WellLog:1.3.0",
+  WellboreFrameToWellLog22Manifest
 );
 
 export default ResqmlOSDU;
