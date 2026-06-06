@@ -61,11 +61,16 @@ import { StoreCustomer } from "../protocols/StoreCustomer";
 import { StoreNotificationCustomer } from "../protocols/StoreNotificationCustomer";
 import { SupportedTypesCustomer } from "../protocols/SupportedTypesCustomer";
 import { TransactionCustomer } from "../protocols/TransactionCustomer";
+import { DiscoveryQueryCustomer } from "../protocols/DiscoveryQueryCustomer";
+import { StoreQueryCustomer } from "../protocols/StoreQueryCustomer";
+import { GrowingObjectCustomer } from "../protocols/GrowingObjectCustomer";
+import { GrowingObjectNotificationCustomer } from "../protocols/GrowingObjectNotificationCustomer";
+import { ChannelSubscribeCustomer } from "../protocols/ChannelSubscribeCustomer";
 
 import { ResourceGraph, Timer } from "../common/ResponseHandlers";
 import { SimpleJson, simpleJson, xml2typescript } from "../mlTypes/XmlJsonUtil";
 import { createODataQueries, queryFilter } from "../oDataParser/oDataUtils";
-import { retryOnEtpErrors } from "../common/Util";
+import { retry, retryOnEtpErrors } from "../common/Util";
 import { DataspaceOSDUCustomer } from "../protocols/DataspaceOSDUCustomer";
 import * as Eml20 from "../mlTypes/xmlns/www.energistics.org/energyml/resqmlv201/commonv2";
 import * as Eml23 from "../mlTypes/xmlns/www.energistics.org/energyml/resqmlv22/commonv2";
@@ -121,6 +126,16 @@ export * as Eml23 from "../mlTypes/xmlns/www.energistics.org/energyml/witsmlv21/
 
 const authenticationKeyBase =
   process.env.RDMS_AUTHENTICATION_KEY_BASE || "osdu-rddms";
+
+/**
+ * Item 24: SSL TLS options for WSS connections.
+ * When RDMS_ETP_SSL_VERIFY is "false", self-signed certificates are accepted.
+ * Enables single-image deployment for both SSL and non-SSL environments.
+ */
+const tlsOptions: object | undefined =
+  process.env.RDMS_ETP_SSL_VERIFY === "false"
+    ? { rejectUnauthorized: false }
+    : undefined;
 
 export type IResqmlDataObject =
   | SimpleJson<Eml23.AbstractObject>
@@ -212,6 +227,17 @@ export class ResqmlClient {
   private readonly transaction: TransactionCustomer = new TransactionCustomer(
     this.client
   );
+  readonly discoveryQuery: DiscoveryQueryCustomer = new DiscoveryQueryCustomer(
+    this.client
+  );
+  readonly storeQuery: StoreQueryCustomer = new StoreQueryCustomer(this.client);
+  readonly growingObject: GrowingObjectCustomer = new GrowingObjectCustomer(
+    this.client
+  );
+  readonly growingObjectNotification: GrowingObjectNotificationCustomer =
+    new GrowingObjectNotificationCustomer(this.client);
+  readonly channelSubscribe: ChannelSubscribeCustomer =
+    new ChannelSubscribeCustomer(this.client);
   private connected = false;
 
   private readonly overhead = 1024; // Represents the overhead to add on top of array size
@@ -257,6 +283,26 @@ export class ResqmlClient {
     this.client.registerHandler(
       Energistics.Etp.v12.Datatypes.Protocol.DataspaceOSDU,
       this.dataspaceOSDU
+    );
+    this.client.registerHandler(
+      Energistics.Etp.v12.Datatypes.Protocol.DiscoveryQuery,
+      this.discoveryQuery
+    );
+    this.client.registerHandler(
+      Energistics.Etp.v12.Datatypes.Protocol.StoreQuery,
+      this.storeQuery
+    );
+    this.client.registerHandler(
+      Energistics.Etp.v12.Datatypes.Protocol.GrowingObject,
+      this.growingObject
+    );
+    this.client.registerHandler(
+      Energistics.Etp.v12.Datatypes.Protocol.GrowingObjectNotification,
+      this.growingObjectNotification
+    );
+    this.client.registerHandler(
+      Energistics.Etp.v12.Datatypes.Protocol.ChannelSubscribe,
+      this.channelSubscribe
     );
     if (opt) {
       this.options = opt;
@@ -348,7 +394,8 @@ export class ResqmlClient {
         encoding: "binary",
         maxReceivedMessageSize: maxMessagePayloadSize,
         noHeaders: false,
-        url
+        url,
+        ...(tlsOptions ? { tlsOptions } : {})
       };
       try {
         this.client.on("connect", resolve);
@@ -393,7 +440,8 @@ export class ResqmlClient {
         encoding: "binary",
         maxReceivedMessageSize: maxMessagePayloadSize,
         noHeaders: false,
-        url
+        url,
+        ...(tlsOptions ? { tlsOptions } : {})
       };
       try {
         this.client.on("connect", resolve);
@@ -1112,10 +1160,6 @@ export class ResqmlClient {
       ? this.dataspace
           .DeleteDataspaces(dataspaces)
           .then(this.checkErrors.bind(this))
-          .catch(reason => {
-            this.logger.error(reason);
-            return false;
-          })
       : false;
   }
 
@@ -1191,7 +1235,10 @@ export class ResqmlClient {
             ? xml2typescript(
                 byteToString(dob.data),
                 new EtpUri(dob.resource.uri).dataObjectType
-              )
+              ).catch(err => {
+                this.logger.warn(`xml2typescript failed for ${new EtpUri(dob.resource.uri).dataObjectType}: ${err}`);
+                return null;
+              })
             : null
         )
       )
@@ -1550,10 +1597,20 @@ export class ResqmlClient {
       while (cURIs.length > 0) {
         const tUris = cURIs.filter(u => !objects.get(u));
         if (tUris.length > 0) {
-          (await this.getObjects(tUris)).forEach(
-            // eslint-disable-next-line no-loop-func
-            (o, i) => o && objects.set(tUris[i], o)
-          );
+          try {
+            const fetched = await this.getObjects(tUris);
+            const fetchedCount = fetched.filter(o => o !== null).length;
+            this.logger.info(`[perf] getObjects: requested=${tUris.length}, got=${fetchedCount}`);
+            fetched.forEach(
+              // eslint-disable-next-line no-loop-func
+              (o, i) => o && objects.set(tUris[i], o)
+            );
+          } catch (refErr: any) {
+            // Some referenced objects may not exist — continue with what we have
+            this.logger.warn(
+              `Failed to fetch ${tUris.length} referenced object(s): ${refErr?.message ?? refErr}`
+            );
+          }
         }
         const nUris = new Set<URI>();
         cURIs.forEach(uri => {
@@ -2482,10 +2539,12 @@ export class ResqmlClient {
           uid: array.uid
         };
       promises.push(
-        this.dataArray
-          .putSubarrays([da])
-          .then(b => b.map(e => e.code === ErrorCode.IS_OK))
-          .then(b => b.reduce((p, c) => p && c, true))
+        retry(() =>
+          this.dataArray
+            .putSubarrays([da])
+            .then(b => b.map(e => e.code === ErrorCode.IS_OK))
+            .then(b => b.reduce((p, c) => p && c, true))
+        )
       );
     }
     return Promise.all(promises).then(results =>
@@ -2515,7 +2574,7 @@ export class ResqmlClient {
         customData: a.customData,
         uid: a.uid
       }));
-    return this.dataArray.put(das).then(e => {
+    return retry(() => this.dataArray.put(das).then(e => {
       // If no error info returned, assume success
       if (e.length === 0) {
         return true;
@@ -2530,7 +2589,7 @@ export class ResqmlClient {
 
       // All operations succeeded
       return true;
-    });
+    }));
   }
 
   /**
@@ -2836,6 +2895,71 @@ export class ResqmlClient {
         }
       });
     } else {
+      // ─── WITSML channel array discovery ──────────────────────────────
+      // For WITSML objects (ChannelSet, Log), detect Channel/LogCurveInfo
+      // and synthesize array IDs using path /WITSML/{uuid}/{mnemonic}
+      const uuid = etpUri.uuid;
+      if (uuid) {
+        // WITSML 2.1: <Index><Mnemonic>MD</Mnemonic>...</Index>
+        if (obj.Index) {
+          const indices = Array.isArray(obj.Index) ? obj.Index : [obj.Index];
+          for (const idx of indices) {
+            if (idx?.Mnemonic) {
+              const path = `/WITSML/${uuid}/${idx.Mnemonic}`;
+              dataArrays.set(uri + path, {
+                uid: { pathInResource: path, uri: etpUri.uriPath }
+              });
+            }
+          }
+        }
+        // WITSML 2.1: <Channel><Mnemonic>GR</Mnemonic>...</Channel>
+        if (obj.Channel) {
+          const channels = Array.isArray(obj.Channel)
+            ? obj.Channel
+            : [obj.Channel];
+          for (const ch of channels) {
+            if (ch?.Mnemonic) {
+              const path = `/WITSML/${uuid}/${ch.Mnemonic}`;
+              dataArrays.set(uri + path, {
+                uid: { pathInResource: path, uri: etpUri.uriPath }
+              });
+            }
+          }
+        }
+        // WITSML 1.4.1: <logCurveInfo><mnemonic>GR</mnemonic>...</logCurveInfo>
+        if (obj.LogCurveInfo || obj.logCurveInfo) {
+          const curves = Array.isArray(obj.LogCurveInfo ?? obj.logCurveInfo)
+            ? (obj.LogCurveInfo ?? obj.logCurveInfo)
+            : [obj.LogCurveInfo ?? obj.logCurveInfo];
+          for (const curve of curves) {
+            const mnem = curve?.Mnemonic ?? curve?.mnemonic;
+            if (mnem) {
+              const path = `/WITSML/${uuid}/${mnem}`;
+              dataArrays.set(uri + path, {
+                uid: { pathInResource: path, uri: etpUri.uriPath }
+              });
+            }
+          }
+        }
+        // WITSML 1.4.1 Trajectory: <trajectoryStation><md>/<incl>/<azi>
+        if (obj.trajectoryStation || obj.TrajectoryStation) {
+          const stations = Array.isArray(
+            obj.trajectoryStation ?? obj.TrajectoryStation
+          )
+            ? (obj.trajectoryStation ?? obj.TrajectoryStation)
+            : [obj.trajectoryStation ?? obj.TrajectoryStation];
+          if (stations.length > 0) {
+            for (const mnem of ["MD", "Inclination", "Azimuth"]) {
+              const path = `/WITSML/${uuid}/${mnem}`;
+              dataArrays.set(uri + path, {
+                uid: { pathInResource: path, uri: etpUri.uriPath }
+              });
+            }
+          }
+        }
+      }
+      // ─── End WITSML channel discovery ────────────────────────────────
+
       for (const key of Object.keys(obj)) {
         if (Array.isArray(obj[key])) {
           for (const e of obj[key]) {
