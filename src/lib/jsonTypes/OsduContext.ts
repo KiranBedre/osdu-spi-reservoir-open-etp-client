@@ -167,6 +167,10 @@ export class OSDUContext {
 
   public edges: { origin: string; target: string }[] = [];
 
+  public collaboration?: string;
+
+  public generateLineageActivity?: boolean;
+
   constructor(
     partition: string,
     submitter: string,
