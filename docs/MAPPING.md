@@ -63,7 +63,7 @@
 | `WPC--Tubular:1.3.0` | — | `witsml21.Tubular` | Direct (WITSML) | ✅ Implemented |
 | `WPC--UnsealedSurfaceFramework:1.3.1` | `obj_NonSealedSurfaceFrameworkRepresentation` | `NonSealedSurfaceFrameworkRepresentation` | Direct | ✅ Implemented |
 | `WPC--UnstructuredGridRepresentation:1.2.0` | `obj_UnstructuredGridRepresentation` | `UnstructuredGridRepresentation` | Direct | ✅ Implemented |
-| `WPC--WellboreMarkerSet:1.2.0` | `obj_WellboreMarkerFrameRepresentation` | `WellboreMarkerFrameRepresentation` | Direct | ✅ Implemented |
+| `WPC--WellboreMarkerSet:1.2.0` | `obj_WellboreMarkerFrameRepresentation` | `WellboreIntervalSet` | Direct (v2.0.1→WellboreMarkerFrameRepresentation, v2.2→WellboreIntervalSet) | ✅ Implemented |
 | `WPC--WellboreCompletion:1.3.0` | — | `witsml21.WellCompletion` | Direct (WITSML) | ✅ Implemented |
 | `WPC--WellboreInterpretation:1.2.0` | — | `WellboreInterpretation` | Direct (v2.2 only) | ✅ Implemented |
 | `WPC--WellboreTrajectory:1.3.0` | — | `WellboreTrajectoryRepresentation`, `witsml21.Trajectory` | Direct | ✅ Implemented |
@@ -218,6 +218,7 @@ SeismicLatticeFeature ───────────────────�
 
 | Date | Change |
 |---|---|
+| 2026-06-06 | Schema verification against DD source: StructuralOrganizationInterpretation converter added (was silently dropped), WellboreIntervalSet v2.2 fix, UOM normalization (v/v→m3/m3). 108 synthetic records validated on interop. |
 | 2026-06-06 | Added WellboreMarkerSet, UnsealedSurfaceFramework, GeologicUnitOccurrenceInterpretation (unambiguous direct mappings). Reverted GenericBinGrid — no-interpretation Grid2d is ambiguous (could be isochore/DEM/etc). All schema kinds now milestone-aware via `MilestoneKinds.ts`. |
 | 2026-06-05 | Added CRS Metadata Enrichment section (5 fixes: vertical, rotation, localFrame, WKT, LocalAuthority) |
 | 2026-06-05 | Initial creation from RDDMS `ResqmlOsdu.ts` registrations + OSDU DD Chapter 13 |
