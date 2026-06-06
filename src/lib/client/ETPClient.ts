@@ -382,7 +382,9 @@ export class ETPClient extends ETPCore {
       supportedDataObjects: [
         { qualifiedType: "witsml21.*", dataObjectCapabilities },
         { qualifiedType: "resqml20.*", dataObjectCapabilities },
-        { qualifiedType: "eml20.*", dataObjectCapabilities }
+        { qualifiedType: "resqml22.*", dataObjectCapabilities },
+        { qualifiedType: "eml20.*", dataObjectCapabilities },
+        { qualifiedType: "eml23.*", dataObjectCapabilities }
       ],
       supportedFormats: ["xml"]
     };

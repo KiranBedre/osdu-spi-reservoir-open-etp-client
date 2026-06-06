@@ -14,9 +14,10 @@
 // limitations under the License.
 // ============================================================================
 
-import { Controller, Get, InternalServerErrorException } from "@nestjs/common";
+import { Body, Controller, Get, Post, InternalServerErrorException } from "@nestjs/common";
 
 import {
+  ApiBody,
   ApiDefaultResponse,
   ApiInternalServerErrorResponse,
   ApiNotAcceptableResponse,
@@ -244,5 +245,129 @@ export default class HealthAPI {
         });
       }
     });
+  }
+
+  /**
+   * R4: List all registered converters for diagnostics.
+   * Returns the source types and their target OSDU kinds.
+   */
+  @Get("converters")
+  @ApiOkResponse({
+    description: "List of registered type converters",
+    schema: {
+      type: "object",
+      properties: {
+        count: { type: "number" },
+        types: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              sourceType: { type: "string" },
+              targetKind: { type: "string" }
+            }
+          }
+        }
+      }
+    }
+  })
+  @ApiOperation({
+    summary: "List registered converters.",
+    description: "Returns all registered RESQML/WITSML → OSDU type converters for diagnostics and validation.",
+    security: [],
+    servers: swaggerServers
+  })
+  public Converters(): { count: number; types: { sourceType: string; targetKind: string }[] } {
+    const { getRegisteredTypes, getTargetKind } = require("../../jsonTypes/registerConverter");
+    const types: string[] = getRegisteredTypes();
+    return {
+      count: types.length,
+      types: types.map(t => ({
+        sourceType: t,
+        targetKind: getTargetKind(t) ?? "unknown"
+      }))
+    };
+  }
+
+  /**
+   * PWLS v4 Curve Catalog status.
+   */
+  @Get("pwls")
+  @ApiOkResponse({
+    description: "PWLS v4 Curve Catalog status",
+    schema: {
+      type: "object",
+      properties: {
+        properties: { type: "number", description: "Number of PWLS standard properties (875)" },
+        mnemonics: { type: "number", description: "Number of loaded vendor mnemonics" },
+        vendors: { type: "array", items: { type: "string" } }
+      }
+    }
+  })
+  @ApiOperation({
+    summary: "PWLS catalog status.",
+    description: "Returns the number of loaded PWLS properties, vendor mnemonics, and loaded vendor names.",
+    security: [],
+    servers: swaggerServers
+  })
+  public PwlsStatus(): { properties: number; mnemonics: number; vendors: string[] } {
+    const { getPwlsStatus } = require("../../jsonTypes/PwlsCurveCatalog");
+    return getPwlsStatus();
+  }
+
+  /**
+   * Load additional PWLS v4 vendor curve catalog.
+   * Extends the mnemonic lookup (first-loaded wins on collision).
+   */
+  @Post("pwls/catalog")
+  @ApiBody({
+    description: "PWLS v4 vendor curve_mappings.json content",
+    schema: {
+      type: "object",
+      properties: {
+        schemaVersion: { type: "string", example: "1.0.0" },
+        "Company Code": { type: "number", example: 440 },
+        "Company Name": { type: "string", example: "Schlumberger" },
+        data: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              "Curve Mnemonic": { type: "string" },
+              "Property": { type: "string" },
+              "Curve Unit Quantity Class": { type: "string" },
+              "LIS Curve Mnemonic": { type: "string", nullable: true }
+            }
+          }
+        }
+      },
+      required: ["schemaVersion", "Company Code", "Company Name", "data"]
+    }
+  })
+  @ApiOkResponse({
+    description: "Catalog loaded successfully",
+    schema: {
+      type: "object",
+      properties: {
+        added: { type: "number", description: "New mnemonics added" },
+        total: { type: "number", description: "Total mnemonics now loaded" },
+        vendor: { type: "string" }
+      }
+    }
+  })
+  @ApiOperation({
+    summary: "Load vendor PWLS catalog.",
+    description: "Upload a PWLS v4 vendor curve_mappings.json to extend mnemonic resolution. SLB is loaded by default at startup; use this to add Halliburton, Baker Hughes, or custom company catalogs.",
+    security: [],
+    servers: swaggerServers
+  })
+  public LoadPwlsCatalog(@Body() body: any): { added: number; total: number; vendor: string } {
+    const { loadVendorCatalog, getLoadedMnemonicCount } = require("../../jsonTypes/PwlsCurveCatalog");
+    const added = loadVendorCatalog(body);
+    return {
+      added,
+      total: getLoadedMnemonicCount(),
+      vendor: body["Company Name"] ?? "unknown"
+    };
   }
 }
