@@ -69,10 +69,10 @@ ct.addCertificationTracer(
   }
 );
 ct.openSession(serverUrl, XmlUtils.createDefaultJWT())
-  .then(() => ct.getProjects())
+  .then(() => ct.getDataspaces())
   .then(d => {
     if (d && d.length > 0) {
-      ct.getProjectResources(d[0].uri).then(r => {
+      ct.getDataspaceResources(d[0].uri).then(r => {
         const time = new Date().getTime();
         const p = [];
         for (let i = 1000; i > 0; i--) {
@@ -90,7 +90,7 @@ ct.openSession(serverUrl, XmlUtils.createDefaultJWT())
 const c = new ResqmlClient();
 c.setCallsTraceability(false);
 c.openSession(serverUrl, XmlUtils.createDefaultJWT())
-  .then(() => c.getProjects())
+  .then(() => c.getDataspaces())
   .then(d => (d === null ? null : d.filter(r => r && r.uri !== "eml:///")))
   .then(d => {
     if (d?.length) {
@@ -105,7 +105,7 @@ c.openSession(serverUrl, XmlUtils.createDefaultJWT())
     }
     return d;
   })
-  .then(d => (d ? c.getProjectResources(d[0].uri) : []))
+  .then(d => (d ? c.getDataspaceResources(d[0].uri) : []))
   .then(async (objects: Resource[]) => {
     c.getObjects(objects.map(o => o.uri)).then(obs => {
       obs.forEach(o => {
