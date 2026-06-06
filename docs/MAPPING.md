@@ -25,6 +25,7 @@
 | `WPC--Activity:1.4.0` | `obj_Activity` | `eml23.Activity` | Direct | ✅ Implemented |
 | `WPC--BHARunReport:1.3.0` | — | `witsml21.BhaRun` | Direct (WITSML) | ✅ Implemented |
 | `WPC--ColumnBasedTable:1.3.0` | `obj_StringTableLookup` | `obj_StringTableLookup` | Direct | ✅ Implemented |
+| `WPC--ColumnBasedTable:1.3.0` | `obj_DoubleTableLookup` | `eml23.ColumnBasedTable` | Direct | ✅ Implemented |
 | `WPC--EarthModelInterpretation:1.2.0` | `obj_EarthModelInterpretation` | `EarthModelInterpretation` | Direct | ✅ Implemented |
 | `WPC--FaultInterpretation:1.2.0` | `obj_FaultInterpretation` | `FaultInterpretation` | Direct | ✅ Implemented |
 | `WPC--FluidBoundaryInterpretation:1.2.0` | `obj_FluidBoundaryFeature` | `FluidBoundaryInterpretation` | Direct | ✅ Implemented |

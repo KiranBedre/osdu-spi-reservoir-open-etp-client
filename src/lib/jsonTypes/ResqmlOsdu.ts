@@ -57,6 +57,8 @@ import { SeismicLineGeometryManifest } from "./SeismicLineGeometry";
 import { StratigraphicColumnManifest } from "./StratigraphicColumn";
 import { StratigraphicColumnRankInterpretationManifest } from "./StratigraphicColumnRankInterpretation";
 import { StratigraphicUnitInterpretationManifest } from "./StratigraphicUnitInterpretation";
+import { StructuralOrganizationInterpretationManifest } from "./StructuralOrganizationInterpretation";
+import { StructuralOrganizationInterpretation22Manifest } from "./StructuralOrganizationInterpretation22";
 import { SubRepresentationManifest } from "./SubRepresentation";
 import { TimeSeriesManifest } from "./TimeSeries";
 import { UnstructuredGridRepresentationManifest } from "./UnstructuredGridRepresentation";
@@ -397,6 +399,16 @@ ResqmlOSDU.add(
   StratigraphicUnitInterpretation22Manifest
 );
 ResqmlOSDU.add(
+  "resqml20.obj_StructuralOrganizationInterpretation",
+  () => getKindOrFallback("StructuralOrganizationInterpretation"),
+  StructuralOrganizationInterpretationManifest
+);
+ResqmlOSDU.add(
+  "resqml22.StructuralOrganizationInterpretation",
+  () => getKindOrFallback("StructuralOrganizationInterpretation"),
+  StructuralOrganizationInterpretation22Manifest
+);
+ResqmlOSDU.add(
   "resqml20.obj_StringTableLookup",
   () => getKindOrFallback("ColumnBasedTable"),
   ColumnBasedTableManifest
@@ -545,7 +557,7 @@ ResqmlOSDU.add(
   GenericRepresentationManifest
 );
 ResqmlOSDU.add(
-  "resqml22.WellboreMarkerFrameRepresentation",
+  "resqml22.WellboreIntervalSet",
   () => getKindOrFallback("WellboreMarkerSet"),
   GenericRepresentation22Manifest
 );
