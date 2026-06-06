@@ -1,5 +1,6 @@
 import { ResqmlOSDUMap } from "./OsduContext";
 
+import { getKindOrFallback } from "./MilestoneKinds";
 import { ActivityManifest } from "./Activity";
 import { Activity23Manifest } from "./Activity23";
 import { ActivityTemplateManifest } from "./ActivityTemplate";
@@ -12,7 +13,10 @@ import { FaultInterpretationManifest } from "./FaultInterpretation";
 import { FaultInterpretation22Manifest } from "./FaultInterpretation22";
 import { GenericProperty22Manifest } from "./GenericProperty22";
 import { GenericPropertyManifest } from "./GenericProperty";
-import { GenericRepresentation22Manifest } from "./GenericRepresentation22";
+import {
+  GenericRepresentation22Manifest,
+  GenericRepresentation22ToOsduKind
+} from "./GenericRepresentation22";
 import {
   GenericRepresentationManifest,
   GenericRepresentationToOsduKind
@@ -123,97 +127,97 @@ ResqmlOSDU.add(
 
 ResqmlOSDU.add(
   "resqml20.obj_Activity",
-  () => "osdu:wks:work-product-component--Activity:1.4.0",
+  () => getKindOrFallback("Activity"),
   ActivityManifest
 );
 ResqmlOSDU.add(
   "eml23.Activity",
-  () => "osdu:wks:work-product-component--Activity:1.4.0",
+  () => getKindOrFallback("Activity"),
   Activity23Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_ActivityTemplate",
-  () => "osdu:wks:master-data--ActivityTemplate:1.1.0",
+  () => getKindOrFallback("ActivityTemplate"),
   ActivityTemplateManifest
 );
 ResqmlOSDU.add(
   "eml23.ActivityTemplate",
-  () => "osdu:wks:master-data--ActivityTemplate:1.1.0",
+  () => getKindOrFallback("ActivityTemplate"),
   ActivityTemplate23Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_CategoricalProperty",
-  () => "osdu:wks:work-product-component--GenericProperty:1.2.0",
+  () => getKindOrFallback("GenericProperty"),
   GenericPropertyManifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_ContinuousProperty",
-  () => "osdu:wks:work-product-component--GenericProperty:1.2.0",
+  () => getKindOrFallback("GenericProperty"),
   GenericPropertyManifest
 );
 ResqmlOSDU.add(
   "resqml22.ContinuousProperty",
-  () => "osdu:wks:work-product-component--GenericProperty:1.2.0",
+  () => getKindOrFallback("GenericProperty"),
   GenericProperty22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_DiscreteProperty",
-  () => "osdu:wks:work-product-component--GenericProperty:1.2.0",
+  () => getKindOrFallback("GenericProperty"),
   GenericPropertyManifest
 );
 ResqmlOSDU.add(
   "resqml22.DiscreteProperty",
-  () => "osdu:wks:work-product-component--GenericProperty:1.2.0",
+  () => getKindOrFallback("GenericProperty"),
   GenericProperty22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_EarthModelInterpretation",
-  () => "osdu:wks:work-product-component--EarthModelInterpretation:1.2.0",
+  () => getKindOrFallback("EarthModelInterpretation"),
   EarthModelInterpretationManifest
 );
 ResqmlOSDU.add(
   "resqml22.EarthModelInterpretation",
-  () => "osdu:wks:work-product-component--EarthModelInterpretation:1.2.0",
+  () => getKindOrFallback("EarthModelInterpretation"),
   EarthModelInterpretation22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_FaultInterpretation",
-  () => "osdu:wks:work-product-component--FaultInterpretation:1.3.0",
+  () => getKindOrFallback("FaultInterpretation"),
   FaultInterpretationManifest
 );
 ResqmlOSDU.add(
   "resqml22.FaultInterpretation",
-  () => "osdu:wks:work-product-component--FaultInterpretation:1.3.0",
+  () => getKindOrFallback("FaultInterpretation"),
   FaultInterpretation22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_GeneticBoundaryFeature",
-  () => "osdu:wks:work-product-component--LocalBoundaryFeature:1.2.0",
+  () => getKindOrFallback("LocalBoundaryFeature"),
   LocalBoundaryFeatureManifest
 );
 ResqmlOSDU.add(
   "resqml22.BoundaryFeature",
-  () => "osdu:wks:work-product-component--LocalBoundaryFeature:1.2.0",
+  () => getKindOrFallback("LocalBoundaryFeature"),
   LocalBoundaryFeature22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_GeobodyBoundaryInterpretation",
-  () => "osdu:wks:work-product-component--GeobodyBoundaryInterpretation:1.1.0",
+  () => getKindOrFallback("GeobodyBoundaryInterpretation"),
   GeobodyBoundaryInterpretationManifest
 );
 ResqmlOSDU.add(
   "resqml22.GeobodyBoundaryInterpretation",
-  () => "osdu:wks:work-product-component--GeobodyBoundaryInterpretation:1.1.0",
+  () => getKindOrFallback("GeobodyBoundaryInterpretation"),
   GeobodyBoundaryInterpretation22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_GeobodyInterpretation",
-  () => "osdu:wks:work-product-component--GeobodyInterpretation:1.3.0",
+  () => getKindOrFallback("GeobodyInterpretation"),
   GeobodyInterpretationManifest
 );
 ResqmlOSDU.add(
   "resqml22.GeobodyInterpretation",
-  () => "osdu:wks:work-product-component--GeobodyInterpretation:1.3.0",
+  () => getKindOrFallback("GeobodyInterpretation"),
   GeobodyInterpretation22Manifest
 );
 ResqmlOSDU.add(
@@ -228,59 +232,57 @@ ResqmlOSDU.add(
 );
 ResqmlOSDU.add(
   "resqml20.obj_GridConnectionSetRepresentation",
-  () =>
-    "osdu:wks:work-product-component--GridConnectionSetRepresentation:1.2.0",
+  () => getKindOrFallback("GridConnectionSetRepresentation"),
   GridConnectionSetRepresentationManifest
 );
 ResqmlOSDU.add(
   "resqml22.GridConnectionSetRepresentation",
-  () =>
-    "osdu:wks:work-product-component--GridConnectionSetRepresentation:1.2.0",
+  () => getKindOrFallback("GridConnectionSetRepresentation"),
   GridConnectionSetRepresentation22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_HorizonInterpretation",
-  () => "osdu:wks:work-product-component--HorizonInterpretation:1.2.0",
+  () => getKindOrFallback("HorizonInterpretation"),
   HorizonInterpretationManifest
 );
 ResqmlOSDU.add(
   "resqml22.HorizonInterpretation",
-  () => "osdu:wks:work-product-component--HorizonInterpretation:1.2.0",
+  () => getKindOrFallback("HorizonInterpretation"),
   HorizonInterpretation22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_IjkGridRepresentation",
-  () => "osdu:wks:work-product-component--IjkGridRepresentation:1.2.0",
+  () => getKindOrFallback("IjkGridRepresentation"),
   IjkGridRepresentationManifest
 );
 ResqmlOSDU.add(
   "resqml22.IjkGridRepresentation",
-  () => "osdu:wks:work-product-component--IjkGridRepresentation:1.2.0",
+  () => getKindOrFallback("IjkGridRepresentation"),
   IjkGridRepresentation22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_LocalDepth3dCrs",
-  () => "osdu:wks:work-product-component--LocalModelCompoundCrs:1.2.0",
+  () => getKindOrFallback("LocalModelCompoundCrs"),
   LocalModelCompoundCrsManifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_LocalTime3dCrs",
-  () => "osdu:wks:work-product-component--LocalModelCompoundCrs:1.2.0",
+  () => getKindOrFallback("LocalModelCompoundCrs"),
   LocalModelCompoundCrsManifest
 );
 ResqmlOSDU.add(
   "eml23.LocalEngineeringCompoundCrs",
-  () => "osdu:wks:work-product-component--LocalModelCompoundCrs:1.2.0",
+  () => getKindOrFallback("LocalModelCompoundCrs"),
   LocalModelCompoundCrs23Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_OrganizationFeature",
-  () => "osdu:wks:work-product-component--LocalModelFeature:1.2.0",
+  () => getKindOrFallback("LocalModelFeature"),
   LocalModelFeatureManifest
 );
 ResqmlOSDU.add(
   "resqml22.OrganizationFeature",
-  () => "osdu:wks:work-product-component--LocalModelFeature:1.2.0",
+  () => getKindOrFallback("LocalModelFeature"),
   LocalModelFeature22Manifest
 );
 ResqmlOSDU.add(
@@ -290,7 +292,7 @@ ResqmlOSDU.add(
 );
 ResqmlOSDU.add(
   "resqml22.PolylineRepresentation",
-  GenericRepresentationToOsduKind,
+  GenericRepresentation22ToOsduKind,
   GenericRepresentation22Manifest
 );
 ResqmlOSDU.add(
@@ -300,52 +302,52 @@ ResqmlOSDU.add(
 );
 ResqmlOSDU.add(
   "resqml22.PolylineSetRepresentation",
-  GenericRepresentationToOsduKind,
+  GenericRepresentation22ToOsduKind,
   GenericRepresentation22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_PointSetRepresentation",
-  () => "osdu:wks:work-product-component--GenericRepresentation:1.2.0",
+  () => getKindOrFallback("GenericRepresentation"),
   GenericRepresentationManifest
 );
 ResqmlOSDU.add(
   "resqml22.PointSetRepresentation",
-  () => "osdu:wks:work-product-component--GenericRepresentation:1.2.0",
+  () => getKindOrFallback("GenericRepresentation"),
   GenericRepresentation22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_PropertySet",
-  () => "osdu:wks:work-product-component--PersistedCollection:1.2.0",
+  () => getKindOrFallback("PersistedCollection"),
   PersistedCollectionPropertySetManifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_PropertyKind",
-  () => "osdu:wks:reference-data--PropertyType:1.0.0",
+  () => getKindOrFallback("PropertyType"),
   PropertyTypeManifest
 );
 ResqmlOSDU.add(
   "eml23.PropertyKind",
-  () => "osdu:wks:work-product-component--PropertyType:1.0.0",
+  () => getKindOrFallback("PropertyType"),
   PropertyType23Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_RepresentationSetRepresentation",
-  () => "osdu:wks:work-product-component--PersistedCollection:1.2.0",
+  () => getKindOrFallback("PersistedCollection"),
   PersistedCollectionRepresentationSetManifest
 );
 ResqmlOSDU.add(
   "eml23.DataobjectCollection",
-  () => "osdu:wks:work-product-component--PersistedCollection:1.2.0",
+  () => getKindOrFallback("PersistedCollection"),
   PersistedCollectionDataobjectCollection23Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_SeismicLatticeFeature",
-  () => "osdu:wks:master-data--SeismicAcquisitionSurvey:1.4.0",
+  () => getKindOrFallback("SeismicAcquisitionSurvey"),
   SeismicLatticeFeatureManifest
 );
 ResqmlOSDU.add(
   "resqml22.SeismicLatticeFeature",
-  () => "osdu:wks:master-data--SeismicAcquisitionSurvey:1.4.0",
+  () => getKindOrFallback("SeismicAcquisitionSurvey"),
   SeismicLatticeFeature22Manifest
 );
 ResqmlOSDU.add(
@@ -355,101 +357,97 @@ ResqmlOSDU.add(
 );
 ResqmlOSDU.add(
   "resqml20.obj_StratigraphicColumn",
-  () => "osdu:wks:work-product-component--StratigraphicColumn:1.2.0",
+  () => getKindOrFallback("StratigraphicColumn"),
   StratigraphicColumnManifest
 );
 ResqmlOSDU.add(
   "resqml22.StratigraphicColumn",
-  () => "osdu:wks:work-product-component--StratigraphicColumn:1.2.0",
+  () => getKindOrFallback("StratigraphicColumn"),
   StratigraphicColumn22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_StratigraphicColumnRankInterpretation",
-  () =>
-    "osdu:wks:work-product-component--StratigraphicColumnRankInterpretation:1.3.0",
+  () => getKindOrFallback("StratigraphicColumnRankInterpretation"),
   StratigraphicColumnRankInterpretationManifest
 );
 ResqmlOSDU.add(
   "resqml22.StratigraphicColumnRankInterpretation",
-  () =>
-    "osdu:wks:work-product-component--StratigraphicColumnRankInterpretation:1.3.0",
+  () => getKindOrFallback("StratigraphicColumnRankInterpretation"),
   StratigraphicColumnRankInterpretation22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_StratigraphicUnitFeature",
-  () => "osdu:wks:work-product-component--LocalRockVolumeFeature:1.2.0",
+  () => getKindOrFallback("LocalRockVolumeFeature"),
   LocalRockVolumeFeatureManifest
 );
 ResqmlOSDU.add(
   "resqml22.StratigraphicUnitFeature",
-  () => "osdu:wks:work-product-component--LocalRockVolumeFeature:1.2.0",
+  () => getKindOrFallback("LocalRockVolumeFeature"),
   LocalRockVolumeFeature22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_StratigraphicUnitInterpretation",
-  () =>
-    "osdu:wks:work-product-component--StratigraphicUnitInterpretation:1.3.0",
+  () => getKindOrFallback("StratigraphicUnitInterpretation"),
   StratigraphicUnitInterpretationManifest
 );
 ResqmlOSDU.add(
   "resqml22.StratigraphicUnitInterpretation",
-  () =>
-    "osdu:wks:work-product-component--StratigraphicUnitInterpretation:1.3.0",
+  () => getKindOrFallback("StratigraphicUnitInterpretation"),
   StratigraphicUnitInterpretation22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_StringTableLookup",
-  () => "osdu:wks:work-product-component--ColumnBasedTable:1.3.0",
+  () => getKindOrFallback("ColumnBasedTable"),
   ColumnBasedTableManifest
 );
 ResqmlOSDU.add(
   "resqml22.obj_StringTableLookup",
-  () => "osdu:wks:work-product-component--ColumnBasedTable:1.3.0",
+  () => getKindOrFallback("ColumnBasedTable"),
   ColumnBasedTable23Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_SubRepresentation",
-  () => "osdu:wks:work-product-component--SubRepresentation:1.2.0",
+  () => getKindOrFallback("SubRepresentation"),
   SubRepresentationManifest
 );
 ResqmlOSDU.add(
   "resqml22.SubRepresentation",
-  () => "osdu:wks:work-product-component--SubRepresentation:1.2.0",
+  () => getKindOrFallback("SubRepresentation"),
   SubRepresentation22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_TectonicBoundaryFeature",
-  () => "osdu:wks:work-product-component--LocalBoundaryFeature:1.2.0",
+  () => getKindOrFallback("LocalBoundaryFeature"),
   LocalBoundaryFeatureManifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_TimeSeries",
-  () => "osdu:wks:work-product-component--TimeSeries:1.2.0",
+  () => getKindOrFallback("TimeSeries"),
   TimeSeriesManifest
 );
 ResqmlOSDU.add(
   "resqml22.TimeSeries",
-  () => "osdu:wks:work-product-component--TimeSeries:1.2.0",
+  () => getKindOrFallback("TimeSeries"),
   TimeSeries23Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_TriangulatedSetRepresentation",
-  () => "osdu:wks:work-product-component--GenericRepresentation:1.2.0",
+  () => getKindOrFallback("GenericRepresentation"),
   GenericRepresentationManifest
 );
 ResqmlOSDU.add(
   "resqml22.TriangulatedSetRepresentation",
-  () => "osdu:wks:work-product-component--GenericRepresentation:1.2.0",
+  () => getKindOrFallback("GenericRepresentation"),
   GenericRepresentation22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_UnstructuredGridRepresentation",
-  () => "osdu:wks:work-product-component--UnstructuredGridRepresentation:1.2.0",
+  () => getKindOrFallback("UnstructuredGridRepresentation"),
   UnstructuredGridRepresentationManifest
 );
 ResqmlOSDU.add(
   "resqml22.UnstructuredGridRepresentation",
-  () => "osdu:wks:work-product-component--UnstructuredGridRepresentation:1.2.0",
+  () => getKindOrFallback("UnstructuredGridRepresentation"),
   UnstructuredGridRepresentation22Manifest
 );
 
@@ -532,10 +530,38 @@ ResqmlOSDU.add(
   () => "osdu:wks:work-product-component--GenericRepresentation:1.2.0",
   GenericRepresentation22Manifest
 );
+
+// ─── Unambiguous direct mappings (milestone-aware) ───────────────────────────
+
 ResqmlOSDU.add(
   "resqml20.obj_WellboreMarkerFrameRepresentation",
-  () => "osdu:wks:work-product-component--GenericRepresentation:1.2.0",
+  () => getKindOrFallback("WellboreMarkerSet"),
   GenericRepresentationManifest
+);
+ResqmlOSDU.add(
+  "resqml22.WellboreMarkerFrameRepresentation",
+  () => getKindOrFallback("WellboreMarkerSet"),
+  GenericRepresentation22Manifest
+);
+ResqmlOSDU.add(
+  "resqml20.obj_StratigraphicOccurrenceInterpretation",
+  () => getKindOrFallback("GeologicUnitOccurrenceInterpretation"),
+  GenericRepresentationManifest
+);
+ResqmlOSDU.add(
+  "resqml22.StratigraphicOccurrenceInterpretation",
+  () => getKindOrFallback("GeologicUnitOccurrenceInterpretation"),
+  GenericRepresentation22Manifest
+);
+ResqmlOSDU.add(
+  "resqml20.obj_NonSealedSurfaceFrameworkRepresentation",
+  () => getKindOrFallback("UnsealedSurfaceFramework"),
+  GenericRepresentationManifest
+);
+ResqmlOSDU.add(
+  "resqml22.NonSealedSurfaceFrameworkRepresentation",
+  () => getKindOrFallback("UnsealedSurfaceFramework"),
+  GenericRepresentation22Manifest
 );
 
 // ─── WITSML Types ────────────────────────────────────────────────────────────

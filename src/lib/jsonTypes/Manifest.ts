@@ -7,6 +7,7 @@ import type { IResqmlDataObject } from "../client/ResqmlClient";
 import logging from "../common/Logging";
 const logger = logging.getLogger("EtpClient");
 
+import { getKindOrFallback } from "./MilestoneKinds";
 import {
   DataspaceLegalACL,
   OSDUContext,
@@ -422,7 +423,7 @@ export const createManifest = async (
         const now = new Date().toISOString();
         const activityRecord: OSDUResourceType = {
           id: activityId,
-          kind: "osdu:wks:work-product-component--Activity:1.4.0",
+          kind: getKindOrFallback("Activity"),
           acl: { owners: [], viewers: [] },
           legal: { legaltags: [], otherRelevantDataCountries: [] },
           data: {

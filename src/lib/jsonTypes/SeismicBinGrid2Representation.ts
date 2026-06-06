@@ -17,6 +17,7 @@ import {
 
 import { GenericRepresentationOSDU } from "./GenericRepresentation";
 
+import { getKindOrFallback } from "./MilestoneKinds";
 import { SeismicHorizonOSDU } from "./SeismicHorizon";
 
 import { StructureMapOSDU } from "./StructureMap";
@@ -246,17 +247,17 @@ export class SeismicBinGridOSDU
  */
 export const Grid2dToOsduKind = (xml: IResqmlDataObject): string => {
   if (xml.$type !== "resqml20.obj_Grid2dRepresentation") {
-    return "osdu:wks:work-product-component--GenericRepresentation:1.2.0";
+    return getKindOrFallback("GenericRepresentation");
   }
   const grid2d = xml as SimpleJson<resqml20.obj_Grid2dRepresentation>;
   if (SeismicBinGridOSDU.matchType(grid2d)) {
-    return "osdu:wks:work-product-component--SeismicBinGrid:1.3.0";
+    return getKindOrFallback("SeismicBinGrid");
   } else if (SeismicHorizonOSDU.matchType(grid2d)) {
-    return "osdu:wks:work-product-component--SeismicHorizon:2.0.0";
+    return getKindOrFallback("SeismicHorizon");
   } else if (StructureMapOSDU.matchType(grid2d)) {
     return "osdu:wks:work-product-component--StructureMap:1.0.0";
   }
-  return "osdu:wks:work-product-component--GenericRepresentation:1.2.0";
+  return getKindOrFallback("GenericRepresentation");
 };
 
 /**
@@ -277,9 +278,9 @@ export const Grid2dRepresentationManifest = async (
   GenericRepresentationOSDU | SeismicBinGridOSDU | SeismicHorizonOSDU | StructureMapOSDU
 > => {
   const kind = Grid2dToOsduKind(xml);
-  if (kind === "osdu:wks:work-product-component--SeismicBinGrid:1.3.0") {
+  if (kind === getKindOrFallback("SeismicBinGrid")) {
     return new SeismicBinGridOSDU(xml, context).initData(uri, xml, client);
-  } else if (kind === "osdu:wks:work-product-component--SeismicHorizon:2.0.0") {
+  } else if (kind === getKindOrFallback("SeismicHorizon")) {
     return new SeismicHorizonOSDU(xml, context).initData(uri, xml, client);
   } else if (kind === "osdu:wks:work-product-component--StructureMap:1.0.0") {
     return new StructureMapOSDU(xml, context).initData(uri, xml, client);
