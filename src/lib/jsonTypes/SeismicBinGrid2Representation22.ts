@@ -19,7 +19,7 @@ import {
 
 import { GenericRepresentation22OSDU } from "./GenericRepresentation22";
 
-import { getKindOrFallback } from "./MilestoneKinds";
+import { getKind, getKindOrFallback } from "./MilestoneKinds";
 import { SeismicHorizon22OSDU } from "./SeismicHorizon22";
 
 import { StructureMap22OSDU } from "./StructureMap22";
@@ -36,8 +36,7 @@ const DBL_CST_ARRAY = "eml23.FloatingPointConstantArray";
  */
 export class SeismicBinGrid22OSDU
   extends ResqmlWorkProductComponent<SimpleJson<resqml22.Grid2dRepresentation>>
-  implements SeismicBinGrid
-{
+  implements SeismicBinGrid {
   public data: Data = {};
   public meta?: FrameOfReferenceMetaDataItem[];
 
@@ -185,12 +184,12 @@ export class SeismicBinGrid22OSDU
 
     const uOffsetLen = Math.sqrt(
       u.Direction.Coordinate1 * u.Direction.Coordinate1 +
-        u.Direction.Coordinate2 * u.Direction.Coordinate2
+      u.Direction.Coordinate2 * u.Direction.Coordinate2
     );
 
     const vOffsetLen = Math.sqrt(
       v.Direction.Coordinate1 * v.Direction.Coordinate1 +
-        v.Direction.Coordinate2 * v.Direction.Coordinate2
+      v.Direction.Coordinate2 * v.Direction.Coordinate2
     );
 
     const [ux, uy] = [
@@ -304,7 +303,7 @@ export const Grid2dToOsduKind22 = (xml: IResqmlDataObject): string => {
   } else if (SeismicHorizon22OSDU.matchType(grid2d)) {
     return getKindOrFallback("SeismicHorizon");
   } else if (StructureMap22OSDU.matchType(grid2d)) {
-    return "osdu:wks:work-product-component--StructureMap:1.0.0";
+    return getKindOrFallback("StructureMap");
   }
   return getKindOrFallback("GenericRepresentation");
 };
@@ -332,7 +331,7 @@ export const Grid2dRepresentation22Manifest = async (
     return new SeismicBinGrid22OSDU(xml, context).initData(uri, xml, client);
   } else if (kind === getKindOrFallback("SeismicHorizon")) {
     return new SeismicHorizon22OSDU(xml, context).initData(uri, xml, client);
-  } else if (kind === "osdu:wks:work-product-component--StructureMap:1.0.0") {
+  } else if (kind === getKind("StructureMap")) {
     return new StructureMap22OSDU(xml, context).initData(uri, xml, client);
   }
   return new GenericRepresentation22OSDU(xml, context).initData(

@@ -513,51 +513,116 @@ describe("S1: Default type filter patterns", () => {
 // ============================================================================
 // A2: StructureMap Routing — Grid2d Kind Selection ⚠️ 🧪
 // ============================================================================
+import { StructureMapOSDU } from "../lib/jsonTypes/StructureMap";
+import { StructureMap22OSDU } from "../lib/jsonTypes/StructureMap22";
+import { Grid2dToOsduKind } from "../lib/jsonTypes/SeismicBinGrid2Representation";
+import { Grid2dToOsduKind22 } from "../lib/jsonTypes/SeismicBinGrid2Representation22";
+
 describe("A2: Grid2d routing logic", () => {
-  // Test the routing decision function directly
   // The routing logic: SeismicBinGrid → SeismicHorizon → StructureMap → GenericRepresentation
 
-  it("depth-domain Grid2d with HorizonInterpretation → StructureMap", () => {
-    // Simulates the routing decision
-    const hasHorizonInterp = true;
-    const isOnSeismicLattice = false; // NOT Point3dFromRepresentationLatticeArray
-
-    let kind = "GenericRepresentation";
-    if (hasHorizonInterp && !isOnSeismicLattice) {
-      kind = "StructureMap";
-    } else if (hasHorizonInterp && isOnSeismicLattice) {
-      kind = "SeismicHorizon";
-    }
-
-    expect(kind).toBe("StructureMap");
+  // Helper: minimal Grid2d XML with HorizonInterpretation, lattice-based geometry
+  const makeGrid2d20 = (opts: {
+    interpType?: string;
+    pointsType?: string;
+    supportingGeoType?: string;
+  }) => ({
+    $type: "resqml20.obj_Grid2dRepresentation" as const,
+    Uuid: "test-uuid",
+    Citation: { Title: "Test" },
+    Grid2dPatch: {
+      FastestAxisCount: 10,
+      SlowestAxisCount: 10,
+      Geometry: {
+        LocalCrs: {},
+        Points: {
+          $type: opts.pointsType ?? "resqml20.Point3dLatticeArray",
+          ...(opts.pointsType === "resqml20.Point3dZValueArray"
+            ? { SupportingGeometry: { $type: opts.supportingGeoType ?? "resqml20.Point3dLatticeArray" } }
+            : {}),
+        },
+      },
+    },
+    RepresentedInterpretation: opts.interpType
+      ? { ContentType: `application/x-resqml+xml;version=2.0;type=${opts.interpType}`, UUID: "i-uuid" }
+      : undefined,
   });
 
-  it("Grid2d on seismic lattice with HorizonInterp → SeismicHorizon (not StructureMap)", () => {
-    const hasHorizonInterp = true;
-    const isOnSeismicLattice = true;
-
-    let kind = "GenericRepresentation";
-    if (hasHorizonInterp && !isOnSeismicLattice) {
-      kind = "StructureMap";
-    } else if (hasHorizonInterp && isOnSeismicLattice) {
-      kind = "SeismicHorizon";
-    }
-
-    expect(kind).toBe("SeismicHorizon");
+  const makeGrid2d22 = (opts: {
+    qualifiedType?: string;
+    pointsType?: string;
+    supportingGeoType?: string;
+  }) => ({
+    $type: "resqml22.Grid2dRepresentation" as const,
+    Uuid: "test-uuid",
+    Citation: { Title: "Test" },
+    FastestAxisCount: 10,
+    SlowestAxisCount: 10,
+    Geometry: {
+      LocalCrs: {},
+      Points: {
+        $type: opts.pointsType ?? "resqml22.Point3dLatticeArray",
+        ...(opts.pointsType === "resqml22.Point3dZValueArray"
+          ? { SupportingGeometry: { $type: opts.supportingGeoType ?? "resqml22.Point3dLatticeArray" } }
+          : {}),
+      },
+    },
+    RepresentedObject: opts.qualifiedType
+      ? { QualifiedType: opts.qualifiedType, UUID: "i-uuid" }
+      : undefined,
   });
 
-  it("Grid2d with no interpretation → GenericRepresentation (fallback)", () => {
-    const hasHorizonInterp = false;
-    const isOnSeismicLattice = false;
+  it("Grid2d with HorizonInterpretation (not on lattice) → StructureMap", () => {
+    const xml = makeGrid2d20({ interpType: "obj_HorizonInterpretation" });
+    expect(StructureMapOSDU.matchType(xml as any)).toBe(true);
+    expect(Grid2dToOsduKind(xml as any)).toContain("StructureMap");
+  });
 
-    let kind = "GenericRepresentation";
-    if (hasHorizonInterp && !isOnSeismicLattice) {
-      kind = "StructureMap";
-    } else if (hasHorizonInterp && isOnSeismicLattice) {
-      kind = "SeismicHorizon";
-    }
+  it("Grid2d on seismic lattice with HorizonInterp → NOT StructureMap (SeismicHorizon)", () => {
+    const xml = makeGrid2d20({
+      interpType: "obj_HorizonInterpretation",
+      pointsType: "resqml20.Point3dZValueArray",
+      supportingGeoType: "resqml20.Point3dFromRepresentationLatticeArray",
+    });
+    expect(StructureMapOSDU.matchType(xml as any)).toBe(false);
+    expect(Grid2dToOsduKind(xml as any)).toContain("SeismicHorizon");
+  });
 
-    expect(kind).toBe("GenericRepresentation");
+  it("Grid2d with FaultInterpretation → NOT StructureMap (property map scenario)", () => {
+    const xml = makeGrid2d20({ interpType: "obj_FaultInterpretation" });
+    expect(StructureMapOSDU.matchType(xml as any)).toBe(false);
+    expect(Grid2dToOsduKind(xml as any)).toContain("GenericRepresentation");
+  });
+
+  it("Grid2d with no interpretation → NOT StructureMap (GenericRepresentation)", () => {
+    const xml = makeGrid2d20({});
+    expect(StructureMapOSDU.matchType(xml as any)).toBe(false);
+    expect(Grid2dToOsduKind(xml as any)).toContain("GenericRepresentation");
+  });
+
+  it("Grid2d with GenericFeatureInterpretation → NOT StructureMap (property/DEM)", () => {
+    const xml = makeGrid2d20({ interpType: "obj_GenericFeatureInterpretation" });
+    expect(StructureMapOSDU.matchType(xml as any)).toBe(false);
+    expect(Grid2dToOsduKind(xml as any)).toContain("GenericRepresentation");
+  });
+
+  // v2.2 equivalents
+  it("v2.2: Grid2d with HorizonInterpretation → StructureMap", () => {
+    const xml = makeGrid2d22({ qualifiedType: "resqml22.HorizonInterpretation" });
+    expect(StructureMap22OSDU.matchType(xml as any)).toBe(true);
+    expect(Grid2dToOsduKind22(xml as any)).toContain("StructureMap");
+  });
+
+  it("v2.2: Grid2d with GeobodyInterpretation → NOT StructureMap", () => {
+    const xml = makeGrid2d22({ qualifiedType: "resqml22.GeobodyInterpretation" });
+    expect(StructureMap22OSDU.matchType(xml as any)).toBe(false);
+    expect(Grid2dToOsduKind22(xml as any)).toContain("GenericRepresentation");
+  });
+
+  it("v2.2: Grid2d with no interpretation → NOT StructureMap", () => {
+    const xml = makeGrid2d22({});
+    expect(StructureMap22OSDU.matchType(xml as any)).toBe(false);
+    expect(Grid2dToOsduKind22(xml as any)).toContain("GenericRepresentation");
   });
 });
 

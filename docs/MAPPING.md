@@ -57,7 +57,7 @@
 | `WPC--StratigraphicColumnRankInterpretation:1.3.0` | `obj_StratigraphicColumnRankInterpretation` | `StratigraphicColumnRankInterpretation` | Direct | ✅ Implemented |
 | `WPC--StratigraphicUnitInterpretation:1.3.0` | `obj_StratigraphicUnitInterpretation` | `StratigraphicUnitInterpretation` | Direct | ✅ Implemented |
 | `WPC--StructuralOrganizationInterpretation:1.2.0` | `obj_StructuralOrganizationInterpretation` | `StructuralOrganizationInterpretation` | Direct | ✅ Implemented |
-| `WPC--StructureMap:1.0.0` | `obj_Grid2dRepresentation` | `Grid2dRepresentation` | HorizonInterpretation + NOT on seismic lattice (depth domain) | ✅ Implemented |
+| `WPC--StructureMap:1.0.0` | `obj_Grid2dRepresentation` | `Grid2dRepresentation` | HorizonInterpretation + NOT on seismic lattice (any domain) | ✅ Implemented (M27 only) |
 | `WPC--SubRepresentation:1.2.0` | `obj_SubRepresentation` | `SubRepresentation` | Direct | ✅ Implemented |
 | `WPC--TimeSeries:1.2.0` | `obj_TimeSeries` | `TimeSeries` | Direct | ✅ Implemented |
 | `WPC--Tubular:1.3.0` | — | `witsml21.Tubular` | Direct (WITSML) | ✅ Implemented |
@@ -81,7 +81,7 @@ Three routing functions decide the OSDU kind at runtime based on RESQML object c
 Grid2dRepresentation
   ├─ 1. SeismicBinGrid:1.3.0      ← InterpretedFeature is SeismicLatticeFeature
   ├─ 2. SeismicHorizon:2.0.0      ← HorizonInterpretation + Z on seismic lattice
-  ├─ 3. StructureMap:1.0.0        ← HorizonInterpretation + NOT on lattice (depth)
+  ├─ 3. StructureMap:1.0.0        ← HorizonInterpretation + NOT on lattice (any domain; M27 only)
   └─ 4. GenericRepresentation:1.2.0  ← fallback (isochores, DEMs, property grids, etc.)
 ```
 
@@ -162,8 +162,8 @@ Grid2dRepresentation ───────────────────�
   ├─ 2. Has InterpretedFeature = HorizonInterpretation + on seismic lattice?
   │      YES → SeismicHorizon:2.1.0
   │
-  ├─ 3. Has InterpretedFeature = HorizonInterpretation + NOT on lattice (depth)?
-  │      YES → StructureMap:1.0.0
+  ├─ 3. Has InterpretedFeature = HorizonInterpretation + NOT on lattice (any domain)?
+  │      YES → StructureMap:1.0.0 (M27; on M26 falls back to GenericRepresentation)
   │
   └─ 4. Anything else (no interp, or unrecognized interp)
          → GenericRepresentation:1.2.0 (fallback)

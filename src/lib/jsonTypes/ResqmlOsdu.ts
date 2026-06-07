@@ -57,8 +57,6 @@ import { SeismicLineGeometryManifest } from "./SeismicLineGeometry";
 import { StratigraphicColumnManifest } from "./StratigraphicColumn";
 import { StratigraphicColumnRankInterpretationManifest } from "./StratigraphicColumnRankInterpretation";
 import { StratigraphicUnitInterpretationManifest } from "./StratigraphicUnitInterpretation";
-import { StructuralOrganizationInterpretationManifest } from "./StructuralOrganizationInterpretation";
-import { StructuralOrganizationInterpretation22Manifest } from "./StructuralOrganizationInterpretation22";
 import { SubRepresentationManifest } from "./SubRepresentation";
 import { TimeSeriesManifest } from "./TimeSeries";
 import { UnstructuredGridRepresentationManifest } from "./UnstructuredGridRepresentation";
@@ -356,7 +354,7 @@ ResqmlOSDU.add(
 );
 ResqmlOSDU.add(
   "resqml20.obj_SeismicLineFeature",
-  () => "osdu:wks:work-product-component--SeismicLineGeometry:1.2.0",
+  () => getKindOrFallback("SeismicLineGeometry"),
   SeismicLineGeometryManifest
 );
 ResqmlOSDU.add(
@@ -473,47 +471,33 @@ ResqmlOSDU.add(
 // ─── Organization & Fluid Interpretations ────────────────────────────────────
 
 ResqmlOSDU.add(
-  "resqml20.obj_StructuralOrganizationInterpretation",
-  () =>
-    "osdu:wks:work-product-component--StructuralOrganizationInterpretation:1.2.0",
-  StructuralOrganizationInterpretationManifest
-);
-ResqmlOSDU.add(
-  "resqml22.StructuralOrganizationInterpretation",
-  () =>
-    "osdu:wks:work-product-component--StructuralOrganizationInterpretation:1.2.0",
-  StructuralOrganizationInterpretation22Manifest
-);
-ResqmlOSDU.add(
   "resqml20.obj_RockFluidOrganizationInterpretation",
-  () =>
-    "osdu:wks:work-product-component--RockFluidOrganizationInterpretation:1.2.0",
+  () => getKindOrFallback("RockFluidOrganizationInterpretation"),
   RockFluidOrganizationInterpretationManifest
 );
 ResqmlOSDU.add(
   "resqml22.RockFluidOrganizationInterpretation",
-  () =>
-    "osdu:wks:work-product-component--RockFluidOrganizationInterpretation:1.2.0",
+  () => getKindOrFallback("RockFluidOrganizationInterpretation"),
   RockFluidOrganizationInterpretation22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_RockFluidUnitInterpretation",
-  () => "osdu:wks:work-product-component--RockFluidUnitInterpretation:1.3.0",
+  () => getKindOrFallback("RockFluidUnitInterpretation"),
   RockFluidUnitInterpretationManifest
 );
 ResqmlOSDU.add(
   "resqml22.RockFluidUnitInterpretation",
-  () => "osdu:wks:work-product-component--RockFluidUnitInterpretation:1.3.0",
+  () => getKindOrFallback("RockFluidUnitInterpretation"),
   RockFluidUnitInterpretation22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_FluidBoundaryFeature",
-  () => "osdu:wks:work-product-component--FluidBoundaryInterpretation:1.2.0",
+  () => getKindOrFallback("FluidBoundaryInterpretation"),
   FluidBoundaryFeatureManifest
 );
 ResqmlOSDU.add(
   "resqml22.FluidBoundaryInterpretation",
-  () => "osdu:wks:work-product-component--FluidBoundaryInterpretation:1.2.0",
+  () => getKindOrFallback("FluidBoundaryInterpretation"),
   FluidBoundaryInterpretation22Manifest
 );
 
@@ -521,22 +505,22 @@ ResqmlOSDU.add(
 
 ResqmlOSDU.add(
   "resqml20.obj_SealedSurfaceFrameworkRepresentation",
-  () => "osdu:wks:work-product-component--SealedSurfaceFramework:1.2.0",
+  () => getKindOrFallback("SealedSurfaceFramework"),
   SealedSurfaceFrameworkManifest
 );
 ResqmlOSDU.add(
   "resqml22.SealedSurfaceFrameworkRepresentation",
-  () => "osdu:wks:work-product-component--SealedSurfaceFramework:1.2.0",
+  () => getKindOrFallback("SealedSurfaceFramework"),
   SealedSurfaceFramework22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_SealedVolumeFrameworkRepresentation",
-  () => "osdu:wks:work-product-component--SealedVolumeFramework:1.2.0",
+  () => getKindOrFallback("SealedVolumeFramework"),
   SealedVolumeFrameworkManifest
 );
 ResqmlOSDU.add(
   "resqml22.SealedVolumeFrameworkRepresentation",
-  () => "osdu:wks:work-product-component--SealedVolumeFramework:1.2.0",
+  () => getKindOrFallback("SealedVolumeFramework"),
   SealedVolumeFramework22Manifest
 );
 ResqmlOSDU.add(

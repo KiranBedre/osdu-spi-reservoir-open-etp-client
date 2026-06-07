@@ -17,7 +17,7 @@ import {
 
 import { GenericRepresentationOSDU } from "./GenericRepresentation";
 
-import { getKindOrFallback } from "./MilestoneKinds";
+import { getKind, getKindOrFallback } from "./MilestoneKinds";
 import { SeismicHorizonOSDU } from "./SeismicHorizon";
 
 import { StructureMapOSDU } from "./StructureMap";
@@ -36,8 +36,7 @@ export class SeismicBinGridOSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml20.obj_Grid2dRepresentation>
   >
-  implements SeismicBinGrid
-{
+  implements SeismicBinGrid {
   public data: Data = {};
   public meta?: FrameOfReferenceMetaDataItem[];
 
@@ -143,12 +142,12 @@ export class SeismicBinGridOSDU
 
     const uOffsetLen = Math.sqrt(
       u.Offset.Coordinate1 * u.Offset.Coordinate1 +
-        u.Offset.Coordinate2 * u.Offset.Coordinate2
+      u.Offset.Coordinate2 * u.Offset.Coordinate2
     );
 
     const vOffsetLen = Math.sqrt(
       v.Offset.Coordinate1 * v.Offset.Coordinate1 +
-        v.Offset.Coordinate2 * v.Offset.Coordinate2
+      v.Offset.Coordinate2 * v.Offset.Coordinate2
     );
 
     const [ux, uy] = [
@@ -255,7 +254,7 @@ export const Grid2dToOsduKind = (xml: IResqmlDataObject): string => {
   } else if (SeismicHorizonOSDU.matchType(grid2d)) {
     return getKindOrFallback("SeismicHorizon");
   } else if (StructureMapOSDU.matchType(grid2d)) {
-    return "osdu:wks:work-product-component--StructureMap:1.0.0";
+    return getKindOrFallback("StructureMap");
   }
   return getKindOrFallback("GenericRepresentation");
 };
@@ -282,7 +281,7 @@ export const Grid2dRepresentationManifest = async (
     return new SeismicBinGridOSDU(xml, context).initData(uri, xml, client);
   } else if (kind === getKindOrFallback("SeismicHorizon")) {
     return new SeismicHorizonOSDU(xml, context).initData(uri, xml, client);
-  } else if (kind === "osdu:wks:work-product-component--StructureMap:1.0.0") {
+  } else if (kind === getKind("StructureMap")) {
     return new StructureMapOSDU(xml, context).initData(uri, xml, client);
   }
   return new GenericRepresentationOSDU(xml, context).initData(uri, xml, client);
