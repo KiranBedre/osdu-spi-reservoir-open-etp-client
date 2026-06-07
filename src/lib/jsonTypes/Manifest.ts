@@ -586,17 +586,23 @@ export const createManifest = async (
       }
     }
 
-    let edges = context.edges.filter(e =>
-      unknownSrn.has(e.target.slice(0, -1))
-    );
-    while (edges.length > 0) {
-      unknownSrn.clear();
-      edges.forEach(e => {
-        if (generatedSrn.delete(e.origin)) {
-          unknownSrn.add(e.origin);
-        }
-      });
-      edges = context.edges.filter(e => unknownSrn.has(e.target.slice(0, -1)));
+    // Cascade-remove WPCs whose references could not be resolved.
+    // Skip in best-effort mode (createMissingReferences=true): unresolvable
+    // reference-data (UnitOfMeasure, PropertyKind, etc.) is expected to be
+    // supplied by the platform and should not invalidate successfully-built WPCs.
+    if (!context.createMissingReferences) {
+      let edges = context.edges.filter(e =>
+        unknownSrn.has(e.target.slice(0, -1))
+      );
+      while (edges.length > 0) {
+        unknownSrn.clear();
+        edges.forEach(e => {
+          if (generatedSrn.delete(e.origin)) {
+            unknownSrn.add(e.origin);
+          }
+        });
+        edges = context.edges.filter(e => unknownSrn.has(e.target.slice(0, -1)));
+      }
     }
 
     const toRemove: string[] = [];
