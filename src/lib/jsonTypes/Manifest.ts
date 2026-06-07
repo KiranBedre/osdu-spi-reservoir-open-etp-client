@@ -107,12 +107,13 @@ const getACLForDataspace = (
 
 /**
  * Default type patterns applied when indexing entire dataspaces without
- * explicit typePatterns. Focuses on discovery-worthy types (interpretations,
- * representations, wells) and excludes support objects (properties, CRS,
- * time series, features, property kinds).
+ * explicit typePatterns. Focuses on discovery-worthy types (features,
+ * interpretations, representations, wells) and excludes support objects
+ * (properties, CRS, time series, property kinds).
  * Pass typePatterns: ["*"] to opt into indexing all types.
  */
 export const DEFAULT_DATASPACE_TYPE_PATTERNS: string[] = [
+  "*Feature",
   "*Interpretation*",
   "*Representation",
   "*StratigraphicColumn",
