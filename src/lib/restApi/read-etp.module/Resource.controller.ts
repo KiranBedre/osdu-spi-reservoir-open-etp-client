@@ -947,13 +947,15 @@ export default class ResourcesReadAPI {
   @ApiQuery(filterQueryParam)
   @ApiQuery(storeLastWriteFilterQueryParam)
   @ApiQuery(dataObjectTypesQueryParam)
+  @ApiQuery(depthQueryParam)
   @ApiQuery(countObjectsQueryParam)
   @ApiQuery(transactionIdQueryParam)
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
     summary: "List all resources.",
-    description: `List all resources in a dataspaces.
-    Output can be paginated and filtered by types, content, last update time.`,
+    description: `List all resources in a dataspace.
+    Output can be paginated and filtered by types, content, last update time.
+    Use depth > 1 to recursively discover related resources (graph traversal).`,
     servers: swaggerServers
   })
   public async ListResources(
@@ -964,6 +966,7 @@ export default class ResourcesReadAPI {
     @Query("storeLastWriteFilter", OptionalParseDatePipe)
     storeLastWriteFilter?: Date,
     @Query("dataObjectTypes") dataObjectTypes?: string,
+    @Query("depth", OptionalParseIntPipe) depth?: number,
     @Query("countObjects", OptionalParseBoolPipe) countObjects = false,
     @Query("transactionId") transactionId?: string,
     @Req() request?: express.Request
@@ -991,7 +994,7 @@ export default class ResourcesReadAPI {
         c,
         {
           uri: EtpUri.createDataSpaceUri(params.dataspaceId).uri,
-          depth: 1,
+          depth: depth ?? 1,
           dataObjectTypes: dataObjectTypes ? dataObjectTypes.split(",") : [],
           navigableEdges: "Both"
         },
@@ -1040,12 +1043,14 @@ export default class ResourcesReadAPI {
   @ApiQuery(filterQueryParam)
   @ApiQuery(storeLastWriteFilterQueryParam)
   @ApiQuery(dataObjectTypesQueryParam)
+  @ApiQuery(depthQueryParam)
   @ApiQuery(countObjectsQueryParam)
   @ApiQuery(transactionIdQueryParam)
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
     summary: "Graph all resources.",
-    description: `Create a graph for all resources in a dataspaces.
+    description: `Create a graph for all resources in a dataspace.
+    Use depth > 1 to recursively traverse relationships.
     Output can be paginated and filtered by types, content, last update time.`,
     servers: swaggerServers
   })
@@ -1057,6 +1062,7 @@ export default class ResourcesReadAPI {
     @Query("storeLastWriteFilter", OptionalParseDatePipe)
     storeLastWriteFilter?: Date,
     @Query("dataObjectTypes") dataObjectTypes?: string,
+    @Query("depth", OptionalParseIntPipe) depth?: number,
     @Query("countObjects", OptionalParseBoolPipe) countObjects?: boolean,
     @Query("transactionId") transactionId?: string,
     @Req() request?: express.Request
@@ -1087,7 +1093,7 @@ export default class ResourcesReadAPI {
         c,
         {
           uri: EtpUri.createDataSpaceUri(params.dataspaceId).uri,
-          depth: 1,
+          depth: depth ?? 1,
           dataObjectTypes: dataObjectTypes ? dataObjectTypes.split(",") : [],
           navigableEdges: "Both"
         },
@@ -1631,6 +1637,87 @@ export default class ResourcesReadAPI {
     } catch (err) {
       logger.error(
         `Error occurred while graphing sources for dataspace ${params.dataspaceId}: ${err}`
+      );
+      if (!transactionId) {
+        await c?.closeSession();
+      }
+      throw httpErrorFromEtpError(err);
+    }
+  }
+
+  /**
+   * List deleted resources in a dataspace.
+   * Uses Discovery Protocol 3 GetDeletedResources message.
+   */
+  @Get(":dataspaceId/deleted")
+  @ApiQuery(storeLastWriteFilterQueryParam)
+  @ApiQuery(dataObjectTypesQueryParam)
+  @ApiQuery(transactionIdQueryParam)
+  @ApiOkResponse({
+    description: "List of deleted resources with deletion timestamps",
+    schema: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          uri: { type: "string" },
+          deletedTime: { type: "string", format: "date-time" },
+          customData: { type: "object" }
+        }
+      }
+    }
+  })
+  @ApiOperation({
+    summary: "List deleted resources in a dataspace.",
+    description: `Returns resources that have been deleted from a dataspace.
+    Useful for cache invalidation and synchronization with external systems (e.g., OSDU catalog).
+    Optionally filter by deletion time and data object types.`,
+    servers: swaggerServers
+  })
+  public async ListDeletedResources(
+    @Param() params: FindInDataSpaceParams,
+    @Query("storeLastWriteFilter", OptionalParseDatePipe)
+    storeLastWriteFilter?: Date,
+    @Query("dataObjectTypes") dataObjectTypes?: string,
+    @Query("transactionId") transactionId?: string,
+    @Req() request?: express.Request
+  ) {
+    logger.info(
+      `Received request to list deleted resources for dataspace: ${params.dataspaceId}`
+    );
+    let c;
+    try {
+      c = await createSession(
+        extractToken(request),
+        extractDataPartitionId(request),
+        undefined,
+        transactionId
+      );
+
+      const dataspaceUri = EtpUri.createDataSpaceUri(params.dataspaceId).uri;
+      const deleteTimeFilter = storeLastWriteFilter
+        ? BigInt(storeLastWriteFilter.getTime()) * BigInt(1000)
+        : null;
+
+      const deleted = await c.getDeletedResources(
+        dataspaceUri,
+        dataObjectTypes ? dataObjectTypes.split(",") : [],
+        deleteTimeFilter
+      );
+
+      if (!transactionId) {
+        await c.closeSession();
+      }
+      c = undefined;
+
+      return deleted.map(d => ({
+        uri: d.uri,
+        deletedTime: toDate(d.deletedTime),
+        customData: toJSonCustomData(d.customData) ?? {}
+      }));
+    } catch (err) {
+      logger.error(
+        `Error listing deleted resources for dataspace ${params.dataspaceId}: ${err}`
       );
       if (!transactionId) {
         await c?.closeSession();

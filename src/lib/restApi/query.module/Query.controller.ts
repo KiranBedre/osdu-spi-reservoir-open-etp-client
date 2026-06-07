@@ -51,15 +51,19 @@ import {
   IsString,
   IsEnum,
   IsNumber,
-  IsBoolean
+  IsBoolean,
+  IsArray
 } from "class-validator";
 
 import express from "express";
 
 import {
   Energistics,
-  EtpUri
+  EtpUri,
+  Resource
 } from "../../client/ResqmlClient";
+
+import { ResourceGraph } from "../../common/ResponseHandlers";
 
 import {
   HasBearerGuard,
@@ -70,7 +74,9 @@ import {
   extractToken,
   httpErrorFromEtpError,
   partitionPattern,
-  patternString
+  patternString,
+  toDate,
+  toJSonCustomData
 } from "../ControllerUtils";
 
 import Logging from "../../common/Logging";
@@ -181,6 +187,70 @@ class ChannelMetadataDto {
   uri!: string;
 }
 
+class GraphSearchDto {
+  @ApiProperty({
+    description: "URIs of resources to build a subgraph for",
+    example: [
+      "eml:///dataspace('maap/drogon')/resqml20.obj_IjkGridRepresentation(uuid1)",
+      "eml:///dataspace('maap/drogon')/resqml20.obj_TriangulatedSetRepresentation(uuid2)"
+    ],
+    type: [String]
+  })
+  @IsArray()
+  @IsNotEmpty()
+  uris!: string[];
+
+  @ApiPropertyOptional({
+    description:
+      "Search scope: sources, targets, or self. Applied to each URI.",
+    enum: ["self", "sources", "targets", "sourcesOrSelf", "targetsOrSelf"],
+    default: "targets"
+  })
+  @IsOptional()
+  @IsString()
+  scope?: string;
+
+  @ApiPropertyOptional({
+    description: "Graph traversal depth from each URI (1 = immediate neighbours)",
+    default: 1
+  })
+  @IsOptional()
+  @IsNumber()
+  depth?: number;
+
+  @ApiPropertyOptional({
+    description:
+      "Data object types to include (e.g., resqml20.obj_ContinuousProperty)",
+    type: [String]
+  })
+  @IsOptional()
+  dataObjectTypes?: string[];
+
+  @ApiPropertyOptional({
+    description: "Include source/target counts on each resource",
+    default: false
+  })
+  @IsOptional()
+  @IsBoolean()
+  countObjects?: boolean;
+
+  @ApiPropertyOptional({
+    description: "Include secondary targets in graph traversal",
+    default: false
+  })
+  @IsOptional()
+  @IsBoolean()
+  includeSecondaryTargets?: boolean;
+
+  @ApiPropertyOptional({
+    description: "Include secondary sources in graph traversal",
+    default: false
+  })
+  @IsOptional()
+  @IsBoolean()
+  includeSecondarySources?: boolean;
+}
+
 // ── Helper ───────────────────────────────────────────────────────────────────
 
 function scopeFromString(
@@ -280,10 +350,9 @@ export default class QueryController {
         ? BigInt(new Date(body.modifiedSince).getTime() * 1000)
         : null;
 
-      const resources = await c.discovery.getResources(
+      const resources = await c.discoveryQuery.findResources(
         context,
         scopeFromString(body.scope),
-        true,
         storeLastWriteFilter
       );
 
@@ -375,6 +444,150 @@ export default class QueryController {
             ? new Date(Number(o!.resource.lastChanged) / 1000).toISOString()
             : null
         }));
+    } catch (err) {
+      throw httpErrorFromEtpError(err);
+    } finally {
+      await c?.closeSession();
+    }
+  }
+
+  /**
+   * Batch graph search: build a merged subgraph for multiple URIs in a single call.
+   * Each URI is traversed with the given scope and depth, and results are merged
+   * into a single deduplicated graph. Essential for efficient deep search from
+   * external consumers like GraphQL resolvers.
+   */
+  @Post("graph/search")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "Batch graph search across multiple URIs (Discovery Protocol 3)",
+    description: `Build a merged subgraph for multiple resource URIs in a single session.
+    For each URI, traverses the relationship graph with the given scope and depth,
+    then merges all discovered nodes and edges into a deduplicated result.
+
+    This is significantly more efficient than calling GET /graph/{type}/{guid}/targets
+    for each URI individually, as it reuses a single ETP session.
+
+    Designed for deep search scenarios where a consumer (e.g., GraphQL) needs
+    to discover properties, representations, and interpretations for many objects at once.`,
+    servers: swaggerServers
+  })
+  @ApiOkResponse({
+    description: "Merged graph containing all discovered resources and edges",
+    schema: {
+      type: "object",
+      properties: {
+        resources: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              uri: { type: "string" },
+              name: { type: "string" },
+              sourceCount: { type: "number" },
+              targetCount: { type: "number" },
+              lastChanged: { type: "string" },
+              storeLastWrite: { type: "string" },
+              activeStatus: { type: "string" }
+            }
+          }
+        },
+        links: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              source: { type: "string" },
+              target: { type: "string" },
+              path: { type: "string" }
+            }
+          }
+        }
+      }
+    }
+  })
+  @ApiBody({ type: GraphSearchDto })
+  public async graphSearch(
+    @Body() body: GraphSearchDto,
+    @Req() request?: express.Request
+  ) {
+    let c;
+    try {
+      c = await createSession(
+        extractToken(request),
+        extractDataPartitionId(request)
+      );
+
+      const scope = scopeFromString(body.scope);
+      const depth = body.depth ?? 1;
+      const dataObjectTypes = body.dataObjectTypes || [];
+      const countObjects = body.countObjects ?? false;
+
+      // Merged graph: deduplicate across all URI results
+      const allNodes = new Map<string, Resource>();
+      const allEdges: Array<{ sourceUri: string; targetUri: string; path?: string }> = [];
+      const seenEdges = new Set<string>();
+
+      // Process all URIs in sequence within the same ETP session
+      for (const uri of body.uris) {
+        const context: Energistics.Etp.v12.Datatypes.Object.ContextInfo = {
+          uri,
+          depth,
+          dataObjectTypes,
+          navigableEdges:
+            Energistics.Etp.v12.Datatypes.Object.RelationshipKind.Both,
+          includeSecondaryTargets: body.includeSecondaryTargets ?? false,
+          includeSecondarySources: body.includeSecondarySources ?? false
+        };
+
+        try {
+          const graph: ResourceGraph = await c.getGraph(
+            context,
+            scope,
+            countObjects,
+            dataObjectTypes
+          );
+
+          // Merge nodes
+          for (const [nodeUri, resource] of graph.entries()) {
+            if (!allNodes.has(nodeUri)) {
+              allNodes.set(nodeUri, resource);
+            }
+          }
+
+          // Merge edges (deduplicate by source+target)
+          for (const edge of graph.edges) {
+            const edgeKey = `${edge.sourceUri}→${edge.targetUri}`;
+            if (!seenEdges.has(edgeKey)) {
+              seenEdges.add(edgeKey);
+              allEdges.push(edge);
+            }
+          }
+        } catch (err) {
+          logger.warn(
+            `Graph search failed for URI ${uri}: ${err}`
+          );
+          // Continue with remaining URIs — best effort
+        }
+      }
+
+      return {
+        resources: [...allNodes.values()].map(r => ({
+          uri: r.uri,
+          name: r.name,
+          sourceCount: r.sourceCount,
+          targetCount: r.targetCount,
+          lastChanged: toDate(r.lastChanged),
+          storeLastWrite: toDate(r.storeLastWrite),
+          activeStatus: r.activeStatus,
+          customData: toJSonCustomData(r.customData) ?? {}
+        })),
+        links: allEdges.map(e => ({
+          source: e.sourceUri,
+          target: e.targetUri,
+          path: e.path
+        }))
+      };
     } catch (err) {
       throw httpErrorFromEtpError(err);
     } finally {

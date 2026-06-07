@@ -384,3 +384,156 @@ describe("Query REST API", () => {
     expect([200, 404, 500]).toContain(response.status);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Deep Search & Graph Batch REST Tests
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("Deep Search REST API", () => {
+  let nestAppServer: any;
+
+  beforeAll(async () => {
+    const nestApp = await restApp();
+    nestAppServer = (await nestApp.init()).getHttpServer();
+  });
+
+  it("GET /dataspaces/{id}/resources/all?depth=2 - should accept depth parameter", async () => {
+    const dsEnc = encodeURIComponent(testDataspace);
+    const response = await request(nestAppServer)
+      .get(`${restApiMainUrl}/dataspaces/${dsEnc}/resources/all?depth=2`)
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .expect(200);
+
+    expect(Array.isArray(response.body)).toBe(true);
+  });
+
+  it("GET /dataspaces/{id}/resources/all?depth=1&dataObjectTypes=... - should filter by type with depth", async () => {
+    const dsEnc = encodeURIComponent(testDataspace);
+    const response = await request(nestAppServer)
+      .get(
+        `${restApiMainUrl}/dataspaces/${dsEnc}/resources/all?depth=1&dataObjectTypes=resqml22.TriangulatedSetRepresentation`
+      )
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .expect(200);
+
+    expect(Array.isArray(response.body)).toBe(true);
+  });
+
+  it("GET /dataspaces/{id}/graph/all?depth=2 - should accept depth parameter", async () => {
+    const dsEnc = encodeURIComponent(testDataspace);
+    const response = await request(nestAppServer)
+      .get(`${restApiMainUrl}/dataspaces/${dsEnc}/graph/all?depth=2`)
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .expect(200);
+
+    expect(response.body).toHaveProperty("resources");
+    expect(response.body).toHaveProperty("links");
+    expect(Array.isArray(response.body.resources)).toBe(true);
+    expect(Array.isArray(response.body.links)).toBe(true);
+  });
+
+  it("GET /dataspaces/{id}/deleted - should list deleted resources", async () => {
+    const dsEnc = encodeURIComponent(testDataspace);
+    const response = await request(nestAppServer)
+      .get(`${restApiMainUrl}/dataspaces/${dsEnc}/deleted`)
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .expect(200);
+
+    expect(Array.isArray(response.body)).toBe(true);
+    // If there are deleted resources, they should have uri and deletedTime
+    if (response.body.length > 0) {
+      expect(response.body[0]).toHaveProperty("uri");
+      expect(response.body[0]).toHaveProperty("deletedTime");
+    }
+  });
+
+  it("GET /dataspaces/{id}/deleted?dataObjectTypes=... - should accept type filter", async () => {
+    const dsEnc = encodeURIComponent(testDataspace);
+    const response = await request(nestAppServer)
+      .get(
+        `${restApiMainUrl}/dataspaces/${dsEnc}/deleted?dataObjectTypes=resqml22.TriangulatedSetRepresentation`
+      )
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .expect(200);
+
+    expect(Array.isArray(response.body)).toBe(true);
+  });
+
+  it("POST /query/graph/search - should batch search multiple URIs", async () => {
+    const response = await request(nestAppServer)
+      .post(`${restApiMainUrl}/query/graph/search`)
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .send({
+        uris: [testDataspaceUri],
+        scope: "self",
+        depth: 1
+      })
+      .expect(200);
+
+    expect(response.body).toHaveProperty("resources");
+    expect(response.body).toHaveProperty("links");
+    expect(Array.isArray(response.body.resources)).toBe(true);
+    expect(Array.isArray(response.body.links)).toBe(true);
+
+    // Resources should have expected fields
+    if (response.body.resources.length > 0) {
+      const r = response.body.resources[0];
+      expect(r).toHaveProperty("uri");
+      expect(r).toHaveProperty("name");
+    }
+  });
+
+  it("POST /query/graph/search - should accept dataObjectTypes filter", async () => {
+    const response = await request(nestAppServer)
+      .post(`${restApiMainUrl}/query/graph/search`)
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .send({
+        uris: [testDataspaceUri],
+        scope: "targets",
+        depth: 1,
+        dataObjectTypes: ["resqml22.TriangulatedSetRepresentation"]
+      })
+      .expect(200);
+
+    expect(response.body).toHaveProperty("resources");
+    expect(Array.isArray(response.body.resources)).toBe(true);
+  });
+
+  it("POST /query/graph/search - should reject empty uris array", async () => {
+    await request(nestAppServer)
+      .post(`${restApiMainUrl}/query/graph/search`)
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .send({
+        uris: [],
+        scope: "targets"
+      })
+      .expect(400);
+  });
+
+  it("POST /query/graph/search - should deduplicate across overlapping URIs", async () => {
+    // Use the same URI twice — result should still be deduplicated
+    const response = await request(nestAppServer)
+      .post(`${restApiMainUrl}/query/graph/search`)
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .send({
+        uris: [testDataspaceUri, testDataspaceUri],
+        scope: "self",
+        depth: 1
+      })
+      .expect(200);
+
+    // Check for deduplication: no duplicate URIs in resources
+    const uris = response.body.resources.map((r: any) => r.uri);
+    const uniqueUris = new Set(uris);
+    expect(uris.length).toBe(uniqueUris.size);
+  });
+});
