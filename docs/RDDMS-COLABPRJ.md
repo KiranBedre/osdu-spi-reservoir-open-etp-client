@@ -9,28 +9,40 @@ where data lives before being published to the "system of record" (SoR).
 
 In RDDMS, an **ETP dataspace maps directly to a CollaborationProject**:
 
-```
-ETP Dataspace (maap/drogon) ←→ CollaborationProject (OSDU master-data)
-  ├── RESQML objects (grids, horizons, faults)    ← WIP domain objects
-  ├── WITSML objects (wells, logs, trajectories)  ← WIP domain objects
-  └── Data arrays (HDF5 binary data)              ← WIP array storage
+```mermaid
+graph LR
+  subgraph DS["ETP Dataspace (maap/drogon)"]
+    R[RESQML objects<br/>grids, horizons, faults]
+    W[WITSML objects<br/>wells, logs, trajectories]
+    A[Data arrays<br/>HDF5 binary]
+  end
+  DS <-->|"1:1 mapping"| CP["CollaborationProject<br/>(OSDU master-data)"]
 ```
 
 ## Architecture
 
-```
-┌────────────────────────────┐     ┌─────────────────────────────────┐
-│       RDDMS (SOE)          │     │      OSDU Catalog (SoR)         │
-│                            │     │                                 │
-│  ETP Dataspace             │     │  CollaborationProject           │
-│  ├── Objects (XML/Avro)    │────▶│  ├── Namespace = dataspace name │
-│  ├── Arrays (binary)       │     │  ├── LifecycleStatus            │
-│  └── Lock state            │     │  ├── DefaultWIPACL              │
-│                            │     │  └── TrustedCollectionID        │
-│  Manifest Builder ─────────┼────▶│                                 │
-│  (POST /manifests/build)   │     │  WPC records (WellLog, Grid...) │
-│                            │     │  MasterData (Well, Wellbore...) │
-└────────────────────────────┘     └─────────────────────────────────┘
+```mermaid
+graph LR
+  subgraph RDDMS["RDDMS (SOE)"]
+    DS[ETP Dataspace]
+    OBJ[Objects<br/>XML/Avro]
+    ARR[Arrays<br/>binary]
+    LOCK[Lock state]
+    MB[Manifest Builder<br/>POST /manifests/build]
+    DS --- OBJ
+    DS --- ARR
+    DS --- LOCK
+  end
+
+  subgraph OSDU["OSDU Catalog (SoR)"]
+    CP[CollaborationProject<br/>Namespace, Lifecycle,<br/>DefaultWIPACL]
+    WPC[WPC records<br/>WellLog, Grid...]
+    MD[MasterData<br/>Well, Wellbore...]
+  end
+
+  MB -->|manifest| CP
+  MB -->|manifest| WPC
+  MB -->|manifest| MD
 ```
 
 ## Consistency Model
@@ -74,14 +86,27 @@ RDDMS uses **eventual consistency** with RDDMS as the **source of truth**:
 
 ### Consistency Timeline
 
-```
-t0: Create dataspace 'maap/drogon'     → CP does NOT exist in OSDU yet
-t1: Ingest objects via ETP              → CP still doesn't exist
-t2: POST /manifests/build               → CP created in OSDU (v1, Open)
-t3: More objects added via ETP          → CP in OSDU is stale (missing new objects)
-t4: POST /manifests/build               → CP updated in OSDU (v2, Open, enriched)
-t5: Lock dataspace                      → CP still shows "Open" until next build
-t6: POST /manifests/build               → CP updated (v3, Closed)
+```mermaid
+sequenceDiagram
+  participant Client
+  participant RDDMS as RDDMS (ETP)
+  participant Builder as Manifest Builder
+  participant OSDU as OSDU Catalog
+
+  Client->>RDDMS: t0: Create dataspace 'maap/drogon'
+  Note over OSDU: CP does NOT exist yet
+  Client->>RDDMS: t1: Ingest objects via ETP
+  Note over OSDU: CP still doesn't exist
+  Client->>Builder: t2: POST /manifests/build
+  Builder->>OSDU: CP created (v1, Open)
+  Client->>RDDMS: t3: More objects added
+  Note over OSDU: CP is stale
+  Client->>Builder: t4: POST /manifests/build
+  Builder->>OSDU: CP updated (v2, Open, enriched)
+  Client->>RDDMS: t5: Lock dataspace
+  Note over OSDU: Still shows "Open"
+  Client->>Builder: t6: POST /manifests/build
+  Builder->>OSDU: CP updated (v3, Closed)
 ```
 
 **Key insight:** The manifest build is the **sync point**. Between builds, OSDU may be stale.
@@ -194,3 +219,96 @@ but must be registered manually via schema service.
 - [ ] `LifecycleEvents`: record state transitions (Open→Closed→Published) with timestamps
 - [ ] Cross-DDMS coordination: shared CP across reservoir/seismic/well DDMS via external ID
 - [ ] Deletion reconciliation: detect deleted dataspaces and mark CP as archived
+
+## Master Data Strategy: Wells + WellLogs in CollaborationProjects
+
+### The Problem
+
+Wells are **master data** (owned by OSDU catalog / system of record), but WellLogs are
+**work-product-components** that must reference a Well. When RDDMS ingests a WellLog,
+it needs a Well to point to — but should it CREATE the Well or REFERENCE an existing one?
+
+```mermaid
+graph LR
+  subgraph SoR["OSDU Catalog (SoR)"]
+    WELL["Well: DROGON-A1<br/>(master-data)<br/>id: opendes:..."]
+  end
+  subgraph SOE["RDDMS (SOE)"]
+    LOG["WellLog → Well ref<br/>(witsml21.Log in ETP)"]
+  end
+  LOG -->|"DDMSDatasets"| WELL
+  WELL -->|"references"| LOG
+```
+
+### Strategy 1: Reference Existing (Production Pattern)
+
+Wells already exist in OSDU → RDDMS just links to them via `osduAlias`:
+
+```xml
+<Well uuid="...">
+  <Aliases authority="osdu" Identifier="opendes:master-data--Well:existing-uuid"/>
+  ...
+</Well>
+```
+
+The manifest builder sees the alias → skips creating a new Well → appends `DDMSDatasets`
+URI to the existing record (additive merge).
+
+**Best for:** Production environments where MDM processes own Well creation.
+
+### Strategy 2: Create-if-Missing (Current Default)
+
+```typescript
+// OSDUContext default:
+createMissingReferences: true  // creates stub Well if not in OSDU
+```
+
+RDDMS creates a minimal Well record when the log references a Well that doesn't exist.
+Only has `FacilityName` + `DDMSDatasets` — no coordinates, no regulatory IDs.
+
+**Risk:** Creates orphan/duplicate Wells if the "real" Well arrives later from MDM.
+**Mitigation:** DDMSDatasets merge ensures if the Well IS later created properly, the
+DDMS link survives.
+
+**Best for:** Local development, demos, isolated environments.
+
+### Strategy 3: CollaborationProject Namespace (SOE Pattern)
+
+Wells inside a CollaborationProject are **WIP** — they live in the CP namespace and
+don't pollute the SoR until published:
+
+```
+t0: Create CP (dataspace 'project-x/wells')
+t1: Ingest Well + WellLog into ETP dataspace
+t2: Build manifest → Well in CP namespace (WIP, not SoR)
+t3: Review/approve → Publish Well to SoR (promote to master-data)
+t4: CP lifecycle → Closed
+```
+
+Wells in a CP are "draft" master data. They carry `x-collaboration` header during
+ingestion, so OSDU knows they're namespace-scoped and not yet authoritative.
+
+**Best for:** Multi-user workflows where Wells need review before becoming authoritative.
+
+### Decision Matrix
+
+```mermaid
+flowchart TD
+  A[Manifest build time:<br/>Well referenced by WellLog] --> B{Well has osduAlias?}
+  B -->|YES| C[Strategy 1:<br/>Reference existing record]
+  B -->|NO| D{Inside a CollaborationProject?}
+  D -->|YES| E[Strategy 3:<br/>Create in CP namespace as WIP]
+  D -->|NO| F{createMissingReferences?}
+  F -->|true| G[Strategy 2:<br/>Create stub Well]
+  F -->|false| H[Error: missing reference]
+```
+
+### Practical Rules for Adding Logs
+
+1. **Well exists in OSDU** → pass its ID via `osduAlias` or `x-collaboration` header
+2. **New field study** → use a CollaborationProject dataspace (WIP wells)
+3. **Demo/local dev** → rely on `createMissingReferences: true` (auto-creates stubs)
+
+The DDMSDatasets merge pattern (already implemented) ensures that regardless of which
+path created the Well, subsequent WellLog ingestions **enrich** the record rather than
+duplicating it.

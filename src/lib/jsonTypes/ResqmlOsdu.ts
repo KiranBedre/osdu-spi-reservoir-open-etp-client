@@ -57,8 +57,6 @@ import { SeismicLineGeometryManifest } from "./SeismicLineGeometry";
 import { StratigraphicColumnManifest } from "./StratigraphicColumn";
 import { StratigraphicColumnRankInterpretationManifest } from "./StratigraphicColumnRankInterpretation";
 import { StratigraphicUnitInterpretationManifest } from "./StratigraphicUnitInterpretation";
-import { StructuralOrganizationInterpretationManifest } from "./StructuralOrganizationInterpretation";
-import { StructuralOrganizationInterpretation22Manifest } from "./StructuralOrganizationInterpretation22";
 import { SubRepresentationManifest } from "./SubRepresentation";
 import { TimeSeriesManifest } from "./TimeSeries";
 import { UnstructuredGridRepresentationManifest } from "./UnstructuredGridRepresentation";
@@ -472,18 +470,6 @@ ResqmlOSDU.add(
 
 // ─── Organization & Fluid Interpretations ────────────────────────────────────
 
-ResqmlOSDU.add(
-  "resqml20.obj_StructuralOrganizationInterpretation",
-  () =>
-    "osdu:wks:work-product-component--StructuralOrganizationInterpretation:1.2.0",
-  StructuralOrganizationInterpretationManifest
-);
-ResqmlOSDU.add(
-  "resqml22.StructuralOrganizationInterpretation",
-  () =>
-    "osdu:wks:work-product-component--StructuralOrganizationInterpretation:1.2.0",
-  StructuralOrganizationInterpretation22Manifest
-);
 ResqmlOSDU.add(
   "resqml20.obj_RockFluidOrganizationInterpretation",
   () =>
