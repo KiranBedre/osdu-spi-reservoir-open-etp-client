@@ -95,7 +95,7 @@ export default async function app(): Promise<NestExpressApplication> {
     new ValidationPipe({
       transform: true,
       skipUndefinedProperties: true,
-      transformerPackage: require("@nestjs/class-transformer"),
+      transformerPackage: require("class-transformer"),
       validatorPackage: require("class-validator"),
       // Enhanced validation options to catch deserialization failures
       whitelist: true, // Strip properties that don't have decorators
@@ -107,7 +107,7 @@ export default async function app(): Promise<NestExpressApplication> {
       dismissDefaultMessages: false, // Keep default error messages
       validationError: {
         target: false, // Don't include the target object in error
-        value: false   // Don't include the value in error (security)
+        value: false // Don't include the value in error (security)
       }
     })
   );

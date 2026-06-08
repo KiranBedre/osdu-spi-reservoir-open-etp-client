@@ -97,4 +97,3 @@ gc-acceptance-test:
       when: never
     - if: '$GC == "1" && $GC_INT_TEST_TYPE != "python"'
       when: on_success
-

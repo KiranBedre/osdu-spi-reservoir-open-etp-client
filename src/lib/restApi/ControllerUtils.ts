@@ -561,7 +561,8 @@ const schemaObjectFactory = new SchemaObjectFactory(
 export const getSchemasForType = (
   type: Type<unknown>,
   additionalProperties = false
-): SchemaObject => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any => {
   const schemas: Record<string, SchemasObject> = {};
   schemaObjectFactory.exploreModelSchema(type, schemas);
   const values = Object.values(schemas);
