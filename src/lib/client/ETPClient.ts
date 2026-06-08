@@ -296,7 +296,11 @@ export class ETPClient extends ETPCore {
       this.logTrace(
         `Peer ${this.connection.url} disconnected: ${event.reason}.`
       );
-    this.emit("disconnect", this.connection);
+    // Forward close code/reason to disconnect listeners so callers can
+    // surface them in structured error responses (HTTP 410 body for the
+    // REST layer). EventEmitter passes extra args through transparently;
+    // listeners that ignore them keep working unchanged.
+    this.emit("disconnect", this.connection, event.code, event.reason);
   }
 
   public onSocketMessage(msg: WebSocket.IMessageEvent): void {

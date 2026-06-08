@@ -17,7 +17,7 @@
 import { EventEmitter } from "events";
 import { w3cwebsocket } from "websocket";
 
-import { MessageFlags } from "./EtpTypes";
+import { EtpSessionTerminatedError, MessageFlags } from "./EtpTypes";
 import { SchemaCache } from "./Util";
 import { Energistics, Integer64 } from "./Etp12";
 
@@ -332,6 +332,28 @@ export class ETPCore extends EventEmitter {
     if (!this.binary) {
       throw new Error(
         "JSON message no longer supported, only binary is supported"
+      );
+    }
+    // Guard against a previously-open WebSocket that has been closed (or is
+    // closing) by the peer. Without this check, `this.connection.send(data)`
+    // would throw a raw "cannot call send() while not connected" transport
+    // error from W3CWebSocket — which the REST layer used to wrap as an
+    // opaque HTTP 500 (see WI 70414 cascade). Surface a typed error instead
+    // so callers learn the session is gone (mapped to HTTP 410 Gone by
+    // httpErrorFromEtpError). The `connection == null` case retains its
+    // historical silent no-op behavior so callers that legitimately operate
+    // without an open socket (e.g., unit tests, pre-session work) are not
+    // broken.
+    // Only treat the socket as terminated when it is actually closed or
+    // closing. `readyState !== OPEN` would also match `CONNECTING` and
+    // misreport a not-yet-ready socket as a terminated session.
+    if (
+      this.connection &&
+      (this.connection.readyState === w3cwebsocket.CLOSED ||
+        this.connection.readyState === w3cwebsocket.CLOSING)
+    ) {
+      throw new EtpSessionTerminatedError(
+        "ETP WebSocket session is not connected; cannot send message"
       );
     }
     this.stats.bytesSent += data.byteLength;

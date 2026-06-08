@@ -227,6 +227,41 @@ export class EtpError extends Error {
 }
 
 /**
+ * Indicates that the ETP WebSocket session backing a transaction has been
+ * terminated by the server (or the underlying socket is no longer open) and
+ * cannot accept further messages. Mapped to HTTP 410 Gone by the REST layer
+ * so callers learn the transaction is dead and must be re-created — instead
+ * of receiving an opaque 500 from a downstream `cannot call send() while not
+ * connected` raw transport error.
+ *
+ * @export
+ * @class EtpSessionTerminatedError
+ * @extends {EtpError}
+ */
+export class EtpSessionTerminatedError extends EtpError {
+  transactionId?: string;
+  closeCode?: number;
+  closeReason?: string;
+  terminatedAt: Date;
+  constructor(
+    message: string,
+    details?: {
+      transactionId?: string;
+      closeCode?: number;
+      closeReason?: string;
+      terminatedAt?: Date;
+    }
+  ) {
+    super(message, ErrorCode.EINVALID_STATE);
+    this.name = "EtpSessionTerminatedError";
+    this.transactionId = details?.transactionId;
+    this.closeCode = details?.closeCode;
+    this.closeReason = details?.closeReason;
+    this.terminatedAt = details?.terminatedAt ?? new Date();
+  }
+}
+
+/**
  * Convert a ProtocolException to an EtpError
  * @param ex ProtocolException
  * @returns EtpError with the error code and message

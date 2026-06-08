@@ -65,7 +65,11 @@ import {
   openApiPort
 } from "../common/config";
 import { ResourceGraph } from "../common/ResponseHandlers";
-import { ErrorCode, EtpError } from "../common/EtpTypes";
+import {
+  ErrorCode,
+  EtpError,
+  EtpSessionTerminatedError
+} from "../common/EtpTypes";
 
 import { bigIntToString } from "../mlTypes/XmlJsonUtil";
 
@@ -94,11 +98,107 @@ const etpClients = new Map<
     timeoutId: NodeJS.Timeout;
     pingIntervalId: NodeJS.Timeout;
     timeoutPeriod: number;
-    onDisconnect: () => void;
+    onDisconnect: (
+      connection?: unknown,
+      closeCode?: number,
+      closeReason?: string
+    ) => void;
   }
 >();
 
-const cleanupTransaction = (transactionId: string): void => {
+// Tombstones for transactions whose underlying WebSocket session was
+// terminated. Lets subsequent API calls return a structured HTTP 410 Gone
+// (with the close reason) instead of an opaque 404 "transaction does not
+// exist". Tombstones expire after TERMINATED_TOMBSTONE_TTL_MS so the map
+// does not grow without bound.
+const TERMINATED_TOMBSTONE_TTL_MS = 10 * 60 * 1000;
+const terminatedTransactions = new Map<
+  string,
+  {
+    terminatedAt: Date;
+    closeCode?: number;
+    closeReason?: string;
+    expiryTimeoutId: ReturnType<typeof setTimeout>;
+  }
+>();
+
+const scheduleTombstoneExpiry = (transactionId: string) => {
+  const id = setTimeout(
+    () => terminatedTransactions.delete(transactionId),
+    TERMINATED_TOMBSTONE_TTL_MS
+  );
+  id.unref?.();
+  return id;
+};
+
+const markTransactionTerminated = (
+  transactionId: string,
+  closeCode?: number,
+  closeReason?: string
+): void => {
+  // Merge semantics: if a tombstone already exists, fill in close metadata
+  // when (and only when) it was previously undefined. This keeps the timer
+  // single (no duplicate setTimeout per transaction) while still allowing a
+  // later cleanup path that has richer info (e.g. ping-failure recorded
+  // first, onDisconnect with code/reason arriving second) to enrich the
+  // tombstone surfaced in the HTTP 410 body.
+  const existing = terminatedTransactions.get(transactionId);
+  if (existing) {
+    let enriched = false;
+    if (existing.closeCode === undefined && closeCode !== undefined) {
+      existing.closeCode = closeCode;
+      enriched = true;
+    }
+    if (existing.closeReason === undefined && closeReason !== undefined) {
+      existing.closeReason = closeReason;
+      enriched = true;
+    }
+    // Refresh the TTL when the tombstone is enriched so the new metadata
+    // remains visible for a full TERMINATED_TOMBSTONE_TTL_MS window after
+    // the most recent update (otherwise a near-expiry tombstone could be
+    // deleted immediately after enrichment).
+    if (enriched) {
+      clearTimeout(existing.expiryTimeoutId);
+      existing.expiryTimeoutId = scheduleTombstoneExpiry(transactionId);
+    }
+    return;
+  }
+  terminatedTransactions.set(transactionId, {
+    terminatedAt: new Date(),
+    closeCode,
+    closeReason,
+    expiryTimeoutId: scheduleTombstoneExpiry(transactionId)
+  });
+};
+
+const throwIfTerminated = (transactionId: string): void => {
+  const tomb = terminatedTransactions.get(transactionId);
+  if (tomb) {
+    // The cause is server-initiated only when the close frame carried a
+    // reason (even an empty string is a valid server-supplied reason);
+    // local cleanup paths (ping failure, connection loss without a close
+    // frame) leave closeReason undefined.
+    const cause =
+      tomb.closeReason !== undefined
+        ? "has been terminated by the server"
+        : "is no longer connected";
+    throw new EtpSessionTerminatedError(
+      `The ETP session for transaction ${transactionId} ${cause}. Re-create the transaction and retry.`,
+      {
+        transactionId,
+        closeCode: tomb.closeCode,
+        closeReason: tomb.closeReason,
+        terminatedAt: tomb.terminatedAt
+      }
+    );
+  }
+};
+
+const cleanupTransaction = (
+  transactionId: string,
+  closeCode?: number,
+  closeReason?: string
+): void => {
   const t = etpClients.get(transactionId);
   if (t) {
     clearTimeout(t.timeoutId);
@@ -108,6 +208,11 @@ const cleanupTransaction = (transactionId: string): void => {
       `Transaction ${transactionId} cleaned up due to connection loss`
     );
   }
+  // Always tombstone, even when the client entry was already removed by an
+  // earlier cleanup path. This lets a later disconnect event (carrying
+  // closeCode/closeReason) merge its metadata into the existing tombstone
+  // so the HTTP 410 body still surfaces it.
+  markTransactionTerminated(transactionId, closeCode, closeReason);
 };
 
 /**
@@ -561,7 +666,8 @@ const schemaObjectFactory = new SchemaObjectFactory(
 export const getSchemasForType = (
   type: Type<unknown>,
   additionalProperties = false
-): SchemaObject => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+): any => {
   const schemas: Record<string, SchemasObject> = {};
   schemaObjectFactory.exploreModelSchema(type, schemas);
   const values = Object.values(schemas);
@@ -585,6 +691,7 @@ export const createSession = async (
   transactionId?: string
 ) => {
   if (transactionId) {
+    throwIfTerminated(transactionId);
     const c1 = etpClients.get(transactionId);
     if (c1 === undefined) {
       throw new EtpError(
@@ -594,9 +701,9 @@ export const createSession = async (
     }
     if (!c1.client.isConnected()) {
       cleanupTransaction(transactionId);
-      throw new EtpError(
+      throw new EtpSessionTerminatedError(
         `Transaction ${transactionId} connection was lost`,
-        ErrorCode.EINVALID_STATE
+        { transactionId }
       );
     }
     clearTimeout(c1.timeoutId);
@@ -675,8 +782,18 @@ export const createTransaction = async (
     .then(id => {
       const idString = EtpUri.uuidByteArrayToString(id);
 
-      const onDisconnect = () => {
-        cleanupTransaction(idString);
+      const onDisconnect = (
+        _connection?: unknown,
+        closeCode?: number,
+        closeReason?: string
+      ) => {
+        logger.warn("WS_SESSION_TERMINATED", {
+          transactionId: idString,
+          terminatedAt: new Date().toISOString(),
+          closeCode,
+          closeReason
+        });
+        cleanupTransaction(idString, closeCode, closeReason);
       };
 
       c.onDisconnect(onDisconnect);
@@ -728,14 +845,20 @@ export const createTransaction = async (
 };
 
 /**
- * Commit the transaction
+ * Shared finalization logic for commitTransaction / rollbackTransaction.
  *
- * @param {string} transactionId Transaction identifier
- * @returns
+ * Both operations share the same lifecycle: validate the transaction is
+ * still alive, clear timers, invoke the underlying ETP call (commit or
+ * rollback), handle mid-flight WebSocket termination, and best-effort
+ * close the session. Keeping this in one place avoids drift between the
+ * two paths and guarantees the `etpClients` map entry is always removed
+ * even if `closeSession()` throws.
  */
-export const commitTransaction = async (
-  transactionId: string
+const finalizeTransaction = async (
+  transactionId: string,
+  op: "commit" | "rollback"
 ): Promise<boolean> => {
+  throwIfTerminated(transactionId);
   const t = etpClients.get(transactionId);
   if (t === undefined) {
     throw new EtpError(
@@ -746,22 +869,102 @@ export const commitTransaction = async (
   clearTimeout(t.timeoutId);
   clearInterval(t.pingIntervalId);
   if (!t.client.isConnected()) {
+    // The disconnect listener may have already tombstoned this txn with
+    // server-provided close metadata; reuse it so the 410 body carries
+    // closeCode/closeReason instead of `undefined`.
+    const existing = terminatedTransactions.get(transactionId);
     etpClients.delete(transactionId);
-    throw new EtpError(
+    markTransactionTerminated(
+      transactionId,
+      existing?.closeCode,
+      existing?.closeReason
+    );
+    // Re-read after mark so terminatedAt reflects the tombstone we just
+    // wrote when there was no prior tombstone.
+    const tomb = existing ?? terminatedTransactions.get(transactionId);
+    throw new EtpSessionTerminatedError(
       `Transaction ${transactionId} connection was lost`,
-      ErrorCode.EINVALID_STATE
+      {
+        transactionId,
+        closeCode: tomb?.closeCode,
+        closeReason: tomb?.closeReason,
+        terminatedAt: tomb?.terminatedAt
+      }
     );
   }
-  t.client.offDisconnect(t.onDisconnect);
-  await t.client
-    .commitTransaction(EtpUri.uuidStringToByteArray(transactionId))
-    .catch(err => {
-      etpClients.delete(transactionId);
-      throw new EtpError(err.message, err.code);
-    });
-  await t.client.closeSession();
-  return etpClients.delete(transactionId);
+
+  // Use a try/finally that guarantees `etpClients.delete(transactionId)`
+  // runs regardless of whether the underlying op or closeSession() throws.
+  // Without this, a throw from closeSession() would leave a permanent
+  // dangling map entry (the timers above are already cleared, so nothing
+  // else would ever clean it up).
+  try {
+    // Keep the disconnect listener attached for the duration of the call
+    // so that if the WebSocket closes mid-flight (and ETPCore.sendData
+    // throws EtpSessionTerminatedError), the listener can still tombstone
+    // the transaction with closeCode/closeReason. Detach in `finally`.
+    try {
+      const uuidBytes = EtpUri.uuidStringToByteArray(transactionId);
+      const opPromise =
+        op === "commit"
+          ? t.client.commitTransaction(uuidBytes)
+          : t.client.rollbackTransaction(uuidBytes);
+      await opPromise.catch(err => {
+        if (err instanceof EtpSessionTerminatedError) {
+          // Lower layers (e.g. ETPCore.sendData) construct the error
+          // without a transactionId. Enrich it here so
+          // httpErrorFromEtpError emits a complete 410 body. Don't
+          // overwrite values already present.
+          if (!err.transactionId) {
+            err.transactionId = transactionId;
+          }
+          // The disconnect listener may have populated a tombstone with
+          // close code/reason concurrently with the throw; merge those in.
+          const tomb = terminatedTransactions.get(transactionId);
+          if (err.closeCode === undefined && tomb?.closeCode !== undefined) {
+            err.closeCode = tomb.closeCode;
+          }
+          if (
+            err.closeReason === undefined &&
+            tomb?.closeReason !== undefined
+          ) {
+            err.closeReason = tomb.closeReason;
+          }
+          markTransactionTerminated(
+            transactionId,
+            err.closeCode,
+            err.closeReason
+          );
+          throw err;
+        }
+        throw new EtpError(err.message, err.code);
+      });
+    } finally {
+      t.client.offDisconnect(t.onDisconnect);
+    }
+    // The socket may have closed between the op completing and us reaching
+    // here; calling closeSession() in that case would send on a dead
+    // socket and (with the narrowed sendData guard) throw
+    // EtpSessionTerminatedError, masking a successful commit/rollback.
+    // Skip it. If closeSession() itself throws for any other reason, the
+    // outer finally below still cleans up the map entry.
+    if (t.client.isConnected()) {
+      await t.client.closeSession();
+    }
+  } finally {
+    etpClients.delete(transactionId);
+  }
+  return true;
 };
+
+/**
+ * Commit the transaction
+ *
+ * @param {string} transactionId Transaction identifier
+ * @returns
+ */
+export const commitTransaction = (transactionId: string): Promise<boolean> =>
+  finalizeTransaction(transactionId, "commit");
 
 /**
  * Rollback the transaction
@@ -769,35 +972,8 @@ export const commitTransaction = async (
  * @param {string} transactionId Transaction identifier
  * @returns
  */
-export const rollbackTransaction = async (
-  transactionId: string
-): Promise<boolean> => {
-  const t = etpClients.get(transactionId);
-  if (t === undefined) {
-    throw new EtpError(
-      `Transaction ${transactionId} does not exists`,
-      ErrorCode.ENOT_FOUND
-    );
-  }
-  clearTimeout(t.timeoutId);
-  clearInterval(t.pingIntervalId);
-  if (!t.client.isConnected()) {
-    etpClients.delete(transactionId);
-    throw new EtpError(
-      `Transaction ${transactionId} connection was lost`,
-      ErrorCode.EINVALID_STATE
-    );
-  }
-  t.client.offDisconnect(t.onDisconnect);
-  await t.client
-    .rollbackTransaction(EtpUri.uuidStringToByteArray(transactionId))
-    .catch(err => {
-      etpClients.delete(transactionId);
-      throw new EtpError(err.message, err.code);
-    });
-  await t.client.closeSession();
-  return etpClients.delete(transactionId);
-};
+export const rollbackTransaction = (transactionId: string): Promise<boolean> =>
+  finalizeTransaction(transactionId, "rollback");
 
 /**
  * Create the string part of etp uri based on REST query
@@ -1002,6 +1178,35 @@ export const httpErrorFromEtpError = (
     return error;
   }
 
+  // ETP WebSocket session terminated mid-request (or already-tombstoned
+  // transaction). Surface as HTTP 410 Gone with a structured body so callers
+  // know the transaction is dead and must be re-created. This replaces the
+  // previous opaque 500 cascade ("cannot call send() while not connected")
+  // that occurred when subsequent writes / rollback retries reused a closed
+  // ETP socket.
+  if (error instanceof EtpSessionTerminatedError) {
+    logger.error(
+      context
+        ? `[ETP] Session terminated (${context}):`
+        : "[ETP] Session terminated:",
+      {
+        transactionId: error.transactionId,
+        closeCode: error.closeCode,
+        closeReason: error.closeReason,
+        terminatedAt: error.terminatedAt?.toISOString()
+      }
+    );
+    return new GoneException({
+      code: "WEBSOCKET_SESSION_TERMINATED",
+      description: error.message,
+      transactionId: error.transactionId,
+      closeCode: error.closeCode,
+      closeReason: error.closeReason,
+      terminatedAt: error.terminatedAt?.toISOString(),
+      retryable: false
+    });
+  }
+
   // JS allows `throw "string"` / `throw 42`, so handle non-object throws
   // explicitly before the object-with-message narrow.
   let rawMessage = "";
@@ -1129,7 +1334,6 @@ export const httpErrorFromEtpError = (
       }
     }
   }
-
   // Non-EtpError, non-HttpException: this is a genuine server fault
   // (TypeError, RangeError, library bug, etc.) — return 500, not 400.
   // Log the full error (including stack) server-side for triage; only

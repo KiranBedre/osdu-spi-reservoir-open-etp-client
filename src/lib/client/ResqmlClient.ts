@@ -516,22 +516,36 @@ export class ResqmlClient {
   }
 
   /**
-   * Register a callback to be invoked when the client disconnects
+   * Register a callback to be invoked when the client disconnects.
+   * The callback may optionally receive the connection, WebSocket close code
+   * and close reason emitted by `ETPClient.onSocketClose`.
    *
-   * @param {() => void} callback The callback to invoke on disconnect
+   * @param callback The callback to invoke on disconnect
    * @memberof ResqmlClient
    */
-  public onDisconnect(callback: () => void): void {
+  public onDisconnect(
+    callback: (
+      connection?: unknown,
+      closeCode?: number,
+      closeReason?: string
+    ) => void
+  ): void {
     this.client.on("disconnect", callback);
   }
 
   /**
    * Unregister a disconnect callback
    *
-   * @param {() => void} callback The callback to remove
+   * @param callback The callback to remove
    * @memberof ResqmlClient
    */
-  public offDisconnect(callback: () => void): void {
+  public offDisconnect(
+    callback: (
+      connection?: unknown,
+      closeCode?: number,
+      closeReason?: string
+    ) => void
+  ): void {
     this.client.off("disconnect", callback);
   }
 
@@ -987,12 +1001,15 @@ export class ResqmlClient {
         .then(this.checkErrors.bind(this))
         .then(() => this.dataspaceOSDU.copyDataspacesContent([originURI], uri))
         .then(this.checkErrors.bind(this))
-        .catch(async (err) => {
+        .catch(async err => {
           // Rollback: delete the destination dataspace to avoid orphaned empty dataspaces
           try {
             await this.dataspace.DeleteDataspaces([uri]);
           } catch (cleanupErr) {
-            this.logger.error("Failed to clean up destination dataspace after clone failure", cleanupErr);
+            this.logger.error(
+              "Failed to clean up destination dataspace after clone failure",
+              cleanupErr
+            );
           }
           throw err;
         });
