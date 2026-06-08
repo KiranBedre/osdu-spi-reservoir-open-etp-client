@@ -34,6 +34,7 @@ import {
   ApiBody,
   ApiDefaultResponse,
   ApiForbiddenResponse,
+  ApiGoneResponse,
   ApiHeader,
   ApiInternalServerErrorResponse,
   ApiNotAcceptableResponse,
@@ -84,7 +85,8 @@ import {
   patternString,
   swaggerServers,
   transactionIdQueryParam,
-  uuidPattern
+  uuidPattern,
+  webSocketSessionTerminatedSchema
 } from "../ControllerUtils";
 
 import { AvroString, Integer32 } from "../../common/Etp12";
@@ -273,6 +275,7 @@ const partitionId = process.env.DATA_PARTITION_ID ?? "data-partition-id";
 @ApiNotFoundResponse(errorMessageSchema("Not found", 404))
 @ApiNotAcceptableResponse(errorMessageSchema("Not acceptable response", 406))
 @ApiTooManyRequestsResponse(errorMessageSchema("Too many request", 429))
+@ApiGoneResponse(webSocketSessionTerminatedSchema())
 @ApiInternalServerErrorResponse(errorMessageSchema(`Unknown Error`, 500))
 @ApiDefaultResponse(errorMessageSchema(`Unknown Error`, 500))
 @Controller("dataspaces/:dataspaceId/resources")

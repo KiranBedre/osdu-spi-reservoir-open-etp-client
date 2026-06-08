@@ -32,6 +32,7 @@ import {
   ApiBearerAuth,
   ApiDefaultResponse,
   ApiForbiddenResponse,
+  ApiGoneResponse,
   ApiHeader,
   ApiInternalServerErrorResponse,
   ApiNotAcceptableResponse,
@@ -84,7 +85,8 @@ import {
   swaggerServers,
   toDate,
   toJSonCustomData,
-  transactionIdQueryParam
+  transactionIdQueryParam,
+  webSocketSessionTerminatedSchema
 } from "../ControllerUtils";
 
 import express from "express";
@@ -618,6 +620,7 @@ const partitionId = process.env.DATA_PARTITION_ID ?? "data-partition-id";
 @ApiNotFoundResponse(errorMessageSchema("Not found", 404))
 @ApiNotAcceptableResponse(errorMessageSchema("Not acceptable response", 406))
 @ApiTooManyRequestsResponse(errorMessageSchema("Too many requests", 429))
+@ApiGoneResponse(webSocketSessionTerminatedSchema())
 @ApiInternalServerErrorResponse(errorMessageSchema(`Unknown Error`, 500))
 @ApiDefaultResponse(errorMessageSchema(`Unknown Error`, 500))
 @Controller("dataspaces")

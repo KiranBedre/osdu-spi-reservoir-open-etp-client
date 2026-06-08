@@ -33,6 +33,7 @@ import {
   ApiHeader,
   ApiDefaultResponse,
   ApiForbiddenResponse,
+  ApiGoneResponse,
   ApiInternalServerErrorResponse,
   ApiNoContentResponse,
   ApiNotAcceptableResponse,
@@ -79,7 +80,8 @@ import {
   httpErrorFromEtpError,
   patternString,
   swaggerServers,
-  partitionPattern
+  partitionPattern,
+  webSocketSessionTerminatedSchema
 } from "../ControllerUtils";
 
 import {
@@ -158,6 +160,7 @@ const partitionId = process.env.DATA_PARTITION_ID ?? "data-partition-id";
 @ApiNotFoundResponse(errorMessageSchema("Not found", 404))
 @ApiNotAcceptableResponse(errorMessageSchema("Not acceptable response", 406))
 @ApiTooManyRequestsResponse(errorMessageSchema("Too many request", 429))
+@ApiGoneResponse(webSocketSessionTerminatedSchema())
 @ApiInternalServerErrorResponse(errorMessageSchema(`Unknown Error`, 500))
 @ApiDefaultResponse(errorMessageSchema(`Unknown Error`, 500))
 @Controller("dataspaces")

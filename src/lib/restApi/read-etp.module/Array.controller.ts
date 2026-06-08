@@ -32,6 +32,7 @@ import {
   ApiBearerAuth,
   ApiDefaultResponse,
   ApiForbiddenResponse,
+  ApiGoneResponse,
   ApiHeader,
   ApiInternalServerErrorResponse,
   ApiNotAcceptableResponse,
@@ -90,7 +91,8 @@ import {
   swaggerServers,
   toJSonCustomData,
   transactionIdQueryParam,
-  uuidPattern
+  uuidPattern,
+  webSocketSessionTerminatedSchema
 } from "../ControllerUtils";
 
 import { uriPattern, versionQueryParam } from "./Resource.controller";
@@ -521,6 +523,7 @@ const partitionId = process.env.DATA_PARTITION_ID ?? "data-partition-id";
 @ApiNotFoundResponse(errorMessageSchema("Not found", 404))
 @ApiNotAcceptableResponse(errorMessageSchema("Not acceptable response", 406))
 @ApiTooManyRequestsResponse(errorMessageSchema("Too many request", 429))
+@ApiGoneResponse(webSocketSessionTerminatedSchema())
 @ApiInternalServerErrorResponse(errorMessageSchema(`Unknown Error`, 500))
 @ApiDefaultResponse(errorMessageSchema(`Unknown Error`, 500))
 @Controller("/dataspaces/:dataspaceId/resources/:dataObjectType/:guid")
