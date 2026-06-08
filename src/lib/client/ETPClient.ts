@@ -207,9 +207,9 @@ export class ETPClient extends ETPCore {
     messageBody: Energistics.Etp.v12.Protocol.Core.OpenSession
   ): void {
     this.logTrace(
-      `Opened Session ${stringifyUuid(messageBody.serverInstanceId)} with ${
-        this.host
-      }`
+      `Opened Session ${stringifyUuid(
+        new Uint8Array(messageBody.serverInstanceId)
+      )} with ${this.host}`
     );
     this.sessionId = messageBody.serverInstanceId;
     const payloadSize = messageBody.endpointCapabilities.get(

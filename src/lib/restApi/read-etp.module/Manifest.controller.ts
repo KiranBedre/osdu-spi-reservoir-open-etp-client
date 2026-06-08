@@ -69,7 +69,7 @@ import {
   ValidateNested,
   Matches
 } from "class-validator";
-import { Type } from "@nestjs/class-transformer";
+import { Type } from "class-transformer";
 
 import {
   IAcceptableUsage,

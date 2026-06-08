@@ -35,12 +35,12 @@ MIT
 ========================================================================
 The following software have components provided under the terms of this license:
 
-- @nestjs/class-transformer (from https://www.npmjs.com/package/@nestjs/class-transformer)
 - @nestjs/common (from https://nestjs.com/)
 - @nestjs/core (from https://nestjs.com/)
 - @nestjs/platform-express (from https://nestjs.com/)
 - @nestjs/swagger (from https://github.com/nestjs/swagger#readme)
 - bunyan (from https://www.npmjs.com/package/bunyan)
+- class-transformer (from https://github.com/typestack/class-transformer#readme)
 - class-validator (from https://github.com/typestack/class-validator#readme)
 - events (from https://github.com/Gozala/events#readme)
 - express (from https://expressjs.com/)

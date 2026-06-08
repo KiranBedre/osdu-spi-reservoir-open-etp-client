@@ -126,7 +126,7 @@ export class DataspaceDto {
     type: "object",
     required: false,
     additionalProperties: alphaSpaceSchema
-  })
+  } as any)
   @IsOptional()
   @IsObject()
   CustomData?: any;
@@ -199,7 +199,6 @@ export default class DataspaceMutationsAPI {
     }
   })
   @ApiOkResponse({
-    status: 201,
     description: "Success",
     schema: {
       type: "array",
@@ -319,7 +318,6 @@ export default class DataspaceMutationsAPI {
     }
   })
   @ApiOkResponse({
-    status: 201,
     description: "Success",
     schema: {
       type: "string",

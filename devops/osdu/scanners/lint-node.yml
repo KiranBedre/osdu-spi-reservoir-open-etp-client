@@ -1,5 +1,5 @@
 rdms_rest_lint:
-  image: node:18.18
+  image: node:22.22.1
   tags: ["osdu-small"]
   stage: scan
   needs: ["compile-and-unit-test"]
