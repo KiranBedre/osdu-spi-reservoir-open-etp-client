@@ -422,6 +422,66 @@ export const errorMessageSchema = (
 };
 
 /**
+ * Schema describing the structured HTTP 410 Gone response returned when the
+ * underlying ETP WebSocket session has been terminated by the server. The
+ * transaction is irrecoverable; clients must open a new transaction instead
+ * of retrying against the same one.
+ */
+export const webSocketSessionTerminatedSchema = (): {
+  description: string;
+  schema: SchemaObject;
+} => ({
+  description:
+    "The underlying ETP WebSocket session has been terminated by the " +
+    "ETP server. The transaction is no longer usable and must not be " +
+    "retried; clients should open a new transaction.",
+  schema: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      code: {
+        type: "string",
+        example: "WEBSOCKET_SESSION_TERMINATED",
+        description:
+          "Stable machine-readable identifier for this error condition."
+      },
+      description: {
+        type: "string",
+        example:
+          "ETP WebSocket session terminated (code 1011, reason: " +
+          "Internal server error)."
+      },
+      transactionId: {
+        type: "string",
+        format: "uuid",
+        description: "Transaction id that was terminated."
+      },
+      closeCode: {
+        type: "integer",
+        format: "int32",
+        example: 1011,
+        description: "WebSocket close code reported by the ETP server."
+      },
+      closeReason: {
+        type: "string",
+        description: "WebSocket close reason reported by the ETP server."
+      },
+      terminatedAt: {
+        type: "string",
+        format: "date-time",
+        description: "ISO-8601 timestamp when the session was terminated."
+      },
+      retryable: {
+        type: "boolean",
+        example: false,
+        description:
+          "Always false. The transaction cannot be reused; open a new one."
+      }
+    }
+  }
+});
+
+/**
  * Check bearer token presence on protected routes
  *
  * @param {(string | string[])} [type]

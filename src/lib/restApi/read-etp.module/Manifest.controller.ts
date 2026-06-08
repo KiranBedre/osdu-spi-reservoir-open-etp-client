@@ -28,6 +28,7 @@ import {
   ApiBody,
   ApiDefaultResponse,
   ApiForbiddenResponse,
+  ApiGoneResponse,
   ApiHeader,
   ApiInternalServerErrorResponse,
   ApiNotAcceptableResponse,
@@ -51,7 +52,8 @@ import {
   httpErrorFromEtpError,
   partitionPattern,
   patternString,
-  swaggerServers
+  swaggerServers,
+  webSocketSessionTerminatedSchema
 } from "../ControllerUtils";
 
 import { datePattern } from "./Resource.controller";
@@ -414,6 +416,7 @@ export class ManifestDto {
 @ApiNotFoundResponse(errorMessageSchema("Not found", 404))
 @ApiNotAcceptableResponse(errorMessageSchema("Not acceptable response", 406))
 @ApiTooManyRequestsResponse(errorMessageSchema("Too many request", 429))
+@ApiGoneResponse(webSocketSessionTerminatedSchema())
 @ApiInternalServerErrorResponse(errorMessageSchema(`Unknown Error`, 500))
 @ApiDefaultResponse(errorMessageSchema(`Unknown Error`, 500))
 @Controller("manifests")
