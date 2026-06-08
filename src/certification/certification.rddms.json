@@ -1,0 +1,46 @@
+{
+  "etpServerUrl": "ws://localhost:9002",
+  "jwtToken": "",
+  "dataPartition": "opendes",
+  "dataPartitionMode": "single",
+  "supportTransportAuthorization": false,
+  "supportApplicationAuthorization": false,
+  "serverRequiresAuthorization": false,
+  "runExperimental": true,
+
+  "protocols": {
+    "dataspace": {
+      "supported": true,
+      "testDataspace": "test/certification"
+    },
+    "discovery": {
+      "supported": true
+    },
+    "store": {
+      "supported": true,
+      "supportsWrite": true,
+      "wellUriForGet": "eml:///dataspace('test/certification')/resqml22.WellboreFeature"
+    },
+    "transaction": {
+      "supported": true
+    },
+
+    "discoveryQuery": {
+      "supported": true,
+      "testDataspace": "test/certification"
+    },
+    "storeQuery": {
+      "supported": true,
+      "testDataspace": "test/certification"
+    },
+
+    "growingObject": {
+      "supported": true,
+      "testDataspace": "test/certification"
+    },
+    "channelSubscribe": {
+      "supported": true,
+      "testDataspace": "test/certification"
+    }
+  }
+}

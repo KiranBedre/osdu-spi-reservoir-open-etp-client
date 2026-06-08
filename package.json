@@ -26,6 +26,7 @@
     "docker:compose:start": "npm run docker:compose:base -- up -d -V --force-recreate --remove-orphans",
     "docker:compose:stop": "npm run docker:compose:base -- down --volumes --remove-orphans",
     "test": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit",
+    "test:integration": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit --testPathPattern='TestClient|TestProtocols|TestWitsmlQuery'",
     "test:cov": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit --coverage",
     "test:debug": "npm run env:set -- node --inspect-brk ./node_modules/jest/bin/jest.js --coverage=false --runInBand",
     "test:single": "npm run env:set -- jest --coverage=false --runInBand",
@@ -79,7 +80,7 @@
     "@nestjs/platform-express": "^11.1.19",
     "@nestjs/swagger": "^11.4.2",
     "bunyan": "~1.8.15",
-    "class-transformer": "^0.5.1",
+    "class-transformer": "~0.5.1",
     "class-validator": "~0.14.1",
     "events": "~3.3.0",
     "express": "^5.2.1",
@@ -106,6 +107,7 @@
     "@commitlint/cz-commitlint": "~18.2.0",
     "@commitlint/prompt": "~18.2.0",
     "@commitlint/prompt-cli": "~18.2.0",
+    "@types/adm-zip": "~0.5.8",
     "@types/bunyan": "~1.8.11",
     "@types/express": "~4.17.21",
     "@types/jest": "~29.5.14",
@@ -122,6 +124,7 @@
     "@types/validator": "~13.11.10",
     "@types/websocket": "~1.0.10",
     "@typescript-eslint/eslint-plugin": "~6.9.1",
+    "adm-zip": "~0.5.17",
     "commander": "~11.1.0",
     "commitizen": "~4.3.1",
     "cpy-cli": "~4.2.0",
@@ -218,7 +221,11 @@
     ],
     "testPathIgnorePatterns": [
       "<rootDir>/node_modules",
-      "<rootDir>/dist"
+      "<rootDir>/dist",
+      "<rootDir>/docs/",
+      "<rootDir>/src/__tests__/TestClient.ts",
+      "<rootDir>/src/__tests__/TestProtocols.ts",
+      "<rootDir>/src/__tests__/TestWitsmlQuery.ts"
     ],
     "testEnvironmentOptions": {
       "url": "http://localhost"
