@@ -5,6 +5,8 @@ import * as resqml22 from "./xmlns/www.energistics.org/energyml/resqmlv22/resqml
 import * as witsml21 from "./xmlns/www.energistics.org/energyml/witsmlv21/witsmlv2";
 import * as prodml22 from "./xmlns/www.energistics.org/energyml/prodmlv22/prodmlv2";
 import * as prodml23 from "./xmlns/www.energistics.org/energyml/prodmlv23/prodmlv2";
+import { BadRequestException } from "@nestjs/common";
+
 import { parseJSON } from "./XmlJsonUtil";
 
 import { EtpQualifiedType } from "../common/EtpQualifiedType";
@@ -61,6 +63,14 @@ type EmlDocument = Record<string, any>;
  * @export
  * @class XMLBuilder
  */
+/**
+ * Maximum length of an invalid date value echoed back in a BadRequestException
+ * description. A valid XSD dateTime string is ~33 characters (e.g.
+ * "2024-01-01T00:00:00.000Z"), so 40 leaves a small buffer while keeping error
+ * payloads bounded.
+ */
+const MAX_INVALID_DATE_VALUE_LENGTH = 40;
+
 export class XMLBuilder {
   private attributeNamePrefix: string;
   private indentString: string;
@@ -619,8 +629,25 @@ export class XMLBuilder {
       try {
         this.createDateFromXsdDateTime(value);
       } catch (e) {
-        // Invalid date format
-        value = new Date(value).toISOString();
+        // Lenient fallback: accept any value that JavaScript's Date can parse
+        // (e.g. ISO 8601 without sub-second precision). If neither the strict
+        // XSD regex nor Date can parse the value, reject the request with a
+        // 400 Bad Request instead of crashing with a 500 RangeError
+        // (`new Date(value).toISOString()` throws "Invalid time value" for
+        // unparseable inputs such as "", "0000-00-00", "not-a-date").
+        const d = new Date(value);
+        if (isNaN(d.getTime())) {
+          const truncatedValue =
+            value.length > MAX_INVALID_DATE_VALUE_LENGTH
+              ? value.substring(0, MAX_INVALID_DATE_VALUE_LENGTH) + '...'
+              : value;
+          throw new BadRequestException({
+            description:
+              `Invalid date value for field '${key}': '${truncatedValue}'. ` +
+              `Expected XSD dateTime format (e.g. 2024-01-01T00:00:00Z).`
+          });
+        }
+        value = d.toISOString();
       }
     }
     const textValue = this.replaceEntitiesValue(value);
