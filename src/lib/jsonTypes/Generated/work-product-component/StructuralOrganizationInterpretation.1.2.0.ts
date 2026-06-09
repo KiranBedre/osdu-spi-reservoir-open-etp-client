@@ -85,6 +85,10 @@ export interface Data {
   FaultInterpretationIDs?: string[];
   /** References to the HorizonInterpretation objects belonging to this structural organization, ordered. */
   HorizonInterpretationIDs?: string[];
+  /** References to the GeobodyBoundaryInterpretation objects belonging to this organization. */
+  GeobodyBoundaryInterpretationIDs?: string[];
+  /** Tectonic setting for this structural organization. */
+  TectonicSettingTypeID?: string;
   /** References to boundary interpretations forming the top frontier. */
   TopFrontierIDs?: string[];
   /** References to boundary interpretations forming the bottom frontier. */

@@ -2078,6 +2078,10 @@ export class ResqmlWorkProductComponent<
         context
       ),
       FeatureName: feat.Citation.Title,
+      MeanPossibleAge:
+        OlderPossibleAge !== undefined && YoungerPossibleAge !== undefined
+          ? (OlderPossibleAge + YoungerPossibleAge) / 2
+          : OlderPossibleAge ?? YoungerPossibleAge,
       OlderPossibleAge,
       YoungerPossibleAge
     };

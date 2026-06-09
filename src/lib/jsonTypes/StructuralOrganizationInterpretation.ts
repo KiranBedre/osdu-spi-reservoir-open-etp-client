@@ -73,6 +73,8 @@ export class StructuralOrganizationInterpretationOSDU
       ),
       FaultInterpretationIDs: faultIds.length > 0 ? faultIds : undefined,
       HorizonInterpretationIDs: horizonIds.length > 0 ? horizonIds : undefined,
+      GeobodyBoundaryInterpretationIDs: undefined,
+      TectonicSettingTypeID: undefined,
       TopFrontierIDs: topIds.length > 0 ? topIds : undefined,
       BottomFrontierIDs: bottomIds.length > 0 ? bottomIds : undefined,
       SideIDs: sideIds.length > 0 ? sideIds : undefined,

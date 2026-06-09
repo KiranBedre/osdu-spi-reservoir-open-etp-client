@@ -80,7 +80,7 @@ export interface Data {
   FeatureName?: string;
 
   /** The fluid phase of this rock-fluid unit (e.g. "aquifer", "gas cap", "oil column"). */
-  PhaseID?: string;
+  FluidPhaseTypeID?: string;
   /** Shape of the geologic unit (reference-data--GeologicUnitShapeType). */
   GeologicUnitShapeTypeID?: string;
   /** Lithology type of the geologic unit (reference-data--LithologyType). */
