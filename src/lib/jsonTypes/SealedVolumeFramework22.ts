@@ -49,7 +49,7 @@ export class SealedVolumeFramework22OSDU
       ...(await this.AbstractCommonResources(context)),
       ...(await this.AbstractWPCGroupType(ReservoirDMSUrl, context)),
       ...(await this.AbstractWorkProductComponent(xml, context)),
-      BasedOnID: await SealedVolumeFramework22OSDU.dorToSrn(
+      SealedSurfaceFrameworkID: await SealedVolumeFramework22OSDU.dorToSrn(
         ReservoirDMSUrl,
         xml.BasedOn,
         client,

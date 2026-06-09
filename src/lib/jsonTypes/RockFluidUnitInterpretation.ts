@@ -45,8 +45,8 @@ export class RockFluidUnitInterpretationOSDU
         client,
         context
       )),
-      PhaseID: context.addReferenceData(
-        "RockFluidUnitPhase",
+      FluidPhaseTypeID: context.addReferenceData(
+        "FluidPhaseType",
         this.capitalize(xml.Phase)
       ),
       GeologicUnitShapeTypeID: undefined,

@@ -73,7 +73,7 @@ export interface Data {
   Tags?: string[];
 
   /** Reference to the SealedSurfaceFramework this volume framework is based on. */
-  BasedOnID?: string;
+  SealedSurfaceFrameworkID?: string;
   /** Whether all representations in the set share the same type. */
   IsHomogeneous?: boolean;
   /** References to the representations composing this framework. */

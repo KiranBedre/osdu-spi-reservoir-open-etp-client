@@ -328,12 +328,12 @@ ResqmlOSDU.add(
 );
 ResqmlOSDU.add(
   "resqml20.obj_SeismicLatticeFeature",
-  () => "osdu:wks:master-data--SeismicAcquisitionSurvey.1.4.0",
+  () => "osdu:wks:master-data--SeismicAcquisitionSurvey:1.4.0",
   SeismicLatticeFeatureManifest
 );
 ResqmlOSDU.add(
   "resqml22.SeismicLatticeFeature",
-  () => "osdu:wks:master-data--SeismicAcquisitionSurvey.1.4.0",
+  () => "osdu:wks:master-data--SeismicAcquisitionSurvey:1.4.0",
   SeismicLatticeFeature22Manifest
 );
 ResqmlOSDU.add(
@@ -407,11 +407,6 @@ ResqmlOSDU.add(
 );
 ResqmlOSDU.add(
   "resqml20.obj_TectonicBoundaryFeature",
-  () => "osdu:wks:work-product-component--LocalBoundaryFeature:1.2.0",
-  LocalBoundaryFeatureManifest
-);
-ResqmlOSDU.add(
-  "resqml22.BoundaryFeature",
   () => "osdu:wks:work-product-component--LocalBoundaryFeature:1.2.0",
   LocalBoundaryFeatureManifest
 );

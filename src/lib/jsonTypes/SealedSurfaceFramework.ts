@@ -57,7 +57,7 @@ export class SealedSurfaceFrameworkOSDU
       ),
       InterpretationName: xml.RepresentedInterpretation?.Title,
       IsHomogeneous: xml.IsHomogeneous,
-      RepresentationIDs: repIds.length > 0 ? repIds : undefined,
+      GenericRepresentationIDs: repIds.length > 0 ? repIds : undefined,
       SealedContactCount: xml.SealedContactRepresentation?.length,
       ContactIdentityCount: xml.ContactIdentity?.length,
       ExtensionProperties: undefined

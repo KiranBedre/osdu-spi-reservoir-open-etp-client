@@ -79,7 +79,7 @@ export interface Data {
   /** Whether all representations in the set share the same type. */
   IsHomogeneous?: boolean;
   /** References to the surface representations composing this framework. */
-  RepresentationIDs?: string[];
+  GenericRepresentationIDs?: string[];
   /** Number of sealed contacts in the framework. */
   SealedContactCount?: number;
   /** Number of contact identity entries. */

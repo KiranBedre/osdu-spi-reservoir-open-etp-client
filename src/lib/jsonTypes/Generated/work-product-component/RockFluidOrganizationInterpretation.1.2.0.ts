@@ -80,7 +80,7 @@ export interface Data {
   FeatureName?: string;
 
   /** References to the RockFluidUnitInterpretation objects belonging to this organization. */
-  RockFluidUnitInterpretationIDs?: string[];
+  MemberIDs?: string[];
 
   ExtensionProperties?: { [key: string]: any };
 }

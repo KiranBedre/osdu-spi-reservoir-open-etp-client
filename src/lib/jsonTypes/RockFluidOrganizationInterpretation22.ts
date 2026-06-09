@@ -55,7 +55,7 @@ export class RockFluidOrganizationInterpretation22OSDU
         client,
         context
       )),
-      RockFluidUnitInterpretationIDs:
+      MemberIDs:
         unitIds.length > 0 ? unitIds : undefined,
       ExtensionProperties: undefined
     };
