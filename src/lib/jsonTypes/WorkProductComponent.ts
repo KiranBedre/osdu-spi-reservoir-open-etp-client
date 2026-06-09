@@ -590,7 +590,14 @@ export const getGeometries = (
     return polyLine.LinePatch.map(p => p.Geometry);
   } else if (xml.$type === "resqml22.PointSetRepresentation") {
     const points = xml as SimpleJson<resqml22.PointSetRepresentation>;
-    return points.NodePatchGeometry;
+    if (!points.NodePatchGeometry) {
+      throw new Error(
+        `Invalid PointSetRepresentation: NodePatchGeometry is required per RESQML standard`
+      );
+    }
+    return Array.isArray(points.NodePatchGeometry)
+      ? points.NodePatchGeometry
+      : [points.NodePatchGeometry];
   } else if (xml.$type === "resqml22.PolylineRepresentation") {
     const line = xml as SimpleJson<resqml22.PolylineRepresentation>;
     return [line.NodePatchGeometry];
@@ -642,11 +649,11 @@ export const getMinMaxPoints = async (
           if (mod === 0) {
             minX = Math.min(v, minX);
             maxX = Math.max(v, maxX);
+            pNodeCount++;
           } else if (mod === 1) {
             minY = Math.min(v, minY);
             maxY = Math.max(v, maxY);
           }
-          pNodeCount++;
         }
       });
     });
@@ -743,11 +750,11 @@ export const getMinMaxPoints = async (
           if (mod === 0) {
             minX = Math.min(v, minX);
             maxX = Math.max(v, maxX);
+            pNodeCount++;
           } else if (mod === 1) {
             minY = Math.min(v, minY);
             maxY = Math.max(v, maxY);
           }
-          pNodeCount++;
         }
       });
     });
@@ -952,21 +959,17 @@ export class ResqmlResource<RES_TYPE extends IResqmlDataObject> {
     const xml = dor
       ? await this.getObjectFromDor(client, uri, dor, context)
       : undefined;
-    const srn =
-      dor === undefined || xml === undefined
-        ? undefined
-        : context.uriToSrn(ResqmlWorkProductComponent.dorToUri(uri, dor), xml);
+    const dorUri = dor ? ResqmlWorkProductComponent.dorToUri(uri, dor) : undefined;
+    const srn = xml === undefined || dorUri === undefined
+      ? undefined
+      : context.uriToSrn(dorUri, xml);
     return srn === undefined ? undefined : srn + ":";
   }
 
   /**
-   * Convert a Data Object Reference to an ETP URI
-   *
-   * @static
-   * @param {string} uri
-   * @param {SimpleJson<eml20.DataObjectReference|eml23.DataObjectReference>} dor
-   * @returns {string}
-   * @memberof WorkProductComponent
+   * Convert a Data Object Reference to an ETP URI.
+   * Supports both EML 2.0 (ContentType) and EML 2.3 (QualifiedType) DOR formats.
+   * @throws {Error} if the DOR has neither ContentType nor QualifiedType
    */
   public static dorToUri(
     uri: string,
@@ -976,12 +979,18 @@ export class ResqmlResource<RES_TYPE extends IResqmlDataObject> {
     if (dor20.ContentType !== undefined) {
       const refType = new EtpContentType(dor20.ContentType).etpType;
       const ds = EtpUri.createDataSpaceUri(new EtpUri(uri).dataSpace).uri;
-      return `${ds}/${refType}(${dor20.UUID})`;
+      const uuid = dor20.UUID ?? (dor as any).Uuid;
+      return `${ds}/${refType}(${uuid})`;
     }
     const dor23 = dor as SimpleJson<eml23.DataObjectReference>;
-    const refType = dor23.QualifiedType;
-    const ds = EtpUri.createDataSpaceUri(new EtpUri(uri).dataSpace).uri;
-    return `${ds}/${refType}(${dor23.Uuid})`;
+    if (dor23.QualifiedType !== undefined) {
+      const refType = dor23.QualifiedType;
+      const ds = EtpUri.createDataSpaceUri(new EtpUri(uri).dataSpace).uri;
+      return `${ds}/${refType}(${dor23.Uuid})`;
+    }
+    throw new Error(
+      `Invalid DataObjectReference: missing ContentType (EML 2.0) or QualifiedType (EML 2.3). URI: ${uri}, DOR: ${JSON.stringify(dor)}`
+    );
   }
 
   /**
@@ -1038,6 +1047,9 @@ export class ResqmlResource<RES_TYPE extends IResqmlDataObject> {
     dor: SimpleJson<eml20.DataObjectReference | eml23.DataObjectReference>,
     context: OSDUContext
   ): Promise<IResqmlDataObject | undefined> {
+    if (!dor) {
+      return undefined;
+    }
     if (dor._data) {
       return dor._data;
     }
@@ -1254,6 +1266,7 @@ export class ResqmlWorkProductComponent<
     SpatialArea: AbstractSpatialLocation | undefined;
     FrameOfReferenceCRS: FrameOfReferenceMetaDataItem;
     Wgs84Coordinates: [number, number][] | undefined;
+    localFrame?: Record<string, string | number | boolean>;
   }> {
     if (pointCoordinates.length === 0) {
       return Promise.reject(new Error("No geometry provided"));
@@ -1284,9 +1297,18 @@ export class ResqmlWorkProductComponent<
 
     let XOffset = 0;
     let YOffset = 0;
+    let rotationRad = 0;
+    let crsVersion = "";
+    let ZOffset = 0;
+    let projectedAxisOrder = "";
+    let projectedUom = "";
+    let verticalUom = "";
+    let zIncreasingDownward = false;
+    let verticalEpsgCode = -1;
 
     if (crs.$type === "eml23.LocalEngineeringCompoundCrs") {
       const crs23 = crs as SimpleJson<eml23.LocalEngineeringCompoundCrs>;
+      crsVersion = "eml23";
       const projectedCrs = (await this.getObjectFromDor(
         client,
         dataspaceUri,
@@ -1308,13 +1330,36 @@ export class ResqmlWorkProductComponent<
       }
     } else {
       const crs20 = crs as SimpleJson<resqml20.AbstractLocal3dCrs>;
+      crsVersion = "eml20";
       if (crs20.ProjectedCrs.$type === "eml20.ProjectedCrsEpsgCode") {
         epsgCode = (
           crs20.ProjectedCrs as SimpleJson<eml20.ProjectedCrsEpsgCode>
         ).EpsgCode;
+      } else if (crs20.ProjectedCrs.$type === "eml20.ProjectedUnknownCrs") {
+        const unknownVal = (crs20.ProjectedCrs as any).Unknown as string | undefined;
+        if (unknownVal && /^PROJC(RS|S)\[/.test(unknownVal)) {
+          persistableReferenceCrs = unknownVal;
+          CoordinateReferenceSystemID = `ProjectedCRS:WKT:${(crs20 as any).Citation?.Title ?? "Unknown"}`;
+        }
       }
       XOffset = crs20.XOffset;
       YOffset = crs20.YOffset;
+      ZOffset = (crs20 as any).ZOffset ?? 0;
+      projectedAxisOrder = (crs20 as any).ProjectedAxisOrder ?? "";
+      projectedUom = (crs20 as any).ProjectedUom ?? "";
+      verticalUom = (crs20 as any).VerticalUom ?? "";
+      zIncreasingDownward = (crs20 as any).ZIncreasingDownward ?? false;
+      const ar = (crs20 as any).ArealRotation;
+      if (ar != null) {
+        const val = typeof ar === "number" ? ar : ar._;
+        const uom = typeof ar === "number" ? "rad" : (ar.Uom ?? "rad");
+        rotationRad = uom === "dega" ? (val * Math.PI) / 180 : val;
+      }
+      // Vertical CRS extraction
+      const vertCrs = (crs20 as any).VerticalCrs;
+      if (vertCrs?.$type === "eml20.VerticalCrsEpsgCode") {
+        verticalEpsgCode = vertCrs.EpsgCode;
+      }
     }
     if (epsgCode !== -1) {
       try {
@@ -1345,6 +1390,13 @@ export class ResqmlWorkProductComponent<
     };
 
     if (aMinX !== Number.POSITIVE_INFINITY) {
+      // Local-to-projected CRS transform (inverse rotation + translation)
+      const toProjected = (p: [number, number]): [number, number] => [
+        Math.cos(rotationRad) * p[0] + Math.sin(rotationRad) * p[1] + XOffset,
+        -Math.sin(rotationRad) * p[0] + Math.cos(rotationRad) * p[1] + YOffset
+      ];
+      const projectedCoords = pointCoordinates.map(toProjected);
+
       const Wgs84Min = [Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY];
       const Wgs84Max = [Number.NEGATIVE_INFINITY, Number.NEGATIVE_INFINITY];
       if (Wgs84Coordinates !== undefined) {
@@ -1364,13 +1416,17 @@ export class ResqmlWorkProductComponent<
               type: FluffyType.AnyCRSFeature,
               geometry: {
                 type: AnyCRSGeoJSONPointType.AnyCRSPoint,
-                coordinates: pointCoordinates[0]
+                coordinates: toProjected(pointCoordinates[0])
               },
               properties: {}
             }
           ],
           persistableReferenceCrs,
-          type: AsIngestedCoordinatesType.AnyCRSFeatureCollection
+          type: AsIngestedCoordinatesType.AnyCRSFeatureCollection,
+          ...(verticalEpsgCode !== -1 ? {
+            VerticalCoordinateReferenceSystemID: `VerticalCRS:EPSG:${verticalEpsgCode}`,
+            persistableReferenceVerticalCrs: JSON.stringify({ authCode: { auth: "EPSG", code: verticalEpsgCode } })
+          } : {})
         },
         Wgs84Coordinates:
           Wgs84Coordinates === undefined
@@ -1400,17 +1456,15 @@ export class ResqmlWorkProductComponent<
               properties: {},
               geometry: {
                 type: AnyCRSGeoJSONPointType.AnyCRSPolygon,
-                coordinates: [
-                  pointCoordinates.map(p => [p[0] + XOffset, p[1] + YOffset])
-                ]
+                coordinates: [projectedCoords]
               }
             }
           ],
           bbox: [
-            aMinX + XOffset,
-            aMinY + YOffset,
-            aMaxX + XOffset,
-            aMaxY + YOffset
+            Math.min(...projectedCoords.map(p => p[0])),
+            Math.min(...projectedCoords.map(p => p[1])),
+            Math.max(...projectedCoords.map(p => p[0])),
+            Math.max(...projectedCoords.map(p => p[1]))
           ]
         },
         Wgs84Coordinates:
@@ -1435,7 +1489,21 @@ export class ResqmlWorkProductComponent<
         context.spatialPoint = SpatialPoint;
       }
     }
-    return { SpatialPoint, SpatialArea, FrameOfReferenceCRS, Wgs84Coordinates };
+
+    const localFrame: Record<string, string | number | boolean> | undefined =
+      crsVersion ? {
+        "rddms/localFrame/xOffset": XOffset,
+        "rddms/localFrame/yOffset": YOffset,
+        "rddms/localFrame/zOffset": ZOffset,
+        "rddms/localFrame/arealRotationDeg": rotationRad * 180 / Math.PI,
+        "rddms/localFrame/projectedAxisOrder": projectedAxisOrder,
+        "rddms/localFrame/projectedUom": projectedUom,
+        "rddms/localFrame/verticalUom": verticalUom,
+        "rddms/localFrame/zIncreasingDownward": zIncreasingDownward,
+        "rddms/localFrame/crsVersion": crsVersion,
+      } : undefined;
+
+    return { SpatialPoint, SpatialArea, FrameOfReferenceCRS, Wgs84Coordinates, localFrame };
   }
 
   /**

@@ -385,6 +385,29 @@ export class ManifestInputDto {
  * @export
  * @class ManifestDto
  */
+export class ManifestDataDto {
+  @ApiPropertyOptional({
+    name: "Datasets",
+    description: "Array of dataset records.",
+    type: [Object]
+  })
+  Datasets?: object[];
+
+  @ApiPropertyOptional({
+    name: "WorkProduct",
+    description: "Array of work-product records.",
+    type: [Object]
+  })
+  WorkProduct?: object[];
+
+  @ApiPropertyOptional({
+    name: "WorkProductComponents",
+    description: "Array of work-product-component records.",
+    type: [Object]
+  })
+  WorkProductComponents?: object[];
+}
+
 export class ManifestDto {
   @ApiProperty({
     name: "kind",
@@ -394,7 +417,28 @@ export class ManifestDto {
       "The schema identification for the manifest record. It is constrained to be version 1.0.0 in the context of this endpoint.",
     maxLength: 23
   })
-  id!: string;
+  kind!: string;
+
+  @ApiPropertyOptional({
+    name: "Data",
+    description: "Container for Datasets, WorkProduct, and WorkProductComponents.",
+    type: ManifestDataDto
+  })
+  Data?: ManifestDataDto;
+
+  @ApiPropertyOptional({
+    name: "MasterData",
+    description: "Array of master-data records (Well, Wellbore, BoundaryFeature, etc.).",
+    type: [Object]
+  })
+  MasterData?: object[];
+
+  @ApiPropertyOptional({
+    name: "ReferenceData",
+    description: "Array of reference-data records (PropertyType, CRS, UOM, etc.).",
+    type: [Object]
+  })
+  ReferenceData?: object[];
 }
 
 @ApiBearerAuth("access-token")
@@ -410,6 +454,14 @@ export class ManifestDto {
   }
 })
 @UseGuards(HasDataPartitionGuard())
+@ApiHeader({
+  name: "x-collaboration",
+  required: false,
+  description: "Optional collaboration context forwarded to OSDU storage services (JSON string).",
+  schema: {
+    type: "string"
+  }
+})
 @ApiTags("Manifest")
 @ApiUnauthorizedResponse(errorMessageSchema("Unauthorized", 401))
 @ApiForbiddenResponse(errorMessageSchema("Forbidden", 403))
