@@ -165,6 +165,9 @@
       "cross-spawn": "7.0.5",
       "minimatch": "3.1.4"
     },
+    "test-exclude": {
+      "minimatch": "5.1.6"
+    },
     "execa": {
       "cross-spawn": "7.0.5"
     },

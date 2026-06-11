@@ -27,7 +27,7 @@ compile-and-unit-test:
     - export MOUNT_NAME=$(docker inspect $CONTAINER_ID -f "{{ range .Mounts }}{{ if eq .Destination \"/builds\" }}{{ .Source }}{{end}}{{end}}")
     - export SOURCE_HOST_DIR=$MOUNT_NAME/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client
     - npm run docker:compose:start
-    - npm run test
+    - npm run test:cov
   only:
     changes:
       - devops/**/*
