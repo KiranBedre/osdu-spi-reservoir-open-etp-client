@@ -74,11 +74,11 @@ import { WitsmlBhaRunManifest } from "./WitsmlBhaRun";
 import { WitsmlWellCompletionManifest } from "./WitsmlWellCompletion";
 import { WellboreFrameToWellLogManifest } from "./WellboreFrameToWellLog";
 import { WellboreFrameToWellLog22Manifest } from "./WellboreFrameToWellLog22";
-import { MasterDataBoundaryFeatureManifest } from "./MasterDataBoundaryFeature";
-import { MasterDataBoundaryFeature22Manifest } from "./MasterDataBoundaryFeature22";
 
 import { WellboreInterpretation22Manifest } from "./WellboreInterpretation22";
+import { WellboreInterpretationManifest } from "./WellboreInterpretation";
 import { WellboreTrajectoryRepresentation22Manifest } from "./WellboreTrajectoryRepresentation22";
+import { WellboreTrajectoryRepresentationManifest } from "./WellboreTrajectoryRepresentation";
 import { StructuralOrganizationInterpretationManifest } from "./StructuralOrganizationInterpretation";
 import { StructuralOrganizationInterpretation22Manifest } from "./StructuralOrganizationInterpretation22";
 import { RockFluidOrganizationInterpretationManifest } from "./RockFluidOrganizationInterpretation";
@@ -104,9 +104,21 @@ ResqmlOSDU.add(
 );
 
 ResqmlOSDU.add(
+  "resqml20.obj_WellboreInterpretation",
+  () => "osdu:wks:work-product-component--WellboreInterpretation:1.2.0",
+  WellboreInterpretationManifest
+);
+
+ResqmlOSDU.add(
   "resqml22.WellboreTrajectoryRepresentation",
   () => "osdu:wks:work-product-component--WellboreTrajectory:1.3.0",
   WellboreTrajectoryRepresentation22Manifest
+);
+
+ResqmlOSDU.add(
+  "resqml20.obj_WellboreTrajectoryRepresentation",
+  () => "osdu:wks:work-product-component--WellboreTrajectory:1.3.0",
+  WellboreTrajectoryRepresentationManifest
 );
 
 ResqmlOSDU.add(
@@ -469,26 +481,22 @@ ResqmlOSDU.add(
 );
 ResqmlOSDU.add(
   "resqml20.obj_RockFluidUnitInterpretation",
-  () =>
-    "osdu:wks:work-product-component--RockFluidUnitInterpretation:1.3.0",
+  () => "osdu:wks:work-product-component--RockFluidUnitInterpretation:1.3.0",
   RockFluidUnitInterpretationManifest
 );
 ResqmlOSDU.add(
   "resqml22.RockFluidUnitInterpretation",
-  () =>
-    "osdu:wks:work-product-component--RockFluidUnitInterpretation:1.3.0",
+  () => "osdu:wks:work-product-component--RockFluidUnitInterpretation:1.3.0",
   RockFluidUnitInterpretation22Manifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_FluidBoundaryFeature",
-  () =>
-    "osdu:wks:work-product-component--FluidBoundaryInterpretation:1.2.0",
+  () => "osdu:wks:work-product-component--FluidBoundaryInterpretation:1.2.0",
   FluidBoundaryFeatureManifest
 );
 ResqmlOSDU.add(
   "resqml22.FluidBoundaryInterpretation",
-  () =>
-    "osdu:wks:work-product-component--FluidBoundaryInterpretation:1.2.0",
+  () => "osdu:wks:work-product-component--FluidBoundaryInterpretation:1.2.0",
   FluidBoundaryInterpretation22Manifest
 );
 
