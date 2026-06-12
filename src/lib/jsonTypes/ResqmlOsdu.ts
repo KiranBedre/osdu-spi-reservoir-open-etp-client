@@ -166,12 +166,12 @@ ResqmlOSDU.add(
 );
 ResqmlOSDU.add(
   "resqml20.obj_FaultInterpretation",
-  () => "osdu:wks:work-product-component--FaultInterpretation:1.2.0",
+  () => "osdu:wks:work-product-component--FaultInterpretation:1.3.0",
   FaultInterpretationManifest
 );
 ResqmlOSDU.add(
   "resqml22.FaultInterpretation",
-  () => "osdu:wks:work-product-component--FaultInterpretation:1.2.0",
+  () => "osdu:wks:work-product-component--FaultInterpretation:1.3.0",
   FaultInterpretation22Manifest
 );
 ResqmlOSDU.add(
