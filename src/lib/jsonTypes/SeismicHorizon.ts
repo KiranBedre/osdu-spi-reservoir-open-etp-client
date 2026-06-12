@@ -4,6 +4,7 @@ import { EtpContentType, EtpUri, ResqmlClient } from "../client/ResqmlClient";
 
 import { OSDUContext } from "./OsduContext";
 import { ResqmlWorkProductComponent } from "./WorkProductComponent";
+import { getKindOrFallback } from "./MilestoneKinds";
 
 import {
   Data,
@@ -33,6 +34,10 @@ export class SeismicHorizonOSDU
     context: OSDUContext
   ) {
     super(xml, context, "SeismicHorizon.2.0.0");
+    // The generated TS type tracks 2.0.0, but the emitted kind must match the
+    // milestone-selected version (M27 → 2.1.0) used for dispatch in
+    // Grid2dToOsduKind, so the routed kind and the serialized record agree.
+    this.kind = getKindOrFallback("SeismicHorizon");
   }
 
   /**
