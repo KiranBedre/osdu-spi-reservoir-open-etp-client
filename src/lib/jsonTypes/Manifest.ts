@@ -200,9 +200,8 @@ export const createManifest = async (
     for (const uri of allUris) {
       const etpUri = new EtpUri(uri);
 
-      const dataspaceId = `${
-        context.partition
-      }:dataset--ETPDataspace:${context.datasetId(etpUri)}`;
+      const dataspaceId = `${context.partition
+        }:dataset--ETPDataspace:${context.datasetId(etpUri)}`;
 
       // Create dataspace entry if not exists
       if (!currentDataspaces.has(dataspaceId)) {
@@ -223,8 +222,10 @@ export const createManifest = async (
         // );
         // manifests.Data.WorkProduct.version = 1;
         currentDataspaces.add(dataspaceId);
-        const aclLegal = getACLForDataspace(dataspace);
-        context.dataspaceACLs.set(dataspaceUri, aclLegal);
+        if (!context.dataspaceACLs.has(dataspaceUri)) {
+          const aclLegal = getACLForDataspace(dataspace);
+          context.dataspaceACLs.set(dataspaceUri, aclLegal);
+        }
 
         manifests.Data.Datasets = manifests.Data.Datasets ?? [];
         manifests.Data.Datasets.push(EtpDataspaceManifest(dataspace, context));
@@ -335,7 +336,7 @@ export const createManifest = async (
             false
           );
           const batchNulls = arr.filter(o => o === null).length;
-          logger.info(`[perf] Batch result: ${arr.length} items, ${batchNulls} nulls, objects map size=${objects.size}, took ${Date.now()-t1}ms`);
+          logger.info(`[perf] Batch result: ${arr.length} items, ${batchNulls} nulls, objects map size=${objects.size}, took ${Date.now() - t1}ms`);
           if (batchNulls > 0 && batchNulls === arr.length) {
             // Try single fetch to diagnose
             const testUri = batch[0];
@@ -537,42 +538,42 @@ export const createManifest = async (
               const obj1 = objects.get(objUri);
               (obj1 === undefined
                 ? client
-                    .getResolvedObjects([objUri], objects, false)
-                    .then(o => (o[0] === null ? undefined : o[0]))
+                  .getResolvedObjects([objUri], objects, false)
+                  .then(o => (o[0] === null ? undefined : o[0]))
                 : Promise.resolve(obj1)
               ).then(obj =>
                 c === undefined
                   ? resolve()
                   : c.convert(objUri, obj, context, client).then(res => {
-                      const srn = obj
-                        ? context.uriToSrn(objUri, obj)
-                        : undefined;
-                      if (
-                        srn === undefined ||
-                        res === undefined ||
-                        res.id === undefined
-                      ) {
-                        unknownSrn.add(k);
-                      } else {
-                        const dataspaceUri = EtpUri.createDataSpaceUri(
-                          etpUri.dataSpace
-                        ).uri;
-                        const aclLegal =
-                          context.dataspaceACLs.get(dataspaceUri);
-                        if (aclLegal !== undefined && res !== undefined) {
-                          res.acl = aclLegal?.acl ?? {
-                            owners: [],
-                            viewers: []
-                          };
-                          res.legal = aclLegal?.legal ?? {
-                            legaltags: [],
-                            otherRelevantDataCountries: []
-                          };
-                        }
-                        generatedSrn.set(`${srn}`, res);
+                    const srn = obj
+                      ? context.uriToSrn(objUri, obj)
+                      : undefined;
+                    if (
+                      srn === undefined ||
+                      res === undefined ||
+                      res.id === undefined
+                    ) {
+                      unknownSrn.add(k);
+                    } else {
+                      const dataspaceUri = EtpUri.createDataSpaceUri(
+                        etpUri.dataSpace
+                      ).uri;
+                      const aclLegal =
+                        context.dataspaceACLs.get(dataspaceUri);
+                      if (aclLegal !== undefined && res !== undefined) {
+                        res.acl = aclLegal?.acl ?? {
+                          owners: [],
+                          viewers: []
+                        };
+                        res.legal = aclLegal?.legal ?? {
+                          legaltags: [],
+                          otherRelevantDataCountries: []
+                        };
                       }
-                      return resolve();
-                    })
+                      generatedSrn.set(`${srn}`, res);
+                    }
+                    return resolve();
+                  })
               ).catch(() => resolve());
             })
           );
