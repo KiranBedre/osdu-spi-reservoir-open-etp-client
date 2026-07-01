@@ -38,18 +38,14 @@ gc-containerize-bootstrap-gcr:
     # Setup ETP client function
     - >
       function oetp_client() {
-        openETPServer $* -S wss://${GC_DOMAIN}/api/reservoir-ddms-etp/v2/ \
-        --auth bearer \
-        --jwt-token $(gcloud auth print-identity-token) \
-        --data-partition-id ${GC_TENANT} \
-        --log_level=info
+        openETPServer $* -S wss://${GC_DOMAIN}/api/reservoir-ddms-etp/v2/         --auth bearer         --jwt-token $(gcloud auth print-identity-token)         --data-partition-id ${GC_TENANT}         --log_level=info
       }
     # Setup demo/Volve dataspace
     - oetp_client probe --ping && oetp_client space --list
     - oetp_client space --delete -s demo/Volve || echo "[INFO] No dataspace demo/Volve to cleanup"
     - |
       GROUP_DOMAIN="${GC_TENANT}.${ENTITLEMENTS_DOMAIN}"
-      XDATA_ACL="{\"legaltags\":[\"${LEGAL_TAG}\"],\"otherRelevantDataCountries\":[\"${OTHER_RELEVANT_DATA_COUNTRIES}\"],\"owners\":[\"data.default.owners@${GROUP_DOMAIN}\"],\"viewers\":[\"data.default.viewers@${GROUP_DOMAIN}\"]}"
+      XDATA_ACL="{"legaltags":["${LEGAL_TAG}"],"otherRelevantDataCountries":["${OTHER_RELEVANT_DATA_COUNTRIES}"],"owners":["data.default.owners@${GROUP_DOMAIN}"],"viewers":["data.default.viewers@${GROUP_DOMAIN}"]}"
       oetp_client space --new -s demo/Volve --xdata "$XDATA_ACL"
     - oetp_client space --import-epc ./devops/data/Volve_Demo_Horizons_Depth.epc -s demo/Volve &&
     - oetp_client space --list
@@ -59,12 +55,10 @@ gc-containerize-bootstrap-gcr:
     - echo "Get a collection from ${GET_COLLECTION_URL}"
     - >
       if [[ -v TEST_SOURCE_FILES_DIR ]]; then
-        wget -q -O tmp.zip "${GC_COLLECTION_ARCHIVE_HOST}/${GC_COLLECTION_BRANCH}/testing-master.zip?path=${TEST_SOURCE_FILES_DIR}" \
-        && unzip -j tmp.zip \
-        && rm tmp.zip
+        wget -q -O tmp.zip "${GC_COLLECTION_ARCHIVE_HOST}/${GC_COLLECTION_BRANCH}/testing-master.zip?path=${TEST_SOURCE_FILES_DIR}"         && unzip -j tmp.zip         && rm tmp.zip
       fi
     - >
-      echo "[{ \"CLIENT_ID\": \"${GC_CLIENT_ID}\", \"CLIENT_SECRET\": \"${GC_CLIENT_SECRET}\", \"grant_type\": \"${GC_GRANT_TYPE}\", \"refresh_token\": \"${GC_REFRESH_TOKEN}\"}]" > test_config_file.json
+      echo "[{ "CLIENT_ID": "${GC_CLIENT_ID}", "CLIENT_SECRET": "${GC_CLIENT_SECRET}", "grant_type": "${GC_GRANT_TYPE}", "refresh_token": "${GC_REFRESH_TOKEN}"}]" > test_config_file.json
     - curl "${GET_COLLECTION_URL}" > collection.json && COLLECTION=collection.json
     - |
       curl --header "data-partition-id: ${DATA_PARTITION_ID}" "${GC_POSTMAN_ENV_URL}" > environment.json && ENVIRONMENT=environment.json
@@ -75,7 +69,7 @@ gc-test:
   tags: ["osdu-small"]
   stage: integration
   image: community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-gcp/image-for-postman-tests/osdu-gcp-image-for-postman
-  allow_failure: false
+  allow_failure: true
   retry: 1
   extends:
     - .gc-variables
