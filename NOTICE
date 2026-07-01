@@ -17,7 +17,7 @@ Apache-2.0
 The following software have components provided under the terms of this license:
 
 - log4js (from https://log4js-node.github.io/log4js-node/)
-- prom-client (from https://www.npmjs.com/package/prom-client)
+- prom-client (from https://github.com/siimon/prom-client)
 - reflect-metadata (from http://rbuckton.github.io/reflect-metadata)
 - rxjs (from https://www.npmjs.com/package/rxjs)
 - websocket (from https://www.npmjs.com/package/websocket)
