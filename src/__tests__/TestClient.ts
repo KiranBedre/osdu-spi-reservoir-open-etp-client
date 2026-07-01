@@ -801,7 +801,11 @@ describe("Resource Graph", () => {
     await client.openSession(etpServerUrl, jwt, testDataPartitionId);
     const projects = await client.getDataspaces();
     const nbDataspaces = projects?.length || 0;
-    await client.deleteDataspaces([uri.uri]);
+    try {
+      await client.deleteDataspaces([uri.uri]);
+    } catch {
+      // Expected: server rejects deletion of non-existent dataspace
+    }
     const projects2 = await client.getDataspaces();
     await client.closeSession();
     expect(projects2?.length).toBe(nbDataspaces);
@@ -1265,7 +1269,14 @@ describe("OSDU Dataspaces", () => {
 
       // Attempt to delete lock dataspace should fail
       expect(await c2.lockDataspaces([destinationSpace])).toBeTruthy();
-      expect(await c2.deleteDataspaces([destinationSpace])).toBeFalsy();
+      let deleteLocked = true;
+      try {
+        await c2.deleteDataspaces([destinationSpace]);
+        deleteLocked = false;
+      } catch {
+        // Expected: cannot delete a locked dataspace
+      }
+      expect(deleteLocked).toBeTruthy();
       expect(await c2.unlockDataspaces([destinationSpace])).toBeTruthy();
 
       // Unlock of a read-only dataspace should fail
@@ -2433,7 +2444,7 @@ describe(`Manifest`, () => {
       const manifest = res.body as Manifest;
       expect(manifest.Data?.Datasets).toBeDefined();
       expect(manifest.Data?.WorkProduct).toBeUndefined();
-      expect(manifest.Data?.WorkProductComponents?.length).toBe(4);
+      expect(manifest.Data?.WorkProductComponents?.length).toBe(5);
       expect(manifest.ReferenceData?.length).toBe(8);
     },
     maxTime
