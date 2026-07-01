@@ -19,6 +19,7 @@ import {
 
 import { GenericRepresentation22OSDU } from "./GenericRepresentation22";
 
+import { getKind, getKindOrFallback } from "./MilestoneKinds";
 import { SeismicHorizon22OSDU } from "./SeismicHorizon22";
 
 import { StructureMap22OSDU } from "./StructureMap22";
@@ -35,8 +36,7 @@ const DBL_CST_ARRAY = "eml23.FloatingPointConstantArray";
  */
 export class SeismicBinGrid22OSDU
   extends ResqmlWorkProductComponent<SimpleJson<resqml22.Grid2dRepresentation>>
-  implements SeismicBinGrid
-{
+  implements SeismicBinGrid {
   public data: Data = {};
   public meta?: FrameOfReferenceMetaDataItem[];
 
@@ -184,12 +184,12 @@ export class SeismicBinGrid22OSDU
 
     const uOffsetLen = Math.sqrt(
       u.Direction.Coordinate1 * u.Direction.Coordinate1 +
-        u.Direction.Coordinate2 * u.Direction.Coordinate2
+      u.Direction.Coordinate2 * u.Direction.Coordinate2
     );
 
     const vOffsetLen = Math.sqrt(
       v.Direction.Coordinate1 * v.Direction.Coordinate1 +
-        v.Direction.Coordinate2 * v.Direction.Coordinate2
+      v.Direction.Coordinate2 * v.Direction.Coordinate2
     );
 
     const [ux, uy] = [
@@ -295,17 +295,17 @@ export class SeismicBinGrid22OSDU
  */
 export const Grid2dToOsduKind22 = (xml: IResqmlDataObject): string => {
   if (xml.$type !== "resqml22.Grid2dRepresentation") {
-    return "osdu:wks:work-product-component--GenericRepresentation:1.2.0";
+    return getKindOrFallback("GenericRepresentation");
   }
   const grid2d = xml as SimpleJson<resqml22.Grid2dRepresentation>;
   if (SeismicBinGrid22OSDU.matchType(grid2d)) {
-    return "osdu:wks:work-product-component--SeismicBinGrid:1.3.0";
+    return getKindOrFallback("SeismicBinGrid");
   } else if (SeismicHorizon22OSDU.matchType(grid2d)) {
-    return "osdu:wks:work-product-component--SeismicHorizon:2.0.0";
+    return getKindOrFallback("SeismicHorizon");
   } else if (StructureMap22OSDU.matchType(grid2d)) {
-    return "osdu:wks:work-product-component--StructureMap:1.0.0";
+    return getKindOrFallback("StructureMap");
   }
-  return "osdu:wks:work-product-component--GenericRepresentation:1.2.0";
+  return getKindOrFallback("GenericRepresentation");
 };
 
 /**
@@ -327,11 +327,11 @@ export const Grid2dRepresentation22Manifest = async (
   GenericRepresentation22OSDU | SeismicBinGrid22OSDU | SeismicHorizon22OSDU | StructureMap22OSDU
 > => {
   const kind = Grid2dToOsduKind22(xml);
-  if (kind === "osdu:wks:work-product-component--SeismicBinGrid:1.3.0") {
+  if (kind === getKindOrFallback("SeismicBinGrid")) {
     return new SeismicBinGrid22OSDU(xml, context).initData(uri, xml, client);
-  } else if (kind === "osdu:wks:work-product-component--SeismicHorizon:2.0.0") {
+  } else if (kind === getKindOrFallback("SeismicHorizon")) {
     return new SeismicHorizon22OSDU(xml, context).initData(uri, xml, client);
-  } else if (kind === "osdu:wks:work-product-component--StructureMap:1.0.0") {
+  } else if (kind === getKind("StructureMap")) {
     return new StructureMap22OSDU(xml, context).initData(uri, xml, client);
   }
   return new GenericRepresentation22OSDU(xml, context).initData(

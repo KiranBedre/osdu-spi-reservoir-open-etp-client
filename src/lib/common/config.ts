@@ -33,12 +33,25 @@ if (unsetEnvVars.length > 0) {
   );
 }
 
-export const etpServerProtocol = process.env.RDMS_ETP_PROTOCOL as string;
+export const etpServerProtocol = process.env.RDMS_ETP_SSL === "true"
+  ? "wss"
+  : (process.env.RDMS_ETP_PROTOCOL as string);
 export const etpServerHost = process.env.RDMS_ETP_HOST as string;
 export const etpServerPort = process.env.RDMS_ETP_PORT as string;
 export const etpServerPath = (process.env.RDMS_ETP_PATH as string) || "";
 export const etpServerUrl = `${etpServerProtocol}://${etpServerHost}:${etpServerPort}${etpServerPath}/`;
 export const etpJwt = (process.env.RDMS_JWT_SECRET as string) || undefined;
+
+/**
+ * Item 24: SSL certificate verification control.
+ * When RDMS_ETP_SSL_VERIFY is "false", self-signed certificates are accepted
+ * for WSS connections. This eliminates the need for separate Docker images
+ * for SSL vs non-SSL deployments.
+ * Default: true (verify certificates).
+ */
+export const etpSslVerify =
+  process.env.RDMS_ETP_SSL_VERIFY !== "false";
+
 export const dataPartitionId =
   process.env.RDMS_DATA_PARTITION_MODE !== "single"
     ? (process.env.RDMS_TEST_DATA_PARTITION_ID as string)

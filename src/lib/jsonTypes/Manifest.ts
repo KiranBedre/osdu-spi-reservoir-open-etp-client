@@ -1,15 +1,32 @@
+import { v5 as uuidNameSpace } from "uuid";
+
 import { Energistics, EtpUri, ResqmlClient, URI } from "../client/ResqmlClient";
 
 import type { IResqmlDataObject } from "../client/ResqmlClient";
 
+import logging from "../common/Logging";
+const logger = logging.getLogger("EtpClient");
+
+import { getKindOrFallback } from "./MilestoneKinds";
 import {
   DataspaceLegalACL,
   OSDUContext,
   OSDUResourceType
 } from "./OsduContext";
 import ResqmlOSDU, { EtpDataspaceManifest } from "./ResqmlOsdu";
+import {
+  CollaborationProjectManifest,
+  deriveCollaborationId
+} from "./CollaborationProject";
 
 import { ErrorCode, EtpError } from "../common/EtpTypes";
+
+/**
+ * S4: Namespace UUID for deterministic dataspace → collaboration UUID mapping.
+ * Uses a well-known namespace so that the same dataspace always maps to the
+ * same collaboration UUID regardless of which client instance generates it.
+ */
+const RDDMS_COLLABORATION_NAMESPACE = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
 
 import {
   GenericMasterData,
@@ -89,12 +106,30 @@ const getACLForDataspace = (
 };
 
 /**
+ * Default type patterns applied when indexing entire dataspaces without
+ * explicit typePatterns. Focuses on discovery-worthy types (interpretations,
+ * representations, wells) and excludes support objects (properties, CRS,
+ * time series, features, property kinds).
+ * Pass typePatterns: ["*"] to opt into indexing all types.
+ */
+export const DEFAULT_DATASPACE_TYPE_PATTERNS: string[] = [
+  "*Interpretation*",
+  "*Representation",
+  "*StratigraphicColumn",
+  "*Activity*",
+  "*Collection",
+  "witsml21.*"
+];
+
+/**
  * Create a manifest for a list of uris
  *
  * @param {ResqmlClient} client linked to ETP server
  * @param {URI[]} uris List of URIS to add as work product components
  * @param {OSDUContext} context OSDU related information
- * @param {string[]} [typePatterns] Optional list of type patterns to filter the URIs
+ * @param {string[]} [typePatterns] Optional list of type patterns to filter the URIs.
+ *   When undefined, DEFAULT_DATASPACE_TYPE_PATTERNS is used for dataspace-level URIs.
+ *   Pass ["*"] to index all types.
  * @param {number} [maxManifestSize] Optional maximum size of the manifest in MB, default is 1000
  * @return {Promise<Manifest>}
  */
@@ -109,12 +144,13 @@ export const createManifest = async (
     return Promise.reject("No URI provided");
   }
   try {
+    const tManifestStart = Date.now();
     try {
       await registerDMS(context);
     } catch {
-      // Ignore registration errors
-      return Promise.reject("Fail to register DMS");
+      // Ignore registration errors — continue without DMS registration
     }
+    logger.info(`[perf] registerDMS: ${Date.now() - tManifestStart}ms`);
     const manifests: Manifest = {
       // $schema:
       //   "https://community.opengroup.org/osdu/data/data-definitions/-/raw/master/Generated/manifest/Manifest.1.0.0.json",
@@ -127,7 +163,8 @@ export const createManifest = async (
 
     const allUris = new Set<string>();
 
-    const matchPatterns: RegExp[] | undefined = typePatterns?.map(
+    const effectivePatterns = typePatterns ?? DEFAULT_DATASPACE_TYPE_PATTERNS;
+    const matchPatterns: RegExp[] = effectivePatterns.map(
       t => new RegExp(t.replaceAll("*", "\\w*").replaceAll("?", "\\w?"))
     );
 
@@ -142,7 +179,7 @@ export const createManifest = async (
         let dataspaceUris = await client.getDataspaceResources(
           dataspaceUri.uri
         );
-        if (matchPatterns) {
+        if (matchPatterns.length > 0) {
           dataspaceUris = dataspaceUris.filter(f => {
             const u: EtpUri = new EtpUri(f.uri);
             for (const p of matchPatterns) {
@@ -201,8 +238,67 @@ export const createManifest = async (
     if (manifests.Data === undefined) {
       return Promise.reject("Manifest creation failed");
     }
+
+    // S4: Auto-map dataspace UUID → x-collaboration header when not explicitly provided.
+    // Derives a deterministic collaboration UUID from the first dataspace being processed,
+    // enabling automatic OSDU collaboration project association without caller intervention.
+    if (!context.collaboration && allUris.size > 0) {
+      const firstUri = allUris.values().next().value;
+      if (firstUri) {
+        const firstEtpUri = new EtpUri(firstUri);
+        if (firstEtpUri.dataSpace) {
+          const collaborationId = uuidNameSpace(
+            firstEtpUri.dataSpace,
+            RDDMS_COLLABORATION_NAMESPACE
+          );
+          context.collaboration = JSON.stringify({ id: collaborationId });
+          logger.info(
+            `S4: Auto-mapped dataspace '${firstEtpUri.dataSpace}' → collaboration ${collaborationId}`
+          );
+        }
+      }
+    }
+
     manifests.Data.WorkProductComponents = [];
     manifests.MasterData = [];
+
+    // S5: Emit a CollaborationProject master-data record per dataspace.
+    // Maps each ETP dataspace to an OSDU CollaborationProject (SOE namespace).
+    // Uses idempotent upsert: checks existing version in OSDU and bumps version
+    // to ensure consistency across multiple manifest builds.
+    for (const dataspaceUri of context.dataspaceACLs.keys()) {
+      const dsEtpUri = new EtpUri(dataspaceUri);
+      const collabId = deriveCollaborationId(dsEtpUri.dataSpace);
+      const dsInfo = await client
+        .getDataspaceInfo([dataspaceUri])
+        .then(
+          ds => (ds.length === 1 ? ds[0] : undefined),
+          () => undefined
+        );
+      if (dsInfo) {
+        const cpRecord = CollaborationProjectManifest(
+          dsInfo,
+          context,
+          collabId
+        ) as any;
+
+        // Check if CP already exists in OSDU — version bump for consistency
+        const existingVersion = await context
+          .getOSDUResourceVersion(cpRecord.id)
+          .catch(() => undefined);
+        if (existingVersion !== undefined) {
+          cpRecord.version = existingVersion + 1;
+          logger.info(
+            `S5: Updating existing CollaborationProject v${existingVersion} → v${cpRecord.version}`
+          );
+        }
+
+        manifests.MasterData.push(cpRecord);
+        logger.info(
+          `S5: CollaborationProject '${dsEtpUri.dataSpace}' → ${cpRecord.id}`
+        );
+      }
+    }
 
     const dataspaceObjects: Record<string, string[]> = {};
 
@@ -223,16 +319,41 @@ export const createManifest = async (
       const tmpUris = [...dataspaceObjects[dataspace]];
       let resolvedObjects: (IResqmlDataObject | null)[] = [];
 
-      // slice objectUris to avoid "too many arguments" error
+      const t0 = Date.now();
+      // Batch size: use larger batches to minimize ETP round-trips.
+      // The ETP protocol layer already handles message-size splitting internally.
+      const BATCH_SIZE = 50;
       while (tmpUris.length > 0) {
-        const arr = await client.getResolvedObjects(
-          tmpUris.splice(0, 5),
-          objects,
-          false
-        );
-        resolvedObjects = resolvedObjects.concat(arr);
+        const batch = tmpUris.splice(0, BATCH_SIZE);
+        logger.info(`[perf] Fetching batch of ${batch.length} URIs from ${dataspace}, first: ${batch[0]?.substring(batch[0].lastIndexOf('/'))}`);
+        try {
+          const t1 = Date.now();
+          const arr = await client.getResolvedObjects(
+            batch,
+            objects,
+            false
+          );
+          const batchNulls = arr.filter(o => o === null).length;
+          logger.info(`[perf] Batch result: ${arr.length} items, ${batchNulls} nulls, objects map size=${objects.size}, took ${Date.now()-t1}ms`);
+          if (batchNulls > 0 && batchNulls === arr.length) {
+            // Try single fetch to diagnose
+            const testUri = batch[0];
+            logger.warn(`[debug] All nulls! Trying single getObjects for: ${testUri}`);
+            const singleMap = new Map<string, any>();
+            const single = await client.getResolvedObjects([testUri], singleMap, false);
+            logger.warn(`[debug] Single result: ${single.length} items, null=${single[0] === null}, singleMap size=${singleMap.size}`);
+          }
+          resolvedObjects = resolvedObjects.concat(arr);
+        } catch (e: any) {
+          logger.error(`getResolvedObjects failed for batch: ${batch.map(u => u.substring(u.lastIndexOf('/') + 1)).join(', ')} — ${e?.message ?? e}`);
+        }
       }
 
+      const nullCount = resolvedObjects.filter(o => o === null).length;
+      const noTypeCount = resolvedObjects.filter(o => o !== null && o?.$type === undefined).length;
+      logger.info(`Resolved ${resolvedObjects.length} objects for dataspace ${dataspace} in ${Date.now() - t0}ms (null=${nullCount}, noType=${noTypeCount})`);
+
+      const tConvert = Date.now();
       for (let i = 0; i < resolvedObjects.length; i++) {
         const resObj = resolvedObjects[i];
         if (resObj?.$type === undefined) {
@@ -253,15 +374,21 @@ export const createManifest = async (
 
         const c = ResqmlOSDU.get(etpUri.dataObjectType);
         if (c === undefined) {
+          logger.warn(`No converter for type: ${etpUri.dataObjectType} (from $type=${resObj.$type})`);
           continue;
         }
         try {
+          const tObj = Date.now();
           let res = await c.convert(
             etpUri.uri,
             resolvedObjects[i],
             context,
             client
           );
+          const convertMs = Date.now() - tObj;
+          if (convertMs > 200) {
+            logger.warn(`[perf] Slow converter: ${etpUri.dataObjectType} took ${convertMs}ms`);
+          }
           const dataspaceUri = EtpUri.createDataSpaceUri(etpUri.dataSpace).uri;
           const aclLegal = context.dataspaceACLs.get(dataspaceUri);
           if (aclLegal !== undefined && res !== undefined) {
@@ -312,9 +439,64 @@ export const createManifest = async (
               context.created.set(res.id, res);
             }
           }
-        } catch (e) {
-          return Promise.reject("Manifest creation failed");
+        } catch (convErr: any) {
+          // Converter failed for this object - skip it
+          logger.error(`Converter failed for ${etpUri.dataObjectType} (${resObj.Uuid}): ${convErr?.message ?? convErr}`);
+          continue;
         }
+      }
+      logger.info(`[perf] Convert ${resolvedObjects.length} objects: ${Date.now() - tConvert}ms`);
+    }
+
+    // A3: Auto-generate lineage Activity record for this manifest build
+    if (context.created.size > 0 && context.generateLineageActivity !== false) {
+      const outputIds: string[] = [];
+      context.created.forEach((_, id) => {
+        if (!id.includes("reference-data") && !id.includes("master-data")) {
+          outputIds.push(id);
+        }
+      });
+      if (outputIds.length > 0) {
+        const activityUuid = uuidNameSpace(
+          outputIds.sort().join("|"),
+          RDDMS_COLLABORATION_NAMESPACE
+        );
+        const activityId = `${context.partition}:work-product-component--Activity:${activityUuid}`;
+        const now = new Date().toISOString();
+        const activityRecord: OSDUResourceType = {
+          id: activityId,
+          kind: getKindOrFallback("Activity"),
+          acl: { owners: [], viewers: [] },
+          legal: { legaltags: [], otherRelevantDataCountries: [] },
+          data: {
+            Name: "RDDMS Manifest Build",
+            Description: `Auto-generated lineage: ${outputIds.length} work-product-component(s) produced from ETP dataspace objects.`,
+            Parameters: outputIds.map(id => ({
+              ParameterKindID: `${context.partition}:reference-data--ParameterKind:DataObject:`,
+              Title: "Output",
+              DataObjectParameter: `${id}:`
+            })),
+            SoftwareSpecifications: [{ SoftwareName: "RDDMS", Version: "1.0" }],
+            ActivityTemplateID: `${context.partition}:master-data--ActivityTemplate:RDDMSManifestBuild:`,
+            ParentActivityID: undefined,
+            ParentProjectID: undefined,
+            PriorActivityIDs: undefined
+          },
+          createTime: now,
+          modifyTime: now
+        } as any;
+        // Apply dataspace ACL if available
+        const firstDataspace = Object.keys(dataspaceObjects)[0];
+        if (firstDataspace) {
+          const dsUri = EtpUri.createDataSpaceUri(firstDataspace).uri;
+          const aclLegal = context.dataspaceACLs.get(dsUri);
+          if (aclLegal) {
+            activityRecord.acl = aclLegal.acl ?? activityRecord.acl;
+            activityRecord.legal = aclLegal.legal ?? activityRecord.legal;
+          }
+        }
+        context.created.set(activityId, activityRecord);
+        logger.info(`A3: Auto-generated lineage Activity ${activityUuid} with ${outputIds.length} output(s)`);
       }
     }
 
@@ -389,7 +571,7 @@ export const createManifest = async (
                       }
                       return resolve();
                     })
-              );
+              ).catch(() => resolve());
             })
           );
         }
@@ -404,17 +586,23 @@ export const createManifest = async (
       }
     }
 
-    let edges = context.edges.filter(e =>
-      unknownSrn.has(e.target.slice(0, -1))
-    );
-    while (edges.length > 0) {
-      unknownSrn.clear();
-      edges.forEach(e => {
-        if (generatedSrn.delete(e.origin)) {
-          unknownSrn.add(e.origin);
-        }
-      });
-      edges = context.edges.filter(e => unknownSrn.has(e.target.slice(0, -1)));
+    // Cascade-remove WPCs whose references could not be resolved.
+    // Skip in best-effort mode (createMissingReferences=true): unresolvable
+    // reference-data (UnitOfMeasure, PropertyKind, etc.) is expected to be
+    // supplied by the platform and should not invalidate successfully-built WPCs.
+    if (!context.createMissingReferences) {
+      let edges = context.edges.filter(e =>
+        unknownSrn.has(e.target.slice(0, -1))
+      );
+      while (edges.length > 0) {
+        unknownSrn.clear();
+        edges.forEach(e => {
+          if (generatedSrn.delete(e.origin)) {
+            unknownSrn.add(e.origin);
+          }
+        });
+        edges = context.edges.filter(e => unknownSrn.has(e.target.slice(0, -1)));
+      }
     }
 
     const toRemove: string[] = [];

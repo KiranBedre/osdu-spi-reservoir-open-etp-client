@@ -382,6 +382,12 @@ export const xml2typescript = async (
     const baseObj = eml20
       ? (json as SimpleJson<eml20.AbstractCitedDataObject>)
       : (json as SimpleJson<eml23.AbstractObject>);
+
+    // Ensure $type is set on root object (WITSML/prodml objects may not have xsi:type)
+    if (!baseObj["$type"]) {
+      baseObj["$type"] = dataObjectType;
+    }
+
     // Extract CustomData content
     if (
       baseObj["CustomData"] &&

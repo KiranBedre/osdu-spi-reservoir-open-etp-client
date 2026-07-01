@@ -14,9 +14,32 @@
 // limitations under the License.
 // ============================================================================
 
+import http from "http";
+
 import app from "./App";
 import { restApiPort } from "./ControllerUtils";
+import { drainTransactions } from "./ControllerUtils";
+
+let server: http.Server;
+
+const gracefulShutdown = async (signal: string) => {
+  console.log(`${signal} received, starting graceful shutdown`);
+  if (server) {
+    server.close();
+  }
+  await Promise.race([
+    drainTransactions(),
+    new Promise(resolve => setTimeout(resolve, 30_000))
+  ]);
+  process.exit(0);
+};
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
 const main = async (p: number): Promise<void> => {
-  return app().then((a: any) => a.listen(p));
+  return app().then((a: any) => {
+    server = a.listen(p);
+  });
 };
 main(restApiPort);
