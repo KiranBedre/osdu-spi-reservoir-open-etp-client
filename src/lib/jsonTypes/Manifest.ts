@@ -706,9 +706,11 @@ export const createManifest = async (
       );
     }
     return manifests;
-  } catch {
+  } catch (err: any) {
+    logger.error("Manifest creation failed:", err?.message || err);
+    logger.error("Stack:", err?.stack);
     return Promise.reject(
-      new EtpError("Manifest creation failed", ErrorCode.EINVALID_STATE)
+      new EtpError("Manifest creation failed: " + (err?.message || "unknown"), ErrorCode.EINVALID_STATE)
     );
   }
 };
