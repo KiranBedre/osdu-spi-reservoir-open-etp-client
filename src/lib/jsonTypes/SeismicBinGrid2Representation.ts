@@ -19,6 +19,8 @@ import { GenericRepresentationOSDU } from "./GenericRepresentation";
 
 import { SeismicHorizonOSDU } from "./SeismicHorizon";
 
+import { StructureMapOSDU } from "./StructureMap";
+
 const DBL_CST_ARRAY = "resqml20.DoubleConstantArray";
 
 /**
@@ -236,7 +238,8 @@ export class SeismicBinGridOSDU
 }
 
 /**
- * Identify OSDU kind for all 2D Grids, can create either a SeismicBinGrid, SeismicHorizon or GenericRepresentation
+ * Identify OSDU kind for all 2D Grids, can create either a SeismicBinGrid,
+ * SeismicHorizon, StructureMap or GenericRepresentation.
  *
  * @param {IResqmlDataObject} xml
  * @returns {string}
@@ -249,19 +252,21 @@ export const Grid2dToOsduKind = (xml: IResqmlDataObject): string => {
   if (SeismicBinGridOSDU.matchType(grid2d)) {
     return "osdu:wks:work-product-component--SeismicBinGrid:1.3.0";
   } else if (SeismicHorizonOSDU.matchType(grid2d)) {
-    return "osdu:wks:work-product-component--SeismicHorizon.2.0.0";
+    return "osdu:wks:work-product-component--SeismicHorizon:2.0.0";
+  } else if (StructureMapOSDU.matchType(grid2d)) {
+    return "osdu:wks:work-product-component--StructureMap:1.0.0";
   }
   return "osdu:wks:work-product-component--GenericRepresentation:1.2.0";
 };
 
 /**
- * Manifest converter for all 2D Grids, can create either a binGrid, seismic horizon of generic representation
+ * Manifest converter for all 2D Grids.
  *
  * @param {string} uri
  * @param {SimpleJson<resqml20.obj_Grid2dRepresentation>} xml
  * @param {OSDUContext} context
  * @param {ResqmlClient} client
- * @returns {(Promise<GenericRepresentationOSDU | SeismicBinGridOSDU | SeismicHorizonOSDU>)}
+ * @returns {(Promise<GenericRepresentationOSDU | SeismicBinGridOSDU | SeismicHorizonOSDU | StructureMapOSDU>)}
  */
 export const Grid2dRepresentationManifest = async (
   uri: string,
@@ -269,13 +274,15 @@ export const Grid2dRepresentationManifest = async (
   context: OSDUContext,
   client: ResqmlClient
 ): Promise<
-  GenericRepresentationOSDU | SeismicBinGridOSDU | SeismicHorizonOSDU
+  GenericRepresentationOSDU | SeismicBinGridOSDU | SeismicHorizonOSDU | StructureMapOSDU
 > => {
   const kind = Grid2dToOsduKind(xml);
   if (kind === "osdu:wks:work-product-component--SeismicBinGrid:1.3.0") {
     return new SeismicBinGridOSDU(xml, context).initData(uri, xml, client);
-  } else if (kind === "osdu:wks:work-product-component--SeismicHorizon.2.0.0") {
+  } else if (kind === "osdu:wks:work-product-component--SeismicHorizon:2.0.0") {
     return new SeismicHorizonOSDU(xml, context).initData(uri, xml, client);
+  } else if (kind === "osdu:wks:work-product-component--StructureMap:1.0.0") {
+    return new StructureMapOSDU(xml, context).initData(uri, xml, client);
   }
   return new GenericRepresentationOSDU(xml, context).initData(uri, xml, client);
 };

@@ -55,7 +55,6 @@ export class PropertyType23OSDU
           client,
           context
         )) ?? "";
-    const representativeUom: string | undefined = undefined; //from xml.QuantityClass
 
     this.data = {
       ...(await this.AbstractCommonResources(context)),
@@ -72,7 +71,7 @@ export class PropertyType23OSDU
        * The relationship to a UnitQuantity, which connects to frame of reference conversion.
        */
       UnitQuantityID:
-        context.addReferenceData("UnitQuantity", representativeUom) ?? "",
+        context.addReferenceData("UnitQuantity", xml.QuantityClass) ?? "",
 
       ExtensionProperties: undefined
     };

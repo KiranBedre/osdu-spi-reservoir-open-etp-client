@@ -1,0 +1,4381 @@
+{
+  "schemaVersion": "1.0.0",
+  "source": "Energistics PWLS v4.0 Curve Catalog (https://community.opengroup.org/energistics/pwls-curve-catalog)",
+  "license": "Apache-2.0",
+  "lastUpdated": "2025-05-30",
+  "properties": [
+    {
+      "property": "acceleration",
+      "quantityClass": "linear acceleration",
+      "propertyTypeId": "ca5a4057-f4c9-4efb-8168-7924d2b18a18"
+    },
+    {
+      "property": "acoustic amplitude",
+      "quantityClass": "unitless",
+      "propertyTypeId": "8e13e4d8-8a54-4329-b213-e2c23495709f"
+    },
+    {
+      "property": "acoustic attenuation rate",
+      "quantityClass": "logarithmic power ratio per length",
+      "propertyTypeId": "7b03d034-cda7-4f32-8ddd-76f13c938714"
+    },
+    {
+      "property": "acoustic dispersion",
+      "quantityClass": "time per length",
+      "propertyTypeId": "5bd8a92b-78dc-499d-be4e-1e3a5980cf2d"
+    },
+    {
+      "property": "acoustic energy",
+      "quantityClass": "unitless",
+      "propertyTypeId": "9d6d967a-e8a0-47da-93a3-162e9d0f241d"
+    },
+    {
+      "property": "acoustic impedance",
+      "quantityClass": "(mass per time) per area",
+      "propertyTypeId": "2d12a832-2172-4307-8687-162ac1192910"
+    },
+    {
+      "property": "acoustic quality indicator",
+      "quantityClass": "unitless",
+      "propertyTypeId": "f91a3736-7740-4db9-96bd-b7258054ada6"
+    },
+    {
+      "property": "acoustic slowness",
+      "quantityClass": "time per length",
+      "propertyTypeId": "d38562a0-fd1e-4392-ace6-979bf181bfcb"
+    },
+    {
+      "property": "acoustic travel time",
+      "quantityClass": "time",
+      "propertyTypeId": "5fe2313e-3806-45a2-b48a-fe2effbdb780"
+    },
+    {
+      "property": "acoustic velocity",
+      "quantityClass": "length per time",
+      "propertyTypeId": "8fa5c226-4182-42c7-9b9d-17553e7c04f6"
+    },
+    {
+      "property": "acquisition shot number",
+      "quantityClass": "unitless",
+      "propertyTypeId": "29b076e9-428e-481c-9818-d631808c19d5"
+    },
+    {
+      "property": "acquisition type",
+      "quantityClass": "unitless",
+      "propertyTypeId": "2a725af4-ae11-47fc-8cf7-e7206c5b9ec1"
+    },
+    {
+      "property": "activity code",
+      "quantityClass": "unitless",
+      "propertyTypeId": "6845eee4-22df-4703-864b-e01cf59a1e38"
+    },
+    {
+      "property": "air supply flowrate",
+      "quantityClass": "volume per time",
+      "propertyTypeId": "37a3725d-0fbe-4305-ab7b-1a4aef34eb77"
+    },
+    {
+      "property": "albite dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "503cc66e-34b6-41f7-9bda-e584d7728507"
+    },
+    {
+      "property": "albite volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "f615b646-1179-48b5-9dab-40824e59188f"
+    },
+    {
+      "property": "aluminum concentration",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "3cfdc730-9d51-4a80-b5c9-5720a1751efd"
+    },
+    {
+      "property": "aluminum dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "df9a226f-f473-4edf-b706-2d0b032f531c"
+    },
+    {
+      "property": "aluminum yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "07cb2e9c-4a77-49bd-8b83-73771bef8af1"
+    },
+    {
+      "property": "amount",
+      "quantityClass": "unitless",
+      "propertyTypeId": "5239c8a9-e6d1-4e15-978d-33f6a53e1d06"
+    },
+    {
+      "property": "amplitude",
+      "quantityClass": "electric potential difference",
+      "propertyTypeId": "43d4382c-4414-4ff1-b68e-754ac5904ca7"
+    },
+    {
+      "property": "angular acceleration",
+      "quantityClass": "angular acceleration",
+      "propertyTypeId": "a18136a6-9671-4623-8e4e-b4a0359f5888"
+    },
+    {
+      "property": "angular velocity",
+      "quantityClass": "angular velocity",
+      "propertyTypeId": "c1cc24f5-db8c-4bf2-be5c-f086b5d232f0"
+    },
+    {
+      "property": "anhydrite dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "2a716640-ce21-4f84-9248-6e410e157d8e"
+    },
+    {
+      "property": "anhydrite volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "cfc2933a-821d-4b0e-8557-53b7f1bf530d"
+    },
+    {
+      "property": "anisotropy",
+      "quantityClass": "unitless",
+      "propertyTypeId": "9e6136ba-6c16-4b9f-9ccb-41f2a6bc5c73"
+    },
+    {
+      "property": "ankerite dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "78db594e-7811-4e1c-be56-d610703e5fdf"
+    },
+    {
+      "property": "annotation",
+      "quantityClass": "unitless",
+      "propertyTypeId": "e0e640e5-f106-4bc2-96c1-2290e910e06a"
+    },
+    {
+      "property": "annulus pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "f0eb380f-345a-4530-913c-7d608429c4c1"
+    },
+    {
+      "property": "annulus temperature",
+      "quantityClass": "thermodynamic temperature",
+      "propertyTypeId": "91676718-1e9d-4b96-a264-f27398990701"
+    },
+    {
+      "property": "annulus volume",
+      "quantityClass": "volume",
+      "propertyTypeId": "7102b12d-c376-4da7-b112-b2fb9f2e829f"
+    },
+    {
+      "property": "anorthite dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "07a6ba8d-6df4-4ac6-8c55-c629525213fe"
+    },
+    {
+      "property": "antenna quality factor",
+      "quantityClass": "unitless",
+      "propertyTypeId": "6902f9e4-82c5-42be-a99b-26c6f8c15154"
+    },
+    {
+      "property": "api gravity",
+      "quantityClass": "API gravity",
+      "propertyTypeId": "4836a794-1d21-44e3-9363-9d1e5c15adde"
+    },
+    {
+      "property": "api neutron",
+      "quantityClass": "API neutron",
+      "propertyTypeId": "0b80063d-f281-431e-9422-ffbafeb1a81f"
+    },
+    {
+      "property": "apparent dip angle",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "1fb99733-a1d9-467d-b574-8b533af35320"
+    },
+    {
+      "property": "apparent dip azimuth north",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "3d2bd3f8-491a-4c6e-a7f0-e630593392dd"
+    },
+    {
+      "property": "apparent dip azimuth tool",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "a165c7d9-dece-4b00-8812-54ce1088903e"
+    },
+    {
+      "property": "apparent dip azimuth top of hole",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "8e007d82-9300-4af3-94a2-5741ed583927"
+    },
+    {
+      "property": "apparent fluid velocity",
+      "quantityClass": "length per time",
+      "propertyTypeId": "73a346a3-b6b2-4c9d-8908-0128147a79be"
+    },
+    {
+      "property": "apparent mud filtrate resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "a1a1c192-bd04-4bcf-8cd3-0f635f37a261"
+    },
+    {
+      "property": "apparent porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "67cc0195-303a-4d82-8c96-839aa4a2cfea"
+    },
+    {
+      "property": "apparent thickness",
+      "quantityClass": "Length",
+      "propertyTypeId": "19ce24e5-bf65-4e59-9a1f-e1c8d34abb83"
+    },
+    {
+      "property": "apparent water resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "ffe73807-8a7f-43cd-93e3-625d78f480d2"
+    },
+    {
+      "property": "archie porosity constant",
+      "quantityClass": "unitless",
+      "propertyTypeId": "720a280a-346b-4e28-b979-ede210d5ffc2"
+    },
+    {
+      "property": "archie porosity exponent",
+      "quantityClass": "unitless",
+      "propertyTypeId": "e7e8dc94-ee53-4345-b795-29da9058b4c9"
+    },
+    {
+      "property": "array code",
+      "quantityClass": "unitless",
+      "propertyTypeId": "24312083-2d65-4209-9b3c-d746844b884c"
+    },
+    {
+      "property": "array conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "f0c24d87-b36c-4c4b-b429-4ccbc60f301c"
+    },
+    {
+      "property": "array induction conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "72065f26-c3bf-4188-82d0-5b9ef730bd0f"
+    },
+    {
+      "property": "array induction quality indicator",
+      "quantityClass": "unitless",
+      "propertyTypeId": "080af307-25e6-4b70-be23-b8e245d9e29e"
+    },
+    {
+      "property": "array induction resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "60aed9b4-615b-47aa-b1d5-3bf454f86ec6"
+    },
+    {
+      "property": "array laterolog conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "272d6c21-191b-4e47-bac5-4de5bbe18d07"
+    },
+    {
+      "property": "array laterolog resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "fbcbffde-d50d-4df6-9cb6-cf5f583a412e"
+    },
+    {
+      "property": "ash volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "5bed7c46-13d4-4165-900f-d588c5c03caa"
+    },
+    {
+      "property": "atomic number",
+      "quantityClass": "unitless",
+      "propertyTypeId": "ebe56693-216a-458c-b88a-f4e75eb9bf6e"
+    },
+    {
+      "property": "attenuation",
+      "quantityClass": "logarithmic power ratio",
+      "propertyTypeId": "ebb9703c-d729-43f7-834e-2bf18eae2d5a"
+    },
+    {
+      "property": "attenuation gain",
+      "quantityClass": "potential difference per power drop"
+    },
+    {
+      "property": "attenuation resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "d1e552ae-0b0b-4ec2-8ef9-6808d3fbf7eb"
+    },
+    {
+      "property": "avg amplitude",
+      "quantityClass": "pressure",
+      "propertyTypeId": "612acc11-e043-4369-bd86-4aaa12beca94"
+    },
+    {
+      "property": "avg bed thickness",
+      "quantityClass": "unitless",
+      "propertyTypeId": "efc352bb-a9b8-416d-9b14-20ad40bf9cc6"
+    },
+    {
+      "property": "avg penetration rate",
+      "quantityClass": "length per time",
+      "propertyTypeId": "7fbf2718-f45a-444e-ae3c-17f79f8817e2"
+    },
+    {
+      "property": "avg porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "dff41237-b4e5-4b43-8ce7-a689b8b73187"
+    },
+    {
+      "property": "avg seismic velocity",
+      "quantityClass": "length per time",
+      "propertyTypeId": "5bec0eab-b8cd-42a0-9dfb-48dfde5daae2"
+    },
+    {
+      "property": "avg sequence trend",
+      "quantityClass": "unitless",
+      "propertyTypeId": "76804363-88b6-4152-a2fd-78a1cd6d1c92"
+    },
+    {
+      "property": "axial length",
+      "quantityClass": "length",
+      "propertyTypeId": "e7b66c51-aa95-4206-907f-255812e8cecc"
+    },
+    {
+      "property": "azimuth",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "46943a75-5fa3-4acf-8d9f-d9c4c748b1c9"
+    },
+    {
+      "property": "azimuth turn rate",
+      "quantityClass": "angle per length",
+      "propertyTypeId": "efe2276e-fe17-4822-a385-56d037076fa3"
+    },
+    {
+      "property": "bad hole flag",
+      "quantityClass": "unitless",
+      "propertyTypeId": "9e40e1dd-daf1-4505-ae0d-f267c10770b2"
+    },
+    {
+      "property": "barium dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "5486bfcb-10f6-4170-83fa-d824613eaada"
+    },
+    {
+      "property": "barium yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "90d84d9a-6dbe-438f-b032-6bbfe2bdacce"
+    },
+    {
+      "property": "barometric pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "1041435e-8f57-4d2d-85c9-0d84c5e9dad3"
+    },
+    {
+      "property": "bearing",
+      "quantityClass": "unitless",
+      "propertyTypeId": "2a3c88ab-190c-4bb2-bb23-f28790d729f8"
+    },
+    {
+      "property": "begin element",
+      "quantityClass": "unitless",
+      "propertyTypeId": "b3fa729f-6f17-4751-8bb3-8fffdc1a75c1"
+    },
+    {
+      "property": "bend 1 bend 2 angle",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "8c3a2cec-ae80-44e1-bbf5-948a9f1a5a8c"
+    },
+    {
+      "property": "bend 2 bend 3 angle",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "f469742e-1300-425c-845c-84aae43ca11b"
+    },
+    {
+      "property": "bha number",
+      "quantityClass": "unitless",
+      "propertyTypeId": "e29af537-2a54-408c-93d9-90a8ea7b3c46"
+    },
+    {
+      "property": "bin porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "aa43cfb4-d17b-43b3-8e3f-5738725847bd"
+    },
+    {
+      "property": "biot coefficient",
+      "quantityClass": "unitless",
+      "propertyTypeId": "6033bbd3-b329-4600-9105-d42f9d5b5a9a"
+    },
+    {
+      "property": "biotite volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "02da9647-d442-456d-ae34-897e493ea288"
+    },
+    {
+      "property": "bit depth",
+      "quantityClass": "Length",
+      "propertyTypeId": "a8eeb8b7-08eb-4882-8ca9-6bf8d7e1898c"
+    },
+    {
+      "property": "bit inclination",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "08f17b48-c0d0-4693-bc4d-7409519a61f0"
+    },
+    {
+      "property": "bit rotation speed",
+      "quantityClass": "angular velocity",
+      "propertyTypeId": "8089616c-7712-4830-94bf-5cd67ff4acb2"
+    },
+    {
+      "property": "bit run number",
+      "quantityClass": "unitless",
+      "propertyTypeId": "b98aef01-3627-4986-b5a7-594aaeb068b3"
+    },
+    {
+      "property": "borehole diameter",
+      "quantityClass": "length",
+      "propertyTypeId": "d9394a4d-d3e7-4157-99aa-91b75be3d819"
+    },
+    {
+      "property": "borehole failure azimuth",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "6cbe1acd-f48a-4fa0-815a-523f2584a87c"
+    },
+    {
+      "property": "borehole neutron capture cross section",
+      "quantityClass": "area",
+      "propertyTypeId": "2341f044-0db2-4690-94bf-67df1d4466a2"
+    },
+    {
+      "property": "borehole radius",
+      "quantityClass": "length",
+      "propertyTypeId": "84b0f4aa-66be-4f13-b93a-f7a479eb7bd0"
+    },
+    {
+      "property": "borehole salinity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "cce35469-113e-4ff1-8e18-72d3e69db30e"
+    },
+    {
+      "property": "borehole temperature",
+      "quantityClass": "thermodynamic temperature",
+      "propertyTypeId": "8cc7191d-bfac-49b2-96d2-2b311eec2876"
+    },
+    {
+      "property": "borehole volume",
+      "quantityClass": "volume",
+      "propertyTypeId": "d6c37317-6ab8-44ff-bf85-0817d755b51a"
+    },
+    {
+      "property": "bottom depth",
+      "quantityClass": "length",
+      "propertyTypeId": "282d66d1-9f2d-48b9-bebe-811c974c872b"
+    },
+    {
+      "property": "bottomhole temperature",
+      "quantityClass": "thermodynamic temperature",
+      "propertyTypeId": "d90efd16-84cd-4883-99b0-69b9d89d80aa"
+    },
+    {
+      "property": "bound water resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "b290abba-d990-4199-8e0b-a267dc385d3c"
+    },
+    {
+      "property": "bound water saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "ac20a7a9-c66a-4e7b-af8d-8415078add75"
+    },
+    {
+      "property": "bound water volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "340f4ac3-460b-4da9-be24-e458f8fc3e58"
+    },
+    {
+      "property": "bubble flow velocity",
+      "quantityClass": "length per time",
+      "propertyTypeId": "b335f292-c947-4f5d-aa91-185e9f18f805"
+    },
+    {
+      "property": "bubble point pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "3ba4f051-30c4-41de-b02b-52567da44be6"
+    },
+    {
+      "property": "bubble size",
+      "quantityClass": "length",
+      "propertyTypeId": "d589a080-ab22-4753-b420-c1ec6b82892d"
+    },
+    {
+      "property": "bulk density",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "8cf38da3-e98e-4134-a186-1c6f562d6430"
+    },
+    {
+      "property": "bulk density correction",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "7eb08010-79b8-4466-8f1c-a3f2ed7de3d4"
+    },
+    {
+      "property": "bulk modulus",
+      "quantityClass": "pressure",
+      "propertyTypeId": "15261d8c-e58e-4d48-b855-467eaa250385"
+    },
+    {
+      "property": "burst pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "7f736ff3-7a3d-47bd-a317-64fac8c7b7dc"
+    },
+    {
+      "property": "cable speed",
+      "quantityClass": "length per time",
+      "propertyTypeId": "f562a149-b910-421b-afd8-bc806df3f183"
+    },
+    {
+      "property": "calcite dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "239cc808-a3b7-4021-a707-e10a5f80c896"
+    },
+    {
+      "property": "calcite volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "ebd75e66-9e99-424c-81b0-7d41b985509d"
+    },
+    {
+      "property": "calcium dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "88a0a38c-bb7c-417b-9f43-5c3fab8887d1"
+    },
+    {
+      "property": "calcium yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "2e41021d-9f6e-4031-b5ee-88e314507d69"
+    },
+    {
+      "property": "caliper",
+      "quantityClass": "length",
+      "propertyTypeId": "a6489707-abc0-4b1f-bb6c-ad2db135d8f7"
+    },
+    {
+      "property": "capillary pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "a816a113-1544-4f58-bc6d-7c030b65627b"
+    },
+    {
+      "property": "carbon dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "af31ded2-6bbd-4f5c-9199-11ac372baca7"
+    },
+    {
+      "property": "carbon oxygen ratio",
+      "quantityClass": "unitless",
+      "propertyTypeId": "fc475dd1-373c-4b5a-b5ca-01d999b6f68b"
+    },
+    {
+      "property": "carbon volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "5b7f784e-0f87-464a-9545-3b0cc0256b99"
+    },
+    {
+      "property": "carbon yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "62f73ac7-ddf3-4628-9347-695f46863b83"
+    },
+    {
+      "property": "carbonate volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "0a5962f4-f8df-4044-ad5f-f9f0a7ccdbf9"
+    },
+    {
+      "property": "casing collar locator",
+      "quantityClass": "unitless",
+      "propertyTypeId": "25d2974c-a3a7-4001-b19a-a3ca58c5930a"
+    },
+    {
+      "property": "casing inside diameter",
+      "quantityClass": "length",
+      "propertyTypeId": "01936b05-c763-4520-9b16-20a23fb9a4b4"
+    },
+    {
+      "property": "casing outside diameter",
+      "quantityClass": "length",
+      "propertyTypeId": "1c29c923-8fbd-4a1f-b6d8-9d07b4187376"
+    },
+    {
+      "property": "casing shoe depth",
+      "quantityClass": "Length",
+      "propertyTypeId": "3acef79f-b389-498c-9272-a80840daa0b3"
+    },
+    {
+      "property": "cation concentration",
+      "quantityClass": "electric charge per volume",
+      "propertyTypeId": "7a07d9c2-13be-40b3-93c9-9db26a2300f1"
+    },
+    {
+      "property": "cation exchange capacity",
+      "quantityClass": "electric charge per mass",
+      "propertyTypeId": "f597fb52-f17a-4abe-8970-876a695d2a5f"
+    },
+    {
+      "property": "cement bond amplitude",
+      "quantityClass": "electric potential difference",
+      "propertyTypeId": "033df752-1071-431c-9437-0c77134e5d84"
+    },
+    {
+      "property": "cement bond index",
+      "quantityClass": "unitless",
+      "propertyTypeId": "cdd7c3ab-2368-4c8a-869f-3aba1028af0a"
+    },
+    {
+      "property": "cement density",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "237a7233-5407-48ab-ae9a-fc5e92ddddf4"
+    },
+    {
+      "property": "cement sheath thickness",
+      "quantityClass": "length",
+      "propertyTypeId": "33182931-47d1-4101-abfb-1df75cd7f78d"
+    },
+    {
+      "property": "cement volume",
+      "quantityClass": "volume",
+      "propertyTypeId": "32f0d477-9acc-4d73-a63e-b937b89bc8b6"
+    },
+    {
+      "property": "central frequency",
+      "quantityClass": "frequency",
+      "propertyTypeId": "ead7bdc8-916b-4e80-9c07-4b8c7a88c7d0"
+    },
+    {
+      "property": "cesium concentration",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "1c7a75e7-b9e0-415a-bae5-61ff3d959dd9"
+    },
+    {
+      "property": "chi square",
+      "quantityClass": "unitless",
+      "propertyTypeId": "e56d1d15-c9a3-40e7-99ef-1f209b9680cb"
+    },
+    {
+      "property": "chlorine dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "9be141ac-f3f6-4444-b8c5-ae6c8db3ebbc"
+    },
+    {
+      "property": "chlorine yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "c9b530c8-d91d-43b7-a3c7-bb44bc16505f"
+    },
+    {
+      "property": "chlorite dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "c8a81450-8d49-4d27-bd83-77479c6e8837"
+    },
+    {
+      "property": "chlorite volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "086353cd-e554-49fe-92c1-c7e028ab978d"
+    },
+    {
+      "property": "chromium dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "c2bd3f71-8d92-4030-9599-ef0c634c1b8a"
+    },
+    {
+      "property": "chromium yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "944a81dd-deb0-41b8-9f4a-c83b87e8bfc3"
+    },
+    {
+      "property": "clay dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "47a1b0b9-9972-4fff-bcac-fd6bf62809e6"
+    },
+    {
+      "property": "clay volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "63db4b8c-8ce9-4549-a8b1-443f1e2add90"
+    },
+    {
+      "property": "co2 mole fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "c2233531-3774-484d-a10e-ee3bffa66112"
+    },
+    {
+      "property": "coal dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "2e56d3c4-c24b-4db2-aef2-787c3fa1d471"
+    },
+    {
+      "property": "coal volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "039c53e8-1d54-4dbd-85c8-30617436e9e6"
+    },
+    {
+      "property": "cobalt concentration",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "4f5c2ed6-37b5-425e-8d37-25a65be0634b"
+    },
+    {
+      "property": "cobalt dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "529283aa-9ccb-4884-94e5-cc8c01682856"
+    },
+    {
+      "property": "cobalt yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "1b36839e-c319-4534-b83b-4894e75d3213"
+    },
+    {
+      "property": "coefficient",
+      "quantityClass": "unitless",
+      "propertyTypeId": "4fb32a5e-3814-4051-a140-8d62a08e0c17"
+    },
+    {
+      "property": "coherence",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "f8ad43af-c879-4797-8b61-b4518ae3fe0e"
+    },
+    {
+      "property": "collapse pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "625c8236-4181-44f9-9f0e-2f76afc042f5"
+    },
+    {
+      "property": "color",
+      "quantityClass": "unitless",
+      "propertyTypeId": "8f85fd63-ae4c-4008-bbbe-259a87bdbdde"
+    },
+    {
+      "property": "color map",
+      "quantityClass": "unitless",
+      "propertyTypeId": "3490fa6e-3f63-499e-a564-7ea2ec11c84b"
+    },
+    {
+      "property": "completion count",
+      "quantityClass": "unitless",
+      "propertyTypeId": "79ab80ba-4be3-4a38-a062-24a2c6de2b32"
+    },
+    {
+      "property": "compressibility",
+      "quantityClass": "reciprocal pressure",
+      "propertyTypeId": "e2ec683b-9cfe-4d86-93dc-afc3b175a444"
+    },
+    {
+      "property": "compressional shear velocity ratio",
+      "quantityClass": "unitless",
+      "propertyTypeId": "f5b21779-b0c5-4f51-a890-f05c55d7dd88"
+    },
+    {
+      "property": "compressional slowness",
+      "quantityClass": "time per length",
+      "propertyTypeId": "18cb5dce-cc1b-4f51-8702-e18d9f2e1ce2"
+    },
+    {
+      "property": "compressional velocity",
+      "quantityClass": "length per time",
+      "propertyTypeId": "96500b20-f573-417a-b8bd-257856396ab2"
+    },
+    {
+      "property": "compressive strength",
+      "quantityClass": "pressure",
+      "propertyTypeId": "167e6ee9-be71-44d1-9ff7-5c3de221d3b7"
+    },
+    {
+      "property": "concentration",
+      "quantityClass": "unitless",
+      "propertyTypeId": "3dbec38b-a205-4e0d-a4cb-70f9af7572e5"
+    },
+    {
+      "property": "conductance",
+      "quantityClass": "electric conductance",
+      "propertyTypeId": "959f39f1-ca5c-4f57-aee9-b5125ba38f13"
+    },
+    {
+      "property": "conductive bed proportion",
+      "quantityClass": "unitless",
+      "propertyTypeId": "cf09c776-bba0-47ac-8eaf-03144ee1ff56"
+    },
+    {
+      "property": "conductive inclusion contrast",
+      "quantityClass": "unitless",
+      "propertyTypeId": "36559329-a1c9-4c8f-92d9-3fecbd6ac994"
+    },
+    {
+      "property": "conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "fabb3302-7132-4f32-91f3-c052cf3bb05a"
+    },
+    {
+      "property": "copper dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "b9b6a541-fa48-42df-8782-2738dfaa3d8d"
+    },
+    {
+      "property": "copper yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "b1a703f5-67c8-4935-82af-321755ed3d04"
+    },
+    {
+      "property": "correction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "a07c64dd-06e7-4933-91ba-339ee3c45bf5"
+    },
+    {
+      "property": "correction factor",
+      "quantityClass": "unitless",
+      "propertyTypeId": "ff69acf4-fb72-4914-8ba9-df58be8304d6"
+    },
+    {
+      "property": "correlation coefficient",
+      "quantityClass": "unitless",
+      "propertyTypeId": "b32ff90f-b840-4b74-8d03-76bc5d98d494"
+    },
+    {
+      "property": "corridor stack",
+      "quantityClass": "unitless",
+      "propertyTypeId": "2a36faca-c6b2-42b4-b0db-d51fa8320e61"
+    },
+    {
+      "property": "corrosion indicator",
+      "quantityClass": "unitless",
+      "propertyTypeId": "f0177e38-d7e0-40d9-a25b-6815d4817cb8"
+    },
+    {
+      "property": "corrosion rate",
+      "quantityClass": "length per time",
+      "propertyTypeId": "e4c90408-aaf7-46e6-a97d-2022f62be522"
+    },
+    {
+      "property": "count",
+      "quantityClass": "unitless",
+      "propertyTypeId": "ee1efc57-1990-4c63-af90-974f186d1644"
+    },
+    {
+      "property": "count rate",
+      "quantityClass": "frequency",
+      "propertyTypeId": "08c607d4-6f71-4759-8b63-f1b5b8fd6548"
+    },
+    {
+      "property": "covariance",
+      "quantityClass": "unitless",
+      "propertyTypeId": "622013c7-5220-4c89-94dc-1c6ebd58b0ad"
+    },
+    {
+      "property": "critical drawdown pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "1c93830a-426c-4c60-9e90-9379125e9d52"
+    },
+    {
+      "property": "critical gas saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "fabaca1d-67c6-4fcf-a732-5682570f72cc"
+    },
+    {
+      "property": "critical mud density",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "ca5508dc-598c-4381-bf45-92c1ecc4a779"
+    },
+    {
+      "property": "critical oil saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "87de2569-7e00-452b-b5bd-1846f739b554"
+    },
+    {
+      "property": "critical pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "50c71895-e686-4055-9e71-7525b74ba04d"
+    },
+    {
+      "property": "critical water saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "35f89fbd-aa5e-485d-822e-86797f3a7c9f"
+    },
+    {
+      "property": "cross section area",
+      "quantityClass": "area",
+      "propertyTypeId": "f217d9ac-d6cf-4645-8bb5-4f506afe1997"
+    },
+    {
+      "property": "crossplot porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "8924c721-a969-4a9e-8ec7-11fcb17b408a"
+    },
+    {
+      "property": "cumulative gas volume",
+      "quantityClass": "volume",
+      "propertyTypeId": "a4ba1642-1bb4-4c98-a47e-8e688be286fd"
+    },
+    {
+      "property": "cumulative oil volume",
+      "quantityClass": "volume",
+      "propertyTypeId": "01fed33b-dd06-4738-8268-05fa875122a1"
+    },
+    {
+      "property": "cumulative volume",
+      "quantityClass": "volume",
+      "propertyTypeId": "fdd3ac0c-4482-47c3-810d-0395bfcb05bb"
+    },
+    {
+      "property": "cumulative water volume",
+      "quantityClass": "volume",
+      "propertyTypeId": "75c34a5f-dbe4-4703-a678-b99bbb858a1e"
+    },
+    {
+      "property": "current density",
+      "quantityClass": "electric current density",
+      "propertyTypeId": "f173fbd7-243e-47ea-a5ab-059d3c32d8a0"
+    },
+    {
+      "property": "curvature",
+      "quantityClass": "angle per length",
+      "propertyTypeId": "18466756-11b0-47ef-bb68-4f95f2c24286"
+    },
+    {
+      "property": "curvature radius",
+      "quantityClass": "length",
+      "propertyTypeId": "26df2a08-4124-4af6-b5af-0b044db6a7a8"
+    },
+    {
+      "property": "cuttings diameter",
+      "quantityClass": "length",
+      "propertyTypeId": "f78c7f51-bc8d-4d50-b2ff-9ec4e5a9802e"
+    },
+    {
+      "property": "data acquisition mode",
+      "quantityClass": "unitless",
+      "propertyTypeId": "a7b929fc-9018-42bd-b82e-b42d9a23fde4"
+    },
+    {
+      "property": "data mask",
+      "quantityClass": "unitless",
+      "propertyTypeId": "3aa494c4-5ca8-4d80-aa83-8ff72122752d"
+    },
+    {
+      "property": "data presence flag",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "c643efb4-2d28-43ed-8f7f-3ede5e6a6ec9"
+    },
+    {
+      "property": "date",
+      "quantityClass": "unitless",
+      "propertyTypeId": "3c3dd455-a28f-4f58-988f-343032ced679"
+    },
+    {
+      "property": "deep conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "73775b98-eea0-43e2-9966-c3f3579a72d5"
+    },
+    {
+      "property": "deep induction conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "a344a6eb-188f-4b6e-9c30-37d314fe1638"
+    },
+    {
+      "property": "deep induction resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "399eabca-4254-4f51-b843-33860e48c66e"
+    },
+    {
+      "property": "deep lateral resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "30708db7-fc87-4192-8ef5-f71074d0ffaa"
+    },
+    {
+      "property": "deep laterolog conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "ba60e1c5-38ba-438d-854a-1382234e95e1"
+    },
+    {
+      "property": "deep laterolog resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "38e51ce2-4f27-4942-9f6a-1a410bf57e69"
+    },
+    {
+      "property": "deep resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "2fa664ef-d859-4cee-9af7-0391c78e9ce7"
+    },
+    {
+      "property": "degradation factor",
+      "quantityClass": "unitless",
+      "propertyTypeId": "f0c8265c-3d9b-4321-a1c4-e563dea38748"
+    },
+    {
+      "property": "degree of confidence",
+      "quantityClass": "unitless",
+      "propertyTypeId": "e9c5614f-13fd-49ca-8cc3-e5128f0290da"
+    },
+    {
+      "property": "delay time",
+      "quantityClass": "time",
+      "propertyTypeId": "9dadca18-8242-4a89-b75e-fa078d1ca37e"
+    },
+    {
+      "property": "density",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "fd8a4e2e-63d7-43d9-926a-a23da337dc6c"
+    },
+    {
+      "property": "density caliper",
+      "quantityClass": "length",
+      "propertyTypeId": "136ef19b-8b7a-41e8-8673-171c33d4067e"
+    },
+    {
+      "property": "density data density",
+      "quantityClass": "unitless",
+      "propertyTypeId": "5a46bca6-7ff3-46d2-939c-bf22bd634133"
+    },
+    {
+      "property": "density porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "1738c6d0-d2d9-404b-bd42-a4b26ec1350e"
+    },
+    {
+      "property": "density porosity dolomite",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "37dbd31c-b03c-447d-bd89-3b8d1044e178"
+    },
+    {
+      "property": "density porosity limestone",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "b5129670-81c1-4596-ace3-ef1dd687e05a"
+    },
+    {
+      "property": "density porosity sandstone",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "00be8ee6-c2ca-4f1e-bcf1-fc5c41ab80d6"
+    },
+    {
+      "property": "density quality indicator",
+      "quantityClass": "unitless",
+      "propertyTypeId": "9a02c010-ef6b-479d-9b6d-9724f054b727"
+    },
+    {
+      "property": "density time after bit",
+      "quantityClass": "time",
+      "propertyTypeId": "224bb0ec-68bc-4d85-9b99-35923b1949d0"
+    },
+    {
+      "property": "depth",
+      "quantityClass": "Length",
+      "propertyTypeId": "4364b378-899a-403a-8401-b06abd4fc0cf"
+    },
+    {
+      "property": "depth offset",
+      "quantityClass": "Length",
+      "propertyTypeId": "03a86466-2567-4c20-8e94-ddb5c1e01407"
+    },
+    {
+      "property": "description",
+      "quantityClass": "unitless",
+      "propertyTypeId": "89230474-eb6e-417f-8fce-f2f00ee6fafb"
+    },
+    {
+      "property": "detection gain",
+      "quantityClass": "unitless",
+      "propertyTypeId": "ca2b874e-2bb5-4052-9f05-d56068472e37"
+    },
+    {
+      "property": "detector background yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "7f550352-2628-480f-a8df-e07ef88649bc"
+    },
+    {
+      "property": "diameter",
+      "quantityClass": "length",
+      "propertyTypeId": "e36797ca-9a9d-4014-9a96-02d183d939ef"
+    },
+    {
+      "property": "dielectric constant",
+      "quantityClass": "unitless",
+      "propertyTypeId": "433bd214-fa2d-492f-8152-faa00d4d80e6"
+    },
+    {
+      "property": "dielectric resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "4d9c651d-3499-4707-8cf0-8991d1f54ab0"
+    },
+    {
+      "property": "differential caliper",
+      "quantityClass": "length",
+      "propertyTypeId": "315a309f-b475-49b8-bce0-366809fab8d4"
+    },
+    {
+      "property": "differential pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "54515a5e-b484-4891-96b2-e13ea28647be"
+    },
+    {
+      "property": "differential radius",
+      "quantityClass": "length",
+      "propertyTypeId": "79e2e4ad-86f6-42b4-98d7-85f4c1062b56"
+    },
+    {
+      "property": "differential temperature",
+      "quantityClass": "thermodynamic temperature",
+      "propertyTypeId": "5322ee98-4861-493c-bf28-939a611e0d71"
+    },
+    {
+      "property": "diffusivity",
+      "quantityClass": "(volume per time) per length",
+      "propertyTypeId": "1eadab9c-6ea0-49ae-9f98-85d574fec5e0"
+    },
+    {
+      "property": "dilation angle",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "798febb8-3c60-4846-8c0c-2e4e2fdc3fe8"
+    },
+    {
+      "property": "dip angle",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "df4dff81-6714-4bfc-b2d9-ef9ddb961ab1"
+    },
+    {
+      "property": "dip azimuth",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "ace68d4c-7400-431d-9a33-0541b8bfc4b4"
+    },
+    {
+      "property": "dip classification",
+      "quantityClass": "unitless",
+      "propertyTypeId": "1256d421-cda6-4854-a2a9-64c6b359c8d5"
+    },
+    {
+      "property": "dip height",
+      "quantityClass": "Length",
+      "propertyTypeId": "87217c07-22f8-4af4-875c-11516a9e3e39"
+    },
+    {
+      "property": "dip number",
+      "quantityClass": "unitless",
+      "propertyTypeId": "5a94a038-03e3-4290-9fc5-af06528343f4"
+    },
+    {
+      "property": "dip quality",
+      "quantityClass": "unitless",
+      "propertyTypeId": "442da96b-4d2e-4aac-97df-5fe7f99c7c49"
+    },
+    {
+      "property": "direction",
+      "quantityClass": "unitless",
+      "propertyTypeId": "ae3cfa73-cc9f-4d46-8a09-74b8fce83413"
+    },
+    {
+      "property": "displacement",
+      "quantityClass": "Length",
+      "propertyTypeId": "cfe39260-beaf-4e38-bd3a-aaa79db1caf8"
+    },
+    {
+      "property": "displacement velocity",
+      "quantityClass": "length per time",
+      "propertyTypeId": "adc201d9-22b5-4523-b2b3-101608f28823"
+    },
+    {
+      "property": "dolomite dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "5cd7cc0d-4ec5-4ed7-8529-1df8c0d66533"
+    },
+    {
+      "property": "dolomite volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "3fd3f9f0-2e21-4731-81fa-1a9dc4548f11"
+    },
+    {
+      "property": "downhole cable tension",
+      "quantityClass": "force",
+      "propertyTypeId": "6ded9712-9ed2-4dfd-b3c8-37c63af50b54"
+    },
+    {
+      "property": "downhole torque",
+      "quantityClass": "energy",
+      "propertyTypeId": "635f8c1a-9162-473b-a5f0-71e1ed519ed1"
+    },
+    {
+      "property": "downstream orifice gas pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "b00cf7fb-fe47-4e87-8e4e-8b59f0a90cab"
+    },
+    {
+      "property": "drag",
+      "quantityClass": "force",
+      "propertyTypeId": "37203e5b-08f1-4ecd-af36-217f1b955df5"
+    },
+    {
+      "property": "drift time",
+      "quantityClass": "time",
+      "propertyTypeId": "dd8d0d07-00a3-4e4d-ab29-42adab829472"
+    },
+    {
+      "property": "drilling time",
+      "quantityClass": "time",
+      "propertyTypeId": "0789f969-e2d7-4c8e-8fe5-b527b0e72de5"
+    },
+    {
+      "property": "drillstring drive torque",
+      "quantityClass": "energy",
+      "propertyTypeId": "c45a00bf-4229-4cb2-aff0-87e0828476fb"
+    },
+    {
+      "property": "dry clay volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "360953c0-a618-48ca-b893-cbd0ecd687cf"
+    },
+    {
+      "property": "dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "efe464c2-0d20-4096-971d-98b84e718c9b"
+    },
+    {
+      "property": "duration",
+      "quantityClass": "time",
+      "propertyTypeId": "a1b08403-2cf1-400a-b56a-e6ff6568350d"
+    },
+    {
+      "property": "duty cycle",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "7f12d3ff-1cc7-4bb6-ba8b-d737c6013f0d"
+    },
+    {
+      "property": "east departure",
+      "quantityClass": "Length",
+      "propertyTypeId": "a95a3a57-25e9-49c5-afe3-c3b96073e9f1"
+    },
+    {
+      "property": "eccentering",
+      "quantityClass": "length",
+      "propertyTypeId": "cb5792d9-ef01-4a33-a391-8000bb5f0cc3"
+    },
+    {
+      "property": "eccentering azimuth",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "9c7010f7-f3ea-42e2-b119-0f46c1695728"
+    },
+    {
+      "property": "echo amplitude",
+      "quantityClass": "logarithmic power ratio",
+      "propertyTypeId": "26a2e8d0-2a18-4f2a-a4b3-1f0cb564bcd5"
+    },
+    {
+      "property": "effective porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "2d5f0f93-6ee3-4d23-90b8-c16d84344c5f"
+    },
+    {
+      "property": "efficiency",
+      "quantityClass": "unitless",
+      "propertyTypeId": "abf8fe54-b6df-4e94-a1a8-70bf7e1e4703"
+    },
+    {
+      "property": "elastic impedance",
+      "quantityClass": "(mass per time) per area",
+      "propertyTypeId": "2222e877-dde6-42ca-be3b-a4a2dead7ffb"
+    },
+    {
+      "property": "elastic modulus",
+      "quantityClass": "pressure",
+      "propertyTypeId": "04a6c329-f6f8-49ff-8724-fbaf7ddf44fe"
+    },
+    {
+      "property": "electric current",
+      "quantityClass": "electric current",
+      "propertyTypeId": "b55f43ed-f752-47b0-b94b-a80183e0e056"
+    },
+    {
+      "property": "electric potential",
+      "quantityClass": "electric potential difference",
+      "propertyTypeId": "953ff2be-41d4-4b3a-bc6c-21f5ed6cd1cd"
+    },
+    {
+      "property": "electric potential gradient",
+      "quantityClass": "electric field strength",
+      "propertyTypeId": "9068b739-4934-47a5-830c-a933fbcbcf52"
+    },
+    {
+      "property": "electrical penetration",
+      "quantityClass": "length",
+      "propertyTypeId": "f1c7d2ed-4978-4e94-8d10-99d61c0bcb17"
+    },
+    {
+      "property": "electromagnetic attenuation rate",
+      "quantityClass": "logarithmic power ratio per length",
+      "propertyTypeId": "01bf6da4-0126-4bef-bb92-b8e6fbb23b57"
+    },
+    {
+      "property": "electromagnetic caliper",
+      "quantityClass": "length",
+      "propertyTypeId": "320369b1-1a7b-48d9-875a-780866d1b44f"
+    },
+    {
+      "property": "electromagnetic phase shift",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "b6870cff-d734-415a-bdcd-c0ac0fa0903a"
+    },
+    {
+      "property": "electromagnetic power",
+      "quantityClass": "unitless",
+      "propertyTypeId": "a984ea77-0f5d-49dc-8747-075fa5db7ff6"
+    },
+    {
+      "property": "electromagnetic propagation time",
+      "quantityClass": "time per length",
+      "propertyTypeId": "d17fbf42-6d1b-4981-9b5f-5df9aa07717a"
+    },
+    {
+      "property": "elemental yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "316a1076-3e8e-4289-823b-48d0387333f2"
+    },
+    {
+      "property": "end time",
+      "quantityClass": "time",
+      "propertyTypeId": "a38f7573-b588-4a0f-82bb-630a09c75a6e"
+    },
+    {
+      "property": "energy",
+      "quantityClass": "Energy",
+      "propertyTypeId": "f2000e7d-522c-46af-bed5-b2386cfe69b3"
+    },
+    {
+      "property": "epithermal neutron near far ratio",
+      "quantityClass": "unitless",
+      "propertyTypeId": "58247840-3fa9-4ea0-b8b6-3927fdb505c8"
+    },
+    {
+      "property": "epithermal neutron porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "60c80c67-8b6c-4795-a070-67dd9801efcd"
+    },
+    {
+      "property": "equivalent circulating density",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "1e152927-429e-4f71-8a2d-6ea4c42ffd82"
+    },
+    {
+      "property": "equivalent dose rate",
+      "quantityClass": "(energy per mass) per time",
+      "propertyTypeId": "6d183d4f-9151-4ba4-8a97-2cb64c5f0475"
+    },
+    {
+      "property": "error",
+      "quantityClass": "unitless",
+      "propertyTypeId": "e99e2a8c-757e-4946-a4bd-2e40a43edcfa"
+    },
+    {
+      "property": "error band",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "2dcbec8b-0392-45d0-8390-1fdc1680e081"
+    },
+    {
+      "property": "evaporite dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "1b7c3c28-1063-437e-a126-50db46a112bc"
+    },
+    {
+      "property": "evaporite volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "d2e335d2-6f25-462d-ba96-c96adb0c05c3"
+    },
+    {
+      "property": "event time",
+      "quantityClass": "time",
+      "propertyTypeId": "3fc483d2-99e3-4372-9ad4-2504839c300d"
+    },
+    {
+      "property": "exponent",
+      "quantityClass": "unitless",
+      "propertyTypeId": "08ef21bc-6550-44b6-ae58-360b776ce283"
+    },
+    {
+      "property": "failure arc",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "eb7b808b-5b0d-4989-a426-1bfdde284cd5"
+    },
+    {
+      "property": "fault type",
+      "quantityClass": "unitless",
+      "propertyTypeId": "26c71d19-b6e4-4e8e-90af-531d30b0940f"
+    },
+    {
+      "property": "feldspar volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "b725a620-abef-499d-b78e-54e1876191df"
+    },
+    {
+      "property": "filter cake density",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "f60f42bc-977b-41a4-a4b1-b6a69231399b"
+    },
+    {
+      "property": "filter cake photoelectric factor",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "d3f5bc6e-3961-4ad5-a765-951f1abd082d"
+    },
+    {
+      "property": "filter cake resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "28cb6981-f952-4281-b17c-8243bac10b92"
+    },
+    {
+      "property": "filter cake thickness",
+      "quantityClass": "length",
+      "propertyTypeId": "d080385c-318a-4b98-8f4a-57025214174d"
+    },
+    {
+      "property": "firmware version",
+      "quantityClass": "unitless",
+      "propertyTypeId": "f60ae0a3-4f3f-4d93-acc9-0ced9100411c"
+    },
+    {
+      "property": "first derivative",
+      "quantityClass": "pressure",
+      "propertyTypeId": "c3de33fa-c2df-4d22-8c6e-600bcd6f111d"
+    },
+    {
+      "property": "flag",
+      "quantityClass": "unitless",
+      "propertyTypeId": "2138087f-8ba8-4893-9c77-41a8772268d6"
+    },
+    {
+      "property": "flow velocity",
+      "quantityClass": "length per time",
+      "propertyTypeId": "d37869f6-edac-458e-b269-417d8dee5ca7"
+    },
+    {
+      "property": "flowing fluid type",
+      "quantityClass": "unitless",
+      "propertyTypeId": "bc36efe7-9d4c-4b97-9d0f-0465de0d439e"
+    },
+    {
+      "property": "flowrate",
+      "quantityClass": "volume per time",
+      "propertyTypeId": "954570a3-d587-454c-8481-bf21657625e2"
+    },
+    {
+      "property": "flowrate gradient",
+      "quantityClass": "(volume per time) per length",
+      "propertyTypeId": "f15c7482-79d9-41ca-a486-39291bd44e18"
+    },
+    {
+      "property": "flowrate index",
+      "quantityClass": "unitless",
+      "propertyTypeId": "a3066b63-9d5b-45b5-b62f-6aba77004d83"
+    },
+    {
+      "property": "fluid compressional slowness",
+      "quantityClass": "time per length",
+      "propertyTypeId": "a1568289-87a1-4dec-a236-a88e0f4c4531"
+    },
+    {
+      "property": "fluid conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "0d7fb1cb-7e4f-4ac2-aed3-c532d2b7e53f"
+    },
+    {
+      "property": "fluid density",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "d02827dd-7228-4c33-89c5-5f74c93da422"
+    },
+    {
+      "property": "fluid level",
+      "quantityClass": "unitless",
+      "propertyTypeId": "c51e2d7f-97e0-4e00-9103-32d715995398"
+    },
+    {
+      "property": "fluid resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "3de1fb68-e67c-4e65-ad4f-895e15c9528c"
+    },
+    {
+      "property": "fluid temperature",
+      "quantityClass": "thermodynamic temperature",
+      "propertyTypeId": "e3ac3937-4f5a-46ae-9c1d-48f631111e85"
+    },
+    {
+      "property": "fluid type",
+      "quantityClass": "unitless",
+      "propertyTypeId": "207e562b-5505-4b4f-a710-73ed8f9e2a18"
+    },
+    {
+      "property": "fluid viscosity",
+      "quantityClass": "dynamic viscosity",
+      "propertyTypeId": "d0ff969d-902c-4180-916e-dfe268a5a3a5"
+    },
+    {
+      "property": "flushed zone bound water saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "155fd7fc-8de0-40fa-97d8-e5d0809766ea"
+    },
+    {
+      "property": "flushed zone bound water volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "2f6a1479-51eb-4b75-a6c2-86307ec2a24b"
+    },
+    {
+      "property": "flushed zone conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "1a5a08c9-ddbb-46b0-85fb-94fc8635609a"
+    },
+    {
+      "property": "flushed zone dissolved salt volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "e173c253-543b-49a9-b8e4-45912c839f4b"
+    },
+    {
+      "property": "flushed zone fluid saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "947e60ec-9b26-43b6-9f1b-6efa217c34cf"
+    },
+    {
+      "property": "flushed zone fluid volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "08b5331c-d8da-4a9f-968b-b233fe42f398"
+    },
+    {
+      "property": "flushed zone free water volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "283a9a47-5f77-4513-861d-acd6c0b1bd6b"
+    },
+    {
+      "property": "flushed zone gas volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "78157f7c-d7fe-436d-9bb8-43577acaf7c6"
+    },
+    {
+      "property": "flushed zone hydrocarbon saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "7ddd0b71-8c30-4e60-8ef2-69f787ed604c"
+    },
+    {
+      "property": "flushed zone hydrocarbon volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "6c7948ef-7f24-41d7-b769-c53a76007789"
+    },
+    {
+      "property": "flushed zone irreducible water volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "63f5cb8d-bbcd-42ea-8254-0212ce793a46"
+    },
+    {
+      "property": "flushed zone obmf saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "b94a964c-bebe-4b6c-ae68-18295e592480"
+    },
+    {
+      "property": "flushed zone obmf volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "fd1e2b21-a7cc-471a-9971-938bdf3b7240"
+    },
+    {
+      "property": "flushed zone oil volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "3f6616f8-c559-4247-8256-62fee6d3e55b"
+    },
+    {
+      "property": "flushed zone resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "f99e8b10-a323-4c3e-8b8e-c01e21c8885a"
+    },
+    {
+      "property": "flushed zone water saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "e4d2db83-6aac-4502-9b10-938cd6c49b08"
+    },
+    {
+      "property": "flushed zone water volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "cc9b4c1e-fed9-47dd-9e8c-58610b7ec441"
+    },
+    {
+      "property": "flux leakage",
+      "quantityClass": "electric potential difference",
+      "propertyTypeId": "4ae6a2d1-9e13-4fd7-8ed5-54375749a685"
+    },
+    {
+      "property": "force",
+      "quantityClass": "force",
+      "propertyTypeId": "a5789b56-72a3-4561-b906-b5ba13852c23"
+    },
+    {
+      "property": "formation conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "f744e18d-9c1b-4d07-aca9-f962cb05781e"
+    },
+    {
+      "property": "formation resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "3513a735-a42c-41f6-be10-3f655548bcbe"
+    },
+    {
+      "property": "formation resistivity factor",
+      "quantityClass": "unitless",
+      "propertyTypeId": "acdffa99-a8dd-410d-95b8-e0ca39481b5c"
+    },
+    {
+      "property": "formation resistivity sw100",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "17fdb4cd-f8ad-4150-a3fb-62587392592f"
+    },
+    {
+      "property": "formation stiffness factor",
+      "quantityClass": "unitless",
+      "propertyTypeId": "d75b02c4-82ed-4ad5-8c00-3a422a121718"
+    },
+    {
+      "property": "formation temperature",
+      "quantityClass": "thermodynamic temperature",
+      "propertyTypeId": "26971f0a-f351-4f58-8193-d589b01d61db"
+    },
+    {
+      "property": "fracture conductivity",
+      "quantityClass": "volume",
+      "propertyTypeId": "72e57cf5-c975-4b74-93ea-217b371cb54b"
+    },
+    {
+      "property": "fracture density",
+      "quantityClass": "reciprocal length",
+      "propertyTypeId": "8f7485f5-a1d5-43e8-9551-c19663302aa8"
+    },
+    {
+      "property": "fracture plausibility",
+      "quantityClass": "unitless",
+      "propertyTypeId": "2e2c8c0d-97b9-43a5-928a-256e11382153"
+    },
+    {
+      "property": "fracture pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "37315fc1-d90c-461f-8f05-caf629b55e43"
+    },
+    {
+      "property": "fracture pressure gradient",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "9eca91ef-142a-4df4-9c56-2a3ba83d4fe5"
+    },
+    {
+      "property": "fracture toughness",
+      "quantityClass": "reciprocal pressure",
+      "propertyTypeId": "b8097386-4ccc-4ef1-b289-77c893813c63"
+    },
+    {
+      "property": "fracture width",
+      "quantityClass": "length",
+      "propertyTypeId": "09edaeb4-a7f2-4a28-bbbf-eecd7be5bdcf"
+    },
+    {
+      "property": "free fluid index",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "bda91aea-1cab-4eee-b7e7-076e59e6bfdd"
+    },
+    {
+      "property": "free pipe signal",
+      "quantityClass": "electric potential difference",
+      "propertyTypeId": "13327868-06dc-4a04-93de-7a01322efc72"
+    },
+    {
+      "property": "frequency",
+      "quantityClass": "frequency",
+      "propertyTypeId": "4bd591ae-f4dc-4de8-8843-49e640d63959"
+    },
+    {
+      "property": "friction angle",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "9f20f180-e3db-43ec-900d-e6c8b2d504e4"
+    },
+    {
+      "property": "gadolinium dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "2eda78e4-ae00-408a-ab74-b4b3fbb91889"
+    },
+    {
+      "property": "gadolinium yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "45458b2c-ffe4-4412-a571-38f451b7199c"
+    },
+    {
+      "property": "gain",
+      "quantityClass": "electric potential difference",
+      "propertyTypeId": "85336a9c-1a53-4c78-8fb6-698ab560876c"
+    },
+    {
+      "property": "gamma ray",
+      "quantityClass": "API gamma ray",
+      "propertyTypeId": "26c54ec7-76a0-4fae-966a-c3bae13c81e0"
+    },
+    {
+      "property": "gamma ray data density",
+      "quantityClass": "unitless",
+      "propertyTypeId": "8adb47a8-8ba2-4e7b-9090-44372f71cc6a"
+    },
+    {
+      "property": "gamma ray minus uranium",
+      "quantityClass": "API gamma ray",
+      "propertyTypeId": "bc1b2436-a4be-4faf-aca6-12b7e152c083"
+    },
+    {
+      "property": "gamma ray time after bit",
+      "quantityClass": "time",
+      "propertyTypeId": "f292fdb4-704f-4cbf-a784-8ad68f9efb99"
+    },
+    {
+      "property": "gas density",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "635b4889-b349-4e65-b1f7-dbc555a9dd68"
+    },
+    {
+      "property": "gas deviation factor",
+      "quantityClass": "unitless",
+      "propertyTypeId": "e667667c-6d9b-4451-8821-346a34090479"
+    },
+    {
+      "property": "gas differential pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "a4541a4e-fbae-41b9-9b33-0400ae12c7b8"
+    },
+    {
+      "property": "gas flag",
+      "quantityClass": "unitless",
+      "propertyTypeId": "dc8b136c-db5c-46be-bbf1-6e168ed3c18e"
+    },
+    {
+      "property": "gas flow velocity",
+      "quantityClass": "length per time",
+      "propertyTypeId": "3ec712be-4735-4e37-aeb6-388308200872"
+    },
+    {
+      "property": "gas flowrate",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "1831900d-3578-4045-8d36-d2757ac9ab18"
+    },
+    {
+      "property": "gas formation volume factor",
+      "quantityClass": "unitless",
+      "propertyTypeId": "3f1a9525-43c5-4373-b4fe-a8e8ff86f36a"
+    },
+    {
+      "property": "gas holdup",
+      "quantityClass": "unitless",
+      "propertyTypeId": "9c0b24f7-5f44-48dd-be4d-664a0cd25e41"
+    },
+    {
+      "property": "gas mass flowrate",
+      "quantityClass": "mass per time",
+      "propertyTypeId": "b6bc5e1d-df80-4854-9111-85720e01f888"
+    },
+    {
+      "property": "gas oil ratio",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "6e934bfe-6175-4cc6-90cd-714160e4c84f"
+    },
+    {
+      "property": "gas probability",
+      "quantityClass": "unitless",
+      "propertyTypeId": "08e15b2c-c603-496e-a4fa-5408fadc12c3"
+    },
+    {
+      "property": "gas saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "00901d4e-7240-4070-81d9-b0883c1c00ea"
+    },
+    {
+      "property": "gas viscosity",
+      "quantityClass": "dynamic viscosity",
+      "propertyTypeId": "bd0486de-92b6-4c79-ab7d-57c87857c2a2"
+    },
+    {
+      "property": "gas volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "a1db17cd-255d-4d2c-9de2-890aebe649ee"
+    },
+    {
+      "property": "geometrical factor",
+      "quantityClass": "unitless",
+      "propertyTypeId": "0a2b8302-d262-4a33-a81c-033fb9b2289c"
+    },
+    {
+      "property": "geophone type",
+      "quantityClass": "unitless",
+      "propertyTypeId": "00233e7c-6ce8-47e8-8324-0b50583212b7"
+    },
+    {
+      "property": "glauconite volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "b4b0e010-461b-40ab-9559-87cf721b9ba8"
+    },
+    {
+      "property": "grain density",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "e4cd6c66-c30f-4058-b420-33bd84b4a5ea"
+    },
+    {
+      "property": "grain size",
+      "quantityClass": "unitless",
+      "propertyTypeId": "63916f76-182a-43e5-812a-eaa667857e08"
+    },
+    {
+      "property": "gravity",
+      "quantityClass": "linear acceleration",
+      "propertyTypeId": "e8fe0e88-51ba-4d7d-bc91-d5b442d7287c"
+    },
+    {
+      "property": "gravity toolface",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "7495c37c-bb98-4dd9-ae93-6f4c2dc21ee1"
+    },
+    {
+      "property": "gypsum volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "b33441b8-43c5-4c65-8a99-afa370fbf5f9"
+    },
+    {
+      "property": "h2s concentration",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "26050f88-3bb5-4947-9385-8d7b4db0bc41"
+    },
+    {
+      "property": "h2s mole fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "469c3c23-99c6-43e7-9f3c-e83b9dc16935"
+    },
+    {
+      "property": "halite volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "09efc8d8-71af-4589-b10e-694f753540ea"
+    },
+    {
+      "property": "height",
+      "quantityClass": "Length",
+      "propertyTypeId": "714f7bcb-434e-43a0-baa7-081da8c06347"
+    },
+    {
+      "property": "holdup",
+      "quantityClass": "unitless",
+      "propertyTypeId": "1a79d3e2-7f13-47a2-ba7a-dde950ae425d"
+    },
+    {
+      "property": "holdup index",
+      "quantityClass": "unitless",
+      "propertyTypeId": "b9c2b23d-b585-4db6-885d-6a9bc3bdd254"
+    },
+    {
+      "property": "hole azimuth",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "69e09051-d9c7-4c26-87ff-77c2b6d24a51"
+    },
+    {
+      "property": "hole deviation",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "0d7bf711-bb56-4d82-b72f-19b491315f8d"
+    },
+    {
+      "property": "hole rotation friction coefficient",
+      "quantityClass": "unitless",
+      "propertyTypeId": "c979f0c2-5299-45bd-a4b1-399018936e44"
+    },
+    {
+      "property": "hole sliding friction coefficient",
+      "quantityClass": "unitless",
+      "propertyTypeId": "8daa572b-7d7d-4e68-a9dc-bd70c5f50ea3"
+    },
+    {
+      "property": "hole translation friction coefficient",
+      "quantityClass": "unitless",
+      "propertyTypeId": "5acff1c3-dff7-48bf-9458-da7032d79672"
+    },
+    {
+      "property": "hook load",
+      "quantityClass": "force",
+      "propertyTypeId": "d0a7c1c5-73da-45b5-a762-eb49721d91e9"
+    },
+    {
+      "property": "horizontal formation resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "b8b0e64f-813b-422b-98c9-c657004b8cf1"
+    },
+    {
+      "property": "horizontal permeability",
+      "quantityClass": "permeability rock",
+      "propertyTypeId": "72613d1a-c83c-43ff-934e-2a8d34f76dd6"
+    },
+    {
+      "property": "hydraulic power",
+      "quantityClass": "power",
+      "propertyTypeId": "638c8453-a366-4595-863e-50d35be6fb0f"
+    },
+    {
+      "property": "hydrocarbon density",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "96175270-b22c-405d-bbf7-0d5778c3c619"
+    },
+    {
+      "property": "hydrocarbon flowrate",
+      "quantityClass": "volume per time",
+      "propertyTypeId": "c2893f7d-1166-4b8d-a15a-482108caa430"
+    },
+    {
+      "property": "hydrocarbon saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "c9887147-6967-4810-8ee9-5611624938fa"
+    },
+    {
+      "property": "hydrocarbon volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "0a2a10ed-8500-414f-bbd2-22b247b4b8b5"
+    },
+    {
+      "property": "hydrogen dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "e8f7365b-0a32-46a1-ada9-e1b04da1f2bc"
+    },
+    {
+      "property": "hydrogen index",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "90a5c098-526d-439e-a947-ad4e4a69b00c"
+    },
+    {
+      "property": "hydrogen yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "df01348f-e458-4752-9df8-7477de2b5748"
+    },
+    {
+      "property": "hydrostatic pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "89c89659-0733-4666-9a23-b156fc7500bd"
+    },
+    {
+      "property": "identifier",
+      "quantityClass": "unitless",
+      "propertyTypeId": "311dcaba-6512-4144-aa7c-79a9de19b4ab"
+    },
+    {
+      "property": "igneous volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "194c8356-9c64-4272-80c3-ae42f7562c74"
+    },
+    {
+      "property": "illite dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "66fc5a14-fddf-41b3-bc89-f16ae4acaa14"
+    },
+    {
+      "property": "illite volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "f3e58394-9145-49e3-8379-0eac131ae01e"
+    },
+    {
+      "property": "impedance",
+      "quantityClass": "electric resistance",
+      "propertyTypeId": "f841904d-2dbd-4915-9208-f4ee0443bc09"
+    },
+    {
+      "property": "inclination build rate",
+      "quantityClass": "angle per length",
+      "propertyTypeId": "2f1dad0c-76e0-4904-9c48-0d2628ec8648"
+    },
+    {
+      "property": "inclusion proportion",
+      "quantityClass": "unitless",
+      "propertyTypeId": "c3e5b199-6ada-4f53-8db7-b74d1dcd2ce3"
+    },
+    {
+      "property": "indicator",
+      "quantityClass": "unitless",
+      "propertyTypeId": "12111ccf-2ed3-42f9-9e2f-12977a8a4be9"
+    },
+    {
+      "property": "induced gamma ray",
+      "quantityClass": "frequency",
+      "propertyTypeId": "121fae91-5f97-4fec-82da-dc2e9cea15d4"
+    },
+    {
+      "property": "inductance",
+      "quantityClass": "inductance",
+      "propertyTypeId": "ae665d99-abd5-406e-8b0b-be2a7703025a"
+    },
+    {
+      "property": "inlet pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "8dcd887a-989c-49fa-bb03-7f370e4205f1"
+    },
+    {
+      "property": "inside diameter",
+      "quantityClass": "length",
+      "propertyTypeId": "a391d150-5f9d-43ec-be44-b3e020e8e0b9"
+    },
+    {
+      "property": "instantaneous amplitude",
+      "quantityClass": "unitless",
+      "propertyTypeId": "0c0f079b-44b5-4e15-af44-a631f14d5947"
+    },
+    {
+      "property": "integrated mobility",
+      "quantityClass": "power",
+      "propertyTypeId": "ac1ab2f3-a510-49c9-ab00-13b28dc73be3"
+    },
+    {
+      "property": "integrated slowness",
+      "quantityClass": "time",
+      "propertyTypeId": "edecfba1-652b-4416-87d7-5feca52596a4"
+    },
+    {
+      "property": "inter bed contrast",
+      "quantityClass": "unitless",
+      "propertyTypeId": "3b51bcb0-a880-4630-b75e-03caaf31239e"
+    },
+    {
+      "property": "interfacial tension",
+      "quantityClass": "force per length",
+      "propertyTypeId": "b7577e46-0114-41ec-a8cc-efda815227a1"
+    },
+    {
+      "property": "interval length",
+      "quantityClass": "Length",
+      "propertyTypeId": "299d8c13-32e7-4aa2-8796-3d74c118a333"
+    },
+    {
+      "property": "interval transit time",
+      "quantityClass": "time per length",
+      "propertyTypeId": "20df1c21-9e1e-4731-8692-246a11d6cae5"
+    },
+    {
+      "property": "interval velocity",
+      "quantityClass": "length per time",
+      "propertyTypeId": "7dddee4d-ecf1-4350-a843-90c3ccb47980"
+    },
+    {
+      "property": "invasion annulus resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "701d5a2e-0c14-492a-832e-6c3f28ad5bc3"
+    },
+    {
+      "property": "invasion diameter",
+      "quantityClass": "length",
+      "propertyTypeId": "b3bf5716-d86b-49d7-ad31-1357ed263f07"
+    },
+    {
+      "property": "invasion radius",
+      "quantityClass": "length",
+      "propertyTypeId": "5f1129ae-5f30-4a68-a24a-90c6a10fc0f3"
+    },
+    {
+      "property": "inverse penetration rate",
+      "quantityClass": "time per length",
+      "propertyTypeId": "f87bcc7e-a60f-4471-b1c1-a5faf17adc88"
+    },
+    {
+      "property": "iron dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "16cdc8d3-0f9d-435e-aa0a-e010040d701e"
+    },
+    {
+      "property": "iron yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "15f20c76-265b-42a0-9afb-bc449f1b7fc6"
+    },
+    {
+      "property": "irreducible water saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "05040f2d-50dd-46d8-9693-454ac6012980"
+    },
+    {
+      "property": "irreducible water volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "64da00a5-26c4-4193-b9d6-f58d0c42f889"
+    },
+    {
+      "property": "isolated porosity volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "87552b76-338c-4cb2-9039-51d5ebbdf89c"
+    },
+    {
+      "property": "kaolinite dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "75f456e0-e89a-4852-b70f-c6c39b56b2aa"
+    },
+    {
+      "property": "kaolinite volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "8fc48a26-a21c-40f8-8309-b8e13a2e7a1f"
+    },
+    {
+      "property": "key",
+      "quantityClass": "unitless",
+      "propertyTypeId": "0fdb2df4-d909-424f-b412-c18d5e62e5a3"
+    },
+    {
+      "property": "kick pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "5ff2753b-f944-4648-bbcf-0e7be4f74d5c"
+    },
+    {
+      "property": "klinkenberg permeability",
+      "quantityClass": "permeability rock",
+      "propertyTypeId": "400318b4-dae4-4010-931f-7f51135b852e"
+    },
+    {
+      "property": "latitude",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "8981c63c-43d5-4d94-8ec6-3dec0fae8d98"
+    },
+    {
+      "property": "length",
+      "quantityClass": "length",
+      "propertyTypeId": "4a305182-221e-4205-9e7c-a36b06fa5b3d"
+    },
+    {
+      "property": "line style",
+      "quantityClass": "unitless",
+      "propertyTypeId": "fa05a126-fe62-47b0-be71-2dca4c02810a"
+    },
+    {
+      "property": "line thickness",
+      "quantityClass": "unitless",
+      "propertyTypeId": "5803dbfe-3c51-48d0-8181-4901ab563c21"
+    },
+    {
+      "property": "linear weight",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "1a3ec3b7-432e-4ef0-a8de-ce82412d4c41"
+    },
+    {
+      "property": "liquid flow velocity",
+      "quantityClass": "length per time",
+      "propertyTypeId": "77e22f5d-8421-4d15-8b1c-95e8a94a19e6"
+    },
+    {
+      "property": "liquid flowrate",
+      "quantityClass": "volume per time",
+      "propertyTypeId": "3ef7e418-d480-46bc-9bd6-3d5b6149d11a"
+    },
+    {
+      "property": "litho description",
+      "quantityClass": "unitless",
+      "propertyTypeId": "4487b6ca-c5bd-4667-b1d4-7a04dc0bcd5b"
+    },
+    {
+      "property": "litho penetration rate",
+      "quantityClass": "time per mass",
+      "propertyTypeId": "729ccb1c-e065-4f54-9c90-025af0d810bf"
+    },
+    {
+      "property": "litho type",
+      "quantityClass": "unitless",
+      "propertyTypeId": "43bbe22e-78d9-4a4f-b2d1-584c4dff4de3"
+    },
+    {
+      "property": "load",
+      "quantityClass": "force",
+      "propertyTypeId": "3bf92c0b-b712-4128-b7bc-b21e0270d9be"
+    },
+    {
+      "property": "longitude",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "b5cd3a89-daa6-4320-8243-67a8a55f1776"
+    },
+    {
+      "property": "longitudinal relaxation time",
+      "quantityClass": "time",
+      "propertyTypeId": "25ff1a5f-b92c-4d3d-b442-5af40d3eb7e6"
+    },
+    {
+      "property": "lwd operating time",
+      "quantityClass": "time",
+      "propertyTypeId": "ea9d32e7-dc58-4809-b68b-3f14e63120a2"
+    },
+    {
+      "property": "magnesium dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "8f2dd628-abb2-4704-9307-bba16ca6fdb6"
+    },
+    {
+      "property": "magnesium yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "3b42448a-a561-4469-ad52-54bf3d4d1cb9"
+    },
+    {
+      "property": "magnetic declination",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "ed9ef009-0068-4159-9312-b743495d8c82"
+    },
+    {
+      "property": "magnetic field strength",
+      "quantityClass": "magnetic field strength",
+      "propertyTypeId": "b158152b-466e-46f0-9c0f-0e58caaa6833"
+    },
+    {
+      "property": "magnetic flux density",
+      "quantityClass": "magnetic flux density",
+      "propertyTypeId": "85498079-ce3e-49f3-933d-2e7b0825242d"
+    },
+    {
+      "property": "magnetic inclination",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "e1998f78-c838-4709-8437-b94159911095"
+    },
+    {
+      "property": "magnetic permeability",
+      "quantityClass": "unitless",
+      "propertyTypeId": "ec2849f1-8dd9-484b-9cbf-a282d87507df"
+    },
+    {
+      "property": "magnetic susceptibility",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "8cfdd16d-6004-4f97-8f49-433b04f8753b"
+    },
+    {
+      "property": "magnetic toolface",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "759ebb37-73f9-47b7-94e8-f6867d51a6e0"
+    },
+    {
+      "property": "major axis",
+      "quantityClass": "length",
+      "propertyTypeId": "b9031a5d-f7f5-4ef7-a7ad-c62f7937c928"
+    },
+    {
+      "property": "manganese dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "3dbef6fc-158c-4e34-aca2-a98aa6a79c2e"
+    },
+    {
+      "property": "manganese yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "044af87a-695d-4bf3-81bd-6418b67efd37"
+    },
+    {
+      "property": "mass",
+      "quantityClass": "mass",
+      "propertyTypeId": "e770fed8-43e3-4bda-a94e-6bdcdafb43dc"
+    },
+    {
+      "property": "mass flowrate",
+      "quantityClass": "mass per time",
+      "propertyTypeId": "7efdbb5e-6cb1-4bdd-974b-7902bf885090"
+    },
+    {
+      "property": "mass fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "2a7cd6eb-7688-474d-9147-61f7e1e6c593"
+    },
+    {
+      "property": "mass per volume",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "71647283-b176-43bd-8e01-506a1989170d"
+    },
+    {
+      "property": "matrix compressional slowness",
+      "quantityClass": "time per length",
+      "propertyTypeId": "e0d8d210-c2d0-4ce2-98f5-a20ef2cd4c55"
+    },
+    {
+      "property": "matrix electromagnetic propagation time",
+      "quantityClass": "time per length",
+      "propertyTypeId": "535494e0-fe58-434f-ac4e-6cc94b3d77f7"
+    },
+    {
+      "property": "matrix epithermal neutron porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "d9aafb2a-0cf4-46d9-8b85-56e01f71a30e"
+    },
+    {
+      "property": "matrix neutron capture cross section",
+      "quantityClass": "area",
+      "propertyTypeId": "30e5431f-b922-460a-8cba-be2d3c4486a2"
+    },
+    {
+      "property": "matrix photoelectric factor",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "4f956a84-1380-4f5c-86c8-c15be715e7a1"
+    },
+    {
+      "property": "matrix shear slowness",
+      "quantityClass": "time per length",
+      "propertyTypeId": "3d2627f1-39f2-4d64-aab7-498a4ae8cd13"
+    },
+    {
+      "property": "matrix thermal neutron porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "b62bc2cc-40ba-4fb0-8688-7c1c55d75065"
+    },
+    {
+      "property": "matrix volumetric photoelectric factor",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "e8582e06-9c5f-49ea-84af-35c32508bf29"
+    },
+    {
+      "property": "max amplitude",
+      "quantityClass": "unitless",
+      "propertyTypeId": "95389875-8aa2-4aac-bf6f-5d6f7abd0bf0"
+    },
+    {
+      "property": "max thickness",
+      "quantityClass": "length",
+      "propertyTypeId": "9da0c670-5fb3-4c34-bab3-38b47cb7d665"
+    },
+    {
+      "property": "measured depth",
+      "quantityClass": "length",
+      "propertyTypeId": "c48c65d4-9680-4d10-903c-a1b2e30f66b5"
+    },
+    {
+      "property": "medium induction conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "760d44c6-5a9a-409d-9949-bd9303f9598d"
+    },
+    {
+      "property": "medium induction resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "387f4b2f-c497-4f11-b199-dde18dbf58ca"
+    },
+    {
+      "property": "medium laterolog conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "8b992c47-0efe-4d25-953c-436e49942f25"
+    },
+    {
+      "property": "medium laterolog resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "cca9adc1-aeb1-49cf-a45a-9d43de4d516f"
+    },
+    {
+      "property": "memory usage",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "6e06511c-dd30-4175-9775-1dab721338c4"
+    },
+    {
+      "property": "metamorphic volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "f2eb8198-de6d-4938-aebd-435c726232af"
+    },
+    {
+      "property": "method type",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "18463d6f-878f-4c3a-b83b-b05e28529d46"
+    },
+    {
+      "property": "micro conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "5f3058dc-7a25-4814-94c2-8d4ad3d2293c"
+    },
+    {
+      "property": "micro cylindrically focused resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "ac84951a-0aba-4094-9b74-f90dd48c6879"
+    },
+    {
+      "property": "micro inverse resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "d3280c15-8147-4615-8a53-882c757b7825"
+    },
+    {
+      "property": "micro laterolog conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "87af9701-7ddf-4452-9d04-e2a5fa1f1dd1"
+    },
+    {
+      "property": "micro laterolog resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "d2ffee32-2134-46f1-be08-7c428adbb11d"
+    },
+    {
+      "property": "micro normal resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "ebea1dbc-f7e8-4fe5-942a-9f0f82ef1803"
+    },
+    {
+      "property": "micro resistivity",
+      "quantityClass": "unitless",
+      "propertyTypeId": "539ebe6e-fe97-434c-9471-2ca93ad8519f"
+    },
+    {
+      "property": "micro spherically focused conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "f95736e8-6885-4eb3-9d9e-3740b5fa720b"
+    },
+    {
+      "property": "micro spherically focused resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "a9c39fe1-c5ec-4ad6-af84-c8ab8464eb1e"
+    },
+    {
+      "property": "min horizontal stress azimuth",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "91f15f0d-dd54-4091-aed5-823011d68fb7"
+    },
+    {
+      "property": "min porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "5b6c824e-88b5-4584-8626-499e1ddbd323"
+    },
+    {
+      "property": "min thickness",
+      "quantityClass": "length",
+      "propertyTypeId": "7200888b-463a-4dc3-8297-96dc69423c1c"
+    },
+    {
+      "property": "mineral hardness",
+      "quantityClass": "unitless",
+      "propertyTypeId": "83e53fa0-0b6f-4194-bc51-2975803223c1"
+    },
+    {
+      "property": "minor axis",
+      "quantityClass": "length",
+      "propertyTypeId": "9c27ecf3-d6a2-40d9-825c-3fdad0844712"
+    },
+    {
+      "property": "mobility",
+      "quantityClass": "mobility",
+      "propertyTypeId": "6aa77aa8-d4de-4570-b511-a55af8e3e1da"
+    },
+    {
+      "property": "model fit error",
+      "quantityClass": "unitless",
+      "propertyTypeId": "6f12b68a-a17b-45a7-ad70-e625981f8c02"
+    },
+    {
+      "property": "model name",
+      "quantityClass": "unitless",
+      "propertyTypeId": "414b387f-eeb3-4f7f-9bc9-0dae71b63150"
+    },
+    {
+      "property": "molybdenum dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "9b398f91-bd0b-4081-9243-3867cc863ec3"
+    },
+    {
+      "property": "molybdenum yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "f2fa0b37-fe79-4735-922d-7d515663af9b"
+    },
+    {
+      "property": "montmorillonite dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "23d6ced6-e083-445a-8ce6-8a72f9467ee7"
+    },
+    {
+      "property": "montmorillonite volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "66d2b96f-afc1-4629-8e56-90c33647db0a"
+    },
+    {
+      "property": "morpho type",
+      "quantityClass": "unitless",
+      "propertyTypeId": "8f6d9732-d3b3-4ffa-af73-79e4ec534757"
+    },
+    {
+      "property": "motor speed",
+      "quantityClass": "angular velocity",
+      "propertyTypeId": "44b33731-6667-499f-92d4-cd66acc8430c"
+    },
+    {
+      "property": "moved hydrocarbon volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "57c68db7-1841-4217-89ba-736485ba481e"
+    },
+    {
+      "property": "mud compressional slowness",
+      "quantityClass": "time per length",
+      "propertyTypeId": "74f0fec8-d7d0-4942-9219-20855352e3dc"
+    },
+    {
+      "property": "mud density",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "cfbdb807-c423-4480-abc3-788e3e6b8799"
+    },
+    {
+      "property": "mud filtrate resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "9f23438d-6242-480d-b6e9-b0b3668ec35a"
+    },
+    {
+      "property": "mud filtrate volume per length",
+      "quantityClass": "volume per length",
+      "propertyTypeId": "e47b4051-2c56-432c-bf97-c14a5c9486de"
+    },
+    {
+      "property": "mud flowrate",
+      "quantityClass": "volume per time",
+      "propertyTypeId": "4a03236f-0eae-45e8-95a8-28b21eaed4dd"
+    },
+    {
+      "property": "mud resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "c4a295ab-233a-40f0-a511-dd6f199929a9"
+    },
+    {
+      "property": "mud temperature",
+      "quantityClass": "thermodynamic temperature",
+      "propertyTypeId": "b74372bd-326f-4486-8e42-94d45f509b20"
+    },
+    {
+      "property": "mud type",
+      "quantityClass": "unitless",
+      "propertyTypeId": "20dc409e-6059-4fdd-8167-7c467e90369e"
+    },
+    {
+      "property": "multi use property",
+      "quantityClass": "unitless",
+      "propertyTypeId": "47a4319d-c8a4-45dc-8600-f96d4b289138"
+    },
+    {
+      "property": "muscovite volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "15b649fa-f215-4968-8e0f-8d9d220057f9"
+    },
+    {
+      "property": "mwd data density",
+      "quantityClass": "unitless",
+      "propertyTypeId": "49418410-7f5f-4364-b6a7-6eff55a6fb2a"
+    },
+    {
+      "property": "mwd dpoint",
+      "quantityClass": "unitless",
+      "propertyTypeId": "8374e185-e2fd-4d85-890a-e3c77f01a964"
+    },
+    {
+      "property": "mwd operating time",
+      "quantityClass": "time",
+      "propertyTypeId": "cee4138d-1c31-4840-bf68-a33c70878f51"
+    },
+    {
+      "property": "mwd tool code",
+      "quantityClass": "unitless",
+      "propertyTypeId": "6142cc6f-6ff6-462e-ba1d-5b30683df10a"
+    },
+    {
+      "property": "nahcolite dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "261ab317-958f-4337-9c98-aa3214d8cf50"
+    },
+    {
+      "property": "name",
+      "quantityClass": "unitless",
+      "propertyTypeId": "0eb70eac-c3d2-4448-b617-10260c4abee3"
+    },
+    {
+      "property": "net pay hc porosity thickness",
+      "quantityClass": "unitless",
+      "propertyTypeId": "bf9b15b1-ce2f-4bb3-a45d-5021e6bc1a60"
+    },
+    {
+      "property": "net pay porosity thickness",
+      "quantityClass": "unitless",
+      "propertyTypeId": "ac5840a2-5495-4f84-b83d-9e0a546cf888"
+    },
+    {
+      "property": "net reservoir porosity thickness",
+      "quantityClass": "Length",
+      "propertyTypeId": "83eeb0f5-8df2-4091-b1b7-88b2dcab8827"
+    },
+    {
+      "property": "neutron capture cross section",
+      "quantityClass": "area",
+      "propertyTypeId": "d9c06405-631f-4236-b06d-e00cf715afd0"
+    },
+    {
+      "property": "neutron data density",
+      "quantityClass": "unitless",
+      "propertyTypeId": "abb793bb-2d95-478c-864f-89cab33a8251"
+    },
+    {
+      "property": "neutron porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "85a39e16-0290-40ca-899d-dd20fed44b64"
+    },
+    {
+      "property": "neutron porosity dolomite",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "9b4bcda5-0d7d-4a04-9f2f-443957b6f38e"
+    },
+    {
+      "property": "neutron porosity limestone",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "01ac4203-e1bb-430e-811c-57f710570828"
+    },
+    {
+      "property": "neutron porosity sandstone",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "14386a01-2933-40a2-9de4-97e54a933583"
+    },
+    {
+      "property": "neutron slowing down length",
+      "quantityClass": "length",
+      "propertyTypeId": "37b2b1ee-585d-4024-9c85-9cd8be68e4f4"
+    },
+    {
+      "property": "neutron time after bit",
+      "quantityClass": "time",
+      "propertyTypeId": "6cb970be-0a2e-468e-9035-5304824a2d36"
+    },
+    {
+      "property": "nickel dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "03f8bead-0e87-4726-8495-117c17614117"
+    },
+    {
+      "property": "nickel yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "670f8569-b745-42e4-89eb-8befe5634156"
+    },
+    {
+      "property": "nitrogen dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "23d725f7-0c61-4b5c-8bfd-160667a605bf"
+    },
+    {
+      "property": "nitrogen yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "e311f38e-cf0a-42a3-acdb-b136ed8017ef"
+    },
+    {
+      "property": "nmr amplitude distribution",
+      "quantityClass": "electric potential difference",
+      "propertyTypeId": "4a589727-de2e-4029-962e-6a7480ffac05"
+    },
+    {
+      "property": "nmr dc distribution",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "1bbc5b42-6cdb-4396-ac87-99429ce4a4f2"
+    },
+    {
+      "property": "nmr dct1 map",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "d24490f6-ea39-4381-88ba-67e2d991cda0"
+    },
+    {
+      "property": "nmr dct2 map",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "bbf31263-208f-4e9b-ac9c-af6a655e2a52"
+    },
+    {
+      "property": "nmr diffusion coefficient",
+      "quantityClass": "area per time",
+      "propertyTypeId": "e56aa2fd-1572-4160-b418-1309f60c9b1a"
+    },
+    {
+      "property": "nmr fitting error",
+      "quantityClass": "unitless",
+      "propertyTypeId": "9460d461-71b2-4736-bb5e-a0f8ed057933"
+    },
+    {
+      "property": "nmr permeability",
+      "quantityClass": "permeability rock",
+      "propertyTypeId": "f6d9f830-b642-441f-808a-518b6024dbb0"
+    },
+    {
+      "property": "nmr porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "98622461-d878-4c3f-80c5-5315bb288ac8"
+    },
+    {
+      "property": "nmr quality indicator",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "9b7dafdd-6660-40d3-b88a-df39822aac3c"
+    },
+    {
+      "property": "nmr relaxation time ratio distribution",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "c3103c30-5c61-44ae-a40f-32d645f272f4"
+    },
+    {
+      "property": "nmr t1 distribution",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "90d9c2c6-ae26-4a16-a24e-fc95e4ac5e58"
+    },
+    {
+      "property": "nmr t1t2 map",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "51761a2c-87df-4146-867d-ae79565753bf"
+    },
+    {
+      "property": "nmr t2 distribution",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "7af5ade3-dc5a-441b-bd3c-9266c5b54e2a"
+    },
+    {
+      "property": "noise amplitude",
+      "quantityClass": "electric potential difference",
+      "propertyTypeId": "1b721a91-e85b-42eb-a6b1-88ad8c26ba5e"
+    },
+    {
+      "property": "noise to signal ratio",
+      "quantityClass": "unitless",
+      "propertyTypeId": "8752ae01-526e-40e9-9a0a-17dd028d39c2"
+    },
+    {
+      "property": "nom borehole diameter",
+      "quantityClass": "length",
+      "propertyTypeId": "ceaf1ea3-a3c6-428f-a449-75c3d20f6989"
+    },
+    {
+      "property": "none",
+      "quantityClass": "time",
+      "propertyTypeId": "a818e404-dbc9-41e0-adc8-455eafc5b8d1"
+    },
+    {
+      "property": "normal moveout",
+      "quantityClass": "time",
+      "propertyTypeId": "cc7a305a-fae4-42cb-9e61-e16b0a973198"
+    },
+    {
+      "property": "normalization factor",
+      "quantityClass": "unitless",
+      "propertyTypeId": "246dba69-4521-4b5c-8fd9-9a13d2506632"
+    },
+    {
+      "property": "north departure",
+      "quantityClass": "Length",
+      "propertyTypeId": "805f3248-72c7-4e9f-adcc-cd202ff63ce4"
+    },
+    {
+      "property": "nuclear magnetic data density",
+      "quantityClass": "unitless",
+      "propertyTypeId": "7c5e18e9-0639-44ad-8f0d-7e348e1a3332"
+    },
+    {
+      "property": "occurrence",
+      "quantityClass": "unitless",
+      "propertyTypeId": "256230ff-5e5b-474a-ba7b-946008750635"
+    },
+    {
+      "property": "occurrence probability",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "89640420-f472-477b-a512-9693b8ec1533"
+    },
+    {
+      "property": "offset",
+      "quantityClass": "electric potential difference",
+      "propertyTypeId": "18ac9bc4-5259-4b57-8181-1dd9d418033a"
+    },
+    {
+      "property": "oil density",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "aa697b2f-5395-45a3-b094-c74b6a400426"
+    },
+    {
+      "property": "oil flowrate",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "4f707e4f-2e8f-4762-8d58-1d4d951a49d0"
+    },
+    {
+      "property": "oil formation volume factor",
+      "quantityClass": "unitless",
+      "propertyTypeId": "51f964cf-818c-4591-bc40-944af408401f"
+    },
+    {
+      "property": "oil gas ratio",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "697931ea-e3a1-43d9-a6f9-2401180912e4"
+    },
+    {
+      "property": "oil holdup",
+      "quantityClass": "unitless",
+      "propertyTypeId": "b4f91976-a55b-4230-8fc8-726c9393ef1b"
+    },
+    {
+      "property": "oil mass flowrate",
+      "quantityClass": "mass per time",
+      "propertyTypeId": "0defddd6-30a1-41e3-8b84-90ff36c89a3c"
+    },
+    {
+      "property": "oil probability",
+      "quantityClass": "unitless",
+      "propertyTypeId": "5c4cee1f-3c5e-495d-b02d-de2a2d5a4e05"
+    },
+    {
+      "property": "oil saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "428b6474-2605-4fee-855f-ce4096592e1a"
+    },
+    {
+      "property": "oil temperature",
+      "quantityClass": "thermodynamic temperature",
+      "propertyTypeId": "680a78c4-361c-4039-b0c6-add2bf4cfd52"
+    },
+    {
+      "property": "oil viscosity",
+      "quantityClass": "dynamic viscosity",
+      "propertyTypeId": "ebcade18-5ab1-41e6-8dcc-13d2ac4bef5e"
+    },
+    {
+      "property": "oil volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "2dff4b35-2748-4924-aab4-54f5d06733af"
+    },
+    {
+      "property": "one way time",
+      "quantityClass": "time",
+      "propertyTypeId": "8c8262c9-79fb-43e2-9b94-9098236ccb9e"
+    },
+    {
+      "property": "operating mode",
+      "quantityClass": "unitless",
+      "propertyTypeId": "d8083b20-dab4-4763-b5d7-67eff7d5e0c1"
+    },
+    {
+      "property": "optical density",
+      "quantityClass": "unitless",
+      "propertyTypeId": "08bf59f7-d897-4bde-9a4e-eb9fee3d6be1"
+    },
+    {
+      "property": "optical wave length",
+      "quantityClass": "length",
+      "propertyTypeId": "9521c7f8-c11e-4762-a128-b000eb776623"
+    },
+    {
+      "property": "ordinal number",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "323df361-784e-4062-a346-ff4ba80a78f0"
+    },
+    {
+      "property": "orientation",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "b8e9afa0-7930-483b-931f-e5cf2008d03b"
+    },
+    {
+      "property": "orifice meter gas temperature",
+      "quantityClass": "thermodynamic temperature",
+      "propertyTypeId": "1cbf7443-374f-4fd1-a7d5-b0abf90f8f2d"
+    },
+    {
+      "property": "orthoclase dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "192be067-19e0-4e0c-9551-6b9af29a2924"
+    },
+    {
+      "property": "orthoclase volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "b3df136c-1c28-433d-bfb4-8796d2b0cb9b"
+    },
+    {
+      "property": "output pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "f885090a-034b-4179-850d-73447b89aa84"
+    },
+    {
+      "property": "outside diameter",
+      "quantityClass": "length",
+      "propertyTypeId": "4bd440d3-c2a4-4465-87f7-18d56a10eeed"
+    },
+    {
+      "property": "ovality",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "498aee18-97a1-4ac5-aa25-b259767f6ee1"
+    },
+    {
+      "property": "oxygen yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "9e3b80c5-1965-4a7d-bf86-4a590623eb9d"
+    },
+    {
+      "property": "pad force",
+      "quantityClass": "force",
+      "propertyTypeId": "c9d7860b-0bb1-4008-b850-7b6e77b3eb79"
+    },
+    {
+      "property": "pad pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "13cfe51f-09ae-41ce-a593-05cbd501a0b7"
+    },
+    {
+      "property": "parallel porosity volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "510c1b74-7e9a-446c-9947-3cb3ff12cab1"
+    },
+    {
+      "property": "partial density",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "2ab60418-1653-4973-bb22-7b77fa272f55"
+    },
+    {
+      "property": "pattern name",
+      "quantityClass": "unitless",
+      "propertyTypeId": "a10eb888-3937-41f0-856a-250107a93ded"
+    },
+    {
+      "property": "penetration depth",
+      "quantityClass": "length",
+      "propertyTypeId": "3d0df46b-f2af-4e44-8767-eacd3a8a3b0d"
+    },
+    {
+      "property": "penetration per rotation",
+      "quantityClass": "PWLS:length per plane angle"
+    },
+    {
+      "property": "penetration rate",
+      "quantityClass": "length per time",
+      "propertyTypeId": "d2b70df2-6df3-4751-bd02-150e3fc96450"
+    },
+    {
+      "property": "period",
+      "quantityClass": "time",
+      "propertyTypeId": "84fbece3-981a-4d1a-b6b2-42f1bd00c994"
+    },
+    {
+      "property": "permeability",
+      "quantityClass": "permeability rock",
+      "propertyTypeId": "a403d622-68b1-48d7-8b84-1d4e3f54e9ba"
+    },
+    {
+      "property": "permeability thickness",
+      "quantityClass": "volume",
+      "propertyTypeId": "9e618d4a-a354-4f66-8c82-80a4c0576ae0"
+    },
+    {
+      "property": "ph",
+      "quantityClass": "unitless",
+      "propertyTypeId": "1e7ee52b-b3b4-4c1a-8edd-ede50d9902ea"
+    },
+    {
+      "property": "phase shift",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "c371d532-c640-4a35-9efd-b99db9395d77"
+    },
+    {
+      "property": "phase shift resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "4ab253e0-25a4-45f6-8bda-e4897039438c"
+    },
+    {
+      "property": "phosphorus dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "ca53392a-5403-4a1e-b215-676b5155d827"
+    },
+    {
+      "property": "phosphorus yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "866c76e0-9b7a-4906-af0d-801794db8c41"
+    },
+    {
+      "property": "photoelectric factor",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "f87263cb-ac9d-4eb3-abc4-798f667c246c"
+    },
+    {
+      "property": "pickup hook load",
+      "quantityClass": "force",
+      "propertyTypeId": "9c8fe10f-c4c9-4e42-961c-e59013bdd92c"
+    },
+    {
+      "property": "pipe inside diameter",
+      "quantityClass": "length",
+      "propertyTypeId": "1a6258a9-00d1-4358-ac77-3f67d2a35310"
+    },
+    {
+      "property": "pitch length",
+      "quantityClass": "length",
+      "propertyTypeId": "e69478ca-a612-42f1-abfb-3af006c0900e"
+    },
+    {
+      "property": "plane angle",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "fd8e6e77-0e94-4882-9275-402f3722e88b"
+    },
+    {
+      "property": "plastic viscosity",
+      "quantityClass": "dynamic viscosity",
+      "propertyTypeId": "f69b4f1b-9258-4274-9c18-02bb7f19ff05"
+    },
+    {
+      "property": "poisson ratio",
+      "quantityClass": "unitless",
+      "propertyTypeId": "ffb3d980-2238-4e60-b22b-668fa7f9881d"
+    },
+    {
+      "property": "pore pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "fb6e4d7d-1bcb-4a22-bbc3-60eeb08c925c"
+    },
+    {
+      "property": "pore pressure gradient",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "bcc93f7a-e711-4a93-9d6c-931b9d76dcd4"
+    },
+    {
+      "property": "porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "69698278-5ad1-4512-bddc-8afed34bc3d8"
+    },
+    {
+      "property": "porosity correction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "c2e480f7-13c6-4530-a374-558d2ef0b02a"
+    },
+    {
+      "property": "potash volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "5261bb8d-1412-4de0-9e73-82430e7d8f94"
+    },
+    {
+      "property": "potassium chloride yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "2e65d6a9-1a5c-4e1f-ab36-0fd54ecb319b"
+    },
+    {
+      "property": "potassium concentration",
+      "quantityClass": "unitless",
+      "propertyTypeId": "75c8b305-e914-4c6f-be98-1a6f9357a760"
+    },
+    {
+      "property": "potassium dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "0581a31c-f572-43ff-a702-26d3d3faa6c0"
+    },
+    {
+      "property": "potassium yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "8c793a74-8d86-413c-b9bf-6154fd530bf1"
+    },
+    {
+      "property": "power",
+      "quantityClass": "power",
+      "propertyTypeId": "6e97defa-c26e-4cb4-99e8-ffdccf76723a"
+    },
+    {
+      "property": "pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "e703be06-9568-4bc6-ab1c-db15dd012e77"
+    },
+    {
+      "property": "pressure digit",
+      "quantityClass": "unitless",
+      "propertyTypeId": "de7d657f-0166-44ed-a6a8-1f2bfbbbc993"
+    },
+    {
+      "property": "pressure gradient",
+      "quantityClass": "force per volume",
+      "propertyTypeId": "a5da7dff-d30d-4670-8b89-565ecfd5343a"
+    },
+    {
+      "property": "pressure loss",
+      "quantityClass": "pressure",
+      "propertyTypeId": "f5006c3e-1404-4830-a574-894784a96408"
+    },
+    {
+      "property": "pressure rate",
+      "quantityClass": "pressure per time",
+      "propertyTypeId": "122f8367-9c63-478e-9b1b-340149e6abc2"
+    },
+    {
+      "property": "primary porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "eae9aba7-89f0-44c0-893a-26d096823252"
+    },
+    {
+      "property": "probability",
+      "quantityClass": "unitless",
+      "propertyTypeId": "ad9e1078-4521-4b1f-84e4-118279a9cd9f"
+    },
+    {
+      "property": "processing option",
+      "quantityClass": "unitless",
+      "propertyTypeId": "b00f78a3-0acf-4b2d-8755-9f24fab1bbf7"
+    },
+    {
+      "property": "productivity index",
+      "quantityClass": "(volume per time) per pressure",
+      "propertyTypeId": "8b144eaf-c447-4519-bb41-080577e4c92b"
+    },
+    {
+      "property": "profile conductance",
+      "quantityClass": "unitless",
+      "propertyTypeId": "a484b2ad-6e34-41a9-8add-7fc4d0116a50"
+    },
+    {
+      "property": "profile conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "574c403b-912b-4e7d-b7df-847a16e895c5"
+    },
+    {
+      "property": "profile resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "ceee4e2e-6a6f-419b-854b-6d3bc1660d1e"
+    },
+    {
+      "property": "proportion",
+      "quantityClass": "unitless",
+      "propertyTypeId": "ef7ad2bb-71d2-47c2-8911-cd34b6ad444a"
+    },
+    {
+      "property": "proppant concentration",
+      "quantityClass": "pressure",
+      "propertyTypeId": "0340cc27-09c3-4fa9-b22c-2acab21bf40a"
+    },
+    {
+      "property": "proppant density",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "3d9a5f00-5257-44a2-b489-bb222380829d"
+    },
+    {
+      "property": "pseudocritical pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "1416b46c-6e9c-40be-b5d5-1c506857bc8c"
+    },
+    {
+      "property": "pseudocritical temperature",
+      "quantityClass": "thermodynamic temperature",
+      "propertyTypeId": "1dbedf51-f9be-4802-86d8-3921454c8ed4"
+    },
+    {
+      "property": "pumping time",
+      "quantityClass": "time",
+      "propertyTypeId": "7b1c72d5-51a7-44e7-ae81-f64081458b56"
+    },
+    {
+      "property": "pyrite dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "22456cc3-c7cf-4ad8-a0ba-903480d0af58"
+    },
+    {
+      "property": "pyrite volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "ac8f9d2c-20ae-45d8-93e4-01d98f7faec4"
+    },
+    {
+      "property": "qfm dry weight fraction",
+      "quantityClass": "unitless",
+      "propertyTypeId": "f773a031-7fba-4454-854f-8b0a1a08f4ec"
+    },
+    {
+      "property": "qfm volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "c8c75a61-76d9-4d57-b978-b4903d485df6"
+    },
+    {
+      "property": "quality factor",
+      "quantityClass": "unitless",
+      "propertyTypeId": "ad261cf3-b610-4abf-8228-599d5a4e6bde"
+    },
+    {
+      "property": "quality indicator",
+      "quantityClass": "unitless",
+      "propertyTypeId": "22df05fc-605c-4d9d-a539-a54ec9eb69e8"
+    },
+    {
+      "property": "quartz dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "1c0ee124-6215-404d-a691-1e63a223f247"
+    },
+    {
+      "property": "quartz volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "b18b3173-84ec-4ed8-b269-60a2078259b7"
+    },
+    {
+      "property": "radius",
+      "quantityClass": "length",
+      "propertyTypeId": "977d5685-6021-4125-87f2-1cf1eae237cb"
+    },
+    {
+      "property": "ratio",
+      "quantityClass": "unitless",
+      "propertyTypeId": "47005cc5-bf10-4752-948b-e8a259355ce2"
+    },
+    {
+      "property": "reflection coefficient",
+      "quantityClass": "unitless",
+      "propertyTypeId": "75e42714-f8bd-4151-ba59-acaebde38e89"
+    },
+    {
+      "property": "regularization factor",
+      "quantityClass": "unitless",
+      "propertyTypeId": "c664e8ec-b2e3-4f43-b0af-dc102deacdd2"
+    },
+    {
+      "property": "relative bearing",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "3a456a68-6bfa-4f32-8918-418476cfa2af"
+    },
+    {
+      "property": "relative dip angle",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "cfb7429a-c56d-4543-9c56-755c3df03290"
+    },
+    {
+      "property": "relative dip azimuth",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "92c38583-23ef-4487-bac1-9e3e076a6930"
+    },
+    {
+      "property": "relative fluorescence",
+      "quantityClass": "unitless",
+      "propertyTypeId": "81785a20-5731-4181-aea2-ec429f814b8c"
+    },
+    {
+      "property": "relative permeability",
+      "quantityClass": "unitless",
+      "propertyTypeId": "8e3c5579-7efd-40d0-ab03-bc79452dd2db"
+    },
+    {
+      "property": "relative permeability gas",
+      "quantityClass": "unitless",
+      "propertyTypeId": "87a046a9-1d1a-4b0f-872d-33c6e618927a"
+    },
+    {
+      "property": "relative permeability oil",
+      "quantityClass": "unitless",
+      "propertyTypeId": "b7b04c8a-0f04-4f4b-b7eb-a8d68cfe409f"
+    },
+    {
+      "property": "relative permeability water",
+      "quantityClass": "unitless",
+      "propertyTypeId": "2ab4741e-815f-4e17-8f46-63cada9df571"
+    },
+    {
+      "property": "relative reflection intensity",
+      "quantityClass": "unitless",
+      "propertyTypeId": "d3d41c36-7f11-4428-bc13-e8a718506e99"
+    },
+    {
+      "property": "relaxation time ratio",
+      "quantityClass": "unitless",
+      "propertyTypeId": "cf068e8a-a031-442f-9820-2ae07da0f59b"
+    },
+    {
+      "property": "remarks",
+      "quantityClass": "unitless",
+      "propertyTypeId": "1b1be262-79a6-473f-b58c-921ae7392c28"
+    },
+    {
+      "property": "reservoir fluid density",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "062a9bd5-a3c1-4bcb-9edd-90f5a03dc833"
+    },
+    {
+      "property": "residual gas saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "7a186fbb-d03c-4c1c-b20d-8da200f41257"
+    },
+    {
+      "property": "residual hydrocarbon saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "493da977-7ba2-4417-ba7b-adc13c6467f7"
+    },
+    {
+      "property": "residual hydrocarbon volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "0e2e80c7-35a9-4ccb-b309-9d1c5dcab80d"
+    },
+    {
+      "property": "residual oil saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "e4e78b38-acfa-4755-b223-fb295fd7ceab"
+    },
+    {
+      "property": "resistance",
+      "quantityClass": "electric resistance",
+      "propertyTypeId": "14c0ae7d-be95-401b-b075-e7a7f6872d31"
+    },
+    {
+      "property": "resistance gradient",
+      "quantityClass": "electric resistance per length",
+      "propertyTypeId": "d1d0de25-ade2-4ee4-a54d-7b339d3df5ae"
+    },
+    {
+      "property": "resistive inclusion contrast",
+      "quantityClass": "unitless",
+      "propertyTypeId": "9752c266-74d1-4bbb-9866-a844332d1093"
+    },
+    {
+      "property": "resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "7c0d1a5d-483e-4d77-81f3-9883527838d2"
+    },
+    {
+      "property": "resistivity data density",
+      "quantityClass": "unitless",
+      "propertyTypeId": "ef428d5a-c0a2-4843-bf9d-5e7f9f962612"
+    },
+    {
+      "property": "resistivity index",
+      "quantityClass": "unitless",
+      "propertyTypeId": "2f613234-9409-47ed-a18a-935bf87389e9"
+    },
+    {
+      "property": "resistivity time after bit",
+      "quantityClass": "time",
+      "propertyTypeId": "ae4e8f6f-6e62-43dd-b572-dbbf7d108daa"
+    },
+    {
+      "property": "response frequency",
+      "quantityClass": "frequency",
+      "propertyTypeId": "e890592d-7bc1-4060-8853-f896254f0936"
+    },
+    {
+      "property": "rhodochrosite dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "8c7853e9-827a-448f-93d9-9e51f89e7201"
+    },
+    {
+      "property": "rig heave",
+      "quantityClass": "length",
+      "propertyTypeId": "21b1bf20-dbcb-44fd-b33c-d2a7d99e8679"
+    },
+    {
+      "property": "rms velocity",
+      "quantityClass": "length per time",
+      "propertyTypeId": "52dd836b-d8e6-474b-abae-9304dd6e0eb0"
+    },
+    {
+      "property": "rotary speed",
+      "quantityClass": "angular velocity",
+      "propertyTypeId": "39ee0a5d-9a02-48ed-81e1-8772c31a0c54"
+    },
+    {
+      "property": "rotating weight",
+      "quantityClass": "force",
+      "propertyTypeId": "044f6ee0-f7d5-4ca1-8899-ae32ab693014"
+    },
+    {
+      "property": "rotation",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "9efe012f-73bc-4c96-8b48-a9ae5af172f7"
+    },
+    {
+      "property": "rotation gradient",
+      "quantityClass": "angle per length",
+      "propertyTypeId": "3b9828d6-85b8-40c0-8732-b6219b9aa68b"
+    },
+    {
+      "property": "rugosity",
+      "quantityClass": "reciprocal length",
+      "propertyTypeId": "ea947ae3-ea41-4d3b-b89d-525e6854af93"
+    },
+    {
+      "property": "run number",
+      "quantityClass": "unitless",
+      "propertyTypeId": "8b674d13-e509-40f9-b3a7-e4e571c26eb4"
+    },
+    {
+      "property": "running speed",
+      "quantityClass": "length per time",
+      "propertyTypeId": "fdf45e7c-e59a-4b6c-a9f1-8c4c476a14b0"
+    },
+    {
+      "property": "salinity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "3b02c4fe-1e66-4e51-bc53-81855e72d147"
+    },
+    {
+      "property": "samarium yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "9cae5d68-f3ea-4158-a47a-0591cb1f4afb"
+    },
+    {
+      "property": "sample count",
+      "quantityClass": "unitless",
+      "propertyTypeId": "6c49a611-af7d-42c7-9c74-85b6fa39b966"
+    },
+    {
+      "property": "sampling duration",
+      "quantityClass": "time",
+      "propertyTypeId": "107f30c7-cdc3-4123-b7fd-315e1e352457"
+    },
+    {
+      "property": "sand volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "cb8c77de-52f2-42d0-84ff-e42db2111f85"
+    },
+    {
+      "property": "saturation exponent",
+      "quantityClass": "unitless",
+      "propertyTypeId": "cefefc62-682f-4706-9b43-7d8fdc5672e7"
+    },
+    {
+      "property": "secondary porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "d4dd5f64-7c9b-477e-b3d6-164adb6b1599"
+    },
+    {
+      "property": "sediment and water",
+      "quantityClass": "unitless",
+      "propertyTypeId": "ffa5f462-4c56-4699-8cff-a212eb08a5c5"
+    },
+    {
+      "property": "seismic offset",
+      "quantityClass": "Length",
+      "propertyTypeId": "b433f9bd-d1eb-4368-b286-61bc778bf8df"
+    },
+    {
+      "property": "semblance",
+      "quantityClass": "unitless",
+      "propertyTypeId": "9296789c-a958-4025-b9ca-81e73091a1a2"
+    },
+    {
+      "property": "semi major axis",
+      "quantityClass": "length",
+      "propertyTypeId": "fa620f8e-de28-4cb7-85b2-99698c1a1b6d"
+    },
+    {
+      "property": "semi minor axis",
+      "quantityClass": "Length",
+      "propertyTypeId": "d1ccf93a-45b7-4022-a8c8-0a31a2582deb"
+    },
+    {
+      "property": "sensitivity",
+      "quantityClass": "unitless",
+      "propertyTypeId": "d7824a09-f9b5-4569-874a-fbb419176d47"
+    },
+    {
+      "property": "sensor azimuth",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "e571408f-aef2-4307-89b0-20dc49e0c507"
+    },
+    {
+      "property": "sensor standoff",
+      "quantityClass": "length",
+      "propertyTypeId": "d49020c1-23d9-468e-823e-befee5b6f93a"
+    },
+    {
+      "property": "sensor temperature",
+      "quantityClass": "thermodynamic temperature",
+      "propertyTypeId": "2b0c657e-7846-41b3-9799-d365991269b5"
+    },
+    {
+      "property": "separator temperature",
+      "quantityClass": "thermodynamic temperature",
+      "propertyTypeId": "38e92061-2b2a-4960-985b-ac0db8da66b3"
+    },
+    {
+      "property": "serial number",
+      "quantityClass": "unitless",
+      "propertyTypeId": "db60975f-c67d-49c4-a420-4330e312e87e"
+    },
+    {
+      "property": "setting force",
+      "quantityClass": "force",
+      "propertyTypeId": "1ef81df8-0794-43c0-bc61-b458e97d97c3"
+    },
+    {
+      "property": "shale volume fraction",
+      "quantityClass": "unitless",
+      "propertyTypeId": "14eaf9c9-b894-45b6-8396-3df0bdd3cebc"
+    },
+    {
+      "property": "shallow conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "a3827a10-148e-4564-929f-32ec73e48868"
+    },
+    {
+      "property": "shallow laterolog conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "351febf1-3571-423b-866b-050848a0f147"
+    },
+    {
+      "property": "shallow laterolog resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "bfdc1c97-928b-4963-bc45-1bb13718b574"
+    },
+    {
+      "property": "shallow normal resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "08f16dda-89a0-4af3-ad7a-0c042935a593"
+    },
+    {
+      "property": "shallow resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "ac9744b1-6bb9-4038-8824-8bba0fa3689e"
+    },
+    {
+      "property": "shape",
+      "quantityClass": "unitless",
+      "propertyTypeId": "621f60df-923a-41db-baa6-475d7a4b592a"
+    },
+    {
+      "property": "shear compressional slowness ratio",
+      "quantityClass": "unitless",
+      "propertyTypeId": "0f0b4b9c-1224-484c-9125-07523091032c"
+    },
+    {
+      "property": "shear failure mode",
+      "quantityClass": "unitless",
+      "propertyTypeId": "cabec89f-a4d1-4fc2-a78b-d20f1d6867f8"
+    },
+    {
+      "property": "shear modulus",
+      "quantityClass": "pressure",
+      "propertyTypeId": "7a9cdf27-2378-441f-837b-8a141709fb6f"
+    },
+    {
+      "property": "shear slowness",
+      "quantityClass": "time per length",
+      "propertyTypeId": "a43ca4b8-61a4-4596-8575-afcd1b81edbe"
+    },
+    {
+      "property": "shear stress",
+      "quantityClass": "pressure",
+      "propertyTypeId": "19c66c0d-e997-49dc-bbd2-7ed610568a1e"
+    },
+    {
+      "property": "shear velocity",
+      "quantityClass": "length per time",
+      "propertyTypeId": "3e487da5-339d-48e8-bbd0-90d8d8d897ae"
+    },
+    {
+      "property": "shock level",
+      "quantityClass": "unitless",
+      "propertyTypeId": "52c5f0ff-232a-4a54-9523-05b679faca36"
+    },
+    {
+      "property": "shock rate",
+      "quantityClass": "frequency",
+      "propertyTypeId": "9bc6d71b-366a-45f4-9217-93c3fec97b0f"
+    },
+    {
+      "property": "shrinkage factor",
+      "quantityClass": "unitless",
+      "propertyTypeId": "b7bc23bd-4ad6-4712-8552-2bc0c740fc8f"
+    },
+    {
+      "property": "siderite dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "d8db7695-79c6-425d-81f5-75c20568521f"
+    },
+    {
+      "property": "siderite volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "fddfebde-611a-4c2c-b915-b781c12aa21e"
+    },
+    {
+      "property": "signal amplitude",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "f77f05c6-73e1-4b58-9ee9-f5bed58ce100"
+    },
+    {
+      "property": "signal to noise ratio",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "491f437e-72cb-4e01-99f0-2d46ade3e5dc"
+    },
+    {
+      "property": "silicon dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "3870a67a-e6c1-4acc-9b2c-7fc253de5c80"
+    },
+    {
+      "property": "silicon yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "5a1bde1c-9faf-4663-bca1-184d31b16564"
+    },
+    {
+      "property": "silt volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "f3457d46-ee76-42ca-acf4-ab970d66ae19"
+    },
+    {
+      "property": "slackoff hook load",
+      "quantityClass": "force",
+      "propertyTypeId": "86279d31-9bb0-4700-b5c7-afd2f7adb442"
+    },
+    {
+      "property": "slew rate",
+      "quantityClass": "time",
+      "propertyTypeId": "e94ebd17-8dc9-47a7-9c6c-be0d2f34edef"
+    },
+    {
+      "property": "slippage velocity",
+      "quantityClass": "length per time",
+      "propertyTypeId": "f12268e5-7598-4357-b9bd-ed39cddda681"
+    },
+    {
+      "property": "slope",
+      "quantityClass": "pressure per time",
+      "propertyTypeId": "cde76840-640e-477c-8ce5-0db132d17b66"
+    },
+    {
+      "property": "slowness time coherence",
+      "quantityClass": "unitless",
+      "propertyTypeId": "d3956aaf-fff8-4c28-b312-a392399bf0bc"
+    },
+    {
+      "property": "sodium chloride yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "86589149-cef5-4a67-a84a-bc5e68bcad91"
+    },
+    {
+      "property": "sodium dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "6990a902-fd2a-40c3-983c-abc1c7129ab8"
+    },
+    {
+      "property": "sodium yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "e3f2073a-146d-4b63-85bc-5cec5e2fecbf"
+    },
+    {
+      "property": "solution gas oil ratio",
+      "quantityClass": "unitless",
+      "propertyTypeId": "bb7585cd-f29c-4e36-b81d-9a26ff5ae9f1"
+    },
+    {
+      "property": "sonic data density",
+      "quantityClass": "unitless",
+      "propertyTypeId": "19cf249f-c0ce-42b5-949c-d21be5a1736e"
+    },
+    {
+      "property": "sonic porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "dc963a51-ea7e-4aba-8a3b-dfbbcc747074"
+    },
+    {
+      "property": "sonic porosity dolomite",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "3c3441e0-2d70-4aaf-9440-809f49010de0"
+    },
+    {
+      "property": "sonic porosity limestone",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "d8cc5a93-22cd-4ac7-ac1a-e45d331b8f34"
+    },
+    {
+      "property": "sonic porosity sandstone",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "be2745b5-517e-4baf-a14f-3a98b2b47f4d"
+    },
+    {
+      "property": "sonic time after bit",
+      "quantityClass": "time",
+      "propertyTypeId": "f88647e1-9ca2-4c9a-86d9-e7a97e554c48"
+    },
+    {
+      "property": "specific acoustic impedance",
+      "quantityClass": "(mass per time) per area",
+      "propertyTypeId": "1d6489a8-e812-4bfa-a007-cc627739a1b9"
+    },
+    {
+      "property": "spherically focused conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "2d90f720-c5df-43dd-9dac-1f41d35fd82b"
+    },
+    {
+      "property": "spherically focused resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "2572427d-f87d-4f37-b370-7123a027920a"
+    },
+    {
+      "property": "spinner speed",
+      "quantityClass": "angular velocity",
+      "propertyTypeId": "1ad89167-9262-420a-b50c-3df9b22cff22"
+    },
+    {
+      "property": "spontaneous potential",
+      "quantityClass": "electric potential difference",
+      "propertyTypeId": "671d0d85-4552-4542-a0f9-a109dc7fc7e1"
+    },
+    {
+      "property": "standard deviation",
+      "quantityClass": "unitless",
+      "propertyTypeId": "010fb877-2487-425a-a1be-7168f8630cc1"
+    },
+    {
+      "property": "standoff porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "037d3255-0784-42ca-86ae-98b1de2b1657"
+    },
+    {
+      "property": "standpipe pressure",
+      "quantityClass": "pressure",
+      "propertyTypeId": "f001a670-584b-4527-9db5-89bc304b82a5"
+    },
+    {
+      "property": "start time",
+      "quantityClass": "time",
+      "propertyTypeId": "c8e41c38-c21e-47d5-b5d1-8907a7d5de86"
+    },
+    {
+      "property": "station number",
+      "quantityClass": "unitless",
+      "propertyTypeId": "37ad0d6d-df79-45a4-bacf-c60657401b8c"
+    },
+    {
+      "property": "statistical property",
+      "quantityClass": "unitless",
+      "propertyTypeId": "8298cd02-e058-4619-abd0-3e64bddd5491"
+    },
+    {
+      "property": "status",
+      "quantityClass": "unitless",
+      "propertyTypeId": "4b4e5316-c291-46d4-8bd5-ff05987cb941"
+    },
+    {
+      "property": "stoneley slowness",
+      "quantityClass": "time per length",
+      "propertyTypeId": "1c1ff31d-eae5-4ad9-b557-95047946244d"
+    },
+    {
+      "property": "stress",
+      "quantityClass": "pressure",
+      "propertyTypeId": "b998696c-9d82-43da-8df5-275056797136"
+    },
+    {
+      "property": "stress gradient",
+      "quantityClass": "force per volume",
+      "propertyTypeId": "39ad964b-fa98-4f06-8903-bdf2880b3e60"
+    },
+    {
+      "property": "stretch",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "31f865d0-1488-430c-adf7-5c86417cbc46"
+    },
+    {
+      "property": "stroke count",
+      "quantityClass": "unitless",
+      "propertyTypeId": "056ad531-96f0-4b97-a044-b35d4c8d15b6"
+    },
+    {
+      "property": "stroke rate",
+      "quantityClass": "frequency",
+      "propertyTypeId": "9198d21c-9b22-4b48-94ef-bf018ad35db9"
+    },
+    {
+      "property": "strontium yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "11c62894-dbf3-4e56-aab3-f742127e4b30"
+    },
+    {
+      "property": "subsea vertical depth",
+      "quantityClass": "length",
+      "propertyTypeId": "8f4fbd79-87c9-4232-8934-f663e2fbf538"
+    },
+    {
+      "property": "sulfur dry weight fraction",
+      "quantityClass": "unitless",
+      "propertyTypeId": "77284fec-a5c9-4c3d-80a9-bda079e9bed4"
+    },
+    {
+      "property": "sulfur yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "a3b40b77-32f5-4d93-8405-7d3818b568c3"
+    },
+    {
+      "property": "surface cable tension",
+      "quantityClass": "force",
+      "propertyTypeId": "a6157878-016d-4a02-af26-692808f1d9fa"
+    },
+    {
+      "property": "surface temperature",
+      "quantityClass": "thermodynamic temperature",
+      "propertyTypeId": "fec0492d-8ee9-494e-87e8-6a3577103b09"
+    },
+    {
+      "property": "survey type",
+      "quantityClass": "unitless",
+      "propertyTypeId": "a3114654-859a-4a18-aebf-c3adf83c12c0"
+    },
+    {
+      "property": "synthetic seismic section",
+      "quantityClass": "unitless",
+      "propertyTypeId": "0e75b53e-841a-4b24-b094-29eace263661"
+    },
+    {
+      "property": "synthetic seismogram",
+      "quantityClass": "unitless",
+      "propertyTypeId": "4a6a6c68-7b50-4224-ba35-ae47073e05ce"
+    },
+    {
+      "property": "tar volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "382edd3d-bb64-4b71-8156-66a4b759aa09"
+    },
+    {
+      "property": "temperature",
+      "quantityClass": "thermodynamic temperature",
+      "propertyTypeId": "08260920-c22a-4000-af25-60a8f28e19f7"
+    },
+    {
+      "property": "temperature rate",
+      "quantityClass": "temperature interval per time",
+      "propertyTypeId": "f22baafb-e12e-4934-b5db-41054bb34fcb"
+    },
+    {
+      "property": "tensile failure mode",
+      "quantityClass": "unitless",
+      "propertyTypeId": "61d276cb-5f1a-489c-94ba-16b2d110e79e"
+    },
+    {
+      "property": "tensile strength",
+      "quantityClass": "pressure",
+      "propertyTypeId": "4754bc14-3bcc-4ed9-99b3-9c409afeefc9"
+    },
+    {
+      "property": "tension",
+      "quantityClass": "force",
+      "propertyTypeId": "729a5030-c92f-425b-8e3b-38732a3351fa"
+    },
+    {
+      "property": "test depth",
+      "quantityClass": "Length",
+      "propertyTypeId": "3608bb88-f32c-450c-91f2-cffaa59856d9"
+    },
+    {
+      "property": "test number",
+      "quantityClass": "unitless",
+      "propertyTypeId": "ebb1e7d0-af26-4846-88a6-d35ec5d6c278"
+    },
+    {
+      "property": "thermal gradient",
+      "quantityClass": "temperature interval per length",
+      "propertyTypeId": "1df1e272-1501-4fb4-94b4-4f4b0e0123c6"
+    },
+    {
+      "property": "thermal neutron decay time",
+      "quantityClass": "time",
+      "propertyTypeId": "faeea986-e4f5-4c6c-86db-9e184af602c3"
+    },
+    {
+      "property": "thermal neutron near far ratio",
+      "quantityClass": "unitless",
+      "propertyTypeId": "9e3edd1a-02ae-46e5-9b14-24b0c3dbd419"
+    },
+    {
+      "property": "thermal neutron porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "ba4c2716-823d-4a41-85f6-2cb303cdbbf0"
+    },
+    {
+      "property": "thickness",
+      "quantityClass": "length",
+      "propertyTypeId": "11b0dec4-d659-4444-9cd8-22ad103ebd30"
+    },
+    {
+      "property": "thickness loss",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "e115e20d-9913-4361-a535-3f64342b46e0"
+    },
+    {
+      "property": "thomsen delta",
+      "quantityClass": "unitless",
+      "propertyTypeId": "c3cadbc2-059f-43bc-8239-6914e5b89b82"
+    },
+    {
+      "property": "thomsen epsilon",
+      "quantityClass": "unitless",
+      "propertyTypeId": "c0e99bca-417d-4697-87be-f242caf3f48e"
+    },
+    {
+      "property": "thomsen gamma",
+      "quantityClass": "unitless",
+      "propertyTypeId": "ba336529-fcd9-42dd-8351-a64cd9be6b4d"
+    },
+    {
+      "property": "thorium concentration",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "74e530ca-f016-4a86-a755-7ee2d8f8dcc7"
+    },
+    {
+      "property": "thorium dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "d0f8ffd0-a309-4942-99d0-8a6db8a8cd3a"
+    },
+    {
+      "property": "thorium potassium ratio",
+      "quantityClass": "unitless",
+      "propertyTypeId": "7456ecfe-f5c7-4328-acb5-2c16c6442b2f"
+    },
+    {
+      "property": "thorium uranium ratio",
+      "quantityClass": "unitless",
+      "propertyTypeId": "6ae4efd5-6230-4e44-8fa7-c72e83f008e6"
+    },
+    {
+      "property": "threshold",
+      "quantityClass": "unitless",
+      "propertyTypeId": "d332eb2a-b760-4f22-bd79-edf92ea54f72"
+    },
+    {
+      "property": "time",
+      "quantityClass": "time",
+      "propertyTypeId": "3a72f130-4ebf-4ea9-a330-a610a4e4ed0e"
+    },
+    {
+      "property": "time after bit",
+      "quantityClass": "time",
+      "propertyTypeId": "80a24edd-8fa3-4484-a4ca-dcf04761deba"
+    },
+    {
+      "property": "time constant",
+      "quantityClass": "time",
+      "propertyTypeId": "ce935933-2fad-41d0-b95e-e8f7bec32e29"
+    },
+    {
+      "property": "time increment",
+      "quantityClass": "time",
+      "propertyTypeId": "3a03d8f7-1efb-4e1a-8f35-32bfecf0b035"
+    },
+    {
+      "property": "time interval",
+      "quantityClass": "time",
+      "propertyTypeId": "32d5a555-a55e-4339-998b-f9d49e9d6dc4"
+    },
+    {
+      "property": "time stamp",
+      "quantityClass": "time",
+      "propertyTypeId": "6a2ecc9b-7561-41eb-8c6d-adf83538c085"
+    },
+    {
+      "property": "titanium dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "e913fa9b-efab-4e07-a2bf-571a574d8338"
+    },
+    {
+      "property": "titanium yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "26281f2f-7c4b-4b82-b85c-24ed7bbda6d6"
+    },
+    {
+      "property": "tool azimuth",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "7123c82b-9f1d-47b7-98ff-17167ebd3078"
+    },
+    {
+      "property": "tool background yield",
+      "quantityClass": "unitless",
+      "propertyTypeId": "514f505a-0012-49b5-afa0-c32ccfe9b2e6"
+    },
+    {
+      "property": "tool control",
+      "quantityClass": "unitless",
+      "propertyTypeId": "a764bc44-8842-4560-8829-a8642060c553"
+    },
+    {
+      "property": "tool deviation",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "79697f23-bd29-4edb-b2ce-9a01e2ed2115"
+    },
+    {
+      "property": "tool deviation x",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "cfcac98c-2ddf-4fd9-9c9c-fdb8b0cfcbc1"
+    },
+    {
+      "property": "tool deviation y",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "94735a0e-ffec-4ea5-a3bf-23d34e08382e"
+    },
+    {
+      "property": "tool rotation speed",
+      "quantityClass": "angular velocity",
+      "propertyTypeId": "1825b6ce-3bf1-4ac9-9d1a-569b5765de69"
+    },
+    {
+      "property": "tool speed",
+      "quantityClass": "length per time",
+      "propertyTypeId": "3e6ac0db-6629-4e9c-946a-48a74b463e87"
+    },
+    {
+      "property": "tool status",
+      "quantityClass": "unitless",
+      "propertyTypeId": "b240fd8c-e494-4cfc-a3b2-16fdf527e28b"
+    },
+    {
+      "property": "tool temperature",
+      "quantityClass": "thermodynamic temperature",
+      "propertyTypeId": "9fb8c04b-83b8-42f8-9ff1-4b0236446857"
+    },
+    {
+      "property": "toolface",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "f52f1dce-118e-4649-809a-f4ecb7a1f2f2"
+    },
+    {
+      "property": "top depth",
+      "quantityClass": "Length",
+      "propertyTypeId": "cb1166d9-3874-4267-abea-1cd97e4bf448"
+    },
+    {
+      "property": "torque",
+      "quantityClass": "energy",
+      "propertyTypeId": "48dcb552-f419-43b5-a7e0-941a907083bd"
+    },
+    {
+      "property": "total flowrate",
+      "quantityClass": "volume per time",
+      "propertyTypeId": "deacf5a5-bd7d-4565-8de6-313373f525f8"
+    },
+    {
+      "property": "total porosity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "fe7f7744-8dad-47e8-9459-14b74c5982b8"
+    },
+    {
+      "property": "trace length",
+      "quantityClass": "length",
+      "propertyTypeId": "3520da31-1727-4d78-81fe-868ca3c290ac"
+    },
+    {
+      "property": "trajectory",
+      "quantityClass": "unitless",
+      "propertyTypeId": "d6388bb7-15bd-449d-9f82-d7e67b45d91d"
+    },
+    {
+      "property": "transit time",
+      "quantityClass": "time",
+      "propertyTypeId": "7aee931f-a23c-4622-ac56-498db82169e2"
+    },
+    {
+      "property": "transmission coefficient",
+      "quantityClass": "unitless",
+      "propertyTypeId": "383c4c22-9160-4843-9487-3eb5b04a51e0"
+    },
+    {
+      "property": "transverse relaxation time",
+      "quantityClass": "time",
+      "propertyTypeId": "28ab4bd0-7b7a-4853-a7dc-067f2b2a0fb0"
+    },
+    {
+      "property": "trona volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "ae2e8a91-1101-426c-b277-f05f5f4c37b5"
+    },
+    {
+      "property": "true stratigraphic thickness",
+      "quantityClass": "length",
+      "propertyTypeId": "e29b5293-53ff-4123-9e08-3fca3990143e"
+    },
+    {
+      "property": "true vertical depth",
+      "quantityClass": "Length",
+      "propertyTypeId": "c17d98b8-17f5-4a1b-9a1c-e95e06ea5628"
+    },
+    {
+      "property": "true vertical thickness",
+      "quantityClass": "length",
+      "propertyTypeId": "193d165b-bfec-4d11-b093-21e0bdc77433"
+    },
+    {
+      "property": "tube wall thickness",
+      "quantityClass": "length",
+      "propertyTypeId": "ac6a4f92-3b99-4f13-91a8-9737599affc2"
+    },
+    {
+      "property": "two way time",
+      "quantityClass": "time",
+      "propertyTypeId": "4e6ed722-eb26-4175-b743-c15b80e92b46"
+    },
+    {
+      "property": "type",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "1cc7cf34-4eaf-4ad3-b440-5a74b443cc73"
+    },
+    {
+      "property": "ultrasonic caliper",
+      "quantityClass": "length",
+      "propertyTypeId": "0534fc50-e1df-44ae-a241-62dff56f7357"
+    },
+    {
+      "property": "uncertainty",
+      "quantityClass": "unitless",
+      "propertyTypeId": "10cb08b9-c0f3-45b9-ae6a-6bcd263e3ef7"
+    },
+    {
+      "property": "undisturbed zone bound water volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "16f9255b-9c2c-4ad7-b6e3-89562028ef21"
+    },
+    {
+      "property": "undisturbed zone dissolved salt volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "5fe95fd9-a08f-49e9-b372-a89fcaa8ba84"
+    },
+    {
+      "property": "undisturbed zone free water volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "8a0fd950-6ce0-4ea1-ae92-52f5e15a4da0"
+    },
+    {
+      "property": "undisturbed zone gas volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "bcb1185c-bfb3-4596-8486-d770b32d3eaa"
+    },
+    {
+      "property": "undisturbed zone hydrocarbon volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "4cd40582-f8d9-4c2b-9e2e-cde071d7a6d2"
+    },
+    {
+      "property": "undisturbed zone irreducible water volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "d07cb75e-d5b8-4af3-8627-cd1fcf56033e"
+    },
+    {
+      "property": "undisturbed zone oil volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "3bb32533-1996-4fd0-a7e3-af7c24bb9d76"
+    },
+    {
+      "property": "undisturbed zone water volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "dded63cb-e31d-4a53-b65f-ab987f0d7695"
+    },
+    {
+      "property": "unit code",
+      "quantityClass": "unitless",
+      "propertyTypeId": "f895deb4-4f57-4d3e-98c1-0496669f2253"
+    },
+    {
+      "property": "uranium concentration",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "f2b2d8ec-2bf0-4f70-bd07-64ae7627df64"
+    },
+    {
+      "property": "uranium dry weight fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "774ebb77-8297-4bed-973c-96a5ebabb049"
+    },
+    {
+      "property": "uranium potassium ratio",
+      "quantityClass": "unitless",
+      "propertyTypeId": "4594fde9-e492-43d9-b616-732b1c47a072"
+    },
+    {
+      "property": "value number",
+      "quantityClass": "unitless",
+      "propertyTypeId": "73e1b5c0-7839-4bb3-a156-2e3b4f1af69d"
+    },
+    {
+      "property": "variance",
+      "quantityClass": "linear acceleration",
+      "propertyTypeId": "69adc1a5-4f6f-4185-96c6-f9c8904049ca"
+    },
+    {
+      "property": "velocity",
+      "quantityClass": "length per time",
+      "propertyTypeId": "d80b7b4d-f51d-4821-b1db-c595f18c51db"
+    },
+    {
+      "property": "vertical formation resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "3518f2c4-d563-4f90-a410-884d7d70108c"
+    },
+    {
+      "property": "vertical permeability",
+      "quantityClass": "permeability rock",
+      "propertyTypeId": "a4a6a03a-27db-4c1c-872d-1eff0313b810"
+    },
+    {
+      "property": "vertical rotation",
+      "quantityClass": "plane angle",
+      "propertyTypeId": "0fcbaa46-2a37-458b-8203-8c44fe8786a6"
+    },
+    {
+      "property": "vertical section",
+      "quantityClass": "Length",
+      "propertyTypeId": "d722d0ee-e54a-49a6-955e-74bbd23113f3"
+    },
+    {
+      "property": "viscosity",
+      "quantityClass": "dynamic viscosity",
+      "propertyTypeId": "9ee00d9c-840f-4972-9ad2-3609b3545047"
+    },
+    {
+      "property": "vitrinite reflectance",
+      "quantityClass": "unitless",
+      "propertyTypeId": "0ee39899-2a78-43de-8d51-223f0ad631e6"
+    },
+    {
+      "property": "volume",
+      "quantityClass": "volume",
+      "propertyTypeId": "2dc6dc83-e1f9-48f6-87f2-57bcdd42738b"
+    },
+    {
+      "property": "volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "608644e2-3cd4-461e-92d3-5d7768472bbd"
+    },
+    {
+      "property": "volume safety factor",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "86c0a6be-3150-4a92-be56-932d8e689c72"
+    },
+    {
+      "property": "volumetric photoelectric factor",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "9d761367-e34e-413f-b7c5-b6474a999479"
+    },
+    {
+      "property": "von mises stress",
+      "quantityClass": "pressure",
+      "propertyTypeId": "aadfc5f3-45c4-4bdd-bbc7-bf11d3f30c1b"
+    },
+    {
+      "property": "von mises to yield ratio",
+      "quantityClass": "unitless",
+      "propertyTypeId": "d28dbedb-3af5-4a01-ab1d-4e922810180b"
+    },
+    {
+      "property": "water conductivity",
+      "quantityClass": "electric conductivity",
+      "propertyTypeId": "18423100-e2b5-4957-9bb9-3b9b2ff1a5ba"
+    },
+    {
+      "property": "water density",
+      "quantityClass": "mass per volume",
+      "propertyTypeId": "a72f5800-6786-45cd-a45c-d78e625b8d82"
+    },
+    {
+      "property": "water flow velocity",
+      "quantityClass": "length per time",
+      "propertyTypeId": "a8aef67c-8292-4874-853e-398aace4b5f7"
+    },
+    {
+      "property": "water flowrate",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "516ba49d-01c1-4869-81fb-56ec7ce80c54"
+    },
+    {
+      "property": "water formation volume factor",
+      "quantityClass": "unitless",
+      "propertyTypeId": "d0cc8236-0553-48cf-8801-02a9465b9414"
+    },
+    {
+      "property": "water holdup",
+      "quantityClass": "unitless",
+      "propertyTypeId": "cca7e6c8-cf41-4616-bea3-f745714080bd"
+    },
+    {
+      "property": "water mass flowrate",
+      "quantityClass": "mass per time",
+      "propertyTypeId": "d95c15a9-1c07-4b23-80d5-3360baa2183d"
+    },
+    {
+      "property": "water oil ratio",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "b808d24a-ab3a-486f-9d89-c9fde88d03c6"
+    },
+    {
+      "property": "water resistivity",
+      "quantityClass": "electrical resistivity",
+      "propertyTypeId": "7a454f8d-fe63-4728-b134-76e47f926e96"
+    },
+    {
+      "property": "water salinity",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "bb97c6ab-20e4-44a1-85a2-dcc9b13b2343"
+    },
+    {
+      "property": "water saturation",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "2cea6718-2266-49b0-9a10-57fe3127eebc"
+    },
+    {
+      "property": "water viscosibility",
+      "quantityClass": "reciprocal pressure",
+      "propertyTypeId": "2b65948b-fa5a-4a54-80ed-9633183d7dec"
+    },
+    {
+      "property": "water viscosity",
+      "quantityClass": "dynamic viscosity",
+      "propertyTypeId": "62b9a56a-e27e-476e-9e0a-9e1b18081f1d"
+    },
+    {
+      "property": "water volume fraction",
+      "quantityClass": "dimensionless",
+      "propertyTypeId": "67c02177-1aee-4e6a-97d5-945c6acba644"
+    },
+    {
+      "property": "wave differential energy",
+      "quantityClass": "logarithmic power ratio per length",
+      "propertyTypeId": "a007e4fb-75f3-4770-9273-4ed5bfdbec6d"
+    },
+    {
+      "property": "weight on bit",
+      "quantityClass": "force",
+      "propertyTypeId": "7674f9e3-82c8-4060-8ce7-32d5e4e12832"
+    },
+    {
+      "property": "well test type",
+      "quantityClass": "unitless",
+      "propertyTypeId": "e92f76b8-a125-41a1-ac75-db96b52e2cbf"
+    },
+    {
+      "property": "well thermal gradient",
+      "quantityClass": "temperature interval per length",
+      "propertyTypeId": "2f6eb945-d29a-4b30-aab0-a834d22de3eb"
+    },
+    {
+      "property": "wellhead gas flowrate",
+      "quantityClass": "volume per time",
+      "propertyTypeId": "95b610c6-a12b-4014-b679-2cd4d475beee"
+    },
+    {
+      "property": "wellhead temperature",
+      "quantityClass": "thermodynamic temperature",
+      "propertyTypeId": "cc3e3f84-8a9a-456c-bc21-4f10b770d66d"
+    },
+    {
+      "property": "wettability index",
+      "quantityClass": "unitless",
+      "propertyTypeId": "6be368af-6bef-43ac-bed7-81a8744e5dac"
+    },
+    {
+      "property": "x acceleration",
+      "quantityClass": "linear acceleration",
+      "propertyTypeId": "7bb05b3a-16ff-4925-a759-f472f7619bac"
+    },
+    {
+      "property": "x coordinate",
+      "quantityClass": "Length",
+      "propertyTypeId": "620cec71-5ce3-4ea5-9120-833756b427d7"
+    },
+    {
+      "property": "x displacement",
+      "quantityClass": "Length",
+      "propertyTypeId": "53cfa89a-d8b5-4fad-bce0-a484ed0ae41f"
+    },
+    {
+      "property": "x gravity",
+      "quantityClass": "linear acceleration",
+      "propertyTypeId": "2186d2c0-7f60-4c07-9e01-c43f3b60c762"
+    },
+    {
+      "property": "x magnetometer",
+      "quantityClass": "magnetic flux density",
+      "propertyTypeId": "5bbed60a-48f9-464e-b12f-d03da4701751"
+    },
+    {
+      "property": "y acceleration",
+      "quantityClass": "linear acceleration",
+      "propertyTypeId": "00336234-7346-4db3-a290-cb21886b9933"
+    },
+    {
+      "property": "y coordinate",
+      "quantityClass": "Length",
+      "propertyTypeId": "cfcfdb04-02c1-4262-b66b-459b0aab3e8e"
+    },
+    {
+      "property": "y displacement",
+      "quantityClass": "Length",
+      "propertyTypeId": "fcda5feb-6b69-4331-bf82-ae748b248796"
+    },
+    {
+      "property": "y gravity",
+      "quantityClass": "linear acceleration",
+      "propertyTypeId": "0f2a164d-cfd4-490b-b8dd-6d02fc98c20b"
+    },
+    {
+      "property": "y magnetometer",
+      "quantityClass": "magnetic flux density",
+      "propertyTypeId": "23c4b74f-f684-40df-b6f5-a1f1cc8cf0f8"
+    },
+    {
+      "property": "yield stress",
+      "quantityClass": "pressure",
+      "propertyTypeId": "5e5d855e-b17c-4937-a1b8-6a2a0e4617ad"
+    },
+    {
+      "property": "young modulus",
+      "quantityClass": "pressure",
+      "propertyTypeId": "216a0e04-db3a-4353-942e-2b3388eda249"
+    },
+    {
+      "property": "z acceleration",
+      "quantityClass": "linear acceleration",
+      "propertyTypeId": "c3470373-fc5b-4771-b343-337c4ae52a50"
+    },
+    {
+      "property": "z coordinate",
+      "quantityClass": "Length",
+      "propertyTypeId": "0bb1762f-e8d7-42e7-afb1-d24297bf4171"
+    },
+    {
+      "property": "z gravity",
+      "quantityClass": "linear acceleration",
+      "propertyTypeId": "8e4f5d5b-f7c1-49f5-abec-f1a2a131f84a"
+    },
+    {
+      "property": "z magnetometer",
+      "quantityClass": "magnetic flux density",
+      "propertyTypeId": "2b08bcfc-a93f-449e-9cca-26e62948b148"
+    },
+    {
+      "property": "zone number",
+      "quantityClass": "unitless",
+      "propertyTypeId": "0b1c9457-2921-4de0-9dff-e5f555ef270b"
+    }
+  ]
+}

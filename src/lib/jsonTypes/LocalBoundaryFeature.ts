@@ -10,6 +10,11 @@ import {
   LocalBoundaryFeature
 } from "./Generated/work-product-component/LocalBoundaryFeature.1.2.0";
 
+import {
+  MasterDataBoundaryFeatureManifest,
+  MasterDataBoundaryFeatureOSDU
+} from "./MasterDataBoundaryFeature";
+
 export class LocalBoundaryFeatureOSDU
   extends ResqmlWorkProductComponent<SimpleJson<resqml20.obj_BoundaryFeature>>
   implements LocalBoundaryFeature
@@ -25,7 +30,8 @@ export class LocalBoundaryFeatureOSDU
 
   public async initData(
     ReservoirDMSUrl: string,
-    xml: SimpleJson<resqml20.obj_BoundaryFeature>
+    xml: SimpleJson<resqml20.obj_BoundaryFeature>,
+    boundaryFeatureID?: string
   ): Promise<LocalBoundaryFeatureOSDU> {
     const context = this.__context;
     if (context === undefined) {
@@ -37,10 +43,11 @@ export class LocalBoundaryFeatureOSDU
       ...(await this.AbstractWorkProductComponent(xml, context)),
 
       /**
-       * When populated, the boundary feature has a wider scope and allows boundary feature
+       * Links this model-local boundary feature to its abstract
+       * master-data--BoundaryFeature, enabling boundary feature
        * correlations across models.
        */
-      BoundaryFeatureID: undefined,
+      BoundaryFeatureID: boundaryFeatureID,
 
       ExtensionProperties: undefined
     };
@@ -57,5 +64,28 @@ export const LocalBoundaryFeatureManifest = async (
   xml: SimpleJson<resqml20.obj_BoundaryFeature>,
   context: OSDUContext,
   _client: ResqmlClient
-): Promise<LocalBoundaryFeatureOSDU> =>
-  new LocalBoundaryFeatureOSDU(xml, context).initData(uri, xml);
+): Promise<LocalBoundaryFeatureOSDU> => {
+  // S3: Also produce master-data--BoundaryFeature if it doesn't already exist
+  const masterData = await MasterDataBoundaryFeatureManifest(
+    uri,
+    xml,
+    context,
+    _client
+  );
+  if (masterData !== undefined && masterData.id) {
+    context.created.set(masterData.id, masterData);
+  }
+
+  // Link the WPC back to its master-data--BoundaryFeature. The SRN is deterministic
+  // from the RESQML UUID, so it resolves whether the master-data record was just
+  // created or already existed in OSDU. The trailing ":" is the SRN version separator.
+  const boundaryFeatureID =
+    (masterData?.id ?? new MasterDataBoundaryFeatureOSDU(xml, context).id) +
+    ":";
+
+  return new LocalBoundaryFeatureOSDU(xml, context).initData(
+    uri,
+    xml,
+    boundaryFeatureID
+  );
+};

@@ -35,6 +35,20 @@ resqmlInterfaces.forEach(i => {
   );
 });
 
+// RESQML 2.2 schemas
+const resqml22Interfaces = resqmlTypes
+  .getInterfaces("resqml22")
+  .filter(t => !t.getName().startsWith("_") && !t.getName().startsWith("Abstract"));
+
+fs.mkdirSync(path.join(jsonSchemaDir, "resqml22_json"));
+resqml22Interfaces.forEach(i => {
+  const s = resqmlTypes.createJSONSchemas("resqml22." + i.getName());
+  fs.writeFileSync(
+    path.join(jsonSchemaDir, "resqml22_json", i.getName() + ".json"),
+    s
+  );
+});
+
 const witsmlTypes = new XmlUtils.WitsmlTypeUtils();
 const baseObject = witsmlTypes.findInterface("_AbstractObject");
 if (baseObject) {
