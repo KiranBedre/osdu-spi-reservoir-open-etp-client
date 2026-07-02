@@ -284,26 +284,31 @@ export class ResqmlClient {
       Energistics.Etp.v12.Datatypes.Protocol.DataspaceOSDU,
       this.dataspaceOSDU
     );
-    this.client.registerHandler(
-      Energistics.Etp.v12.Datatypes.Protocol.DiscoveryQuery,
-      this.discoveryQuery
-    );
-    this.client.registerHandler(
-      Energistics.Etp.v12.Datatypes.Protocol.StoreQuery,
-      this.storeQuery
-    );
-    this.client.registerHandler(
-      Energistics.Etp.v12.Datatypes.Protocol.GrowingObject,
-      this.growingObject
-    );
-    this.client.registerHandler(
-      Energistics.Etp.v12.Datatypes.Protocol.GrowingObjectNotification,
-      this.growingObjectNotification
-    );
-    this.client.registerHandler(
-      Energistics.Etp.v12.Datatypes.Protocol.ChannelSubscribe,
-      this.channelSubscribe
-    );
+    // Extended protocols — only register when the server is known to support
+    // them (e.g. M27+ environments). Avoids session-negotiation issues with
+    // older ETP servers that may reject or misbehave with unknown protocols.
+    if (process.env.RDMS_ETP_EXTENDED_PROTOCOLS === "true") {
+      this.client.registerHandler(
+        Energistics.Etp.v12.Datatypes.Protocol.DiscoveryQuery,
+        this.discoveryQuery
+      );
+      this.client.registerHandler(
+        Energistics.Etp.v12.Datatypes.Protocol.StoreQuery,
+        this.storeQuery
+      );
+      this.client.registerHandler(
+        Energistics.Etp.v12.Datatypes.Protocol.GrowingObject,
+        this.growingObject
+      );
+      this.client.registerHandler(
+        Energistics.Etp.v12.Datatypes.Protocol.GrowingObjectNotification,
+        this.growingObjectNotification
+      );
+      this.client.registerHandler(
+        Energistics.Etp.v12.Datatypes.Protocol.ChannelSubscribe,
+        this.channelSubscribe
+      );
+    }
     if (opt) {
       this.options = opt;
     }
