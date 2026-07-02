@@ -473,12 +473,11 @@ export const createManifest = async (
           data: {
             Name: "RDDMS Manifest Build",
             Description: `Auto-generated lineage: ${outputIds.length} work-product-component(s) produced from ETP dataspace objects.`,
-            Parameters: [{
+            Parameters: outputIds.map(id => ({
               ParameterKindID: `${context.partition}:reference-data--ParameterKind:DataObject:`,
               Title: "Output",
-              Index: 0,
-              StringParameter: `${outputIds.length} object(s)`
-            }],
+              DataObjectParameter: `${id}:`
+            })),
             SoftwareSpecifications: [{ SoftwareName: "RDDMS", Version: "1.0" }],
             ActivityTemplateID: `${context.partition}:master-data--ActivityTemplate:RDDMSManifestBuild:`,
             ParentActivityID: undefined,
