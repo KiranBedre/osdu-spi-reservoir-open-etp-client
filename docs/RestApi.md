@@ -397,7 +397,7 @@ Body:
 - **Default type filter** — only common representation/interpretation types included. Pass `typePatterns: ["*"]` to restore old behavior.
 - **Best-effort mode** — partial results returned on converter errors. Check `errors[]` in response.
 - **Auto-collaboration UUID** — deterministic UUID v5 from dataspace name (no manual header needed).
-- **Milestone versioning** — uses `RDMS_OSDU_MILESTONE` env var (default M27) for OSDU schema versions.
+- **Milestone versioning** — uses `OSDU_MILESTONE` env var (default M27) for OSDU schema versions.
 
 ---
 
@@ -610,5 +610,5 @@ Body: vendor catalog JSON (SLB format supported).
 | `RDMS_REST_PORT` | `8080` | REST API port |
 | `RDMS_REST_ROOT_PATH` | `/api/reservoir-ddms/v2/` | Base path |
 | `RDMS_DATA_PARTITION_MODE` | `single` | `single` or `multi` |
-| `RDMS_OSDU_MILESTONE` | `M27` | OSDU schema milestone (`M26` or `M27`) |
+| `OSDU_MILESTONE` | `M27` | OSDU schema milestone (`M26` or `M27`) |
 | `RDMS_ETP_SSL_VERIFY` | `true` | Set `false` for self-signed certs |

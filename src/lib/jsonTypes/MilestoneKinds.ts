@@ -1,28 +1,114 @@
 /**
- * OSDU Schema Version Mapping per Milestone.
+ * OSDU Schema Version Resolution.
  *
- * Each OSDU milestone (M26, M27/Venus, ...) ships a specific set of
- * pre-registered schema versions. This module provides the correct kind
- * string for the configured target milestone via `getKind(entityType)`.
+ * At startup, queries the OSDU Schema Service to discover the latest registered
+ * schema version for each entity type. Falls back to a static M27 lookup table
+ * when the Schema Service is unavailable (standalone/local mode).
  *
  * Usage:
- *   import { getKind, getMilestone } from "./MilestoneKinds";
- *   const kind = getKind("WellLog");            // → "osdu:wks:work-product-component--WellLog:1.2.0" (M26)
- *   const kind = getKind("WellLog");            // → "osdu:wks:work-product-component--WellLog:1.3.0" (M27)
- *   const kind = getKind("StructureMap");       // → undefined on M26 (schema doesn't exist)
+ *   import { getKind, initSchemaVersions } from "./MilestoneKinds";
+ *   await initSchemaVersions();                 // call once at startup
+ *   const kind = getKind("WellLog");            // → "osdu:wks:work-product-component--WellLog:1.3.0"
+ *   const kind = getKind("StructureMap");       // → undefined if not registered
  *
- * The milestone is selected via env var RDMS_OSDU_MILESTONE (default: "M27").
+ * Env vars:
+ *   OSDU_MILESTONE — static fallback milestone ("M26" or "M27", default "M27")
+ *   RDMS_OSDU_URL  — base URL for Schema Service query (optional)
  */
+
+import logging from "../common/Logging";
+const logger = logging.getLogger({ name: "MilestoneKinds", level: "info" });
 
 export type OsduMilestone = "M26" | "M27";
 
+/** Runtime-resolved kinds from Schema Service (populated by initSchemaVersions). */
+let resolvedKinds: Map<string, string> | undefined;
+
 /**
  * Read configured milestone from environment. Defaults to M27.
+ * Used only as fallback when Schema Service is unavailable.
  */
 export function getMilestone(): OsduMilestone {
-  const raw = (process.env.RDMS_OSDU_MILESTONE || "M27").toUpperCase();
+  const raw = (process.env.OSDU_MILESTONE || "M27").toUpperCase();
   if (raw === "M26") return "M26";
   return "M27";
+}
+
+/**
+ * Query the OSDU Schema Service to discover the latest version of each
+ * work-product-component, master-data, and dataset schema.
+ *
+ * Call once at server startup. If the service is unreachable, logs a warning
+ * and falls back to the static table for OSDU_MILESTONE (default M27).
+ */
+export async function initSchemaVersions(
+  osduBaseUrl?: string,
+  token?: string,
+  dataPartitionId?: string
+): Promise<void> {
+  const baseUrl = osduBaseUrl || process.env.RDMS_OSDU_URL;
+  if (!baseUrl) {
+    logger.info("No OSDU_URL configured — using static fallback (OSDU_MILESTONE=" + getMilestone() + ")");
+    return;
+  }
+
+  const schemaUrl = `${baseUrl.replace(/\/$/, "")}/api/schema-service/v1/schema`;
+  const headers: Record<string, string> = {
+    "Accept": "application/json"
+  };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (dataPartitionId) headers["data-partition-id"] = dataPartitionId;
+
+  try {
+    const kinds = new Map<string, string>();
+
+    // Query each authority+source combination we care about
+    for (const entityPrefix of ["work-product-component", "master-data", "dataset"]) {
+      const url = `${schemaUrl}?authority=osdu&source=wks&entityType=${entityPrefix}--*&status=PUBLISHED&limit=1000`;
+      const resp = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+      if (!resp.ok) {
+        logger.warn(`Schema Service returned ${resp.status} for ${entityPrefix} — skipping`);
+        continue;
+      }
+      const body = await resp.json() as { schemaInfos?: Array<{ schemaIdentity: { id: string } }> };
+      const infos = body.schemaInfos ?? [];
+
+      // For each entity type, keep the highest version
+      for (const info of infos) {
+        const id = info.schemaIdentity?.id;
+        if (!id) continue;
+        // id format: "osdu:wks:work-product-component--WellLog:1.3.0"
+        const match = id.match(/^osdu:wks:[\w-]+--(\w+):/);
+        if (!match) continue;
+        const entityType = match[1];
+        const existing = kinds.get(entityType);
+        if (!existing || compareVersions(id, existing) > 0) {
+          kinds.set(entityType, id);
+        }
+      }
+    }
+
+    if (kinds.size > 0) {
+      resolvedKinds = kinds;
+      logger.info(`Schema Service: resolved ${kinds.size} entity types from ${baseUrl}`);
+    } else {
+      logger.warn("Schema Service returned no schemas — using static fallback");
+    }
+  } catch (err: any) {
+    logger.warn(`Schema Service unavailable (${err?.message ?? err}) — using static fallback (OSDU_MILESTONE=${getMilestone()})`);
+  }
+}
+
+/** Compare two kind strings by their trailing semver. Returns >0 if a > b. */
+function compareVersions(a: string, b: string): number {
+  const va = a.match(/:(\d+)\.(\d+)\.(\d+)$/);
+  const vb = b.match(/:(\d+)\.(\d+)\.(\d+)$/);
+  if (!va || !vb) return 0;
+  for (let i = 1; i <= 3; i++) {
+    const diff = parseInt(va[i]) - parseInt(vb[i]);
+    if (diff !== 0) return diff;
+  }
+  return 0;
 }
 
 // ─── Kind version table ──────────────────────────────────────────────────────
@@ -157,13 +243,21 @@ const KIND_VERSIONS = new Map<string, VersionPair>([
 // ─── Public API ──────────────────────────────────────────────────────────────
 
 /**
- * Get the full OSDU kind string for a given entity type at the configured milestone.
+ * Get the full OSDU kind string for a given entity type.
+ *
+ * If Schema Service was queried at startup (initSchemaVersions), returns the
+ * dynamically resolved kind. Otherwise falls back to the static table for
+ * the configured OSDU_MILESTONE.
  *
  * @param entityType — Short entity name, e.g. "WellLog", "Well", "StructureMap"
- * @returns The full kind string, or undefined if the schema doesn't exist at
- *          the configured milestone.
+ * @returns The full kind string, or undefined if the schema doesn't exist.
  */
 export function getKind(entityType: string): string | undefined {
+  // Dynamic: use Schema Service result if available
+  if (resolvedKinds) {
+    return resolvedKinds.get(entityType);
+  }
+  // Static fallback: use milestone table
   const entry = KIND_VERSIONS.get(entityType);
   if (!entry) return undefined;
   return entry[getMilestone()];
@@ -188,9 +282,13 @@ export function isKindAvailable(entityType: string): boolean {
 }
 
 /**
- * Get all kind strings for the current milestone (for schema registration).
+ * Get all kind strings (for schema registration).
+ * Uses Schema Service results if available, otherwise static table.
  */
 export function getAllKinds(): string[] {
+  if (resolvedKinds) {
+    return Array.from(resolvedKinds.values());
+  }
   const milestone = getMilestone();
   const kinds: string[] = [];
   for (const entry of KIND_VERSIONS.values()) {

@@ -735,7 +735,7 @@ export default class WitsmlController {
       const putResult = await c.putDataObjects(dataObjects);
       if (!putResult) {
         if (txId) {
-          await c.rollbackTransaction(txId).catch(() => {});
+          await c.rollbackTransaction(txId).catch(() => { });
         }
         throw new BadRequestException(
           "PutDataObjects failed — check UUID format (must be valid UUID) and dataspace existence"
@@ -874,8 +874,8 @@ export default class WitsmlController {
             xml: byteToString(obj!.data),
             lastChanged: obj!.resource.lastChanged
               ? new Date(
-                  Number(BigInt(obj!.resource.lastChanged) / BigInt(1000))
-                ).toISOString()
+                Number(BigInt(obj!.resource.lastChanged) / BigInt(1000))
+              ).toISOString()
               : null
           };
         });
@@ -948,8 +948,8 @@ export default class WitsmlController {
             name: r.name,
             lastChanged: r.lastChanged
               ? new Date(
-                  Number(BigInt(r.lastChanged) / BigInt(1000))
-                ).toISOString()
+                Number(BigInt(r.lastChanged) / BigInt(1000))
+              ).toISOString()
               : null
           };
         }),
