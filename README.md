@@ -269,3 +269,27 @@ In the **single-partition mode**, the ETP Client deals with a specific partition
 The **multi-partition mode** allows you to work with several partitions. The ETP Client expects the data partition specified in the `data-partition-id` header in REST requests and transmits the value to the server.
 
 Specify the partition mode in the [config](config.default.env#L34) before building.
+
+## Schema Version Support
+
+The manifest builder emits OSDU schema kinds whose versions are resolved at startup:
+
+1. **Schema Service query** — on boot, `initSchemaVersions()` queries the OSDU Schema Service for the latest published kind versions (M27+).
+2. **Static fallback** — if the Schema Service is unavailable (401, timeout, or no `RDMS_OSDU_URL`), a built-in `FALLBACK_KINDS` map provides M27 versions (e.g., `WellLog:1.3.0`, `Well:1.2.0`).
+
+No configuration is required — the service adapts automatically to whatever versions the target platform supports.
+
+## Extended ETP Protocol Support
+
+The following ETP protocols are **auto-negotiated** during session establishment:
+
+| Protocol | ID | REST endpoints |
+|---|---|---|
+| DiscoveryQuery | 13 | `POST /query/resources/find` |
+| StoreQuery | 14 | (used internally) |
+| GrowingObject | 6 | `POST /query/growing/metadata`, `POST /query/growing/range` |
+| ChannelSubscribe | 21 | `POST /query/channels/metadata` |
+
+The client always requests all protocols. The ETP server responds with which ones it supports (`OpenSession.supportedProtocols`). If an endpoint is called but the server did not negotiate that protocol, the REST API returns **501 Not Implemented** with a descriptive message.
+
+No environment variable is needed to enable or disable these protocols.

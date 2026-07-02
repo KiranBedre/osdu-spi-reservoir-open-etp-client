@@ -75,6 +75,7 @@ import {
   httpErrorFromEtpError,
   partitionPattern,
   patternString,
+  requireProtocol,
   toDate,
   toJSonCustomData
 } from "../ControllerUtils";
@@ -341,6 +342,7 @@ export default class QueryController {
         extractToken(request),
         extractDataPartitionId(request)
       );
+      requireProtocol(c, Energistics.Etp.v12.Datatypes.Protocol.DiscoveryQuery);
 
       const context: Energistics.Etp.v12.Datatypes.Object.ContextInfo = {
         uri: body.uri,
@@ -630,6 +632,7 @@ export default class QueryController {
         extractToken(request),
         extractDataPartitionId(request)
       );
+      requireProtocol(c, Energistics.Etp.v12.Datatypes.Protocol.GrowingObject);
       const metadata = await c.growingObject.getPartsMetadata(body.uri);
       return metadata;
     } catch (err) {
@@ -666,6 +669,7 @@ export default class QueryController {
         extractToken(request),
         extractDataPartitionId(request)
       );
+      requireProtocol(c, Energistics.Etp.v12.Datatypes.Protocol.GrowingObject);
 
       const startIndex = new Energistics.Etp.v12.Datatypes.IndexValue();
       startIndex.item = { _double: body.startIndex, __keyName: "_double" };
@@ -722,6 +726,7 @@ export default class QueryController {
         extractToken(request),
         extractDataPartitionId(request)
       );
+      requireProtocol(c, Energistics.Etp.v12.Datatypes.Protocol.ChannelSubscribe);
       const metadata = await c.channelSubscribe.getChannelMetadata(body.uri);
       return metadata.map(ch => ({
         channelId: ch.id,

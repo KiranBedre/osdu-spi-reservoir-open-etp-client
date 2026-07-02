@@ -52,6 +52,11 @@ export class ETPClient extends ETPCore {
     [];
   private buffer: Buffer = Buffer.alloc(2048);
 
+  /** Check whether the server negotiated a given protocol in the current session. */
+  public isProtocolSupported(protocolId: number): boolean {
+    return this.serverProtocols[protocolId] !== undefined;
+  }
+
   constructor(config: IConfiguration) {
     super(config);
     this.dataSpaceSupported = false;
