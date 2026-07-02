@@ -72,16 +72,22 @@ export default class WellsController {
 
   @Get()
   @ApiOperation({
-    summary: "Unified well search across all dataspaces",
+    summary: "Search wells across dataspaces with hierarchy resolution",
     description:
-      "Finds wells matching the name pattern across all dataspaces, " +
-      "resolves the hierarchy: wellbores, logs, trajectories, channelSets.",
+      "Searches for wells (WITSML 2.1 Well or RESQML WellboreFeature) matching a name pattern " +
+      "across all accessible dataspaces (or a single specified dataspace). " +
+      "For each matching well, resolves child objects (wellbores, logs, trajectories, channelSets) " +
+      "via ETP relationship graph traversal.\n\n" +
+      "**Name pattern**: Use `*` as wildcard (e.g., `DROGON*` matches all wells starting with DROGON). " +
+      "Pattern matching is case-insensitive.\n\n" +
+      "**Performance note**: Searching all dataspaces iterates each one sequentially. " +
+      "Specify `dataspace` when you know where the wells reside.",
     servers: swaggerServers
   })
-  @ApiQuery({ name: "name", required: true, description: "Well name pattern (* wildcard)", example: "DROGON*" })
-  @ApiQuery({ name: "dataspace", required: false, description: "Limit to specific dataspace" })
-  @ApiQuery({ name: "include", required: false, description: "Comma-separated: logs,trajectories,channelSets (default: all)" })
-  @ApiOkResponse({ description: "Array of wells with child objects" })
+  @ApiQuery({ name: "name", required: true, description: "Well name pattern. Use * as wildcard (e.g., 'DROGON*', '*-1', '*'). Case-insensitive.", example: "DROGON*" })
+  @ApiQuery({ name: "dataspace", required: false, description: "Restrict search to a single dataspace path (e.g., 'maap/drogon'). Omit to search all dataspaces.", example: "maap/drogon" })
+  @ApiQuery({ name: "include", required: false, description: "Comma-separated list of child types to resolve: logs, trajectories, channelSets. Omit to include all.", example: "logs,trajectories" })
+  @ApiOkResponse({ description: "Array of wells, each with resolved child objects (wellbores always included)" })
   async findWells(
     @Query("name") namePattern: string,
     @Query("dataspace") dataspace?: string,
@@ -183,7 +189,7 @@ export default class WellsController {
       await c.closeSession();
       return results;
     } catch (e: any) {
-      if (c) await c.closeSession().catch(() => {});
+      if (c) await c.closeSession().catch(() => { });
       throw httpErrorFromEtpError(e);
     }
   }

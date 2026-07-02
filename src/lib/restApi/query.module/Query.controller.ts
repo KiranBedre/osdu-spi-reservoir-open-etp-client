@@ -87,7 +87,7 @@ const logger = Logging.getLogger("EtpClient");
 
 class FindResourcesDto {
   @ApiProperty({
-    description: "URI of the dataspace or object to search from",
+    description: "ETP URI of the dataspace or object to search from. Use dataspace root to search all objects, or a specific object URI to traverse its relationships.",
     example: "eml:///dataspace('demo/drogon')"
   })
   @IsNotEmpty()
@@ -104,14 +104,14 @@ class FindResourcesDto {
   scope?: string;
 
   @ApiPropertyOptional({
-    description: "Data object types to filter (e.g., resqml22.TriangulatedSetRepresentation)",
+    description: "ETP data object type filter (qualified with domain prefix). Examples: resqml20.obj_IjkGridRepresentation, witsml21.Well, eml23.Activity",
     type: [String]
   })
   @IsOptional()
   dataObjectTypes?: string[];
 
   @ApiPropertyOptional({
-    description: "Graph traversal depth (0 = unlimited)",
+    description: "Graph traversal depth (1 = immediate children, 2+ = recursive, 0 = unlimited — use with caution)",
     default: 1
   })
   @IsOptional()
@@ -119,7 +119,7 @@ class FindResourcesDto {
   depth?: number;
 
   @ApiPropertyOptional({
-    description: "Only return resources modified after this ISO timestamp"
+    description: "ISO 8601 timestamp — only return resources modified after this time. Useful for incremental sync."
   })
   @IsOptional()
   @IsString()
@@ -155,14 +155,14 @@ class GetPartsByRangeDto {
   uri!: string;
 
   @ApiProperty({
-    description: "Start index value (depth in meters or time in microseconds)"
+    description: "Start index value. For depth-indexed objects: meters (e.g., 2500.0). For time-indexed: microseconds since epoch."
   })
   @IsNotEmpty()
   @IsNumber()
   startIndex!: number;
 
   @ApiProperty({
-    description: "End index value"
+    description: "End index value. Same unit as startIndex (meters for depth, microseconds for time)."
   })
   @IsNotEmpty()
   @IsNumber()
@@ -300,10 +300,16 @@ export default class QueryController {
   @Post("resources/find")
   @HttpCode(200)
   @ApiOperation({
-    summary: "Find resources by context and scope (DiscoveryQuery Protocol 13)",
-    description: `Search for resources within a dataspace or below a specific 
-    object URI. Returns resource metadata without loading full XML content.
-    Useful for OSDU search integration and resource enumeration.`,
+    summary: "Find resources by context and scope (ETP Discovery Protocol 3)",
+    description: `Search for resources within a dataspace or below a specific object URI. Returns resource metadata (URI, name, timestamps, relationship counts) without loading full XML content.
+
+**When to use**: Resource enumeration, OSDU search integration, checking what exists before fetching content.
+
+**uri format**: \`eml:///dataspace('path/to/ds')\` for dataspace root, or a full object URI to search below a specific object.
+
+**scope**: Controls graph traversal direction — 'targets' follows relationships forward (parent→child), 'sources' follows backwards.
+
+**depth**: 1 = direct children only, 2+ = recursive. Use 0 for unlimited (caution: may return large results).`,
     servers: swaggerServers
   })
   @ApiOkResponse({
@@ -382,10 +388,14 @@ export default class QueryController {
   @Post("objects/find")
   @HttpCode(200)
   @ApiOperation({
-    summary: "Find data objects with content (StoreQuery Protocol 14)",
-    description: `Search for data objects and retrieve their full content (XML or JSON).
-    More expensive than resource discovery but provides the complete object body.
-    Use for bulk data synchronization with OSDU Storage service.`,
+    summary: "Find data objects with full content (ETP Discovery + Store)",
+    description: `Search for data objects and retrieve their full XML/JSON content in a single call. Combines Discovery (find URIs) with GetDataObjects (fetch bodies).
+
+**When to use**: Bulk data export, OSDU Storage ingestion, or when you need the actual XML content (not just metadata).
+
+**Performance**: More expensive than POST /query/resources/find — fetches full object bodies. For large result sets, prefer resource discovery first, then selective GetDataObjects via the /graph/{type}/{guid} endpoints.
+
+**modifiedSince**: ISO timestamp filter — only returns objects written after this time. Useful for incremental sync.`,
     servers: swaggerServers
   })
   @ApiOkResponse({
@@ -601,10 +611,12 @@ export default class QueryController {
   @Post("growing/metadata")
   @HttpCode(200)
   @ApiOperation({
-    summary: "Get parts metadata for a growing object (GrowingObject Protocol 6)",
-    description: `Retrieve metadata about the parts/segments of a growing object
-    (e.g., available depth ranges in a WellLog, curve mnemonics).
-    Use before GetPartsByRange to discover what data is available.`,
+    summary: "Get parts metadata for a growing object (ETP GrowingObject Protocol 6)",
+    description: `Retrieve metadata about the parts/segments of a growing object (WellLog, MudLog, Trajectory).
+
+**Returns**: Available index ranges, part UIDs, and part metadata. Use this to discover what depth/time intervals exist before calling POST /query/growing/range.
+
+**Typical workflow**: 1) Find object URI via /query/resources/find → 2) Get parts metadata here → 3) Fetch specific range via /query/growing/range.`,
     servers: swaggerServers
   })
   @ApiBody({ type: GrowingObjectPartsDto })
@@ -633,10 +645,14 @@ export default class QueryController {
   @Post("growing/range")
   @HttpCode(200)
   @ApiOperation({
-    summary: "Get parts by index range (GrowingObject Protocol 6)",
-    description: `Retrieve data from a growing object (WellLog, MudLog) within
-    a specified depth or time range. Essential for fetching well log curves
-    for a specific interval without loading the entire dataset.`,
+    summary: "Get parts by index range (ETP GrowingObject Protocol 6)",
+    description: `Retrieve data from a growing object (WellLog, MudLog, Trajectory) within a specified index range.
+
+**Index values**: Provide start and end as numeric values. For depth-indexed objects, values are in meters. For time-indexed objects, values are in microseconds since epoch.
+
+**includeOverlapping**: When true, includes parts that partially overlap the requested range boundaries (useful for continuous curves).
+
+**Note**: The unit of measure is currently fixed to meters (\`m\`). Time-indexed growing objects should use microsecond epoch values.`,
     servers: swaggerServers
   })
   @ApiBody({ type: GetPartsByRangeDto })
@@ -685,10 +701,14 @@ export default class QueryController {
   @Post("channels/metadata")
   @HttpCode(200)
   @ApiOperation({
-    summary: "Get channel metadata (ChannelSubscribe Protocol 21)",
-    description: `Discover available channels (curves) for a WellLog or similar object.
-    Returns channel names, units of measure, data types, and index information.
-    Use to understand what measurements are available before subscribing or querying.`,
+    summary: "Get channel metadata (ETP ChannelSubscribe Protocol 21)",
+    description: `Discover available channels (curves/mnemonics) for a WellLog, ChannelSet, or similar object.
+
+**Returns**: Channel names, units of measure (UOM), data kinds (float, int, string), index descriptions, and channel status.
+
+**When to use**: Before streaming channel data or calling growing object range queries — lets you know what mnemonics exist and their measurement units.
+
+**Example flow**: Find WellLog URI → Get channel metadata here → Subscribe to specific channels via ETP streaming, or fetch ranges via POST /query/growing/range.`,
     servers: swaggerServers
   })
   @ApiBody({ type: ChannelMetadataDto })

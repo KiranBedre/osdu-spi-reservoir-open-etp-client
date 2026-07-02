@@ -82,7 +82,7 @@ const logger = logging.getLogger("EtpClient");
 
 class WitsmlQueryDto {
   @ApiProperty({
-    description: "Target dataspace path",
+    description: "Target dataspace path (e.g., 'maap/witsml', 'demo/drogon'). Must be an existing dataspace on the ETP server.",
     example: "maap/witsml"
   })
   @IsString()
@@ -92,7 +92,7 @@ class WitsmlQueryDto {
   dataspace!: string;
 
   @ApiProperty({
-    description: "Object type filter (e.g. Well, Wellbore, WellboreGeology)",
+    description: "Filter by ETP object type name (case-insensitive). Omit to return all objects. Common values: Well, Wellbore, WellLog, Trajectory, ChannelSet, WellboreGeology",
     required: false,
     example: "Well"
   })
@@ -126,15 +126,18 @@ export default class WitsmlController {
   @Post("query")
   @HttpCode(200)
   @ApiOperation({
-    summary: "Query WITSML objects",
+    summary: "Query WITSML objects with full XML content",
     description:
-      "Retrieve WITSML 2.1 objects from a dataspace. " +
-      "Optionally filter by object type (Well, Wellbore, WellLog, etc.).",
+      "Retrieves all WITSML 2.1 / EnergyML objects from a dataspace, returning the full XML body for each. " +
+      "Optionally filter by object type (Well, Wellbore, WellLog, Trajectory, etc.).\n\n" +
+      "**Use case**: Fetch raw WITSML XML for external processing, validation, or conversion.\n\n" +
+      "**Note**: For large dataspaces this may return significant data. " +
+      "Use `objectType` filter to limit results. For metadata-only listing, use `GET /witsml/{dataspaceId}/objects` instead.",
     servers: swaggerServers
   })
   @ApiBody({ type: WitsmlQueryDto })
-  @ApiOkResponse({ description: "WITSML objects returned" })
-  @ApiNotFoundResponse({ description: "Dataspace not found" })
+  @ApiOkResponse({ description: "Object array with full XML content and metadata (uri, objectType, uuid, name, xml, lastChanged)" })
+  @ApiNotFoundResponse({ description: "Dataspace not found or not accessible" })
   async queryWitsmlObjects(
     @Body() body: WitsmlQueryDto,
     @Req() request: express.Request
@@ -206,17 +209,23 @@ export default class WitsmlController {
    */
   @Get(":dataspaceId/objects")
   @ApiOperation({
-    summary: "List WITSML objects in a dataspace",
-    description: "List all WITSML/EnergyML objects in a dataspace, optionally filtered by type.",
+    summary: "List WITSML objects in a dataspace (metadata only)",
+    description:
+      "Returns a lightweight listing of all objects in a dataspace without fetching XML content. " +
+      "Use `type` query parameter to filter by WITSML object type.\n\n" +
+      "**dataspaceId format**: URL-encoded dataspace path, e.g., `maap%2Fwitsml` for `maap/witsml`.\n\n" +
+      "**Difference from POST /witsml/query**: This endpoint returns only metadata (uri, name, type, timestamp) " +
+      "and is much faster for large dataspaces. Use POST /witsml/query when you need the full XML body.",
     servers: swaggerServers
   })
   @ApiQuery({
     name: "type",
     required: false,
-    description: "Filter by object type (e.g. Well, Wellbore, WellLog)",
-    schema: { type: "string" }
+    description: "Filter by ETP object type name (case-insensitive). Examples: Well, Wellbore, WellLog, Trajectory, ChannelSet",
+    schema: { type: "string" },
+    example: "Well"
   })
-  @ApiOkResponse({ description: "Object list" })
+  @ApiOkResponse({ description: "Object metadata array (uri, objectType, uuid, name, lastChanged) with count" })
   async listWitsmlObjects(
     @Param("dataspaceId") dataspaceId: string,
     @Query("type") objectType: string | undefined,
