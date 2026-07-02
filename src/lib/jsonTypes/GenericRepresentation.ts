@@ -25,8 +25,7 @@ export class GenericRepresentationOSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml20.AbstractSurfaceRepresentation>
   >
-  implements GenericRepresentation
-{
+  implements GenericRepresentation {
   public data: Data = {};
   public meta?: FrameOfReferenceMetaDataItem[];
 
@@ -62,9 +61,9 @@ export class GenericRepresentationOSDU
   private elementCount(xml: SimpleJson<resqml20.AbstractRepresentation>):
     | undefined
     | {
-        Count: number;
-        IndexableElementID: string; //this.reference("IndexableElement", "cells")
-      }[] {
+      Count: number;
+      IndexableElementID: string; //this.reference("IndexableElement", "cells")
+    }[] {
     if (this.__context === undefined) {
       return undefined;
     }
@@ -143,11 +142,11 @@ export class GenericRepresentationOSDU
       LocalModelCompoundCrsID:
         geometries.length > 0
           ? await GenericRepresentationOSDU.dorToSrn(
-              ReservoirDMSUrl,
-              geometries[0].LocalCrs,
-              client,
-              context
-            )
+            ReservoirDMSUrl,
+            geometries[0].LocalCrs,
+            client,
+            context
+          )
           : undefined,
       RealizationIndex: undefined,
       Role: context.addReferenceData(
@@ -185,29 +184,115 @@ export class GenericRepresentationOSDU
       const dataspaceUri = EtpUri.createDataSpaceUri(
         new EtpUri(ReservoirDMSUrl).dataSpace
       );
-      const { SpatialPoint, SpatialArea, FrameOfReferenceCRS, NodeCount } =
-        await ResqmlWorkProductComponent.createSpatialInfo(
-          client,
-          dataspaceUri.uri,
-          geometries,
-          context
-        );
 
-      this.data.SpatialPoint = SpatialPoint;
-      this.data.SpatialArea = SpatialArea;
-      this.meta = [FrameOfReferenceCRS];
+      // For Grid2d objects, try analytical lattice-based bounding box first
+      let spatialResolved = false;
+      if (xml.$type === "resqml20.obj_Grid2dRepresentation") {
+        const grid2d = xml as SimpleJson<resqml20.obj_Grid2dRepresentation>;
+        const geo = grid2d.Grid2dPatch.Geometry;
 
-      if (this.data.IndexableElementCount === undefined) {
-        this.data.IndexableElementCount = [];
+        // Extract lattice from either direct Point3dLatticeArray or
+        // Point3dZValueArray.SupportingGeometry
+        let lattice: any = undefined;
+        if (geo.Points.$type === "resqml20.Point3dLatticeArray") {
+          lattice = geo.Points;
+        } else if (geo.Points.$type === "resqml20.Point3dZValueArray") {
+          const zArr = geo.Points as any;
+          if (zArr.SupportingGeometry?.$type === "resqml20.Point3dLatticeArray") {
+            lattice = zArr.SupportingGeometry;
+          }
+        }
+
+        if (lattice && lattice.Offset?.length >= 2) {
+          const off0 = lattice.Offset[0];
+          const off1 = lattice.Offset[1];
+          const dir0 = off0.Offset;
+          const dir1 = off1.Offset;
+          const sp0 = off0.Spacing?.Value ?? 1;
+          const sp1 = off1.Spacing?.Value ?? 1;
+          const countJ = grid2d.Grid2dPatch.SlowestAxisCount - 1;
+          const countI = grid2d.Grid2dPatch.FastestAxisCount - 1;
+          const ox = lattice.Origin.Coordinate1;
+          const oy = lattice.Origin.Coordinate2;
+          const stepJ = [dir0.Coordinate1 * sp0, dir0.Coordinate2 * sp0];
+          const stepI = [dir1.Coordinate1 * sp1, dir1.Coordinate2 * sp1];
+
+          const corners: [number, number][] = [
+            [ox, oy],
+            [ox + stepI[0] * countI, oy + stepI[1] * countI],
+            [
+              ox + stepI[0] * countI + stepJ[0] * countJ,
+              oy + stepI[1] * countI + stepJ[1] * countJ
+            ],
+            [ox + stepJ[0] * countJ, oy + stepJ[1] * countJ]
+          ];
+
+          const minX = Math.min(...corners.map(c => c[0]));
+          const maxX = Math.max(...corners.map(c => c[0]));
+          const minY = Math.min(...corners.map(c => c[1]));
+          const maxY = Math.max(...corners.map(c => c[1]));
+
+          const crsObj = await GenericRepresentationOSDU.getObjectFromDor(
+            client,
+            dataspaceUri.uri,
+            geo.LocalCrs,
+            context
+          );
+
+          if (crsObj) {
+            const bboxRing: [number, number][] = [
+              [minX, minY],
+              [maxX, minY],
+              [maxX, maxY],
+              [minX, maxY],
+              [minX, minY]
+            ];
+
+            const {
+              SpatialPoint,
+              SpatialArea,
+              FrameOfReferenceCRS
+            } = await GenericRepresentationOSDU.createSpatialInfoFrom2dPoints(
+              client,
+              dataspaceUri.uri,
+              bboxRing,
+              crsObj as any,
+              context
+            );
+
+            this.data.SpatialPoint = SpatialPoint;
+            this.data.SpatialArea = SpatialArea;
+            this.meta = [FrameOfReferenceCRS];
+            spatialResolved = true;
+          }
+        }
       }
-      if (NodeCount !== undefined) {
-        this.data.IndexableElementCount.push({
-          Count: NodeCount,
-          IndexableElementID: context.addReferenceData(
-            "IndexableElement",
-            "nodes"
-          )
-        });
+
+      if (!spatialResolved) {
+        const { SpatialPoint, SpatialArea, FrameOfReferenceCRS, NodeCount } =
+          await ResqmlWorkProductComponent.createSpatialInfo(
+            client,
+            dataspaceUri.uri,
+            geometries,
+            context
+          );
+
+        this.data.SpatialPoint = SpatialPoint;
+        this.data.SpatialArea = SpatialArea;
+        this.meta = [FrameOfReferenceCRS];
+
+        if (NodeCount !== undefined) {
+          if (this.data.IndexableElementCount === undefined) {
+            this.data.IndexableElementCount = [];
+          }
+          this.data.IndexableElementCount.push({
+            Count: NodeCount,
+            IndexableElementID: context.addReferenceData(
+              "IndexableElement",
+              "nodes"
+            )
+          });
+        }
       }
     }
     delete this.__context;
