@@ -15,10 +15,10 @@ describe("PWLS REST API", () => {
     nestAppServer = (await nestApp.init()).getHttpServer();
   });
 
-  describe("GET /health/pwls", () => {
+  describe("GET /pwls/status", () => {
     it("should return PWLS catalog status", async () => {
       const response = await request(nestAppServer)
-        .get(`${restApiServerPath}/health/pwls`)
+        .get(`${restApiServerPath}/pwls/status`)
         .expect(200);
 
       expect(response.body).toHaveProperty("properties");
@@ -32,7 +32,7 @@ describe("PWLS REST API", () => {
 
     it("should return valid JSON with correct types", async () => {
       const response = await request(nestAppServer)
-        .get(`${restApiServerPath}/health/pwls`)
+        .get(`${restApiServerPath}/pwls/status`)
         .expect("Content-Type", /json/)
         .expect(200);
 
@@ -42,7 +42,7 @@ describe("PWLS REST API", () => {
     });
   });
 
-  describe("POST /health/pwls/catalog", () => {
+  describe("POST /pwls/catalog", () => {
     const mockHalliburtonCatalog = {
       schemaVersion: "1.0.0",
       LastUpdated: "2025-06-01",
@@ -75,23 +75,23 @@ describe("PWLS REST API", () => {
 
     it("should load a vendor catalog and return added count", async () => {
       const response = await request(nestAppServer)
-        .post(`${restApiServerPath}/health/pwls/catalog`)
+        .post(`${restApiServerPath}/pwls/catalog`)
         .send(mockHalliburtonCatalog)
         .set("Content-Type", "application/json")
         .expect(201);
 
       expect(response.body).toHaveProperty("added");
-      expect(response.body).toHaveProperty("total");
-      expect(response.body).toHaveProperty("vendor");
+      expect(response.body).toHaveProperty("totalMnemonics");
+      expect(response.body).toHaveProperty("vendors");
 
       expect(response.body.added).toBe(3);
-      expect(response.body.total).toBeGreaterThan(30000);
-      expect(response.body.vendor).toBe("Halliburton_Test");
+      expect(response.body.totalMnemonics).toBeGreaterThan(30000);
+      expect(response.body.vendors).toContain("Halliburton_Test");
     });
 
-    it("should show new vendor in GET /health/pwls after loading", async () => {
+    it("should show new vendor in GET /pwls/status after loading", async () => {
       const response = await request(nestAppServer)
-        .get(`${restApiServerPath}/health/pwls`)
+        .get(`${restApiServerPath}/pwls/status`)
         .expect(200);
 
       expect(response.body.vendors).toContain("Halliburton_Test");
@@ -100,7 +100,7 @@ describe("PWLS REST API", () => {
 
     it("should not add duplicate mnemonics on re-POST", async () => {
       const response = await request(nestAppServer)
-        .post(`${restApiServerPath}/health/pwls/catalog`)
+        .post(`${restApiServerPath}/pwls/catalog`)
         .send(mockHalliburtonCatalog)
         .set("Content-Type", "application/json")
         .expect(201);
@@ -119,13 +119,13 @@ describe("PWLS REST API", () => {
       };
 
       const response = await request(nestAppServer)
-        .post(`${restApiServerPath}/health/pwls/catalog`)
+        .post(`${restApiServerPath}/pwls/catalog`)
         .send(emptyCatalog)
         .set("Content-Type", "application/json")
         .expect(201);
 
       expect(response.body.added).toBe(0);
-      expect(response.body.vendor).toBe("EmptyVendor");
+      expect(response.body.vendors).toContain("EmptyVendor");
     });
 
     it("should handle large catalog body", async () => {
@@ -144,13 +144,13 @@ describe("PWLS REST API", () => {
       };
 
       const response = await request(nestAppServer)
-        .post(`${restApiServerPath}/health/pwls/catalog`)
+        .post(`${restApiServerPath}/pwls/catalog`)
         .send(largeCatalog)
         .set("Content-Type", "application/json")
         .expect(201);
 
       expect(response.body.added).toBe(1000);
-      expect(response.body.vendor).toBe("LargeTestVendor");
+      expect(response.body.vendors).toContain("LargeTestVendor");
     });
   });
 

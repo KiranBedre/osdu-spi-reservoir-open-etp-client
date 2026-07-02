@@ -22,6 +22,8 @@ import {
   ApiTooManyRequestsResponse
 } from "@nestjs/swagger";
 
+import { Allow, IsOptional } from "class-validator";
+
 import { errorMessageSchema, swaggerServers } from "../ControllerUtils";
 
 import {
@@ -133,15 +135,24 @@ class CurveValidationResponseDto {
 }
 
 class VendorCatalogUploadDto {
+  @Allow()
   @ApiProperty({ example: "1.0.0" })
   schemaVersion!: string;
 
+  @Allow()
   @ApiProperty({ example: 999 })
   "Company Code"!: number;
 
+  @Allow()
   @ApiProperty({ example: "Halliburton" })
   "Company Name"!: string;
 
+  @Allow()
+  @IsOptional()
+  @ApiPropertyOptional({ example: "2025-06-01" })
+  LastUpdated?: string;
+
+  @Allow()
   @ApiProperty({
     type: "array",
     items: {

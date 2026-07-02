@@ -85,7 +85,7 @@ export default class WellsController {
     servers: swaggerServers
   })
   @ApiQuery({ name: "name", required: true, description: "Well name pattern. Use * as wildcard (e.g., 'DROGON*', '*-1', '*'). Case-insensitive.", example: "DROGON*" })
-  @ApiQuery({ name: "dataspace", required: false, description: "Restrict search to a single dataspace path (e.g., 'maap/drogon'). Omit to search all dataspaces.", example: "maap/drogon" })
+  @ApiQuery({ name: "dataspace", required: false, description: "Restrict search to a single dataspace path (e.g., 'test/drogon'). Omit to search all dataspaces.", example: "test/drogon" })
   @ApiQuery({ name: "include", required: false, description: "Comma-separated list of child types to resolve: logs, trajectories, channelSets. Omit to include all.", example: "logs,trajectories" })
   @ApiOkResponse({ description: "Array of wells, each with resolved child objects (wellbores always included)" })
   async findWells(

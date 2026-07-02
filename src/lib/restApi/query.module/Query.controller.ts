@@ -140,7 +140,7 @@ class FindDataObjectsDto extends FindResourcesDto {
 class GrowingObjectPartsDto {
   @ApiProperty({
     description: "URI of the growing object (WellLog, MudLog, etc.)",
-    example: "eml:///dataspace('maap/witsml')/witsml21.WellboreGeology(uuid)"
+    example: "eml:///dataspace('test/witsml')/witsml21.WellboreGeology(uuid)"
   })
   @IsNotEmpty()
   @IsString()
@@ -181,7 +181,7 @@ class GetPartsByRangeDto {
 class ChannelMetadataDto {
   @ApiProperty({
     description: "URI of the object containing channels (e.g., WellLog)",
-    example: "eml:///dataspace('maap/drogon')/witsml21.WellLog(uuid)"
+    example: "eml:///dataspace('test/drogon')/witsml21.WellLog(uuid)"
   })
   @IsNotEmpty()
   @IsString()
@@ -192,8 +192,8 @@ class GraphSearchDto {
   @ApiProperty({
     description: "URIs of resources to build a subgraph for",
     example: [
-      "eml:///dataspace('maap/drogon')/resqml20.obj_IjkGridRepresentation(uuid1)",
-      "eml:///dataspace('maap/drogon')/resqml20.obj_TriangulatedSetRepresentation(uuid2)"
+      "eml:///dataspace('test/drogon')/resqml20.obj_IjkGridRepresentation(uuid1)",
+      "eml:///dataspace('test/drogon')/resqml20.obj_TriangulatedSetRepresentation(uuid2)"
     ],
     type: [String]
   })

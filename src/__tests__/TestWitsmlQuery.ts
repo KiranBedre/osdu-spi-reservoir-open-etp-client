@@ -51,7 +51,7 @@ const jwt = XmlUtils.createDefaultJWT();
 
 const testDataPartitionId =
   process.env.RDMS_TEST_DATA_PARTITION_ID || "osdu";
-const testDataspace = process.env.RDMS_TEST_DATASPACE || "maap/drogon";
+const testDataspace = process.env.RDMS_TEST_DATASPACE || "test/drogon";
 const testWitsmlDataspace = "test/witsml-" + Date.now().toString(36);
 
 // ─────────────────────────────────────────────────────────────────────────────

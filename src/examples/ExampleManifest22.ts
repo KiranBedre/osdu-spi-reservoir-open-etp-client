@@ -28,7 +28,7 @@
  *   RDMS_ETP_HOST=localhost RDMS_ETP_PORT=9002 \
  *   npx ts-node src/examples/ExampleManifest22.ts [dataspace]
  *
- * Default dataspace: maap/drogon22
+ * Default dataspace: test/drogon22
  */
 
 import fs from "fs";
@@ -39,7 +39,7 @@ import { OSDUContext } from "../lib/jsonTypes/OsduContext";
 import { serverHost, serverPath, serverPort, serverProtocol } from "./Config";
 
 const serverUrl = `${serverProtocol}://${serverHost}:${serverPort}${serverPath}/`;
-const dataspace = process.argv[2] || "maap/drogon22";
+const dataspace = process.argv[2] || "test/drogon22";
 
 // eslint-disable-next-line no-console
 const log = console.log;
