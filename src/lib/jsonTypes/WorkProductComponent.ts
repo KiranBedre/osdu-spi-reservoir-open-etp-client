@@ -692,27 +692,27 @@ export const getMinMaxPoints = async (
 
       const uOffsetLen = Math.sqrt(
         u.Offset.Coordinate1 * u.Offset.Coordinate1 +
-          u.Offset.Coordinate2 * u.Offset.Coordinate2
+        u.Offset.Coordinate2 * u.Offset.Coordinate2
       );
 
       const vOffsetLen = Math.sqrt(
         v.Offset.Coordinate1 * v.Offset.Coordinate1 +
-          v.Offset.Coordinate2 * v.Offset.Coordinate2
+        v.Offset.Coordinate2 * v.Offset.Coordinate2
       );
 
       const [ux, uy] =
         uOffsetLen > 1e-6
           ? [
-              (uLen * u.Offset.Coordinate1) / uOffsetLen,
-              (uLen * u.Offset.Coordinate2) / uOffsetLen
-            ]
+            (uLen * u.Offset.Coordinate1) / uOffsetLen,
+            (uLen * u.Offset.Coordinate2) / uOffsetLen
+          ]
           : [0, 0];
       const [vx, vy] =
         vOffsetLen > 1e-6
           ? [
-              (vLen * v.Offset.Coordinate1) / vOffsetLen,
-              (vLen * v.Offset.Coordinate2) / vOffsetLen
-            ]
+            (vLen * v.Offset.Coordinate1) / vOffsetLen,
+            (vLen * v.Offset.Coordinate2) / vOffsetLen
+          ]
           : [0, 0];
       pNodeCount = nu * nv;
       for (let vv = 0; vv < nv; vv++) {
@@ -795,27 +795,27 @@ export const getMinMaxPoints = async (
 
       const uOffsetLen = Math.sqrt(
         u.Direction.Coordinate1 * u.Direction.Coordinate1 +
-          u.Direction.Coordinate2 * u.Direction.Coordinate2
+        u.Direction.Coordinate2 * u.Direction.Coordinate2
       );
 
       const vOffsetLen = Math.sqrt(
         v.Direction.Coordinate1 * v.Direction.Coordinate1 +
-          v.Direction.Coordinate2 * v.Direction.Coordinate2
+        v.Direction.Coordinate2 * v.Direction.Coordinate2
       );
 
       const [ux, uy] =
         uOffsetLen > 1e-6
           ? [
-              (uLen * u.Direction.Coordinate1) / uOffsetLen,
-              (uLen * u.Direction.Coordinate2) / uOffsetLen
-            ]
+            (uLen * u.Direction.Coordinate1) / uOffsetLen,
+            (uLen * u.Direction.Coordinate2) / uOffsetLen
+          ]
           : [0, 0];
       const [vx, vy] =
         vOffsetLen > 1e-6
           ? [
-              (vLen * v.Direction.Coordinate1) / vOffsetLen,
-              (vLen * v.Direction.Coordinate2) / vOffsetLen
-            ]
+            (vLen * v.Direction.Coordinate1) / vOffsetLen,
+            (vLen * v.Direction.Coordinate2) / vOffsetLen
+          ]
           : [0, 0];
       pNodeCount = nu * nv;
       for (let vv = 0; vv < nv; vv++) {
@@ -1170,9 +1170,9 @@ export class ResqmlWorkProductComponent<
     uri: string,
     interpretation:
       | SimpleJson<
-          | resqml20.AbstractFeatureInterpretation
-          | resqml22.AbstractFeatureInterpretation
-        >
+        | resqml20.AbstractFeatureInterpretation
+        | resqml22.AbstractFeatureInterpretation
+      >
       | undefined
   ): Promise<number | undefined> {
     if (interpretation === undefined || this.__context === undefined) {
@@ -1210,9 +1210,9 @@ export class ResqmlWorkProductComponent<
     return crs !== undefined
       ? crs.id + ":"
       : context.addReferenceData(
-          "CoordinateReferenceSystem",
-          `Projected:EPSG::${code}`
-        );
+        "CoordinateReferenceSystem",
+        `Projected:EPSG::${code}`
+      );
   }
 
   /**
@@ -1340,6 +1340,10 @@ export class ResqmlWorkProductComponent<
         if (unknownVal && /^PROJC(RS|S)\[/.test(unknownVal)) {
           persistableReferenceCrs = unknownVal;
           CoordinateReferenceSystemID = `ProjectedCRS:WKT:${(crs20 as any).Citation?.Title ?? "Unknown"}`;
+        } else if (unknownVal) {
+          // ETP server may store a truncated placeholder (e.g. "WKT") instead of
+          // the full WKT string. Use the CRS title as a fallback identifier.
+          CoordinateReferenceSystemID = `ProjectedCRS:Unknown:${(crs20 as any).Citation?.Title ?? unknownVal}`;
         }
       }
       XOffset = crs20.XOffset;
@@ -1432,18 +1436,18 @@ export class ResqmlWorkProductComponent<
           Wgs84Coordinates === undefined
             ? undefined
             : {
-                type: Wgs84CoordinatesType.FeatureCollection,
-                features: [
-                  {
-                    type: StickyType.Feature,
-                    properties: {},
-                    geometry: {
-                      type: GeoJSONPointType.Point,
-                      coordinates: Wgs84Coordinates[0]
-                    }
+              type: Wgs84CoordinatesType.FeatureCollection,
+              features: [
+                {
+                  type: StickyType.Feature,
+                  properties: {},
+                  geometry: {
+                    type: GeoJSONPointType.Point,
+                    coordinates: Wgs84Coordinates[0]
                   }
-                ]
-              }
+                }
+              ]
+            }
       };
       SpatialArea = {
         AsIngestedCoordinates: {
@@ -1471,19 +1475,19 @@ export class ResqmlWorkProductComponent<
           Wgs84Coordinates === undefined
             ? undefined
             : {
-                type: Wgs84CoordinatesType.FeatureCollection,
-                features: [
-                  {
-                    type: StickyType.Feature,
-                    properties: {},
-                    geometry: {
-                      type: GeoJSONPointType.Polygon,
-                      coordinates: [Wgs84Coordinates]
-                    }
+              type: Wgs84CoordinatesType.FeatureCollection,
+              features: [
+                {
+                  type: StickyType.Feature,
+                  properties: {},
+                  geometry: {
+                    type: GeoJSONPointType.Polygon,
+                    coordinates: [Wgs84Coordinates]
                   }
-                ],
-                bbox: [Wgs84Min[0], Wgs84Min[1], Wgs84Max[0], Wgs84Max[1]]
-              }
+                }
+              ],
+              bbox: [Wgs84Min[0], Wgs84Min[1], Wgs84Max[0], Wgs84Max[1]]
+            }
       };
       if (SpatialPoint !== undefined && context.spatialPoint === undefined) {
         context.spatialPoint = SpatialPoint;
@@ -1561,8 +1565,8 @@ export class ResqmlWorkProductComponent<
       crsObj?.$type === "resqml20.obj_LocalDepth3dCrs"
         ? (crsObj as SimpleJson<resqml20.obj_LocalDepth3dCrs>)
         : crsObj?.$type === "resqml20.obj_LocalTime3dCrs"
-        ? (crsObj as SimpleJson<resqml20.obj_LocalTime3dCrs>)
-        : (crsObj as SimpleJson<eml23.LocalEngineeringCompoundCrs>);
+          ? (crsObj as SimpleJson<resqml20.obj_LocalTime3dCrs>)
+          : (crsObj as SimpleJson<eml23.LocalEngineeringCompoundCrs>);
     if (!crs) {
       return Promise.reject(new Error("Invalid CRS"));
     }
@@ -1571,11 +1575,11 @@ export class ResqmlWorkProductComponent<
       crsObj?.$type === "resqml20.obj_LocalDepth3dCrs"
         ? "Depth"
         : crsObj?.$type === "resqml20.obj_LocalTime3dCrs"
-        ? "Time"
-        : (crsObj as SimpleJson<eml23.LocalEngineeringCompoundCrs>).VerticalAxis
+          ? "Time"
+          : (crsObj as SimpleJson<eml23.LocalEngineeringCompoundCrs>).VerticalAxis
             .IsTime
-        ? "Time"
-        : "Depth";
+            ? "Time"
+            : "Depth";
 
     if (
       OSDUIntegration &&
