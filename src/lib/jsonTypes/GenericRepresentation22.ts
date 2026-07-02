@@ -19,8 +19,7 @@ export class GenericRepresentation22OSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml22.AbstractSurfaceRepresentation>
   >
-  implements GenericRepresentation
-{
+  implements GenericRepresentation {
   public data: Data = {};
   public meta?: FrameOfReferenceMetaDataItem[];
 
@@ -34,9 +33,9 @@ export class GenericRepresentation22OSDU
   private elementCount(xml: SimpleJson<resqml22.AbstractRepresentation>):
     | undefined
     | {
-        Count: number;
-        IndexableElementID: string; //this.reference("IndexableElement", "cells")
-      }[] {
+      Count: number;
+      IndexableElementID: string; //this.reference("IndexableElement", "cells")
+    }[] {
     if (this.__context === undefined) {
       return undefined;
     }
@@ -119,12 +118,12 @@ export class GenericRepresentation22OSDU
       });
       return NodeCount
         ? [
-            {
-              Count: NodeCount,
-              IndexableElementID:
-                context.addReferenceData("IndexableElement", "nodes") || ""
-            }
-          ]
+          {
+            Count: NodeCount,
+            IndexableElementID:
+              context.addReferenceData("IndexableElement", "nodes") || ""
+          }
+        ]
         : undefined;
     } else if (xml.$type === "resqml22.PolylineRepresentation") {
       const line = xml as SimpleJson<resqml22.PolylineRepresentation>;
@@ -134,17 +133,17 @@ export class GenericRepresentation22OSDU
         line.IsClosed || NodeCount === undefined ? NodeCount : NodeCount - 1;
       return NodeCount && Count
         ? [
-            {
-              Count: NodeCount,
-              IndexableElementID:
-                context.addReferenceData("IndexableElement", "nodes") || ""
-            },
-            {
-              Count,
-              IndexableElementID:
-                context.addReferenceData("IndexableElement", "edges") || ""
-            }
-          ]
+          {
+            Count: NodeCount,
+            IndexableElementID:
+              context.addReferenceData("IndexableElement", "nodes") || ""
+          },
+          {
+            Count,
+            IndexableElementID:
+              context.addReferenceData("IndexableElement", "edges") || ""
+          }
+        ]
         : undefined;
     }
     return undefined;
@@ -207,11 +206,11 @@ export class GenericRepresentation22OSDU
       LocalModelCompoundCrsID:
         geometries.length > 0
           ? await GenericRepresentation22OSDU.dorToSrn(
-              ReservoirDMSUrl,
-              geometries[0].LocalCrs,
-              client,
-              context
-            )
+            ReservoirDMSUrl,
+            geometries[0].LocalCrs,
+            client,
+            context
+          )
           : undefined,
       RealizationIndex: undefined,
       Role: context.addReferenceData(
@@ -249,29 +248,113 @@ export class GenericRepresentation22OSDU
       const dataspaceUri = EtpUri.createDataSpaceUri(
         new EtpUri(ReservoirDMSUrl).dataSpace
       );
-      const { SpatialPoint, SpatialArea, FrameOfReferenceCRS, NodeCount } =
-        await ResqmlWorkProductComponent.createSpatialInfo(
-          client,
-          dataspaceUri.uri,
-          geometries,
-          context
-        );
 
-      this.data.SpatialPoint = SpatialPoint;
-      this.data.SpatialArea = SpatialArea;
-      this.meta = [FrameOfReferenceCRS];
+      // For Grid2d objects, try analytical lattice-based bounding box first
+      let spatialResolved = false;
+      if (xml.$type === "resqml22.Grid2dRepresentation") {
+        const grid2d = xml as SimpleJson<resqml22.Grid2dRepresentation>;
+        const geo = grid2d.Geometry;
 
-      if (this.data.IndexableElementCount === undefined) {
-        this.data.IndexableElementCount = [];
+        let lattice: any = undefined;
+        if (geo.Points.$type === "resqml22.Point3dLatticeArray") {
+          lattice = geo.Points;
+        } else if (geo.Points.$type === "resqml22.Point3dZValueArray") {
+          const zArr = geo.Points as any;
+          if (zArr.SupportingGeometry?.$type === "resqml22.Point3dLatticeArray") {
+            lattice = zArr.SupportingGeometry;
+          }
+        }
+
+        if (lattice && lattice.Dimension?.length >= 2) {
+          const dim0 = lattice.Dimension[0];
+          const dim1 = lattice.Dimension[1];
+          const dir0 = dim0.Direction;
+          const dir1 = dim1.Direction;
+          const sp0 = dim0.Spacing?.Value ?? 1;
+          const sp1 = dim1.Spacing?.Value ?? 1;
+          const countJ = grid2d.SlowestAxisCount - 1;
+          const countI = grid2d.FastestAxisCount - 1;
+          const ox = lattice.Origin.Coordinate1;
+          const oy = lattice.Origin.Coordinate2;
+          const stepJ = [dir0.Coordinate1 * sp0, dir0.Coordinate2 * sp0];
+          const stepI = [dir1.Coordinate1 * sp1, dir1.Coordinate2 * sp1];
+
+          const corners: [number, number][] = [
+            [ox, oy],
+            [ox + stepI[0] * countI, oy + stepI[1] * countI],
+            [
+              ox + stepI[0] * countI + stepJ[0] * countJ,
+              oy + stepI[1] * countI + stepJ[1] * countJ
+            ],
+            [ox + stepJ[0] * countJ, oy + stepJ[1] * countJ]
+          ];
+
+          const minX = Math.min(...corners.map(c => c[0]));
+          const maxX = Math.max(...corners.map(c => c[0]));
+          const minY = Math.min(...corners.map(c => c[1]));
+          const maxY = Math.max(...corners.map(c => c[1]));
+
+          const crsObj = await GenericRepresentation22OSDU.getObjectFromDor(
+            client,
+            dataspaceUri.uri,
+            geo.LocalCrs,
+            context
+          );
+
+          if (crsObj) {
+            const bboxRing: [number, number][] = [
+              [minX, minY],
+              [maxX, minY],
+              [maxX, maxY],
+              [minX, maxY],
+              [minX, minY]
+            ];
+
+            const {
+              SpatialPoint,
+              SpatialArea,
+              FrameOfReferenceCRS
+            } = await GenericRepresentation22OSDU.createSpatialInfoFrom2dPoints(
+              client,
+              dataspaceUri.uri,
+              bboxRing,
+              crsObj as any,
+              context
+            );
+
+            this.data.SpatialPoint = SpatialPoint;
+            this.data.SpatialArea = SpatialArea;
+            this.meta = [FrameOfReferenceCRS];
+            spatialResolved = true;
+          }
+        }
       }
-      if (NodeCount !== undefined) {
-        this.data.IndexableElementCount?.push({
-          Count: NodeCount,
-          IndexableElementID: context.addReferenceData(
-            "IndexableElement",
-            "nodes"
-          )
-        });
+
+      if (!spatialResolved) {
+        const { SpatialPoint, SpatialArea, FrameOfReferenceCRS, NodeCount } =
+          await ResqmlWorkProductComponent.createSpatialInfo(
+            client,
+            dataspaceUri.uri,
+            geometries,
+            context
+          );
+
+        this.data.SpatialPoint = SpatialPoint;
+        this.data.SpatialArea = SpatialArea;
+        this.meta = [FrameOfReferenceCRS];
+
+        if (NodeCount !== undefined) {
+          if (this.data.IndexableElementCount === undefined) {
+            this.data.IndexableElementCount = [];
+          }
+          this.data.IndexableElementCount?.push({
+            Count: NodeCount,
+            IndexableElementID: context.addReferenceData(
+              "IndexableElement",
+              "nodes"
+            )
+          });
+        }
       }
     }
     delete this.__context;

@@ -22,6 +22,15 @@ interface IPropertyTypesManifest {
 export const PropertyTypesIds = new Set<string>();
 
 /**
+ * Secondary lookup keyed by the PropertyType Code (lower-cased). Used as a
+ * fallback for canonical RESQML property kinds that exist as OSDU
+ * PropertyType records but carry no "Energistics RESQML 201" NameAlias
+ * (e.g. the root kinds "continuous" / "discrete" used as parents of local
+ * property kinds such as "volume of shale").
+ */
+const PropertyTypesByCode = new Map<string, string>();
+
+/**
  * Create the dictionary of PropertyTypes from JSON manifest
  */
 const PropertyTypes = (
@@ -44,6 +53,12 @@ const PropertyTypes = (
   } else if (referenceData.data.AttributionAuthority === "Energistics PWLS-3") {
     obj[referenceData.data.Code] = referenceData.data.ID;
   }
+  if (referenceData.data.Code) {
+    PropertyTypesByCode.set(
+      referenceData.data.Code.toLowerCase(),
+      referenceData.data.ID
+    );
+  }
   PropertyTypesIds.add(referenceData.data.ID);
   return obj;
 }, {});
@@ -54,5 +69,16 @@ const PropertyTypes = (
  * @returns {string} - The ID of the PropertyType
  */
 export function getPropertyTypeIDFromResqmlAlias(resqmlAlias: string): string {
-  return PropertyTypes[resqmlAlias];
+  if (resqmlAlias === undefined || resqmlAlias === null) {
+    return PropertyTypes[resqmlAlias];
+  }
+  // 1. exact RESQML-201 alias
+  const exact = PropertyTypes[resqmlAlias];
+  if (exact !== undefined) {
+    return exact;
+  }
+  // 2. fallback to the canonical PropertyType Code (case-insensitive). Covers
+  // RESQML root kinds such as "continuous" that have no RESQML-201 alias but
+  // are referenced as the parent of local property kinds.
+  return PropertyTypesByCode.get(resqmlAlias.toLowerCase()) as string;
 }

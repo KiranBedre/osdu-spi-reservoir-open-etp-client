@@ -194,6 +194,12 @@ In order to discover and get data from a server the following methods are availa
 - `getObjects()` to get the object resulting from XML translation into javascript, data object references and data array are not resolved
 - `getResolvedObjects()` get the full objects resulting from the XML translation into Javascript, where data object references and data array are resolved and replaced. This may result in very large objects.
 
+ETP protocol handlers are available for advanced queries:
+
+- `discovery` / `discoveryQuery` — FindResources (Protocol 3/13)
+- `growingObject` — GetPartsMetadata, GetPartsByRange (Protocol 6)
+- `channelSubscribe` — GetChannelMetadata (Protocol 21)
+
 It is also possible to create and delete projects using:
 
 - `createProjects()`
@@ -227,7 +233,23 @@ The class `ResqmlTypeUtils` amd `WitsmlTypeUtils` implement the RESQML and WITSM
 
 ### Rest API
 
-A [REST server](./src/lib/restApi/RestServer.ts) exposes a REST [API](./src/examples/openAPI.ts) using an ETP server as backend. This rest server is also supporting OData queries available for data and resolved objects.
+A [REST server](./src/lib/restApi/RestServer.ts) exposes a REST API using an ETP server as backend, with interactive documentation via Swagger UI at the configured root path (e.g., `http://localhost:8080/api/reservoir-ddms/v2/`).
+
+**Endpoint categories:**
+
+| Tag | Description |
+|-----|-------------|
+| **Resources** | Dataspace CRUD, object discovery, graph traversal, data arrays |
+| **Query & Growing Objects** | Deep search (Discovery/Store protocols), growing object range queries, channel metadata |
+| **Wells** | Cross-dataspace well search with hierarchy resolution (wellbores, logs, trajectories) |
+| **WITSML** | WITSML XML query and object listing from dataspaces |
+| **Write** | PutDataObjects, DeleteDataObjects, array upload via ETP Store protocol |
+| **Transactions** | ETP transaction lifecycle (start, commit, rollback) |
+| **Manifest** | OSDU manifest generation from ETP dataspaces (`POST /manifests/build`) |
+| **Authentication** | Token info and session management |
+| **Health** | Liveness, readiness, converter registry, PWLS status |
+| **PWLS** | PWLS unit/curve catalog lookups (resolve, validate, catalog) |
+
 The REST API can also be used to create the manifest information corresponding to entities stored in the RDMS using (/manifests/build). It will use the information accessible through storage and coordinate system APIs, to resolve references and provide mapping information.
 
 ### Examples

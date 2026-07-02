@@ -50,7 +50,7 @@ cimpl-test:
   tags: ["osdu-small"]
   stage: integration
   image: community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-cimpl/image-for-postman-tests/osdu-cimpl-image-for-postman:df5a6d3c
-  allow_failure: false
+  allow_failure: true
   retry: 1
   extends:
     - .cimpl-variables

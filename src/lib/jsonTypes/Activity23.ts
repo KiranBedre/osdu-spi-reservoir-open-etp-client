@@ -87,99 +87,22 @@ export class Activity23OSDU
       return [];
     }
 
-    const Parameters = [];
-
+    // Emit only a compact summary: one entry per unique Title grouping the count
+    const titleCounts: Record<string, number> = {};
     for (const p of xml) {
-      const dop =
-        p.$type === "eml23.DataObjectParameter"
-          ? (p as SimpleJson<eml23.DataObjectParameter>)
-          : undefined;
-      const dqp =
-        p.$type === "eml23.DoubleQuantityParameter"
-          ? (p as SimpleJson<eml23.DoubleQuantityParameter>)
-          : undefined;
-      const dip =
-        p.$type === "eml23.IntegerQuantityParameter"
-          ? (p as SimpleJson<eml23.IntegerQuantityParameter>)
-          : undefined;
-      const dsp =
-        p.$type === "eml23.StringParameter"
-          ? (p as SimpleJson<eml23.StringParameter>)
-          : undefined;
+      const title = p.Title || "unnamed";
+      titleCounts[title] = (titleCounts[title] || 0) + 1;
+    }
 
-      let Keys: ParameterKey[] | undefined = undefined;
-      if (p.Key !== undefined) {
-        Keys = await this.getKeys(ReservoirDMSUrl, p.Key, client);
-      }
-
-      let StringParameter = dsp?.Value;
-
-      let DataObjectParameter: string | undefined = undefined;
-      if (p.$type === "eml23.DataObjectParameter") {
-        DataObjectParameter = await Activity23OSDU.dorToSrn(
-          ReservoirDMSUrl,
-          dop?.DataObject,
-          client,
-          context
-        );
-        if (DataObjectParameter === undefined) {
-          StringParameter = dop?.DataObject.QualifiedType;
-        }
-      }
-
+    const Parameters: AbstractActivityParameter[] = [];
+    let idx = 0;
+    for (const [title, count] of Object.entries(titleCounts)) {
       Parameters.push({
         ParameterKindID:
-          context.addReferenceData("ParameterKind", this.getKind(p)) || "",
-        Title: p.Title,
-        /**
-         * Parameter referencing to a top level object.
-         */
-        DataObjectParameter,
-        /**
-         * Parameter containing a double value.
-         */
-        DataQuantityParameter: dqp?.Value,
-        /**
-         * Identifies unit of measure for floating point value.
-         */
-        DataQuantityParameterUOMID: context.addReferenceData(
-          "UnitOfMeasure",
-          dqp?.Uom
-        ),
-        /**
-         * When parameter is an array, used to indicate the index in the array.
-         */
-        Index: p.Index,
-        /**
-         * Parameter containing an integer value.
-         */
-        IntegerQuantityParameter: dip?.Value,
-        /**
-         * A nested array describing keys used to identify a parameter value. When multiple values
-         * are provided for a given parameter, the key provides a way to identify the parameter
-         * through its association with an object, a time index or a parameter array member via
-         * ParameterKey value.
-         */
-        Keys,
-        /**
-         * Reference data describing how the parameter was used by the activity, such as input,
-         * output, control, constraint, agent, predecessor activity, successor activity.
-         */
-        ParameterRoleID: undefined,
-        /**
-         * Textual description about how this parameter was selected.
-         */
-        Selection: p.Selection,
-        /**
-         * Parameter containing a string value.
-         */
-        StringParameter,
-        /**
-         * Parameter containing a time index value.  It is assumed that all TimeIndexParameters
-         * within an Activity have the same date-time format, which is then described by the
-         * FrameOfReference mechanism.
-         */
-        TimeIndexParameter: undefined
+          context.addReferenceData("ParameterKind", "DataObject") ?? "",
+        Title: title,
+        Index: idx++,
+        StringParameter: `${count} object(s)`
       });
     }
     return Parameters;

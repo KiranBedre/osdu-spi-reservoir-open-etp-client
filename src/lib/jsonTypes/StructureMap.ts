@@ -22,8 +22,7 @@ import { FrameOfReferenceMetaDataItem } from "./Generated/manifest/Manifest.1.0.
  */
 export class StructureMapOSDU
   extends ResqmlWorkProductComponent<SimpleJson<resqml20.obj_Grid2dRepresentation>>
-  implements StructureMap
-{
+  implements StructureMap {
   public data: Data = {};
   public meta?: FrameOfReferenceMetaDataItem[];
 
@@ -117,25 +116,44 @@ export class StructureMapOSDU
     };
 
     // Extract grid geometry from lattice-based Point3dLatticeArray
+    // Handles both direct Point3dLatticeArray and Point3dZValueArray with
+    // SupportingGeometry containing the lattice.
     const geo = xml.Grid2dPatch.Geometry;
+    let lattice: SimpleJson<resqml20.Point3dLatticeArray> | undefined;
+
     if (geo.Points.$type === "resqml20.Point3dLatticeArray") {
-      const lat = geo.Points as SimpleJson<resqml20.Point3dLatticeArray>;
-      if (lat.Offset?.length >= 2) {
-        const off0 = lat.Offset[0] as SimpleJson<resqml20.Point3dOffset>;
-        const off1 = lat.Offset[1] as SimpleJson<resqml20.Point3dOffset>;
+      lattice = geo.Points as SimpleJson<resqml20.Point3dLatticeArray>;
+    } else if (geo.Points.$type === "resqml20.Point3dZValueArray") {
+      const zArr = geo.Points as SimpleJson<resqml20.Point3dZValueArray>;
+      if (
+        zArr.SupportingGeometry?.$type === "resqml20.Point3dLatticeArray"
+      ) {
+        lattice =
+          zArr.SupportingGeometry as SimpleJson<resqml20.Point3dLatticeArray>;
+      }
+    }
+
+    if (lattice) {
+      if (lattice.Offset?.length >= 2) {
+        const off0 = lattice.Offset[0] as SimpleJson<resqml20.Point3dOffset>;
+        const off1 = lattice.Offset[1] as SimpleJson<resqml20.Point3dOffset>;
         const dir0 = off0.Offset;
         const dir1 = off1.Offset;
+        // Spacing value: for DoubleConstantArray the step size is Spacing.Value;
+        // the direction vector is just a direction — actual step = spacing * |dir|.
+        const sp0 = (off0.Spacing as any)?.Value ?? 1;
+        const sp1 = (off1.Spacing as any)?.Value ?? 1;
         this.data.BinWidthOnIaxis = Math.sqrt(
           dir0.Coordinate1 ** 2 + dir0.Coordinate2 ** 2
-        );
+        ) * sp0;
         this.data.BinWidthOnJaxis = Math.sqrt(
           dir1.Coordinate1 ** 2 + dir1.Coordinate2 ** 2
-        );
+        ) * sp1;
         this.data.MapGridBearingOfBinGridJaxis =
           (Math.atan2(dir1.Coordinate1, dir1.Coordinate2) * 180) / Math.PI;
       }
-      this.data.OriginEasting = lat.Origin.Coordinate1;
-      this.data.OriginNorthing = lat.Origin.Coordinate2;
+      this.data.OriginEasting = lattice.Origin.Coordinate1;
+      this.data.OriginNorthing = lattice.Origin.Coordinate2;
     }
 
     // Spatial info from geometry
@@ -145,23 +163,100 @@ export class StructureMapOSDU
         new EtpUri(ReservoirDMSUrl).dataSpace
       );
 
-      const {
-        SpatialPoint,
-        SpatialArea,
-        FrameOfReferenceCRS,
-        Domain
-      } = await StructureMapOSDU.createSpatialInfo(
-        client,
-        dataspaceUri.uri,
-        geometries,
-        context
-      );
+      // If we have lattice data, compute bounding box corners analytically
+      // (no need to fetch array data via useDataArrayForManifest)
+      if (lattice && lattice.Offset?.length >= 2) {
+        const off0 = lattice.Offset[0] as SimpleJson<resqml20.Point3dOffset>;
+        const off1 = lattice.Offset[1] as SimpleJson<resqml20.Point3dOffset>;
+        const dir0 = off0.Offset;
+        const dir1 = off1.Offset;
+        const sp0 = (off0.Spacing as any)?.Value ?? 1;
+        const sp1 = (off1.Spacing as any)?.Value ?? 1;
+        // Offset[0] = slowest axis (J), Offset[1] = fastest axis (I)
+        const countJ = xml.Grid2dPatch.SlowestAxisCount - 1;
+        const countI = xml.Grid2dPatch.FastestAxisCount - 1;
+        const ox = lattice.Origin.Coordinate1;
+        const oy = lattice.Origin.Coordinate2;
+        // Step vectors (direction × spacing)
+        const stepJ = [dir0.Coordinate1 * sp0, dir0.Coordinate2 * sp0];
+        const stepI = [dir1.Coordinate1 * sp1, dir1.Coordinate2 * sp1];
 
-      this.data.SpatialPoint = SpatialPoint;
-      this.data.SpatialArea = SpatialArea;
-      this.data.ABCDBinGridSpatialLocation = SpatialArea;
-      this.data.DomainTypeID = context.addReferenceData("DomainType", Domain);
-      this.meta = [FrameOfReferenceCRS];
+        // Compute 4 corners of the grid
+        const corners: [number, number][] = [
+          [ox, oy],
+          [ox + stepI[0] * countI, oy + stepI[1] * countI],
+          [
+            ox + stepI[0] * countI + stepJ[0] * countJ,
+            oy + stepI[1] * countI + stepJ[1] * countJ
+          ],
+          [ox + stepJ[0] * countJ, oy + stepJ[1] * countJ]
+        ];
+
+        const minX = Math.min(...corners.map(c => c[0]));
+        const maxX = Math.max(...corners.map(c => c[0]));
+        const minY = Math.min(...corners.map(c => c[1]));
+        const maxY = Math.max(...corners.map(c => c[1]));
+
+        const crsObj = await StructureMapOSDU.getObjectFromDor(
+          client,
+          dataspaceUri.uri,
+          geo.LocalCrs,
+          context
+        );
+        const crs = crsObj as SimpleJson<resqml20.AbstractLocal3dCrs>;
+        const Domain =
+          crsObj?.$type === "resqml20.obj_LocalDepth3dCrs" ? "Depth" : "Time";
+
+        if (crs) {
+          const bboxRing: [number, number][] = [
+            [minX, minY],
+            [maxX, minY],
+            [maxX, maxY],
+            [minX, maxY],
+            [minX, minY]
+          ];
+
+          const {
+            SpatialPoint,
+            SpatialArea,
+            FrameOfReferenceCRS
+          } = await StructureMapOSDU.createSpatialInfoFrom2dPoints(
+            client,
+            dataspaceUri.uri,
+            bboxRing,
+            crs,
+            context
+          );
+
+          this.data.SpatialPoint = SpatialPoint;
+          this.data.SpatialArea = SpatialArea;
+          this.data.ABCDBinGridSpatialLocation = SpatialArea;
+          this.data.DomainTypeID = context.addReferenceData(
+            "DomainType",
+            Domain
+          );
+          this.meta = [FrameOfReferenceCRS];
+        }
+      } else {
+        // Fallback: use createSpatialInfo (requires useDataArrayForManifest for bbox)
+        const {
+          SpatialPoint,
+          SpatialArea,
+          FrameOfReferenceCRS,
+          Domain
+        } = await StructureMapOSDU.createSpatialInfo(
+          client,
+          dataspaceUri.uri,
+          geometries,
+          context
+        );
+
+        this.data.SpatialPoint = SpatialPoint;
+        this.data.SpatialArea = SpatialArea;
+        this.data.ABCDBinGridSpatialLocation = SpatialArea;
+        this.data.DomainTypeID = context.addReferenceData("DomainType", Domain);
+        this.meta = [FrameOfReferenceCRS];
+      }
     }
 
     // Lineage assertions

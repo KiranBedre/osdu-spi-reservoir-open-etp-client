@@ -19,6 +19,7 @@ import http from "http";
 import app from "./App";
 import { restApiPort } from "./ControllerUtils";
 import { drainTransactions } from "./ControllerUtils";
+import { initSchemaVersions } from "../jsonTypes/MilestoneKinds";
 
 let server: http.Server;
 
@@ -38,6 +39,7 @@ process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
 const main = async (p: number): Promise<void> => {
+  await initSchemaVersions();
   return app().then((a: any) => {
     server = a.listen(p);
   });

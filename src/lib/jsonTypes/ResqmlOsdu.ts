@@ -79,6 +79,7 @@ import { WitsmlBhaRunManifest } from "./WitsmlBhaRun";
 import { WitsmlWellCompletionManifest } from "./WitsmlWellCompletion";
 import { WellboreFrameToWellLogManifest } from "./WellboreFrameToWellLog";
 import { WellboreFrameToWellLog22Manifest } from "./WellboreFrameToWellLog22";
+import { WellboreMarkerFrameToMarkerSetManifest } from "./WellboreMarkerFrameToMarkerSet";
 
 import { WellboreInterpretation22Manifest } from "./WellboreInterpretation22";
 import { WellboreInterpretationManifest } from "./WellboreInterpretation";
@@ -539,7 +540,7 @@ ResqmlOSDU.add(
 ResqmlOSDU.add(
   "resqml20.obj_WellboreMarkerFrameRepresentation",
   () => getKindOrFallback("WellboreMarkerSet"),
-  GenericRepresentationManifest
+  WellboreMarkerFrameToMarkerSetManifest
 );
 ResqmlOSDU.add(
   "resqml22.WellboreIntervalSet",
