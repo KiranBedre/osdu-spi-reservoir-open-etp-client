@@ -128,6 +128,17 @@ export default async function app(): Promise<NestExpressApplication> {
       "access-token"
     )
     .addServer(`${serverUIUrl}`)
+    .addTag("Resources", "ETP dataspace and object read operations")
+    .addTag("Query & Growing Objects", "Deep search, growing object metadata and channel range queries")
+    .addTag("Wells", "Well-centric queries across dataspaces")
+    .addTag("WITSML", "WITSML XML query and listing")
+    .addTag("Write", "ETP object write (PutDataObjects, DeleteDataObjects)")
+    .addTag("Transactions", "ETP transaction lifecycle (start, commit, rollback)")
+    .addTag("Manifest", "OSDU manifest generation from ETP dataspaces")
+    .addTag("Authentication", "Token info and session management")
+    .addTag("Health", "Liveness and readiness probes")
+    .addTag("Metrics", "Prometheus metrics endpoint")
+    .addTag("PWLS", "PWLS unit/curve catalog lookups")
     .build();
 
   const document = SwaggerModule.createDocument(nestApp, config);
@@ -141,7 +152,12 @@ export default async function app(): Promise<NestExpressApplication> {
     swaggerOptions: {
       apisSorter: "alpha",
       operationsSorter: "alpha",
-      tagsSorter: "alpha"
+      tagsSorter: (a: any, b: any) => {
+        const order = document.tags?.map((t: any) => t.name) ?? [];
+        const ia = order.indexOf(a);
+        const ib = order.indexOf(b);
+        return (ia === -1 ? 999 : ia) - (ib === -1 ? 999 : ib);
+      }
     }
   });
 
