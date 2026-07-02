@@ -1,6 +1,6 @@
 variables:
   GC_SERVICE: "oetp-client"
-  COLLECTION_PATH: "Postman%20Collection/45_CICD_Reservoir_DDMS/Reservoir%20DDMS%20CI-CD%20v3.0.postman_collection_NotRun.json"
+  COLLECTION_PATH: "Postman%20Collection/45_CICD_Reservoir_DDMS/Reservoir%20DDMS%20CI-CD%20v3.1.postman_collection.json"
   GC_SUPPORTED_PLATFORM: "linux/amd64"
 
 gc-containerize-gitlab:
@@ -45,11 +45,19 @@ gc-containerize-bootstrap-gcr:
     - oetp_client space --delete -s demo/Volve || echo "[INFO] No dataspace demo/Volve to cleanup"
     - |
       GROUP_DOMAIN="${GC_TENANT}.${ENTITLEMENTS_DOMAIN}"
-      XDATA_ACL="{"legaltags":["${LEGAL_TAG}"],"otherRelevantDataCountries":["${OTHER_RELEVANT_DATA_COUNTRIES}"],"owners":["data.default.owners@${GROUP_DOMAIN}"],"viewers":["data.default.viewers@${GROUP_DOMAIN}"]}"
+      XDATA_ACL="{\"legaltags\":[\"${LEGAL_TAG}\"],\"otherRelevantDataCountries\":[\"${OTHER_RELEVANT_DATA_COUNTRIES}\"],\"owners\":[\"data.default.owners@${GROUP_DOMAIN}\"],\"viewers\":[\"data.default.viewers@${GROUP_DOMAIN}\"]}"
       oetp_client space --new -s demo/Volve --xdata "$XDATA_ACL"
     - oetp_client space --import-epc ./devops/data/Volve_Demo_Horizons_Depth.epc -s demo/Volve &&
     - oetp_client space --list
-
+    - |
+      for i in {1..3}; do
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://${GC_DOMAIN}/api/reservoir-ddms/v2/dataspaces" -H "Authorization: Bearer $(gcloud auth print-identity-token)" -H "data-partition-id: ${GC_TENANT}")
+        if [ "$STATUS" = "200" ]; then
+          break
+        fi
+        sleep 10
+      done
+    
   script:
     - export GET_COLLECTION_URL="${GC_COLLECTION_HOST}/${GC_COLLECTION_BRANCH}/${COLLECTION_PATH}?inline=false"
     - echo "Get a collection from ${GET_COLLECTION_URL}"
@@ -58,11 +66,11 @@ gc-containerize-bootstrap-gcr:
         wget -q -O tmp.zip "${GC_COLLECTION_ARCHIVE_HOST}/${GC_COLLECTION_BRANCH}/testing-master.zip?path=${TEST_SOURCE_FILES_DIR}"         && unzip -j tmp.zip         && rm tmp.zip
       fi
     - >
-      echo "[{ "CLIENT_ID": "${GC_CLIENT_ID}", "CLIENT_SECRET": "${GC_CLIENT_SECRET}", "grant_type": "${GC_GRANT_TYPE}", "refresh_token": "${GC_REFRESH_TOKEN}"}]" > test_config_file.json
+      echo "[{ \"CLIENT_ID\": \"${GC_CLIENT_ID}\", \"CLIENT_SECRET\": \"${GC_CLIENT_SECRET}\", \"grant_type\": \"${GC_GRANT_TYPE}\", \"refresh_token\": \"${GC_REFRESH_TOKEN}\"}]" > test_config_file.json
     - curl "${GET_COLLECTION_URL}" > collection.json && COLLECTION=collection.json
     - |
       curl --header "data-partition-id: ${DATA_PARTITION_ID}" "${GC_POSTMAN_ENV_URL}" > environment.json && ENVIRONMENT=environment.json
-    - newman run "$COLLECTION" --working-dir . -e "${ENVIRONMENT}" -d test_config_file.json --delay-request 3000 --reporters cli,junit --reporter-junit-export test-results.log || exit $?
+    - newman run "$COLLECTION" --working-dir . -e "${ENVIRONMENT}" -d test_config_file.json --delay-request 3000 --env-var HOSTNAME=${GC_DOMAIN} --env-var TENANT_ID=${GC_TENANT} --env-var RESERVOIR_DDMS_HOST=${GC_DOMAIN}/api/reservoir-ddms/v2 --reporters cli,junit --reporter-junit-export test-results.log || exit $?
 
 # TODO: remove after common gc-test job will be deleted
 gc-test:
@@ -71,10 +79,18 @@ gc-test:
   image: community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-gcp/image-for-postman-tests/osdu-gcp-image-for-postman
   allow_failure: true
   retry: 1
+  needs: ["gc-deploy"]
   extends:
     - .gc-variables
   script:
     - !reference [.gc_postman_tests, script]
+  rules:
+    - if: "$CI_COMMIT_BRANCH =~ /^release/"
+      when: never
+    - if: "$CI_COMMIT_TAG"
+      when: never
+    - if: '$GC == "1" && $GC_INT_TEST_TYPE != "python"'
+      when: on_success
 
 gc-acceptance-test:
   image: community.opengroup.org:5555/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-server/open-etp-server-main
