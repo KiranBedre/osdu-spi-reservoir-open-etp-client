@@ -134,9 +134,8 @@ export default class HealthAPI {
     return new Promise((resolve, reject) => {
       try {
         const prot = etpServerProtocol === "wss" ? https : http;
-        const url = `${
-          etpServerProtocol === "wss" ? "https" : "http"
-        }://${etpServerHost}:${etpServerPort}${etpServerPath}/.well-known/etp-server-capabilities?GetVersion=etp12.energistics.org`;
+        const url = `${etpServerProtocol === "wss" ? "https" : "http"
+          }://${etpServerHost}:${etpServerPort}${etpServerPath}/.well-known/etp-server-capabilities?GetVersion=etp12.energistics.org`;
         const req = prot
           .get(url, response => {
             if (response.statusCode === 200 || response.statusCode === 301) {
@@ -293,6 +292,7 @@ export default class HealthAPI {
    * PWLS v4 Curve Catalog status.
    */
   @Get("pwls")
+  @ApiTags("Wells")
   @ApiOkResponse({
     description: "PWLS v4 Curve Catalog status",
     schema: {
@@ -320,6 +320,7 @@ export default class HealthAPI {
    * Extends the mnemonic lookup (first-loaded wins on collision).
    */
   @Post("pwls/catalog")
+  @ApiTags("Wells")
   @ApiBody({
     description: "PWLS v4 vendor curve_mappings.json content",
     schema: {

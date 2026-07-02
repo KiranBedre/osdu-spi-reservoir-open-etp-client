@@ -169,7 +169,7 @@ class VendorCatalogUploadDto {
  * Provides mnemonic resolution, property lookup, curve validation,
  * and vendor catalog management.
  */
-@ApiTags("PWLS")
+@ApiTags("Wells")
 @ApiNotFoundResponse(errorMessageSchema("Not found", 404))
 @ApiNotAcceptableResponse(errorMessageSchema("Not acceptable response", 406))
 @ApiTooManyRequestsResponse(errorMessageSchema("Too many request", 429))

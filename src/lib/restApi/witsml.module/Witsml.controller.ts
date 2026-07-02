@@ -593,7 +593,7 @@ function injectExternalArrayRefs(
 
 // ─── Controller ──────────────────────────────────────────────────────────────
 
-@ApiTags("WITSML")
+@ApiTags("Wells")
 @Controller("witsml")
 @ApiBearerAuth("access-token")
 @UseGuards(HasBearerGuard("jwt"))
