@@ -130,15 +130,15 @@ export default async function app(): Promise<NestExpressApplication> {
     .addServer(`${serverUIUrl}`)
     .addTag("Resources", "ETP dataspace and object read operations")
     .addTag("Query & Growing Objects", "Deep search, growing object metadata and channel range queries")
-    .addTag("Wells", "Well-centric queries across dataspaces")
-    .addTag("WITSML", "WITSML XML query and listing")
     .addTag("Write", "ETP object write (PutDataObjects, DeleteDataObjects)")
     .addTag("Transactions", "ETP transaction lifecycle (start, commit, rollback)")
     .addTag("Manifest", "OSDU manifest generation from ETP dataspaces")
     .addTag("Authentication", "Token info and session management")
     .addTag("Health", "Liveness and readiness probes")
     .addTag("Metrics", "Prometheus metrics endpoint")
-    .addTag("PWLS", "PWLS unit/curve catalog lookups")
+    .addTag("Wells", "Well-centric search across dataspaces (non-core)")
+    .addTag("WITSML", "WITSML query, listing, and XML store (non-core)")
+    .addTag("PWLS", "PWLS unit/curve catalog lookups (non-core)")
     .build();
 
   const document = SwaggerModule.createDocument(nestApp, config);

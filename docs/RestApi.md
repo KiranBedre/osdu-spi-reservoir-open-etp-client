@@ -24,7 +24,7 @@ Returns all dataspaces on the ETP server.
 GET /dataspaces/{dataspaceId}/info
 ```
 
-`dataspaceId`: URL-encoded path (e.g., `maap%2Fdrogon` for `maap/drogon`).
+`dataspaceId`: URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`).
 
 ### List resources in a dataspace
 
@@ -56,7 +56,7 @@ Returns resources that have been deleted from a dataspace with deletion timestam
 GET /dataspaces/{dataspaceId}/resources/{dataObjectType}
 ```
 
-Example: `GET /dataspaces/maap%2Fdrogon/resources/resqml20.obj_IjkGridRepresentation`
+Example: `GET /dataspaces/foo%2Fdrogon/resources/resqml20.obj_IjkGridRepresentation`
 
 ### Get object content
 
@@ -72,7 +72,7 @@ Returns the full XML/JSON content of a data object.
 POST /dataspaces/multi-resources/get-content
 ```
 
-Body: `{ "uris": ["eml:///dataspace('maap/drogon')/resqml20.obj_...(uuid)", ...] }`
+Body: `{ "uris": ["eml:///dataspace('foo/drogon')/resqml20.obj_...(uuid)", ...] }`
 
 ### Relationship graph
 
@@ -134,7 +134,7 @@ PUT /dataspaces/{dataspaceId}/resources/arrays
 Body:
 ```json
 {
-  "uri": "eml:///dataspace('maap/drogon')/witsml21.WellLog(uuid)",
+  "uri": "eml:///dataspace('foo/drogon')/witsml21.WellLog(uuid)",
   "pathInResource": "/WITSML/<uuid>/GR",
   "dimensions": [1000],
   "data": [45.2, 46.1, 47.8, ...]
@@ -154,7 +154,7 @@ Body:
 
 ---
 
-## Query & Growing Objects *(new — MR 4)*
+## Query & Growing Objects *(new — M27)*
 
 Advanced search using ETP Discovery, GrowingObject, and ChannelSubscribe protocols.
 
@@ -167,7 +167,7 @@ POST /query/resources/find
 Body:
 ```json
 {
-  "uri": "eml:///dataspace('maap/drogon')",
+  "uri": "eml:///dataspace('foo/drogon')",
   "scope": "targets",
   "depth": 1,
   "dataObjectTypes": ["resqml20.obj_IjkGridRepresentation"],
@@ -198,8 +198,8 @@ Body:
 ```json
 {
   "uris": [
-    "eml:///dataspace('maap/drogon')/resqml20.obj_IjkGridRepresentation(uuid1)",
-    "eml:///dataspace('maap/drogon')/resqml20.obj_TriangulatedSetRepresentation(uuid2)"
+    "eml:///dataspace('foo/drogon')/resqml20.obj_IjkGridRepresentation(uuid1)",
+    "eml:///dataspace('foo/drogon')/resqml20.obj_TriangulatedSetRepresentation(uuid2)"
   ],
   "scope": "targets",
   "depth": 2,
@@ -218,7 +218,7 @@ POST /query/growing/metadata
 Body:
 ```json
 {
-  "uri": "eml:///dataspace('maap/witsml')/witsml21.WellLog(uuid)"
+  "uri": "eml:///dataspace('foo/witsml')/witsml21.WellLog(uuid)"
 }
 ```
 
@@ -233,7 +233,7 @@ POST /query/growing/range
 Body:
 ```json
 {
-  "uri": "eml:///dataspace('maap/witsml')/witsml21.WellLog(uuid)",
+  "uri": "eml:///dataspace('foo/witsml')/witsml21.WellLog(uuid)",
   "startIndex": 2500.0,
   "endIndex": 3000.0,
   "includeOverlapping": true
@@ -253,7 +253,7 @@ POST /query/channels/metadata
 Body:
 ```json
 {
-  "uri": "eml:///dataspace('maap/drogon')/witsml21.WellLog(uuid)"
+  "uri": "eml:///dataspace('foo/drogon')/witsml21.WellLog(uuid)"
 }
 ```
 
@@ -267,72 +267,6 @@ Discovers available channels (curves): names, units of measure, data kinds, inde
   { "channelId": 3, "channelName": "NPHI", "uom": "m3/m3", "dataKind": "float64" }
 ]
 ```
-
----
-
-## Wells *(new — MR 4)*
-
-Well-centric search across all dataspaces.
-
-### Search wells
-
-```
-GET /wells?name=DROGON*&dataspace=maap/drogon&include=logs,trajectories
-```
-
-| Param | Required | Description |
-|-------|----------|-------------|
-| `name` | yes | Well name pattern (`*` wildcard, case-insensitive) |
-| `dataspace` | no | Restrict to one dataspace (faster) |
-| `include` | no | Comma-separated: `logs`, `trajectories`, `channelSets` |
-
-**Example response:**
-```json
-[
-  {
-    "name": "DROGON-1",
-    "uuid": "abc-123",
-    "dataspace": "maap/drogon",
-    "typeName": "witsml21.Well",
-    "wellbores": [{ "uuid": "...", "name": "WB-1", "typeName": "witsml21.Wellbore" }],
-    "logs": [{ "uuid": "...", "name": "GR_LOG", "typeName": "witsml21.WellLog" }],
-    "trajectories": [],
-    "channelSets": []
-  }
-]
-```
-
-Searches WITSML 2.1 Wells first, falls back to RESQML WellboreFeature. Resolves child hierarchy via ETP graph traversal.
-
----
-
-## WITSML *(new — MR 4)*
-
-Query WITSML/EnergyML objects stored in ETP dataspaces.
-
-### Query objects (full XML)
-
-```
-POST /witsml/query
-```
-
-Body:
-```json
-{
-  "dataspace": "maap/witsml",
-  "objectType": "Well"
-}
-```
-
-Returns full XML body for each matching object. Omit `objectType` to return all objects.
-
-### List objects (metadata only)
-
-```
-GET /witsml/{dataspaceId}/objects?type=Well
-```
-
-Lightweight listing — returns URI, name, type, timestamp without fetching XML. Much faster for large dataspaces.
 
 ---
 
@@ -412,21 +346,21 @@ DELETE /dataspaces/{dataspaceId}/transactions/{transactionId}
 
 ```bash
 # 1. Start transaction
-TX=$(curl -s -X POST .../dataspaces/maap%2Ftest/transactions \
+TX=$(curl -s -X POST .../dataspaces/foo%2Ftest/transactions \
   -H "Authorization: Bearer $TOKEN" | jq -r .transactionId)
 
 # 2. Put objects
-curl -X PUT ".../dataspaces/maap%2Ftest/resources?transactionId=$TX" \
+curl -X PUT ".../dataspaces/foo%2Ftest/resources?transactionId=$TX" \
   -H "Content-Type: application/json" \
   -d '[{"$type": "resqml20.obj_TriangulatedSetRepresentation", ...}]'
 
 # 3. Put arrays
-curl -X PUT ".../dataspaces/maap%2Ftest/resources/arrays?transactionId=$TX" \
+curl -X PUT ".../dataspaces/foo%2Ftest/resources/arrays?transactionId=$TX" \
   -H "Content-Type: application/json" \
   -d '{"uri": "eml:///...", "pathInResource": "/points", "dimensions": [100,3], "data": [...]}'
 
 # 4. Commit
-curl -X PUT ".../dataspaces/maap%2Ftest/transactions/$TX"
+curl -X PUT ".../dataspaces/foo%2Ftest/transactions/$TX"
 ```
 
 ---
@@ -444,7 +378,7 @@ POST /manifests/build
 Body:
 ```json
 {
-  "uris": ["eml:///dataspace('maap/drogon')"],
+  "uris": ["eml:///dataspace('foo/drogon')"],
   "typePatterns": ["resqml20.obj_*Representation", "resqml20.obj_*Interpretation"],
   "createMissingReferences": true,
   "tags": { "project": "drogon" }
@@ -507,6 +441,125 @@ Returns all RESQML/WITSML → OSDU converter mappings with supported versions.
 ```
 GET /health/pwls
 POST /health/pwls/catalog
+```
+
+---
+
+# Non-Core / Domain-Specific Endpoints
+
+The following endpoints provide domain-specific functionality for WITSML well data,
+well-centric search, and PWLS curve standardization. They are not part of the core
+ETP/RESQML data management API but are useful for WITSML-oriented workflows.
+
+---
+
+## Wells
+
+Well-centric search across all dataspaces with automatic hierarchy resolution.
+
+### Search wells
+
+```
+GET /wells?name=DROGON*&dataspace=foo/drogon&include=logs,trajectories
+```
+
+| Param | Required | Description |
+|-------|----------|-------------|
+| `name` | yes | Well name pattern (`*` wildcard, case-insensitive) |
+| `dataspace` | no | Restrict to one dataspace (faster) |
+| `include` | no | Comma-separated: `logs`, `trajectories`, `channelSets` |
+
+**Example response:**
+```json
+[
+  {
+    "name": "DROGON-1",
+    "uuid": "abc-123",
+    "dataspace": "foo/drogon",
+    "typeName": "witsml21.Well",
+    "wellbores": [{ "uuid": "...", "name": "WB-1", "typeName": "witsml21.Wellbore" }],
+    "logs": [{ "uuid": "...", "name": "GR_LOG", "typeName": "witsml21.WellLog" }],
+    "trajectories": [],
+    "channelSets": []
+  }
+]
+```
+
+Searches WITSML 2.1 Wells first, falls back to RESQML WellboreFeature. Resolves child hierarchy via ETP graph traversal.
+
+---
+
+## WITSML
+
+Query and store WITSML/EnergyML objects in ETP dataspaces.
+
+### Query objects (full XML)
+
+```
+POST /witsml/query
+```
+
+Body:
+```json
+{
+  "dataspace": "foo/witsml",
+  "objectType": "Well"
+}
+```
+
+Returns full XML body for each matching object. Omit `objectType` to return all objects.
+
+### List objects (metadata only)
+
+```
+GET /witsml/{dataspaceId}/objects?type=Well
+```
+
+Lightweight listing — returns URI, name, type, timestamp without fetching XML. Much faster for large dataspaces.
+
+### Store WITSML objects
+
+```
+PUT /witsml/store?transactionId=<optional>
+```
+
+Body:
+```json
+{
+  "dataspace": "foo/witsml",
+  "xml": "<Well xmlns=\"http://www.energistics.org/energyml/data/witsmlv2\" uuid=\"...\">...</Well>"
+}
+```
+
+Parses WITSML 2.1 (or 1.4.1 container) XML, stores as ETP data objects, and automatically
+extracts embedded channel data (log curves, trajectory stations) as ETP data arrays.
+
+**Key features:**
+
+- **Auto-transaction**: If no `transactionId` is provided, wraps the write in an internal transaction (start → put → commit). If provided, the caller manages commit/rollback.
+- **WITSML 1.4.1 support**: Detects plural container wrappers (`<wells>`, `<logs>`, etc.) and splits into individual WITSML 2.1 objects with deterministic UUID v5 from uid.
+- **Channel data extraction**: Automatically extracts `<logData><data>` rows (1.4.1) or ChannelSet data (2.1) as separate ETP data arrays, and injects `ExternalDataArrayPart` references into the XML.
+- **Trajectory support**: Extracts MD/Inclination/Azimuth from `<trajectoryStation>` elements.
+
+**Example — store a well log with channel data:**
+
+```bash
+curl -X PUT ".../witsml/store" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "dataspace": "maap/witsml",
+    "xml": "<Log xmlns=\"http://www.energistics.org/energyml/data/witsmlv2\" uuid=\"a1b2c3d4-...\">...</Log>"
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "stored": [{ "objectType": "Log", "uuid": "a1b2c3d4-...", "title": "GR_LOG" }],
+  "arraysStored": 2
+}
 ```
 
 ---
