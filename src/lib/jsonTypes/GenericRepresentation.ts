@@ -162,6 +162,13 @@ export class GenericRepresentationOSDU
       ExtensionProperties: undefined
     };
 
+    // Enrich Name: prefix with InterpretationName (feature/horizon/fault)
+    // when the Citation.Title is just a workflow step name.
+    const interpName = this.data.InterpretationName;
+    if (interpName && this.data.Name && !this.data.Name.startsWith(interpName)) {
+      this.data.Name = `${interpName} \u2014 ${this.data.Name}`;
+    }
+
     const dors = await this.getCreatingObjects(client, ReservoirDMSUrl);
     if (dors.length > 0) {
       this.data.LineageAssertions = [];

@@ -122,6 +122,13 @@ export class StructureMap22OSDU
       ExtensionProperties: undefined
     };
 
+    // Enrich Name: prefix with InterpretationName (horizon) when the
+    // Citation.Title is just a workflow step name.
+    const interpName = this.data.InterpretationName;
+    if (interpName && this.data.Name && !this.data.Name.startsWith(interpName)) {
+      this.data.Name = `${interpName} \u2014 ${this.data.Name}`;
+    }
+
     // Extract grid geometry from lattice-based Point3dLatticeArray
     // Handles both direct Point3dLatticeArray and Point3dZValueArray with
     // SupportingGeometry containing the lattice.
