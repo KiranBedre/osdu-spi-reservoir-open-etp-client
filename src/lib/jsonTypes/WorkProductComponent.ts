@@ -870,6 +870,7 @@ export class ResqmlResource<RES_TYPE extends IResqmlDataObject> {
   public version: number;
   public tags?: { [key: string]: string };
   public OSDUIntegration?: Record<string, unknown>;
+  protected authoringSoftware?: string;
   protected __context?: OSDUContext;
 
   constructor(
@@ -885,6 +886,7 @@ export class ResqmlResource<RES_TYPE extends IResqmlDataObject> {
     this.createUser = xml.Citation.Originator;
     this.modifyTime = xml.Citation.LastUpdate ?? this.createTime;
     this.modifyUser = xml.Citation.Editor ?? this.createUser;
+    this.authoringSoftware = xml.Citation.Format;
 
     const kind = osduType.split(".")[0];
 
@@ -1116,6 +1118,15 @@ export class ResqmlResource<RES_TYPE extends IResqmlDataObject> {
           data.ExtensionProperties[path.join("/")] = x.Value;
         }
       });
+
+    // Preserve authoring software (Citation.Format) for round-trip fidelity
+    if (this.authoringSoftware && "data" in this && typeof this.data === "object") {
+      const data = this.data as Record<string, any>;
+      if (data["ExtensionProperties"] === undefined) {
+        data["ExtensionProperties"] = {};
+      }
+      data.ExtensionProperties["AuthoringSoftware"] = this.authoringSoftware;
+    }
   }
 
   /**

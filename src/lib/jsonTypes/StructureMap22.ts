@@ -285,6 +285,12 @@ export class StructureMap22OSDU
 
     this.assignExtraMetaData(xml.ExtensionNameValue);
 
+    // Preserve interpreter info for round-trip fidelity
+    if (xml.Citation.Originator) {
+      if (!this.data.ExtensionProperties) this.data.ExtensionProperties = {};
+      this.data.ExtensionProperties.Interpreter = xml.Citation.Originator;
+    }
+
     delete this.__context;
     return this;
   }
