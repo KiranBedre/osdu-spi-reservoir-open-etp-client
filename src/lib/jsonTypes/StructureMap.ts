@@ -115,6 +115,14 @@ export class StructureMapOSDU
       ExtensionProperties: undefined
     };
 
+    // Enrich Name: prefix with InterpretationName (horizon) when the
+    // Citation.Title is just a workflow step name (e.g. "DS_extract_geogrid").
+    // Result: "TopTherys \u2014 DS_extract_geogrid"
+    const interpName = this.data.InterpretationName;
+    if (interpName && this.data.Name && !this.data.Name.startsWith(interpName)) {
+      this.data.Name = `${interpName} \u2014 ${this.data.Name}`;
+    }
+
     // Extract grid geometry from lattice-based Point3dLatticeArray
     // Handles both direct Point3dLatticeArray and Point3dZValueArray with
     // SupportingGeometry containing the lattice.
@@ -277,6 +285,12 @@ export class StructureMapOSDU
     }
 
     this.assignExtraMetaData(xml.ExtraMetadata);
+
+    // Preserve interpreter info for round-trip fidelity
+    if (xml.Citation.Originator) {
+      if (!this.data.ExtensionProperties) this.data.ExtensionProperties = {};
+      this.data.ExtensionProperties.Interpreter = xml.Citation.Originator;
+    }
 
     delete this.__context;
     return this;

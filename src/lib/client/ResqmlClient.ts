@@ -3247,13 +3247,22 @@ export class ResqmlClient {
     dataArrays: Map<URI, IDataArray>,
     resolved: Map<URI, IResqmlDataObject>,
     arrayFormat: ArrayFormat,
-    includeReferences: boolean
+    includeReferences: boolean,
+    inProgress?: Set<string>
   ): Record<string, any> {
     const etpUri = new EtpUri(uri);
     const r = resolved.get(etpUri.uriPath);
     if (r) {
       return r;
     }
+
+    // Track objects currently being resolved to detect circular refs
+    if (!inProgress) inProgress = new Set<string>();
+    if (inProgress.has(etpUri.uriPath)) {
+      // Circular reference detected — return obj as-is without further resolution
+      return obj;
+    }
+    inProgress.add(etpUri.uriPath);
 
     if (
       // EML2.3 Array
@@ -3289,7 +3298,8 @@ export class ResqmlClient {
               dataArrays,
               resolved,
               arrayFormat,
-              includeReferences
+              includeReferences,
+              inProgress
             )
           );
         } else if (
@@ -3368,17 +3378,24 @@ export class ResqmlClient {
               );
             }
             if (o) {
-              const res = this.resolveReferences(
-                nURI.uri,
-                o,
-                objects,
-                dataArrays,
-                resolved,
-                arrayFormat,
-                includeReferences
-              ) as IResqmlDataObject;
-              obj[key] = { ...obj[key], _data: res };
-              resolved.set(nURI.uri, res);
+              // Skip if this reference is currently being resolved (cycle)
+              const refPath = new EtpUri(nURI.uri).uriPath;
+              if (inProgress!.has(refPath)) {
+                // Circular ref — leave DataObjectReference without _data
+              } else {
+                const res = this.resolveReferences(
+                  nURI.uri,
+                  o,
+                  objects,
+                  dataArrays,
+                  resolved,
+                  arrayFormat,
+                  includeReferences,
+                  inProgress
+                ) as IResqmlDataObject;
+                obj[key] = { ...obj[key], _data: res };
+                resolved.set(nURI.uri, res);
+              }
             }
           }
         } else {
@@ -3389,11 +3406,15 @@ export class ResqmlClient {
             dataArrays,
             resolved,
             arrayFormat,
-            includeReferences
+            includeReferences,
+            inProgress
           );
         }
       });
     }
+    // Mark as fully resolved and remove from in-progress
+    resolved.set(etpUri.uriPath, obj as IResqmlDataObject);
+    inProgress!.delete(etpUri.uriPath);
     return obj;
   }
 
