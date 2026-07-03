@@ -81,3 +81,8 @@ cimpl-dev2-acceptance-test:
 cimpl-dev2-acceptance-test-python:
   extends:
     - .cimpl-dev2-variables
+
+# Disable the cimpl-check-openapi-spec job as this is a WebSocket ETP server and has no OpenAPI spec
+cimpl-check-openapi-spec:
+  rules:
+    - when: never
