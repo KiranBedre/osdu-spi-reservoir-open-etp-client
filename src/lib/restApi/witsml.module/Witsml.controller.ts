@@ -96,7 +96,7 @@ const logger = logging.getLogger("EtpClient");
 class WitsmlStoreDto {
   @ApiProperty({
     description: "Target dataspace path",
-    example: "maap/witsml",
+    example: "test/witsml",
     pattern: patternString(dataspaceNamePattern)
   })
   @IsString()
@@ -116,8 +116,8 @@ class WitsmlStoreDto {
 
 class WitsmlQueryDto {
   @ApiProperty({
-    description: "Target dataspace path (e.g., 'maap/witsml', 'demo/drogon'). Must be an existing dataspace on the ETP server.",
-    example: "maap/witsml"
+    description: "Target dataspace path (e.g., 'test/witsml', 'demo/drogon'). Must be an existing dataspace on the ETP server.",
+    example: "test/witsml"
   })
   @IsString()
   @IsNotEmpty()
@@ -593,7 +593,7 @@ function injectExternalArrayRefs(
 
 // ─── Controller ──────────────────────────────────────────────────────────────
 
-@ApiTags("WITSML")
+@ApiTags("Wells")
 @Controller("witsml")
 @ApiBearerAuth("access-token")
 @UseGuards(HasBearerGuard("jwt"))
@@ -896,7 +896,7 @@ export default class WitsmlController {
     description:
       "Returns a lightweight listing of all objects in a dataspace without fetching XML content. " +
       "Use `type` query parameter to filter by WITSML object type.\n\n" +
-      "**dataspaceId format**: URL-encoded dataspace path, e.g., `maap%2Fwitsml` for `maap/witsml`.\n\n" +
+      "**dataspaceId format**: URL-encoded dataspace path, e.g., `test%2Fwitsml` for `test/witsml`.\n\n" +
       "**Difference from POST /witsml/query**: This endpoint returns only metadata (uri, name, type, timestamp) " +
       "and is much faster for large dataspaces. Use POST /witsml/query when you need the full XML body.",
     servers: swaggerServers

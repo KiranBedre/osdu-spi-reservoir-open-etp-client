@@ -243,6 +243,11 @@ export class ResqmlClient {
   private readonly overhead = 1024; // Represents the overhead to add on top of array size
   // Corresponding to the array definitions
 
+  /** Check whether the connected ETP server supports a given protocol. */
+  public isProtocolSupported(protocolId: number): boolean {
+    return this.client.isProtocolSupported(protocolId);
+  }
+
   /**
    * Creates an instance of ResqmlClient.
    * @param {Options} [opt] Defines how the xml should be translated into JS
@@ -284,31 +289,29 @@ export class ResqmlClient {
       Energistics.Etp.v12.Datatypes.Protocol.DataspaceOSDU,
       this.dataspaceOSDU
     );
-    // Extended protocols — only register when the server is known to support
-    // them (e.g. M27+ environments). Avoids session-negotiation issues with
-    // older ETP servers that may reject or misbehave with unknown protocols.
-    if (process.env.RDMS_ETP_EXTENDED_PROTOCOLS === "true") {
-      this.client.registerHandler(
-        Energistics.Etp.v12.Datatypes.Protocol.DiscoveryQuery,
-        this.discoveryQuery
-      );
-      this.client.registerHandler(
-        Energistics.Etp.v12.Datatypes.Protocol.StoreQuery,
-        this.storeQuery
-      );
-      this.client.registerHandler(
-        Energistics.Etp.v12.Datatypes.Protocol.GrowingObject,
-        this.growingObject
-      );
-      this.client.registerHandler(
-        Energistics.Etp.v12.Datatypes.Protocol.GrowingObjectNotification,
-        this.growingObjectNotification
-      );
-      this.client.registerHandler(
-        Energistics.Etp.v12.Datatypes.Protocol.ChannelSubscribe,
-        this.channelSubscribe
-      );
-    }
+    // Extended protocols — always registered; the ETP session negotiation
+    // determines which ones the server actually supports.  REST endpoints
+    // check `isProtocolSupported()` and return 501 when unavailable.
+    this.client.registerHandler(
+      Energistics.Etp.v12.Datatypes.Protocol.DiscoveryQuery,
+      this.discoveryQuery
+    );
+    this.client.registerHandler(
+      Energistics.Etp.v12.Datatypes.Protocol.StoreQuery,
+      this.storeQuery
+    );
+    this.client.registerHandler(
+      Energistics.Etp.v12.Datatypes.Protocol.GrowingObject,
+      this.growingObject
+    );
+    this.client.registerHandler(
+      Energistics.Etp.v12.Datatypes.Protocol.GrowingObjectNotification,
+      this.growingObjectNotification
+    );
+    this.client.registerHandler(
+      Energistics.Etp.v12.Datatypes.Protocol.ChannelSubscribe,
+      this.channelSubscribe
+    );
     if (opt) {
       this.options = opt;
     }

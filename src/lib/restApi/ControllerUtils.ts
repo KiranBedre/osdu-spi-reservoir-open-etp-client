@@ -779,6 +779,25 @@ export const getSchemasForType = (
     : { ...values[0], additionalProperties: false };
 };
 
+const protocolNames: Record<number, string> = {
+  [Energistics.Etp.v12.Datatypes.Protocol.DiscoveryQuery]: "DiscoveryQuery (13)",
+  [Energistics.Etp.v12.Datatypes.Protocol.StoreQuery]: "StoreQuery (14)",
+  [Energistics.Etp.v12.Datatypes.Protocol.GrowingObject]: "GrowingObject (6)",
+  [Energistics.Etp.v12.Datatypes.Protocol.ChannelSubscribe]: "ChannelSubscribe (21)"
+};
+
+/**
+ * Throw 501 if the ETP server did not negotiate the given protocol.
+ */
+export const requireProtocol = (client: ResqmlClient, protocolId: number): void => {
+  if (!client.isProtocolSupported(protocolId)) {
+    const name = protocolNames[protocolId] ?? `Protocol ${protocolId}`;
+    throw new NotImplementedException(
+      `ETP server does not support ${name}`
+    );
+  }
+};
+
 /*!
  * Create and open a session, and return the client
  *

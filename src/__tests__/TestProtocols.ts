@@ -24,7 +24,7 @@
  *
  * Prerequisites:
  *   - ETP server running on configured host/port
- *   - At least one dataspace with objects (e.g., maap/drogon with RESQML data)
+ *   - At least one dataspace with objects (e.g., test/drogon with RESQML data)
  *
  * Run: npx jest --testPathPattern TestProtocols --forceExit
  */
@@ -54,7 +54,7 @@ const jwt = XmlUtils.createDefaultJWT();
 
 const testDataPartitionId =
   process.env.RDMS_TEST_DATA_PARTITION_ID || "osdu";
-const testDataspace = process.env.RDMS_TEST_DATASPACE || "maap/drogon";
+const testDataspace = process.env.RDMS_TEST_DATASPACE || "test/drogon";
 const testDataspaceUri = `eml:///dataspace('${testDataspace}')`;
 
 function sleep(ms: number): Promise<void> {
@@ -84,8 +84,8 @@ describe("DiscoveryQuery Protocol (13)", () => {
       dataObjectTypes: [],
       navigableEdges:
         Energistics.Etp.v12.Datatypes.Object.RelationshipKind.Primary,
-        includeSecondaryTargets: false,
-        includeSecondarySources: false
+      includeSecondaryTargets: false,
+      includeSecondarySources: false
     };
 
     const resources = await client.discoveryQuery.findResources(
@@ -109,8 +109,8 @@ describe("DiscoveryQuery Protocol (13)", () => {
       dataObjectTypes: ["resqml22.TriangulatedSetRepresentation"],
       navigableEdges:
         Energistics.Etp.v12.Datatypes.Object.RelationshipKind.Primary,
-        includeSecondaryTargets: false,
-        includeSecondarySources: false
+      includeSecondaryTargets: false,
+      includeSecondarySources: false
     };
 
     const resources = await client.discoveryQuery.findResources(
@@ -137,8 +137,8 @@ describe("DiscoveryQuery Protocol (13)", () => {
       dataObjectTypes: [],
       navigableEdges:
         Energistics.Etp.v12.Datatypes.Object.RelationshipKind.Primary,
-        includeSecondaryTargets: false,
-        includeSecondarySources: false
+      includeSecondaryTargets: false,
+      includeSecondarySources: false
     };
 
     const resources = await client.discoveryQuery.findResources(
@@ -171,8 +171,8 @@ describe("GrowingObject Protocol (6)", () => {
       dataObjectTypes: ["witsml21.WellboreGeology", "witsml21.Log"],
       navigableEdges:
         Energistics.Etp.v12.Datatypes.Object.RelationshipKind.Primary,
-        includeSecondaryTargets: false,
-        includeSecondarySources: false
+      includeSecondaryTargets: false,
+      includeSecondarySources: false
     };
 
     try {
@@ -255,8 +255,8 @@ describe("ChannelSubscribe Protocol (21)", () => {
       dataObjectTypes: ["witsml21.WellLog", "witsml21.Log"],
       navigableEdges:
         Energistics.Etp.v12.Datatypes.Object.RelationshipKind.Primary,
-        includeSecondaryTargets: false,
-        includeSecondarySources: false
+      includeSecondaryTargets: false,
+      includeSecondarySources: false
     };
 
     try {
