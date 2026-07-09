@@ -31,6 +31,14 @@ This client is able to get data from a server and send data to it. The exchanges
 The data can be obtained as XML string or Javascript objects.
 Most classes functions return promises, allowing to easily chain requests.
 
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [CHANGELOG](./CHANGELOG.md) | All changes vs upstream Emerson open-etp-client |
+| [REST API Reference](./docs/RestApi.md) | Developer guide for the REST API with workflow recipes and ETP protocol context |
+| [RESQML → OSDU Guide](./docs/ResqmlOsduGuide.md) | How to populate RESQML metadata for lossless OSDU manifest roundtrips |
+
 ## Setup
 
 ### Installation
