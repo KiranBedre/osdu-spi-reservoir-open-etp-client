@@ -1316,6 +1316,8 @@ export class ResqmlWorkProductComponent<
     let verticalUom = "";
     let zIncreasingDownward = false;
     let verticalEpsgCode = -1;
+    let verticalCrsId: string | undefined;
+    let persistableRefVerticalCrs: string | undefined;
 
     if (crs.$type === "eml23.LocalEngineeringCompoundCrs") {
       const crs23 = crs as SimpleJson<eml23.LocalEngineeringCompoundCrs>;
@@ -1374,6 +1376,14 @@ export class ResqmlWorkProductComponent<
       const vertCrs = (crs20 as any).VerticalCrs;
       if (vertCrs?.$type === "eml20.VerticalCrsEpsgCode") {
         verticalEpsgCode = vertCrs.EpsgCode;
+      } else if (vertCrs?.$type === "eml20.VerticalUnknownCrs") {
+        const vertUnknownVal = vertCrs.Unknown as string | undefined;
+        if (vertUnknownVal && /^VERT(CRS|_CS)\[/.test(vertUnknownVal)) {
+          persistableRefVerticalCrs = vertUnknownVal;
+          verticalCrsId = `VerticalCRS:WKT:${(crs20 as any).Citation?.Title ?? "Unknown"}`;
+        } else if (vertUnknownVal) {
+          verticalCrsId = `VerticalCRS:Unknown:${(crs20 as any).Citation?.Title ?? vertUnknownVal}`;
+        }
       }
     }
     if (epsgCode !== -1) {
@@ -1441,6 +1451,9 @@ export class ResqmlWorkProductComponent<
           ...(verticalEpsgCode !== -1 ? {
             VerticalCoordinateReferenceSystemID: `VerticalCRS:EPSG:${verticalEpsgCode}`,
             persistableReferenceVerticalCrs: JSON.stringify({ authCode: { auth: "EPSG", code: verticalEpsgCode } })
+          } : verticalCrsId ? {
+            VerticalCoordinateReferenceSystemID: verticalCrsId,
+            ...(persistableRefVerticalCrs ? { persistableReferenceVerticalCrs: persistableRefVerticalCrs } : {})
           } : {})
         },
         Wgs84Coordinates:

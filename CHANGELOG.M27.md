@@ -1,4 +1,4 @@
-# CHANGELOG: M27 (2026) Major Bug fixes and Feature Extensions for RDDMS Client (maap@equinor.com)
+# CHANGELOG: M27 (2026) Summary of Bug fixes and Feature Extensions for RDDMS Client
 
 All changes vs upstream Emerson `@osdu/open-etp-client` (base commit: `cfffaa2`).
 
@@ -6,7 +6,7 @@ All changes vs upstream Emerson `@osdu/open-etp-client` (base commit: `cfffaa2`)
 
 ---
 
-## MR 7 — FIRP Manifest Fixes (`mr/7-firp-manifest-fixes`) 🐛⚠️🧪
+## FIRP Manifest Fixes (`mr/7-firp-manifest-fixes`) 🐛⚠️🧪
 
 Manifest round-trip fidelity improvements (FIRP = Full Information Round-trip Preservation).
 
@@ -21,7 +21,7 @@ Manifest round-trip fidelity improvements (FIRP = Full Information Round-trip Pr
 
 ---
 
-## MR 6 — FIRP Manifest Gaps (`mr/6-firp-manifest-gaps`) ⚠️
+## FIRP Manifest Gaps (`mr/6-firp-manifest-gaps`) ⚠️
 
 ### AuthoringSoftware preservation
 **File:** `WorkProductComponent.ts`
@@ -37,7 +37,7 @@ Manifest round-trip fidelity improvements (FIRP = Full Information Round-trip Pr
 
 ---
 
-## MR 5 — Auto-Negotiate Protocols (`mr/5-auto-negotiate-protocols`) ⚠️🧪
+## Auto-Negotiate Protocols (`mr/5-auto-negotiate-protocols`) ⚠️🧪
 
 ### Protocol auto-negotiation
 **Files:** `ResqmlClient.ts`, `ETPClient.ts`
@@ -53,7 +53,7 @@ Manifest round-trip fidelity improvements (FIRP = Full Information Round-trip Pr
 
 ---
 
-## MR 4 Addenda — Schema Service & CollaborationProject
+## Addenda — Schema Service & CollaborationProject
 
 ### Schema Service query at startup (MR 270 related)
 **Files:** `MilestoneKinds.ts`
