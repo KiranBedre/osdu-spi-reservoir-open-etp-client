@@ -1,4 +1,4 @@
-# CHANGELOG: Bug fixes and Extensions for RDDMS Client
+# CHANGELOG: M27 (2026) Major Bug fixes and Feature Extensions for RDDMS Client (maap@equinor.com)
 
 All changes vs upstream Emerson `@osdu/open-etp-client` (base commit: `cfffaa2`).
 
