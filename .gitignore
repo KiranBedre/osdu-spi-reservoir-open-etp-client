@@ -33,13 +33,6 @@ junit_report.xml
 
 # logs
 *.log
-
-# docs
-/docs/*
-
 /.cache/*
 /.vs
 .dccache
-
-open-etp-client-*.tgz
-docs/
