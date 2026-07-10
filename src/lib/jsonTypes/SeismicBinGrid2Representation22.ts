@@ -23,6 +23,7 @@ import { getKind, getKindOrFallback } from "./MilestoneKinds";
 import { SeismicHorizon22OSDU } from "./SeismicHorizon22";
 
 import { StructureMap22OSDU } from "./StructureMap22";
+import { GenericBinGrid22OSDU } from "./GenericBinGrid";
 
 const DBL_CST_ARRAY = "eml23.FloatingPointConstantArray";
 
@@ -304,6 +305,8 @@ export const Grid2dToOsduKind22 = (xml: IResqmlDataObject): string => {
     return getKindOrFallback("SeismicHorizon");
   } else if (StructureMap22OSDU.matchType(grid2d)) {
     return getKindOrFallback("StructureMap");
+  } else if (GenericBinGrid22OSDU.matchType(grid2d)) {
+    return getKindOrFallback("GenericBinGrid");
   }
   return getKindOrFallback("GenericRepresentation");
 };
@@ -324,7 +327,7 @@ export const Grid2dRepresentation22Manifest = async (
   context: OSDUContext,
   client: ResqmlClient
 ): Promise<
-  GenericRepresentation22OSDU | SeismicBinGrid22OSDU | SeismicHorizon22OSDU | StructureMap22OSDU
+  GenericRepresentation22OSDU | SeismicBinGrid22OSDU | SeismicHorizon22OSDU | StructureMap22OSDU | GenericBinGrid22OSDU
 > => {
   const kind = Grid2dToOsduKind22(xml);
   if (kind === getKindOrFallback("SeismicBinGrid")) {
@@ -333,6 +336,8 @@ export const Grid2dRepresentation22Manifest = async (
     return new SeismicHorizon22OSDU(xml, context).initData(uri, xml, client);
   } else if (kind === getKind("StructureMap")) {
     return new StructureMap22OSDU(xml, context).initData(uri, xml, client);
+  } else if (kind === getKind("GenericBinGrid")) {
+    return new GenericBinGrid22OSDU(xml, context).initData(uri, xml, client);
   }
   return new GenericRepresentation22OSDU(xml, context).initData(
     uri,

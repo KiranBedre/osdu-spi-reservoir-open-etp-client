@@ -31,6 +31,7 @@
 | `WPC--FaultInterpretation:1.2.0` | `obj_FaultInterpretation` | `FaultInterpretation` | Direct | ✅ |
 | `WPC--FluidBoundaryInterpretation:1.2.0` | `obj_FluidBoundaryFeature` | `FluidBoundaryInterpretation` | Direct | ✅ |
 | `WPC--FluidsReport:1.3.0` | — | `witsml21.FluidsReport` | Direct (WITSML) | ✅ |
+| `WPC--GenericBinGrid:1.0.0` | `obj_Grid2dRepresentation` (no interp) | `Grid2dRepresentation` (no interp) | Grid2d with no interpretation (isochore, DEM, etc.) | ✅ |
 | `WPC--GenericProperty:1.2.0` | `obj_CategoricalProperty`, `obj_ContinuousProperty`, `obj_DiscreteProperty` | `ContinuousProperty`, `DiscreteProperty` | Direct (NOT on WellboreFrame) | ✅ |
 | `WPC--GenericRepresentation:1.2.0` | `obj_TriangulatedSetRepresentation`, `obj_PointSetRepresentation`, `obj_BlockedWellboreRepresentation` | same | Direct (catch-all) | ✅ |
 | `WPC--GenericRepresentation:1.1.0` | `obj_PolylineRepresentation`, `obj_PolylineSetRepresentation` | same | Fallback when NOT SeismicFault | ✅ |
@@ -38,6 +39,7 @@
 | `WPC--GeobodyBoundaryInterpretation:1.1.0` | `obj_GeobodyBoundaryInterpretation` | `GeobodyBoundaryInterpretation` | Direct | ✅ |
 | `WPC--GeobodyInterpretation:1.3.0` | `obj_GeobodyInterpretation` | `GeobodyInterpretation` | Direct | ✅ |
 | `WPC--GridConnectionSetRepresentation:1.2.0` | `obj_GridConnectionSetRepresentation` | `GridConnectionSetRepresentation` | Direct | ✅ |
+| `WPC--HorizonControlPoints:1.0.0` | `obj_PointSetRepresentation` + HorizonInterp | `PointSetRepresentation` + HorizonInterp | PointSet with HorizonInterpretation | ✅ |
 | `WPC--HorizonInterpretation:1.2.0` | `obj_HorizonInterpretation` | `HorizonInterpretation` | Direct | ✅ |
 | `WPC--IjkGridRepresentation:1.2.0` | `obj_IjkGridRepresentation` | `IjkGridRepresentation` | Direct | ✅ |
 | `WPC--LocalBoundaryFeature:1.2.0` | `obj_GeneticBoundaryFeature`, `obj_TectonicBoundaryFeature` | `BoundaryFeature` | Direct | ✅ |
@@ -48,6 +50,7 @@
 | `WPC--Rig:1.3.0` | — | `witsml21.Rig` | Direct (WITSML) | ✅ |
 | `WPC--RockFluidOrganizationInterpretation:1.2.0` | `obj_RockFluidOrganizationInterpretation` | same | Direct | ✅ |
 | `WPC--RockFluidUnitInterpretation:1.3.0` | `obj_RockFluidUnitInterpretation` | same | Direct | ✅ |
+| `WPC--ReservoirCompartmentInterpretation:1.2.0` | — | `ReservoirCompartmentInterpretation` | Direct (v2.2 only) | ✅ |
 | `WPC--SealedSurfaceFramework:1.2.0` | `obj_SealedSurfaceFrameworkRepresentation` | same | Direct | ✅ |
 | `WPC--SealedVolumeFramework:1.2.0` | `obj_SealedVolumeFrameworkRepresentation` | same | Direct | ✅ |
 | `WPC--SeismicBinGrid:1.3.0` | `obj_Grid2dRepresentation` | `Grid2dRepresentation` | InterpretedFeature is `SeismicLatticeFeature` | ✅ |
@@ -69,6 +72,10 @@
 | `WPC--WellboreInterpretation:1.2.0` | — | `WellboreInterpretation` | Direct (v2.2 only) | ✅ |
 | `WPC--WellboreTrajectory:1.3.0` | — | `WellboreTrajectoryRepresentation`, `witsml21.Trajectory` | Direct | ✅ |
 | `WPC--WellLog:1.3.0` | `obj_WellboreFrameRepresentation` + Properties | same, `witsml21.Log` | Frame + attached properties → single WellLog | ✅ |
+| `WPC--FluidModel:1.0.0` | — | `prodml23.FluidCharacterization` | Direct (PRODML) | ✅ |
+| `WPC--ProductionValues:1.1.1` | — | `prodml23.TimeSeriesData` | Direct (PRODML) | ✅ |
+| `master-data--Reservoir:2.0.0` | — | — | MilestoneKinds only (no converter yet) | ⏳ |
+| `master-data--ReservoirSegment:2.0.0` | — | — | MilestoneKinds only (no converter yet) | ⏳ |
 
 ### Dynamic Routing
 
@@ -99,8 +106,6 @@ flowchart TD
 
 | OSDU Kind | Source | Notes |
 |---|---|---|
-| `WPC--GenericBinGrid:1.0.0` | Grid2d (no interp) | Ambiguous — could be isochore/DEM |
-| `WPC--HorizonControlPoints:1.0.0` | PointSet + HorizonInterp | Routing not yet implemented |
 | `WPC--VelocityModeling:1.4.0` | Property with velocity PropertyKind | Cross-object detection needed |
 | `master-data--Seismic3DInterpretationSet:1.0.0` | SeismicLatticeFeature | One-to-two conflict with SeismicAcquisitionSurvey |
 
@@ -224,8 +229,29 @@ The converter's `assignExtraMetaData()` method:
 3. If the path is valid on the record prototype → sets the value directly.
 4. If the path is **not** valid → stores in `data.ExtensionProperties` as a flat key.
 5. JSON values are auto-parsed; strings remain as strings.
+6. **Non-`osdu/` entries** are preserved in `data.ExtensionProperties.ResqmlMetadata` for lossless round-trip (not discarded).
 
-### 3.3 Recommended `osdu/` Keys
+### 3.3 Non-osdu Metadata Preservation
+
+Any `ExtraMetadata` / `ExtensionNameValue` entry that does NOT start with `osdu/` is stored under:
+
+```json
+{
+  "data": {
+    "ExtensionProperties": {
+      "ResqmlMetadata": {
+        "CustomField": "value",
+        "MyApp.BuildVersion": "3.2.1"
+      },
+      "AuthoringSoftware": "Petrel 2024.1"
+    }
+  }
+}
+```
+
+This enables lossless round-trip of application-specific metadata that doesn't map to any OSDU schema field.
+
+### 3.4 Recommended `osdu/` Keys
 
 | ExtraMetadata Name | OSDU Target | Type | Example Value |
 |---|---|---|---|
@@ -275,6 +301,12 @@ The converter's `assignExtraMetaData()` method:
 | `osdu/data/GapCount` | Number of gaps |
 | `osdu/data/ColumnCount` | Total column count |
 
+**Auto-populated fields (no ExtraMetadata needed):**
+- `RealizationIndex` — from `AbstractRepresentation.RealizationIndex`
+- `ParentGridID` — resolved from `ParentWindow.ParentIjkGridRepresentation` DOR
+- `RockFluidOrganizationInterpretationIDS` — from `CellFluidPhaseUnits.FluidOrganization`
+- `HasTruncations` — detected from `TruncationCells` (v2.0) / `TruncationCellPatch` (v2.2)
+
 #### Generic Properties
 
 | Key | Purpose |
@@ -282,6 +314,11 @@ The converter's `assignExtraMetaData()` method:
 | `osdu/data/PropertyTypeID` | Override auto-resolved PropertyType SRN |
 | `osdu/data/FacetTypeID` | Facet reference data |
 | `osdu/data/IndexableElementTypeID` | Indexable element reference |
+
+**Auto-populated fields (no ExtraMetadata needed):**
+- `FacetIDs` — mapped from `xml.Facet[]` → `{ FacetRoleID, FacetTypeID }` reference-data SRNs
+- `RealizationIndices` (v2.2) — from `xml.RealizationIndices`
+- `TimeIndices` / `TimeSeriesID` (v2.2) — from `xml.TimeOrIntervalSeries`
 
 ---
 

@@ -1070,6 +1070,8 @@ export class ResqmlResource<RES_TYPE extends IResqmlDataObject> {
     if (extraMetadata === undefined) {
       return;
     }
+
+    // Process osdu/-prefixed entries: map to OSDU schema fields
     extraMetadata
       .filter(x => x.Name.startsWith("osdu/"))
       .forEach(x => {
@@ -1120,6 +1122,33 @@ export class ResqmlResource<RES_TYPE extends IResqmlDataObject> {
           data.ExtensionProperties[path.join("/")] = x.Value;
         }
       });
+
+    // Preserve non-osdu metadata for lossless round-trip
+    const nonOsduEntries = extraMetadata.filter(
+      x => !x.Name.startsWith("osdu/")
+    );
+    if (nonOsduEntries.length > 0 && "data" in this && typeof this.data === "object") {
+      const data = this.data as Record<string, any>;
+      if (data["ExtensionProperties"] === undefined) {
+        data["ExtensionProperties"] = {};
+      }
+      const resqmlMeta: Record<string, unknown> =
+        (data.ExtensionProperties["ResqmlMetadata"] as Record<string, unknown>) ?? {};
+      for (const entry of nonOsduEntries) {
+        let value: unknown = entry.Value;
+        try {
+          if (typeof entry.Value === "object") {
+            value = JSON.parse((entry.Value as any)._);
+          } else {
+            value = JSON.parse(entry.Value as string);
+          }
+        } catch {
+          // keep as-is
+        }
+        resqmlMeta[entry.Name] = value;
+      }
+      data.ExtensionProperties["ResqmlMetadata"] = resqmlMeta;
+    }
 
     // Preserve authoring software (Citation.Format) for round-trip fidelity
     if (this.authoringSoftware && "data" in this && typeof this.data === "object") {

@@ -97,6 +97,9 @@ import { SealedSurfaceFrameworkManifest } from "./SealedSurfaceFramework";
 import { SealedSurfaceFramework22Manifest } from "./SealedSurfaceFramework22";
 import { SealedVolumeFrameworkManifest } from "./SealedVolumeFramework";
 import { SealedVolumeFramework22Manifest } from "./SealedVolumeFramework22";
+import { ReservoirCompartmentInterpretation22Manifest } from "./ReservoirCompartmentInterpretation22";
+import { FluidModelManifest } from "./FluidModel";
+import { ProductionValuesManifest } from "./ProductionValues";
 
 export { EtpDataspaceManifest } from "./ETPDataspace";
 export { CollaborationProjectManifest, deriveCollaborationId } from "./CollaborationProject";
@@ -647,6 +650,26 @@ ResqmlOSDU.add(
   "resqml22.WellboreFrameRepresentation",
   () => "osdu:wks:work-product-component--WellLog:1.3.0",
   WellboreFrameToWellLog22Manifest
+);
+
+// ─── S3: Reservoir Management & Engineering ──────────────────────────────────
+
+ResqmlOSDU.add(
+  "resqml22.ReservoirCompartmentInterpretation",
+  () => getKindOrFallback("ReservoirCompartmentInterpretation"),
+  ReservoirCompartmentInterpretation22Manifest
+);
+
+ResqmlOSDU.add(
+  "prodml23.FluidCharacterization",
+  () => getKindOrFallback("FluidModel"),
+  FluidModelManifest
+);
+
+ResqmlOSDU.add(
+  "prodml23.TimeSeriesData",
+  () => getKindOrFallback("ProductionValues"),
+  ProductionValuesManifest
 );
 
 export default ResqmlOSDU;

@@ -23,8 +23,7 @@ export class GenericPropertyOSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml20.AbstractValuesProperty>
   >
-  implements GenericProperty
-{
+  implements GenericProperty {
   public data: Data = {};
   public meta?: FrameOfReferenceMetaDataItem[];
 
@@ -205,34 +204,41 @@ export class GenericPropertyOSDU
         ? (xml.PropertyKind as SimpleJson<resqml20.LocalPropertyKind>)
         : undefined;
 
+    const facetIDs = xml.Facet
+      ? xml.Facet.filter((f: any) => f.Facet && f.Value).map((f: any) => ({
+        FacetRoleID: context.addReferenceData("PropertyKindFacet", f.Value) as string,
+        FacetTypeID: context.addReferenceData("FacetType", f.Facet) as string
+      }))
+      : undefined;
+
     this.data = {
       ...(await this.AbstractCommonResources(context)),
       ...(await this.AbstractWPCGroupType(ReservoirDMSUrl, context)),
       ...(await this.AbstractWorkProductComponent(xml, context)),
-      FacetIDs: undefined,
+      FacetIDs: facetIDs,
       PropertyType: pKind
         ? {
-            PropertyTypeID:
-              (await GenericPropertyOSDU.dorToSrn(
-                ReservoirDMSUrl,
-                pKind.LocalPropertyKind,
-                client,
-                context
-              )) ?? "",
-            Name: pKind.LocalPropertyKind.Title
-          }
+          PropertyTypeID:
+            (await GenericPropertyOSDU.dorToSrn(
+              ReservoirDMSUrl,
+              pKind.LocalPropertyKind,
+              client,
+              context
+            )) ?? "",
+          Name: pKind.LocalPropertyKind.Title
+        }
         : {
-            PropertyTypeID: context.addReferenceData(
-              "PropertyType",
-              getPropertyTypeIDFromResqmlAlias(
-                (xml.PropertyKind as SimpleJson<resqml20.StandardPropertyKind>)
-                  .Kind
-              )
-            ),
-            Name: (
-              xml.PropertyKind as SimpleJson<resqml20.StandardPropertyKind>
-            ).Kind
-          },
+          PropertyTypeID: context.addReferenceData(
+            "PropertyType",
+            getPropertyTypeIDFromResqmlAlias(
+              (xml.PropertyKind as SimpleJson<resqml20.StandardPropertyKind>)
+                .Kind
+            )
+          ),
+          Name: (
+            xml.PropertyKind as SimpleJson<resqml20.StandardPropertyKind>
+          ).Kind
+        },
       /**
        * Only populated if ValueType=="string" and the values are expected to represent record
        * ids, e.g. to a reference-data type, then this value holds the kind (optionally without

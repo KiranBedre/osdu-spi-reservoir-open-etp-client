@@ -37,8 +37,7 @@ export class IjkGridRepresentationOSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml20.obj_IjkGridRepresentation>
   >
-  implements IjkGridRepresentation
-{
+  implements IjkGridRepresentation {
   public data: Abstract = {};
   public meta?: FrameOfReferenceMetaDataItem[];
 
@@ -147,10 +146,10 @@ export class IjkGridRepresentationOSDU
       ).uri;
       const stratiIndices = xml.IntervalStratigraphicUnits?.UnitIndices
         ? await getIntegerValues(
-            dataspaceUri,
-            xml.IntervalStratigraphicUnits?.UnitIndices,
-            client
-          )
+          dataspaceUri,
+          xml.IntervalStratigraphicUnits?.UnitIndices,
+          client
+        )
         : undefined;
 
       const context = this.__context;
@@ -217,13 +216,30 @@ export class IjkGridRepresentationOSDU
         client,
         context
       ),
-      RealizationIndex: undefined,
-      TimeSeries: undefined, //{ TimeIndex: 0, TimeSeriesID: "" },
+      RealizationIndex: (xml as any).RealizationIndex,
+      TimeSeries: undefined,
       ActiveCellCount: await this.activeCellCount(ReservoirDMSUrl, xml, client),
       HasFiniteElementSubnodes: xml.Geometry?.SubnodeTopology !== undefined,
       HasNaNGeometry: undefined,
-      ParentGridID: undefined,
-      RockFluidOrganizationInterpretationIDS: undefined,
+      ParentGridID: xml.ParentWindow
+        ? await IjkGridRepresentationOSDU.dorToSrn(
+          ReservoirDMSUrl,
+          (xml.ParentWindow as any).ParentIjkGridRepresentation ??
+          (xml.ParentWindow as any).ParentColumnLayerGridRepresentation,
+          client,
+          context
+        )
+        : undefined,
+      RockFluidOrganizationInterpretationIDS: xml.CellFluidPhaseUnits
+        ? [
+          await IjkGridRepresentationOSDU.dorToSrn(
+            ReservoirDMSUrl,
+            xml.CellFluidPhaseUnits.FluidOrganization,
+            client,
+            context
+          )
+        ].filter((x): x is string => x !== undefined)
+        : undefined,
       StratigraphicUnits: await this.stratigraphicUnits(
         ReservoirDMSUrl,
         xml,
@@ -239,7 +255,7 @@ export class IjkGridRepresentationOSDU
         xml.Geometry?.Points.$type === "Point3dParametricArray",
       HasNoGeometry: xml.Geometry === undefined,
       HasSplitNode: xml.Geometry?.SplitNodes !== undefined,
-      HasTruncations: undefined,
+      HasTruncations: (xml as any).TruncationCells !== undefined,
       KDirectionID: context.addReferenceData(
         "KDirectionType",
         xml.Geometry?.KDirection.replace(" ", "%20")

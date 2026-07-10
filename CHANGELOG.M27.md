@@ -192,6 +192,75 @@ All handlers registered in `ResqmlClient.ts` and exposed via REST endpoints belo
 
 ---
 
+## Reservoir Management & Round-Trip Enhancements
+
+Additive enhancements for reservoir modelling workflows and lossless round-trip fidelity.
+
+### ExtraMetadata preservation
+**File:** `WorkProductComponent.ts`
+**Change:** Non-`osdu/`-prefixed ExtraMetadata entries are now preserved in `data.ExtensionProperties.ResqmlMetadata` (previously discarded). Enables lossless OSDU→RESQML reconstruction of arbitrary metadata.
+
+### IjkGrid field completion (v2.0 + v2.2)
+**Files:** `IjkGridRepresentation.ts`, `IjkGridRepresentation22.ts`
+**Change:** Previously hardcoded `undefined` fields now populated from RESQML data:
+- `RealizationIndex` — from `AbstractRepresentation.RealizationIndex`
+- `ParentGridID` — resolved from `ParentWindow.ParentIjkGridRepresentation` DOR
+- `RockFluidOrganizationInterpretationIDS` — resolved from `CellFluidPhaseUnits.FluidOrganization` (v2.0) / `.RockFluidOrganizationInterpretation` (v2.2)
+- `HasTruncations` — detected from `TruncationCells` (v2.0) / `TruncationCellPatch` (v2.2)
+
+### GenericProperty FacetIDs (v2.0 + v2.2)
+**Files:** `GenericProperty.ts`, `GenericProperty22.ts`
+**Change:** `FacetIDs` now mapped from `xml.Facet[]` → `{ FacetRoleID, FacetTypeID }[]` reference-data SRNs (previously `undefined`).
+
+### GenericProperty22 RealizationIndices + TimeIndices
+**File:** `GenericProperty22.ts`
+**Change:** `RealizationIndices` mapped from `xml.RealizationIndices`. `TimeIndices` mapped from `xml.TimeOrIntervalSeries.TimeIndexStart` when a time series is attached.
+
+### New converter: ReservoirCompartmentInterpretation (v2.2)
+**File:** `ReservoirCompartmentInterpretation22.ts`
+**Target:** `osdu:wks:work-product-component--ReservoirCompartmentInterpretation:1.2.0`
+**Source:** `resqml22.ReservoirCompartmentInterpretation`
+**Maps:** GeologicUnit3dShape, GeologicUnitComposition, DepositionalEnvironment → reference-data IDs. Nested `ReservoirCompartmentUnit[]` with FluidUnit + GeologicUnit DORs.
+
+### New converter: FluidModel (PRODML 2.3)
+**File:** `FluidModel.ts`
+**Target:** `osdu:wks:work-product-component--FluidModel:1.0.0`
+**Source:** `prodml23.FluidCharacterization`
+**Maps:** Kind → FluidModelTypeID, RockFluidUnitInterpretation → ModelAreaOfInterestIDs, IntendedUsage → BasisOfModelling. Preserves rich PRODML data (component catalogs, model names, standard conditions) in ExtensionProperties.
+
+### New converter: ProductionValues (PRODML 2.3)
+**File:** `ProductionValues.ts`
+**Target:** `osdu:wks:work-product-component--ProductionValues:1.1.1`
+**Source:** `prodml23.TimeSeriesData`
+**Maps:** DataValue date range → StartDateTime/EndDateTime, Key[] → PropertyIDs, MeasureClass → reference-data. Preserves Comment, Uom, SampleCount in ExtensionProperties.
+
+### MilestoneKinds expansion
+**File:** `MilestoneKinds.ts`
+**Change:** Added 13 entries to static M27 fallback table:
+- Master-data: `Reservoir:2.0.0`, `ReservoirSegment:2.0.0`
+- WPC: `ReservoirCompartmentInterpretation:1.2.0`, `FluidModel:1.0.0`, `SaturationFunctionSet:1.0.0`, `ReservoirModelScenario:1.0.0`, `ReservoirSimulationModel:1.0.0`, `ReservoirSimulationEquilibriumModel:1.0.0`, `ReservoirSimulationRockPhysicsModel:1.0.0`, `ReservoirSimulationRunConfiguration:1.0.0`, `ReservoirEstimatedVolumes:1.1.1`, `ProductionValues:1.1.1`, `GeoLabelSet:1.1.0`
+
+### New converter: GenericBinGrid
+**File:** `GenericBinGrid.ts`
+**Target:** `osdu:wks:work-product-component--GenericBinGrid:1.0.0`
+**Source:** `Grid2dRepresentation` with no interpretation
+**Maps:** Grid lattice geometry (NodeCount, BinWidth, Origin, Bearing), spatial info from corners. Previously these fell through to GenericRepresentation losing grid semantics.
+
+### New converter: HorizonControlPoints
+**File:** `HorizonControlPoints.ts`
+**Target:** `osdu:wks:work-product-component--HorizonControlPoints:1.0.0`
+**Source:** `PointSetRepresentation` with `HorizonInterpretation`
+**Maps:** InterpretationID, InterpretationName, spatial info from point set. Previously these routed to StructureMap (which is for grid/surface representations, not scattered control points).
+
+### Grid2d routing update ⚠️
+**Files:** `SeismicBinGrid2Representation.ts`/`22.ts`, `GenericRepresentation.ts`/`22.ts`
+**Change:** Updated routing priority:
+- Grid2d: SeismicBinGrid → SeismicHorizon → StructureMap → **GenericBinGrid** → GenericRepresentation
+- PointSet: **HorizonControlPoints** (PointSet only) → StructureMap (TriangulatedSet/etc) → GenericRepresentation
+- Grid2d with non-horizon/non-seismic interpretation still falls to GenericRepresentation
+
+---
+
 ## Test Coverage
 
 | Suite | Count | What it covers |
@@ -199,8 +268,10 @@ All handlers registered in `ResqmlClient.ts` and exposed via REST endpoints belo
 | `TestCrsAndBugfixes.ts` | 41 | All bug fixes and non-additive changes above (rotation, node count, dateTime, delete, routing, chunking, SIGTERM, type filter, best-effort) |
 | `TestManifest.ts` | 12 | Converter registry, collaboration UUID, dedup, SSL toggle, lineage generation |
 | `TestSeismicLineGeometry.ts` | 7 | SeismicLine coordinate extraction and kind mapping |
-| Other suites (unchanged) | 239 | Pre-existing ETP protocol, client, error mapping, input validation tests |
-| **Total** | **299** | All pass via `npm test` |
+| `TestReservoirConverters.ts` | 40 | Reservoir management converters, IjkGrid enhancements, FacetIDs, MilestoneKinds, PRODML converters |
+| `TestBinGridAndControlPoints.ts` | 18 | GenericBinGrid + HorizonControlPoints routing (v2.0 + v2.2) |
+| Other suites (unchanged) | 70 | Pre-existing ETP protocol, client, error mapping, input validation, common tests |
+| **Total** | **188** | All pass via `npm test` |
 
 **Integration tests** (require running ETP server — excluded from `npm test`):
 - `TestClient.ts` — end-to-end ETP connection + auth
