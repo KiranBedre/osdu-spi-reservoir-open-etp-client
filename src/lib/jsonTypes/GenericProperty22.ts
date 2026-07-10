@@ -176,9 +176,9 @@ export class GenericProperty22OSDU
     //Map RealizationIndices, TimeIndices, Facets
     const facetIDs = xml.Facet
       ? xml.Facet.filter((f: any) => f.Facet && f.Value).map((f: any) => ({
-          FacetRoleID: context.addReferenceData("PropertyKindFacet", f.Value) as string,
-          FacetTypeID: context.addReferenceData("FacetType", f.Facet) as string
-        }))
+        FacetRoleID: context.addReferenceData("PropertyKindFacet", f.Value) as string,
+        FacetTypeID: context.addReferenceData("FacetType", f.Facet) as string
+      }))
       : undefined;
 
     this.data = {

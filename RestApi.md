@@ -452,10 +452,20 @@ Body:
 
 **Key behaviors (MR 3 changes):**
 
-- **Default type filter** — only common representation/interpretation types included. Pass `typePatterns: ["*"]` to restore old behavior.
+- **Default type filter** — only common representation/interpretation types included. Pass `typePatterns: ["*"]` for all.
 - **Best-effort mode** — partial results returned on converter errors. Check `errors[]` in response.
 - **Auto-collaboration UUID** — deterministic UUID v5 from dataspace name (no manual header needed).
 - **Milestone versioning** — uses `OSDU_MILESTONE` env var (default M27) for OSDU schema versions.
+
+**Supported source domains:**
+
+- RESQML 2.0.1 (`resqml20.obj_*`) — grids, interpretations, representations, properties
+- RESQML 2.2 (`resqml22.*`) — same + ReservoirCompartmentInterpretation, StreamlinesFeature
+- PRODML 2.3 (`prodml23.*`) — FluidCharacterization → FluidModel, TimeSeriesData → ProductionValues
+- WITSML 2.1 (`witsml21.*`) — Well, Wellbore, Log, Trajectory, Rig, Tubular, FluidsReport, BHARun, WellCompletion
+- EML 2.3 (`eml23.*`) — Activity, ActivityTemplate, PropertyKind, DataobjectCollection
+
+Use `GET /health/converters` to list all registered source types and their target OSDU kinds.
 
 ---
 
