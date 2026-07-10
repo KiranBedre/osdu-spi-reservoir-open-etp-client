@@ -2,7 +2,7 @@ import * as resqml22 from "../mlTypes/xmlns/www.energistics.org/energyml/resqmlv
 import type { SimpleJson } from "../mlTypes/XmlJsonUtil";
 import { EtpUri, IResqmlDataObject, ResqmlClient } from "../client/ResqmlClient";
 
-import { getKindOrFallback } from "./MilestoneKinds";
+import { getKind, getKindOrFallback } from "./MilestoneKinds";
 import { OSDUContext } from "./OsduContext";
 import {
   getGeometries,
@@ -371,8 +371,14 @@ export class GenericRepresentation22OSDU
   }
 }
 
+import {
+  isStructureMapSurface22,
+  StructureMapSurface22Manifest,
+  StructureMap22OSDU
+} from "./StructureMap22";
+
 /**
- * Identify OSDU kind for Representation, can create either a SeismicFault, SeismicHorizon or GenericRepresentation
+ * Identify OSDU kind for Representation, can create either a SeismicFault, StructureMap, or GenericRepresentation
  *
  * @param {IResqmlDataObject} xml
  * @return {string}
@@ -391,6 +397,9 @@ export const GenericRepresentation22ToOsduKind = (
       }
     }
   }
+  if (isStructureMapSurface22(genRep)) {
+    return getKind("StructureMap");
+  }
   return getKindOrFallback("GenericRepresentation");
 };
 
@@ -399,5 +408,10 @@ export const GenericRepresentation22Manifest = async (
   xml: SimpleJson<resqml22.AbstractSurfaceRepresentation>,
   context: OSDUContext,
   client: ResqmlClient
-): Promise<GenericRepresentation22OSDU> =>
-  new GenericRepresentation22OSDU(xml, context).initData(uri, xml, client);
+): Promise<GenericRepresentation22OSDU | StructureMap22OSDU> => {
+  const kind = GenericRepresentation22ToOsduKind(xml);
+  if (kind === getKind("StructureMap")) {
+    return StructureMapSurface22Manifest(uri, xml, context, client);
+  }
+  return new GenericRepresentation22OSDU(xml, context).initData(uri, xml, client);
+};

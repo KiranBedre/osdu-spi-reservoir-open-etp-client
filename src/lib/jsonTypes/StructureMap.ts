@@ -3,7 +3,7 @@ import type { SimpleJson } from "../mlTypes/XmlJsonUtil";
 import { EtpContentType, EtpUri, ResqmlClient } from "../client/ResqmlClient";
 
 import { OSDUContext } from "./OsduContext";
-import { ResqmlWorkProductComponent } from "./WorkProductComponent";
+import { getGeometries, ResqmlWorkProductComponent } from "./WorkProductComponent";
 
 import {
   Data,
@@ -296,3 +296,65 @@ export class StructureMapOSDU
     return this;
   }
 }
+
+/**
+ * Check if a non-Grid2d representation (PointSet, TriangulatedSet) qualifies
+ * as a StructureMap (has a HorizonInterpretation).
+ */
+export const isStructureMapSurface = (
+  xml: SimpleJson<resqml20.AbstractRepresentation>
+): boolean => {
+  const ct = (xml as any).RepresentedInterpretation?.ContentType;
+  if (!ct) return false;
+  return new EtpContentType(ct).dataType === "obj_HorizonInterpretation";
+};
+
+/**
+ * StructureMap converter for surface representations (PointSet, TriangulatedSet).
+ * Produces a StructureMap record without grid-specific fields.
+ */
+export const StructureMapSurfaceManifest = async (
+  uri: string,
+  xml: SimpleJson<resqml20.AbstractRepresentation>,
+  context: OSDUContext,
+  client: ResqmlClient
+): Promise<StructureMapOSDU> => {
+  const osdu = new StructureMapOSDU(xml as any, context);
+  const ctx = (osdu as any).__context as OSDUContext;
+  if (!ctx) return osdu;
+
+  const geometries = getGeometries(xml);
+
+  osdu.data = {
+    ...(await (osdu as any).AbstractCommonResources(ctx)),
+    ...(await (osdu as any).AbstractWPCGroupType(uri, ctx)),
+    ...(await (osdu as any).AbstractWorkProductComponent(xml, ctx)),
+    InterpretationID: await StructureMapOSDU.dorToSrn(
+      uri,
+      (xml as any).RepresentedInterpretation,
+      client,
+      ctx
+    ),
+    InterpretationName: (xml as any).RepresentedInterpretation?.Title,
+    LocalModelCompoundCrsID:
+      geometries.length > 0 && geometries[0]?.LocalCrs
+        ? await StructureMapOSDU.dorToSrn(
+          uri,
+          geometries[0].LocalCrs,
+          client,
+          ctx
+        )
+        : undefined,
+    ExtensionProperties: undefined
+  };
+
+  // Enrich Name
+  const interpName = osdu.data.InterpretationName;
+  if (interpName && osdu.data.Name && !osdu.data.Name.startsWith(interpName)) {
+    osdu.data.Name = `${interpName} \u2014 ${osdu.data.Name}`;
+  }
+
+  (osdu as any).assignExtraMetaData((xml as any).ExtraMetadata);
+  delete (osdu as any).__context;
+  return osdu;
+};
