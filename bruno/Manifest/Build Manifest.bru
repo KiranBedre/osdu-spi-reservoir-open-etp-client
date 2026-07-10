@@ -1,0 +1,36 @@
+meta {
+  name: Build Manifest
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/manifests/build
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "uris": ["eml:///dataspace('demo/Volve')"],
+    "typePatterns": ["*"],
+    "createMissingReferences": true,
+    "tags": {}
+  }
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns manifest with Data", function () {
+    const body = res.getBody();
+    expect(body).to.have.property("Data");
+  });
+}

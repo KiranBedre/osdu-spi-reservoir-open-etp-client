@@ -1,0 +1,22 @@
+meta {
+  name: Commit Transaction
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{host}}/dataspaces/{{dataspaceId}}/transactions/{{transactionId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

@@ -1,0 +1,31 @@
+meta {
+  name: Put Array
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{host}}/dataspaces/{{dataspaceId}}/resources/arrays?transactionId={{transactionId}}
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "uri": "eml:///dataspace('demo/Volve')/{{dataObjectType}}({{guid}})",
+    "pathInResource": "/points",
+    "dimensions": [3],
+    "data": [1.0, 2.0, 3.0]
+  }
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+}

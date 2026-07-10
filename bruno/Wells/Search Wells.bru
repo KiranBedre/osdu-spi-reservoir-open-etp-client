@@ -1,0 +1,27 @@
+meta {
+  name: Search Wells
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{host}}/wells?name=*&dataspace=demo/Volve&include=logs,trajectories
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns wells array", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("array");
+  });
+}

@@ -1,0 +1,30 @@
+meta {
+  name: Get Multiple Objects
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{host}}/dataspaces/multi-resources/get-content
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "uris": [
+      "eml:///dataspace('demo/Volve')/{{dataObjectType}}({{guid}})"
+    ]
+  }
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

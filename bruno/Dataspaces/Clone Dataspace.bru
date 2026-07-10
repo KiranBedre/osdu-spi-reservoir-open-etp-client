@@ -1,0 +1,28 @@
+meta {
+  name: Clone Dataspace
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{host}}/dataspaces/{{dataspaceId}}/clone
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "target": "test/bruno-clone"
+  }
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+}

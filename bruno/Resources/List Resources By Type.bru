@@ -1,0 +1,36 @@
+meta {
+  name: List Resources By Type
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{host}}/dataspaces/{{dataspaceId}}/resources/{{dataObjectType}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    if (Array.isArray(body) && body.length > 0 && body[0].uuid) {
+      bru.setVar("guid", body[0].uuid);
+    }
+  }
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns resources of requested type", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("array");
+  });
+}

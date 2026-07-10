@@ -1,0 +1,22 @@
+meta {
+  name: PWLS Catalog
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{host}}/pwls/catalog
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

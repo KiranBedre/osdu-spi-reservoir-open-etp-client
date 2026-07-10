@@ -1,0 +1,22 @@
+meta {
+  name: Delete Dataspace
+  type: http
+  seq: 7
+}
+
+delete {
+  url: {{host}}/dataspaces/{{dataspaceId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+tests {
+  test("status is 200 or 204", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 204]);
+  });
+}

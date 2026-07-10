@@ -1,0 +1,36 @@
+meta {
+  name: Put Objects
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{host}}/dataspaces/{{dataspaceId}}/resources?transactionId={{transactionId}}
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  [
+    {
+      "$type": "resqml20.obj_TriangulatedSetRepresentation",
+      "Citation": {
+        "Title": "Bruno Test Surface",
+        "Originator": "Bruno Collection",
+        "Creation": "2026-07-10T00:00:00Z",
+        "Format": "Reservoir DDMS Bruno"
+      }
+    }
+  ]
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+}

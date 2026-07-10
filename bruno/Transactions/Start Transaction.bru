@@ -1,0 +1,36 @@
+meta {
+  name: Start Transaction
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/dataspaces/{{dataspaceId}}/transactions
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  if (res.getStatus() === 200 || res.getStatus() === 201) {
+    const body = res.getBody();
+    if (body && body.transactionId) {
+      bru.setVar("transactionId", body.transactionId);
+    }
+  }
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("returns transactionId", function () {
+    const body = res.getBody();
+    expect(body).to.have.property("transactionId");
+  });
+}

@@ -20,9 +20,10 @@ witsml_json
 coverage/
 # jest unit test
 *junit.xml
-# tslint
+# lint
 *lint-junit.xml
 *lint-report.json
+tslint.json
 # jasmine
 junit_report.xml
 

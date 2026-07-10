@@ -1,0 +1,31 @@
+meta {
+  name: Find Objects
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/query/objects/find
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "uri": "eml:///dataspace('demo/Volve')",
+    "scope": "self",
+    "depth": 1,
+    "dataObjectTypes": ["resqml20.obj_IjkGridRepresentation"]
+  }
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}
