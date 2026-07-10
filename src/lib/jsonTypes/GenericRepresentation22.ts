@@ -99,18 +99,11 @@ export class GenericRepresentation22OSDU
     } else if (xml.$type === "resqml22.PointSetRepresentation") {
       const points = xml as any;
       let NodeCount = 0;
-      // v2.2: NodePatchGeometry; v2.0.1-style: NodePatch[].Geometry
-      let patches: any[] = [];
-      if (points.NodePatchGeometry) {
-        patches = Array.isArray(points.NodePatchGeometry)
+      const patches: any[] = points.NodePatchGeometry
+        ? Array.isArray(points.NodePatchGeometry)
           ? points.NodePatchGeometry
-          : [points.NodePatchGeometry];
-      } else if (points.NodePatch) {
-        const nps = Array.isArray(points.NodePatch)
-          ? points.NodePatch
-          : [points.NodePatch];
-        patches = nps.map((np: any) => np.Geometry).filter(Boolean);
-      }
+          : [points.NodePatchGeometry]
+        : [];
       patches.forEach((p: any) => {
         if (p?.Points) {
           try {

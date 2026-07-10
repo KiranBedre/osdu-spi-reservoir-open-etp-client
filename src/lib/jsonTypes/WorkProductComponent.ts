@@ -590,24 +590,17 @@ export const getGeometries = (
     return polyLine.LinePatch.map(p => p.Geometry);
   } else if (xml.$type === "resqml22.PointSetRepresentation") {
     const points = xml as any;
-    // v2.2 uses NodePatchGeometry; v2.0.1-style EPCs use NodePatch[].Geometry
     if (points.NodePatchGeometry) {
       return Array.isArray(points.NodePatchGeometry)
         ? points.NodePatchGeometry
         : [points.NodePatchGeometry];
-    } else if (points.NodePatch) {
-      const patches = Array.isArray(points.NodePatch)
-        ? points.NodePatch
-        : [points.NodePatch];
-      return patches.map((p: any) => p.Geometry).filter(Boolean);
     }
+    // v2.0.1-style NodePatch dropped by v2.2 parser — geometry unavailable
     return [];
   } else if (xml.$type === "resqml22.PolylineRepresentation") {
     const line = xml as any;
     if (line.NodePatchGeometry) {
       return [line.NodePatchGeometry];
-    } else if (line.NodePatch) {
-      return [line.NodePatch.Geometry].filter(Boolean);
     }
     return [];
   }
