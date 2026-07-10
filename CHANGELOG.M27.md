@@ -240,6 +240,25 @@ Additive enhancements for reservoir modelling workflows and lossless round-trip 
 - Master-data: `Reservoir:2.0.0`, `ReservoirSegment:2.0.0`
 - WPC: `ReservoirCompartmentInterpretation:1.2.0`, `FluidModel:1.0.0`, `SaturationFunctionSet:1.0.0`, `ReservoirModelScenario:1.0.0`, `ReservoirSimulationModel:1.0.0`, `ReservoirSimulationEquilibriumModel:1.0.0`, `ReservoirSimulationRockPhysicsModel:1.0.0`, `ReservoirSimulationRunConfiguration:1.0.0`, `ReservoirEstimatedVolumes:1.1.1`, `ProductionValues:1.1.1`, `GeoLabelSet:1.1.0`
 
+### New converter: GenericBinGrid
+**File:** `GenericBinGrid.ts`
+**Target:** `osdu:wks:work-product-component--GenericBinGrid:1.0.0`
+**Source:** `Grid2dRepresentation` with no interpretation
+**Maps:** Grid lattice geometry (NodeCount, BinWidth, Origin, Bearing), spatial info from corners. Previously these fell through to GenericRepresentation losing grid semantics.
+
+### New converter: HorizonControlPoints
+**File:** `HorizonControlPoints.ts`
+**Target:** `osdu:wks:work-product-component--HorizonControlPoints:1.0.0`
+**Source:** `PointSetRepresentation` with `HorizonInterpretation`
+**Maps:** InterpretationID, InterpretationName, spatial info from point set. Previously these routed to StructureMap (which is for grid/surface representations, not scattered control points).
+
+### Grid2d routing update ⚠️
+**Files:** `SeismicBinGrid2Representation.ts`/`22.ts`, `GenericRepresentation.ts`/`22.ts`
+**Change:** Updated routing priority:
+- Grid2d: SeismicBinGrid → SeismicHorizon → StructureMap → **GenericBinGrid** → GenericRepresentation
+- PointSet: **HorizonControlPoints** (PointSet only) → StructureMap (TriangulatedSet/etc) → GenericRepresentation
+- Grid2d with non-horizon/non-seismic interpretation still falls to GenericRepresentation
+
 ---
 
 ## Test Coverage
@@ -250,8 +269,9 @@ Additive enhancements for reservoir modelling workflows and lossless round-trip 
 | `TestManifest.ts` | 12 | Converter registry, collaboration UUID, dedup, SSL toggle, lineage generation |
 | `TestSeismicLineGeometry.ts` | 7 | SeismicLine coordinate extraction and kind mapping |
 | `TestReservoirConverters.ts` | 40 | Reservoir management converters, IjkGrid enhancements, FacetIDs, MilestoneKinds, PRODML converters |
+| `TestBinGridAndControlPoints.ts` | 18 | GenericBinGrid + HorizonControlPoints routing (v2.0 + v2.2) |
 | Other suites (unchanged) | 70 | Pre-existing ETP protocol, client, error mapping, input validation, common tests |
-| **Total** | **170** | All pass via `npm test` |
+| **Total** | **188** | All pass via `npm test` |
 
 **Integration tests** (require running ETP server — excluded from `npm test`):
 - `TestClient.ts` — end-to-end ETP connection + auth

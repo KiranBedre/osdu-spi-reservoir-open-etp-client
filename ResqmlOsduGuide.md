@@ -31,6 +31,7 @@
 | `WPC--FaultInterpretation:1.2.0` | `obj_FaultInterpretation` | `FaultInterpretation` | Direct | ✅ |
 | `WPC--FluidBoundaryInterpretation:1.2.0` | `obj_FluidBoundaryFeature` | `FluidBoundaryInterpretation` | Direct | ✅ |
 | `WPC--FluidsReport:1.3.0` | — | `witsml21.FluidsReport` | Direct (WITSML) | ✅ |
+| `WPC--GenericBinGrid:1.0.0` | `obj_Grid2dRepresentation` (no interp) | `Grid2dRepresentation` (no interp) | Grid2d with no interpretation (isochore, DEM, etc.) | ✅ |
 | `WPC--GenericProperty:1.2.0` | `obj_CategoricalProperty`, `obj_ContinuousProperty`, `obj_DiscreteProperty` | `ContinuousProperty`, `DiscreteProperty` | Direct (NOT on WellboreFrame) | ✅ |
 | `WPC--GenericRepresentation:1.2.0` | `obj_TriangulatedSetRepresentation`, `obj_PointSetRepresentation`, `obj_BlockedWellboreRepresentation` | same | Direct (catch-all) | ✅ |
 | `WPC--GenericRepresentation:1.1.0` | `obj_PolylineRepresentation`, `obj_PolylineSetRepresentation` | same | Fallback when NOT SeismicFault | ✅ |
@@ -38,6 +39,7 @@
 | `WPC--GeobodyBoundaryInterpretation:1.1.0` | `obj_GeobodyBoundaryInterpretation` | `GeobodyBoundaryInterpretation` | Direct | ✅ |
 | `WPC--GeobodyInterpretation:1.3.0` | `obj_GeobodyInterpretation` | `GeobodyInterpretation` | Direct | ✅ |
 | `WPC--GridConnectionSetRepresentation:1.2.0` | `obj_GridConnectionSetRepresentation` | `GridConnectionSetRepresentation` | Direct | ✅ |
+| `WPC--HorizonControlPoints:1.0.0` | `obj_PointSetRepresentation` + HorizonInterp | `PointSetRepresentation` + HorizonInterp | PointSet with HorizonInterpretation | ✅ |
 | `WPC--HorizonInterpretation:1.2.0` | `obj_HorizonInterpretation` | `HorizonInterpretation` | Direct | ✅ |
 | `WPC--IjkGridRepresentation:1.2.0` | `obj_IjkGridRepresentation` | `IjkGridRepresentation` | Direct | ✅ |
 | `WPC--LocalBoundaryFeature:1.2.0` | `obj_GeneticBoundaryFeature`, `obj_TectonicBoundaryFeature` | `BoundaryFeature` | Direct | ✅ |
@@ -104,8 +106,6 @@ flowchart TD
 
 | OSDU Kind | Source | Notes |
 |---|---|---|
-| `WPC--GenericBinGrid:1.0.0` | Grid2d (no interp) | Ambiguous — could be isochore/DEM |
-| `WPC--HorizonControlPoints:1.0.0` | PointSet + HorizonInterp | Routing not yet implemented |
 | `WPC--VelocityModeling:1.4.0` | Property with velocity PropertyKind | Cross-object detection needed |
 | `master-data--Seismic3DInterpretationSet:1.0.0` | SeismicLatticeFeature | One-to-two conflict with SeismicAcquisitionSurvey |
 
