@@ -6,7 +6,7 @@ import {
   ResqmlClient
 } from "../client/ResqmlClient";
 
-import { getKindOrFallback } from "./MilestoneKinds";
+import { getKind, getKindOrFallback } from "./MilestoneKinds";
 import { OSDUContext } from "./OsduContext";
 import {
   ResqmlWorkProductComponent,
@@ -357,10 +357,10 @@ export const GenericRepresentationManifest = async (
   if (kind === getKindOrFallback("SeismicFault")) {
     return new SeismicFaultOSDU(xml, context).initData(uri, xml, client);
   }
-  if (kind === getKindOrFallback("HorizonControlPoints")) {
+  if (kind === getKind("HorizonControlPoints")) {
     return HorizonControlPointsManifest(uri, xml, context, client);
   }
-  if (kind === getKindOrFallback("StructureMap")) {
+  if (kind === getKind("StructureMap")) {
     return StructureMapSurfaceManifest(uri, xml, context, client);
   }
   return new GenericRepresentationOSDU(xml, context).initData(uri, xml, client);

@@ -286,7 +286,7 @@ export const Grid2dRepresentationManifest = async (
     return new SeismicHorizonOSDU(xml, context).initData(uri, xml, client);
   } else if (kind === getKind("StructureMap")) {
     return new StructureMapOSDU(xml, context).initData(uri, xml, client);
-  } else if (kind === getKindOrFallback("GenericBinGrid")) {
+  } else if (kind === getKind("GenericBinGrid")) {
     return new GenericBinGridOSDU(xml, context).initData(uri, xml, client);
   }
   return new GenericRepresentationOSDU(xml, context).initData(uri, xml, client);

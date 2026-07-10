@@ -2,7 +2,7 @@ import * as resqml22 from "../mlTypes/xmlns/www.energistics.org/energyml/resqmlv
 import type { SimpleJson } from "../mlTypes/XmlJsonUtil";
 import { EtpUri, IResqmlDataObject, ResqmlClient } from "../client/ResqmlClient";
 
-import { getKindOrFallback } from "./MilestoneKinds";
+import { getKind, getKindOrFallback } from "./MilestoneKinds";
 import { OSDUContext } from "./OsduContext";
 import {
   getGeometries,
@@ -418,10 +418,10 @@ export const GenericRepresentation22Manifest = async (
   client: ResqmlClient
 ): Promise<GenericRepresentation22OSDU | StructureMap22OSDU | HorizonControlPoints22OSDU> => {
   const kind = GenericRepresentation22ToOsduKind(xml);
-  if (kind === getKindOrFallback("HorizonControlPoints")) {
+  if (kind === getKind("HorizonControlPoints")) {
     return HorizonControlPoints22Manifest(uri, xml, context, client);
   }
-  if (kind === getKindOrFallback("StructureMap")) {
+  if (kind === getKind("StructureMap")) {
     return StructureMapSurface22Manifest(uri, xml, context, client);
   }
   return new GenericRepresentation22OSDU(xml, context).initData(uri, xml, client);
