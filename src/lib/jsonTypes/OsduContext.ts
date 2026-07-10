@@ -465,22 +465,59 @@ export class OSDUContext {
   }
 
   /**
-   * Filter out all resources already in OSDU catalog
+   * Filter out all resources already in OSDU catalog.
+   * Uses batched OSDU search queries instead of individual record lookups
+   * for O(N/batch) HTTP calls instead of O(N).
    *
    * @param {string[]} srn
    * @return {Promise<string[]>}
    * @memberof OSDUContext
    */
   public async filterOSDUResources(srn: string[]): Promise<string[]> {
-    return Promise.all(
-      srn.map(async m => {
+    if (srn.length === 0) return [];
+    const chunks = this.divideIntoChunks(srn, 20);
+    const foundIds = new Set<string>();
+    await Promise.all(
+      chunks.map(async chunk => {
+        // Strip trailing ':' for search, then search by id
+        const queryString = chunk
+          .map(c => {
+            const clean = c.endsWith(":") ? c.slice(0, -1) : c;
+            return `id:"${clean}"`;
+          })
+          .join(" OR ");
+        const query = {
+          kind: "*:*:*--*:*",
+          offset: 0,
+          limit: chunk.length,
+          query: queryString,
+          returnedFields: ["id"]
+        };
         try {
-          return (await this.getOSDUResourceVersion(m)) === undefined;
-        } catch (e) {
-          return false;
+          const bodyString = JSON.stringify(query);
+          const found = await this.fetchOSDU<{ results: { id: string }[] }>(
+            `/api/search/v2/query`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": `application/json`,
+                "Content-Length": `${bodyString.length}`
+              },
+              body: bodyString
+            }
+          );
+          if (found?.results) {
+            for (const r of found.results) {
+              foundIds.add(r.id);
+              foundIds.add(r.id + ":");
+            }
+          }
+        } catch {
+          // Treat search failure as "not found" — conservative
         }
       })
-    ).then(results => srn.filter((_v, index) => results[index]));
+    );
+    return srn.filter(s => !foundIds.has(s));
   }
 
   /**

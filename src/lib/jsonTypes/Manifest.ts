@@ -519,71 +519,80 @@ export const createManifest = async (
     missingSrn = await context.filterOSDUResources(missingSrn);
 
     const unknownSrn = new Set<string>();
+    const processedSrn = new Set<string>();
     if (context.createMissingReferences) {
       while (missingSrn.length > 0) {
-        const missingPromises: Promise<void>[] = [];
-        for (const k of missingSrn) {
-          missingPromises.push(
-            new Promise<void>((resolve, reject) => {
-              const objUri = context.srnToUri.get(k);
-              if (objUri === undefined) {
-                unknownSrn.add(k);
-                return resolve();
-              }
-              const etpUri = new EtpUri(objUri);
-              const c = ResqmlOSDU.get(etpUri.dataObjectType);
-              if (c === undefined) {
-                unknownSrn.add(k);
-                return resolve();
-              }
+        logger.info(`[perf] Reference resolution wave: ${missingSrn.length} missing SRNs`);
 
-              const obj1 = objects.get(objUri);
-              (obj1 === undefined
-                ? client
-                  .getResolvedObjects([objUri], objects, false)
-                  .then(o => (o[0] === null ? undefined : o[0]))
-                : Promise.resolve(obj1)
-              ).then(obj =>
-                c === undefined
-                  ? resolve()
-                  : c.convert(objUri, obj, context, client).then(res => {
-                    const srn = obj
-                      ? context.uriToSrn(objUri, obj)
-                      : undefined;
-                    if (
-                      srn === undefined ||
-                      res === undefined ||
-                      res.id === undefined
-                    ) {
-                      unknownSrn.add(k);
-                    } else {
-                      const dataspaceUri = EtpUri.createDataSpaceUri(
-                        etpUri.dataSpace
-                      ).uri;
-                      const aclLegal =
-                        context.dataspaceACLs.get(dataspaceUri);
-                      if (aclLegal !== undefined && res !== undefined) {
-                        res.acl = aclLegal?.acl ?? {
-                          owners: [],
-                          viewers: []
-                        };
-                        res.legal = aclLegal?.legal ?? {
-                          legaltags: [],
-                          otherRelevantDataCountries: []
-                        };
-                      }
-                      generatedSrn.set(`${srn}`, res);
-                    }
-                    return resolve();
-                  })
-              ).catch(() => resolve());
-            })
-          );
+        // 1. Identify which URIs need fetching (not already in objects cache)
+        const toResolve: { srn: string; uri: string; etpUri: EtpUri }[] = [];
+        for (const k of missingSrn) {
+          processedSrn.add(k);
+          const objUri = context.srnToUri.get(k);
+          if (objUri === undefined) {
+            unknownSrn.add(k);
+            continue;
+          }
+          const etpUri = new EtpUri(objUri);
+          const c = ResqmlOSDU.get(etpUri.dataObjectType);
+          if (c === undefined) {
+            unknownSrn.add(k);
+            continue;
+          }
+          if (!objects.has(objUri)) {
+            toResolve.push({ srn: k, uri: objUri, etpUri });
+          }
         }
-        await Promise.all(missingPromises);
-        // Remove resolved references
+
+        // 2. Batch-fetch uncached objects via ETP (50 per batch)
+        const FETCH_BATCH = 50;
+        if (toResolve.length > 0) {
+          const t0 = Date.now();
+          for (let i = 0; i < toResolve.length; i += FETCH_BATCH) {
+            const batch = toResolve.slice(i, i + FETCH_BATCH);
+            const batchUris = batch.map(r => r.uri);
+            try {
+              await client.getResolvedObjects(batchUris, objects, false);
+            } catch (e: any) {
+              logger.warn(`[perf] Batch ETP fetch failed: ${e?.message ?? e}`);
+            }
+          }
+          logger.info(`[perf] Fetched ${toResolve.length} objects in ${Date.now() - t0}ms`);
+        }
+
+        // 3. Convert all missing refs (objects now in cache)
+        for (const k of missingSrn) {
+          if (unknownSrn.has(k)) continue;
+          const objUri = context.srnToUri.get(k);
+          if (!objUri) { unknownSrn.add(k); continue; }
+          const etpUri = new EtpUri(objUri);
+          const c = ResqmlOSDU.get(etpUri.dataObjectType);
+          if (!c) { unknownSrn.add(k); continue; }
+
+          const obj = objects.get(objUri);
+          if (!obj) { unknownSrn.add(k); continue; }
+
+          try {
+            const res = await c.convert(objUri, obj, context, client);
+            const srn = context.uriToSrn(objUri, obj);
+            if (srn === undefined || res === undefined || res.id === undefined) {
+              unknownSrn.add(k);
+            } else {
+              const dataspaceUri = EtpUri.createDataSpaceUri(etpUri.dataSpace).uri;
+              const aclLegal = context.dataspaceACLs.get(dataspaceUri);
+              if (aclLegal !== undefined && res !== undefined) {
+                res.acl = aclLegal?.acl ?? { owners: [], viewers: [] };
+                res.legal = aclLegal?.legal ?? { legaltags: [], otherRelevantDataCountries: [] };
+              }
+              generatedSrn.set(`${srn}`, res);
+            }
+          } catch {
+            unknownSrn.add(k);
+          }
+        }
+        // Only consider NEW references not yet processed or generated
         missingSrn = Array.from(context.srnToUri.keys()).filter(
-          k => generatedSrn.get(k) === undefined
+          k => generatedSrn.get(k) === undefined && !processedSrn.has(k)
         );
         // Remove references that cannot be resolved
         missingSrn = missingSrn.filter(k => !unknownSrn.has(k));
@@ -644,15 +653,15 @@ export const createManifest = async (
       }
     }
 
-    await Promise.all(
-      Array.from(generatedSrn.entries()).map(async e =>
-        context.getOSDUResourceVersion(e[0]).then(res => {
-          if (res !== undefined) {
-            e[1].version = res + 1;
-          }
-        })
-      )
-    );
+    // Batch-check existing versions (O(N/20) queries instead of O(N))
+    const allIds = Array.from(generatedSrn.keys());
+    const versions = await context.getVersions(allIds);
+    for (const [id, record] of generatedSrn) {
+      const v = versions.get(id);
+      if (v !== undefined) {
+        record.version = v + 1;
+      }
+    }
 
     // Process missing reference data
     const missing = Array.from(context.srnToUri.keys()).filter(
