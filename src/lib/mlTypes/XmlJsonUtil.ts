@@ -375,6 +375,29 @@ export const xml2typescript = async (
     );
     const keys = Object.keys(res).filter(r => !r.startsWith("_"));
     if (keys.length === 0) {
+      // Fallback: v2.2 EPCs may contain v2.0.1-style CRS types (LocalDepth3dCrs,
+      // LocalTime3dCrs) that don't exist in the resqml22 XSD. Try resqml20 parser.
+      if (dataObjectType.startsWith("resqml22")) {
+        const fallbackType = dataObjectType.replace("resqml22.", "resqml20.obj_");
+        try {
+          const res2 = await parser.parse(
+            xml,
+            resqml20.document,
+            cxml.context("resqml20")
+          );
+          const keys2 = Object.keys(res2).filter(r => !r.startsWith("_"));
+          if (keys2.length > 0) {
+            const json = simpleJson((res2 as Record<string, any>)[keys2[0]], "");
+            const baseObj = json as SimpleJson<eml20.AbstractCitedDataObject>;
+            if (!baseObj["$type"]) {
+              baseObj["$type"] = dataObjectType;
+            }
+            return baseObj;
+          }
+        } catch {
+          // Fallback also failed — continue to reject
+        }
+      }
       return Promise.reject("Empty object");
     }
     const json = simpleJson((res as Record<string, any>)[keys[0]], "");

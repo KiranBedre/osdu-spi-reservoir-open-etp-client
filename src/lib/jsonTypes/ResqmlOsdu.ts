@@ -281,12 +281,12 @@ ResqmlOSDU.add(
 ResqmlOSDU.add(
   "resqml22.LocalDepth3dCrs",
   () => getKindOrFallback("LocalModelCompoundCrs"),
-  LocalModelCompoundCrs23Manifest
+  LocalModelCompoundCrsManifest
 );
 ResqmlOSDU.add(
   "resqml22.LocalTime3dCrs",
   () => getKindOrFallback("LocalModelCompoundCrs"),
-  LocalModelCompoundCrs23Manifest
+  LocalModelCompoundCrsManifest
 );
 ResqmlOSDU.add(
   "resqml20.obj_OrganizationFeature",

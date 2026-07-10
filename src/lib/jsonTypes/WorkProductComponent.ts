@@ -1572,12 +1572,16 @@ export class ResqmlWorkProductComponent<
       geometries[0].LocalCrs,
       context
     );
-    if (
-      crsObj?.$type !== "resqml20.obj_LocalDepth3dCrs" &&
-      crsObj?.$type !== "resqml20.obj_LocalTime3dCrs" &&
-      crsObj?.$type !== "resqml20.obj_LocalTime3dCrs" &&
-      crsObj?.$type !== "eml23.LocalEngineeringCompoundCrs"
-    ) {
+    const isDepthCrs =
+      crsObj?.$type === "resqml20.obj_LocalDepth3dCrs" ||
+      crsObj?.$type === "resqml22.LocalDepth3dCrs";
+    const isTimeCrs =
+      crsObj?.$type === "resqml20.obj_LocalTime3dCrs" ||
+      crsObj?.$type === "resqml22.LocalTime3dCrs";
+    const isEml23Crs =
+      crsObj?.$type === "eml23.LocalEngineeringCompoundCrs";
+
+    if (!isDepthCrs && !isTimeCrs && !isEml23Crs) {
       // TODO: Other CRS
       return Promise.reject(
         new Error(
@@ -1585,25 +1589,23 @@ export class ResqmlWorkProductComponent<
         )
       );
     }
-    const crs =
-      crsObj?.$type === "resqml20.obj_LocalDepth3dCrs"
-        ? (crsObj as SimpleJson<resqml20.obj_LocalDepth3dCrs>)
-        : crsObj?.$type === "resqml20.obj_LocalTime3dCrs"
-          ? (crsObj as SimpleJson<resqml20.obj_LocalTime3dCrs>)
-          : (crsObj as SimpleJson<eml23.LocalEngineeringCompoundCrs>);
+    const crs = isDepthCrs
+      ? (crsObj as SimpleJson<resqml20.obj_LocalDepth3dCrs>)
+      : isTimeCrs
+        ? (crsObj as SimpleJson<resqml20.obj_LocalTime3dCrs>)
+        : (crsObj as SimpleJson<eml23.LocalEngineeringCompoundCrs>);
     if (!crs) {
       return Promise.reject(new Error("Invalid CRS"));
     }
 
-    const Domain =
-      crsObj?.$type === "resqml20.obj_LocalDepth3dCrs"
-        ? "Depth"
-        : crsObj?.$type === "resqml20.obj_LocalTime3dCrs"
+    const Domain = isDepthCrs
+      ? "Depth"
+      : isTimeCrs
+        ? "Time"
+        : (crsObj as SimpleJson<eml23.LocalEngineeringCompoundCrs>).VerticalAxis
+          .IsTime
           ? "Time"
-          : (crsObj as SimpleJson<eml23.LocalEngineeringCompoundCrs>).VerticalAxis
-            .IsTime
-            ? "Time"
-            : "Depth";
+          : "Depth";
 
     if (
       OSDUIntegration &&
