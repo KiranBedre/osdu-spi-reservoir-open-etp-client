@@ -353,6 +353,35 @@ const xmlDocument = (dataObjectType: string) => {
 };
 
 /**
+ * Try parsing XML with the resqml20 schema as a fallback for v2.2 objects
+ * that use v2.0.1-style elements (common with fesapi-generated EPCs).
+ */
+const tryResqml20Fallback = async (
+  xml: string,
+  dataObjectType: string
+): Promise<SimpleJson<eml20.AbstractCitedDataObject> | null> => {
+  try {
+    const res2 = await parser.parse(
+      xml,
+      resqml20.document,
+      cxml.context("resqml20")
+    );
+    const keys2 = Object.keys(res2).filter(r => !r.startsWith("_"));
+    if (keys2.length > 0) {
+      const json = simpleJson((res2 as Record<string, any>)[keys2[0]], "");
+      const baseObj = json as SimpleJson<eml20.AbstractCitedDataObject>;
+      if (!baseObj["$type"]) {
+        baseObj["$type"] = dataObjectType;
+      }
+      return baseObj;
+    }
+  } catch {
+    // Fallback also failed
+  }
+  return null;
+};
+
+/**
  * Convert a xml string into a JS object
  *
  * @param {string} xml
@@ -375,6 +404,12 @@ export const xml2typescript = async (
     );
     const keys = Object.keys(res).filter(r => !r.startsWith("_"));
     if (keys.length === 0) {
+      // Fallback: v2.2 EPCs may contain v2.0.1-style types that don't exist in
+      // the resqml22 XSD. Try resqml20 parser.
+      if (dataObjectType.startsWith("resqml22")) {
+        const fb = await tryResqml20Fallback(xml, dataObjectType);
+        if (fb) return fb;
+      }
       return Promise.reject("Empty object");
     }
     const json = simpleJson((res as Record<string, any>)[keys[0]], "");
@@ -387,6 +422,10 @@ export const xml2typescript = async (
     if (!baseObj["$type"]) {
       baseObj["$type"] = dataObjectType;
     }
+
+    // Fallback: if v2.2 parse returned an object but dropped geometry fields
+    // (e.g. NodePatch in PointSet), the converters handle missing geometry gracefully.
+    // Do NOT fallback to resqml20 for partial results — it corrupts v2.2 DOR fields.
 
     // Extract CustomData content
     if (

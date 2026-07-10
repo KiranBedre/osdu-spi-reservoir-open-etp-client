@@ -97,14 +97,14 @@ export class GenericRepresentation22OSDU
         }
       ];
     } else if (xml.$type === "resqml22.PointSetRepresentation") {
-      const points = xml as SimpleJson<resqml22.PointSetRepresentation>;
+      const points = xml as any;
       let NodeCount = 0;
-      const patches = points.NodePatchGeometry
+      const patches: any[] = points.NodePatchGeometry
         ? Array.isArray(points.NodePatchGeometry)
           ? points.NodePatchGeometry
           : [points.NodePatchGeometry]
         : [];
-      patches.forEach(p => {
+      patches.forEach((p: any) => {
         if (p?.Points) {
           try {
             const arr = this.arrayInfos(p.Points);
@@ -126,8 +126,10 @@ export class GenericRepresentation22OSDU
         ]
         : undefined;
     } else if (xml.$type === "resqml22.PolylineRepresentation") {
-      const line = xml as SimpleJson<resqml22.PolylineRepresentation>;
-      const arr = this.arrayInfos(line.NodePatchGeometry.Points);
+      const line = xml as any;
+      const geom = line.NodePatchGeometry || line.NodePatch?.Geometry;
+      if (!geom?.Points) return undefined;
+      const arr = this.arrayInfos(geom.Points);
       const NodeCount = arr.rowCount ? arr.rowCount / 3 : undefined;
       const Count =
         line.IsClosed || NodeCount === undefined ? NodeCount : NodeCount - 1;
@@ -204,7 +206,7 @@ export class GenericRepresentation22OSDU
       ),
       InterpretationName: xml.RepresentedObject?.Title,
       LocalModelCompoundCrsID:
-        geometries.length > 0
+        geometries.length > 0 && geometries[0]?.LocalCrs
           ? await GenericRepresentation22OSDU.dorToSrn(
             ReservoirDMSUrl,
             geometries[0].LocalCrs,
@@ -263,9 +265,9 @@ export class GenericRepresentation22OSDU
         const geo = grid2d.Geometry;
 
         let lattice: any = undefined;
-        if (geo.Points.$type === "resqml22.Point3dLatticeArray") {
+        if (geo?.Points?.$type === "resqml22.Point3dLatticeArray") {
           lattice = geo.Points;
-        } else if (geo.Points.$type === "resqml22.Point3dZValueArray") {
+        } else if (geo?.Points?.$type === "resqml22.Point3dZValueArray") {
           const zArr = geo.Points as any;
           if (zArr.SupportingGeometry?.$type === "resqml22.Point3dLatticeArray") {
             lattice = zArr.SupportingGeometry;
@@ -369,8 +371,14 @@ export class GenericRepresentation22OSDU
   }
 }
 
+import {
+  isStructureMapSurface22,
+  StructureMapSurface22Manifest,
+  StructureMap22OSDU
+} from "./StructureMap22";
+
 /**
- * Identify OSDU kind for Representation, can create either a SeismicFault, SeismicHorizon or GenericRepresentation
+ * Identify OSDU kind for Representation, can create either a SeismicFault, StructureMap, or GenericRepresentation
  *
  * @param {IResqmlDataObject} xml
  * @return {string}
@@ -389,6 +397,9 @@ export const GenericRepresentation22ToOsduKind = (
       }
     }
   }
+  if (isStructureMapSurface22(genRep)) {
+    return getKindOrFallback("StructureMap");
+  }
   return getKindOrFallback("GenericRepresentation");
 };
 
@@ -397,5 +408,10 @@ export const GenericRepresentation22Manifest = async (
   xml: SimpleJson<resqml22.AbstractSurfaceRepresentation>,
   context: OSDUContext,
   client: ResqmlClient
-): Promise<GenericRepresentation22OSDU> =>
-  new GenericRepresentation22OSDU(xml, context).initData(uri, xml, client);
+): Promise<GenericRepresentation22OSDU | StructureMap22OSDU> => {
+  const kind = GenericRepresentation22ToOsduKind(xml);
+  if (kind === getKindOrFallback("StructureMap")) {
+    return StructureMapSurface22Manifest(uri, xml, context, client);
+  }
+  return new GenericRepresentation22OSDU(xml, context).initData(uri, xml, client);
+};

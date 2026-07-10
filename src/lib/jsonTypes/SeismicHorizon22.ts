@@ -43,12 +43,13 @@ export class SeismicHorizon22OSDU
    */
   static matchType(xml: SimpleJson<resqml22.Grid2dRepresentation>): boolean {
     const geo = xml.Geometry;
-    if (geo.Points.$type !== "resqml22.Point3dZValueArray") {
+    if (!geo?.Points || geo.Points.$type !== "resqml22.Point3dZValueArray") {
       return false;
     }
     const p = geo.Points as SimpleJson<resqml22.Point3dZValueArray>;
 
     if (
+      !p.SupportingGeometry ||
       p.SupportingGeometry.$type !==
       "resqml22.Point3dFromRepresentationLatticeArray"
     ) {
@@ -59,7 +60,7 @@ export class SeismicHorizon22OSDU
       return false;
     }
     const ct = xml.RepresentedObject.QualifiedType.split(".");
-    return ct.length === 2 && ct[1] === "obj_HorizonInterpretation";
+    return ct.length === 2 && (ct[1] === "obj_HorizonInterpretation" || ct[1] === "HorizonInterpretation");
   }
 
   public getGeometries(
@@ -80,6 +81,9 @@ export class SeismicHorizon22OSDU
     }
 
     const geo = xml.Geometry;
+    if (!geo?.Points) {
+      return this;
+    }
 
     if (geo.Points.$type !== "resqml22.Point3dZValueArray") {
       return this;

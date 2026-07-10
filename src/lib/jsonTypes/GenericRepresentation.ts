@@ -12,6 +12,11 @@ import {
   ResqmlWorkProductComponent,
   getGeometries
 } from "./WorkProductComponent";
+import {
+  isStructureMapSurface,
+  StructureMapSurfaceManifest,
+  StructureMapOSDU
+} from "./StructureMap";
 
 import {
   Data,
@@ -328,6 +333,9 @@ export const GenericRepresentationToOsduKind = (
       }
     }
   }
+  if (isStructureMapSurface(genRep)) {
+    return getKindOrFallback("StructureMap");
+  }
   return getKindOrFallback("GenericRepresentation");
 };
 
@@ -336,10 +344,13 @@ export const GenericRepresentationManifest = async (
   xml: SimpleJson<resqml20.AbstractSurfaceRepresentation>,
   context: OSDUContext,
   client: ResqmlClient
-): Promise<GenericRepresentationOSDU | SeismicFaultOSDU> => {
+): Promise<GenericRepresentationOSDU | SeismicFaultOSDU | StructureMapOSDU> => {
   const kind = GenericRepresentationToOsduKind(xml);
   if (kind === getKindOrFallback("SeismicFault")) {
     return new SeismicFaultOSDU(xml, context).initData(uri, xml, client);
+  }
+  if (kind === getKindOrFallback("StructureMap")) {
+    return StructureMapSurfaceManifest(uri, xml, context, client);
   }
   return new GenericRepresentationOSDU(xml, context).initData(uri, xml, client);
 };

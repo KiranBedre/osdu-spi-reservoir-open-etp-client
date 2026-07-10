@@ -279,6 +279,16 @@ ResqmlOSDU.add(
   LocalModelCompoundCrs23Manifest
 );
 ResqmlOSDU.add(
+  "resqml22.LocalDepth3dCrs",
+  () => getKindOrFallback("LocalModelCompoundCrs"),
+  LocalModelCompoundCrsManifest
+);
+ResqmlOSDU.add(
+  "resqml22.LocalTime3dCrs",
+  () => getKindOrFallback("LocalModelCompoundCrs"),
+  LocalModelCompoundCrsManifest
+);
+ResqmlOSDU.add(
   "resqml20.obj_OrganizationFeature",
   () => getKindOrFallback("LocalModelFeature"),
   LocalModelFeatureManifest
@@ -541,6 +551,16 @@ ResqmlOSDU.add(
   "resqml20.obj_WellboreMarkerFrameRepresentation",
   () => getKindOrFallback("WellboreMarkerSet"),
   WellboreMarkerFrameToMarkerSetManifest
+);
+ResqmlOSDU.add(
+  "resqml22.WellboreMarkerFrameRepresentation",
+  () => getKindOrFallback("WellboreMarkerSet"),
+  GenericRepresentation22Manifest
+);
+ResqmlOSDU.add(
+  "resqml22.RockVolumeFeature",
+  () => getKindOrFallback("LocalRockVolumeFeature"),
+  LocalRockVolumeFeature22Manifest
 );
 ResqmlOSDU.add(
   "resqml22.WellboreIntervalSet",
