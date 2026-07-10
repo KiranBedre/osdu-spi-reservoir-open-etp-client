@@ -37,14 +37,24 @@ export class StratigraphicColumnRankInterpretation22OSDU
     const StratigraphicUnitInterpretationSet: string[] | undefined =
       xml.StratigraphicUnits.length === 0 ? undefined : [];
     for (const s of xml.StratigraphicUnits) {
-      StratigraphicUnitInterpretationSet?.push(
-        (await StratigraphicColumnRankInterpretation22OSDU.dorToSrn(
-          ReservoirDMSUrl,
-          s,
-          client,
-          context
-        )) || ""
-      );
+      // v2.2: StratigraphicUnits is DOR[]; v2.0.1-style: StratigraphicUnitInterpretationIndex { Index, Unit }
+      const dor = (s as any).Unit ?? s;
+      // Skip units that couldn't be parsed (no QualifiedType, no ContentType, no Uuid)
+      if (!dor.QualifiedType && !dor.ContentType && !dor.UUID && !dor.Uuid) {
+        continue;
+      }
+      try {
+        StratigraphicUnitInterpretationSet?.push(
+          (await StratigraphicColumnRankInterpretation22OSDU.dorToSrn(
+            ReservoirDMSUrl,
+            dor,
+            client,
+            context
+          )) || ""
+        );
+      } catch {
+        // Skip units with invalid DOR
+      }
     }
 
     this.data = {

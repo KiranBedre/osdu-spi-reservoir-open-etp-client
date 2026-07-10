@@ -581,26 +581,35 @@ export const getGeometries = (
     return [line.NodePatch.Geometry];
   } else if (xml.$type === "resqml22.Grid2dRepresentation") {
     const grid2d = xml as SimpleJson<resqml22.Grid2dRepresentation>;
-    return [grid2d.Geometry];
+    return grid2d.Geometry ? [grid2d.Geometry] : [];
   } else if (xml.$type === "resqml22.TriangulatedSetRepresentation") {
     const trig = xml as SimpleJson<resqml22.TriangulatedSetRepresentation>;
-    return trig.TrianglePatch.map(p => p.Geometry);
+    return trig.TrianglePatch?.map(p => p.Geometry).filter(Boolean) ?? [];
   } else if (xml.$type === "resqml22.PolylineSetRepresentation") {
     const polyLine = xml as SimpleJson<resqml22.PolylineSetRepresentation>;
     return polyLine.LinePatch.map(p => p.Geometry);
   } else if (xml.$type === "resqml22.PointSetRepresentation") {
-    const points = xml as SimpleJson<resqml22.PointSetRepresentation>;
-    if (!points.NodePatchGeometry) {
-      throw new Error(
-        `Invalid PointSetRepresentation: NodePatchGeometry is required per RESQML standard`
-      );
+    const points = xml as any;
+    // v2.2 uses NodePatchGeometry; v2.0.1-style EPCs use NodePatch[].Geometry
+    if (points.NodePatchGeometry) {
+      return Array.isArray(points.NodePatchGeometry)
+        ? points.NodePatchGeometry
+        : [points.NodePatchGeometry];
+    } else if (points.NodePatch) {
+      const patches = Array.isArray(points.NodePatch)
+        ? points.NodePatch
+        : [points.NodePatch];
+      return patches.map((p: any) => p.Geometry).filter(Boolean);
     }
-    return Array.isArray(points.NodePatchGeometry)
-      ? points.NodePatchGeometry
-      : [points.NodePatchGeometry];
+    return [];
   } else if (xml.$type === "resqml22.PolylineRepresentation") {
-    const line = xml as SimpleJson<resqml22.PolylineRepresentation>;
-    return [line.NodePatchGeometry];
+    const line = xml as any;
+    if (line.NodePatchGeometry) {
+      return [line.NodePatchGeometry];
+    } else if (line.NodePatch) {
+      return [line.NodePatch.Geometry].filter(Boolean);
+    }
+    return [];
   }
   return [];
 };
@@ -1562,7 +1571,7 @@ export class ResqmlWorkProductComponent<
     NodeCount: number | undefined;
     Domain: string;
   }> {
-    if (geometries.length < 1) {
+    if (geometries.length < 1 || !geometries[0]?.LocalCrs) {
       return Promise.reject(new Error("No geometry provided"));
     }
 

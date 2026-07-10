@@ -97,14 +97,21 @@ export class GenericRepresentation22OSDU
         }
       ];
     } else if (xml.$type === "resqml22.PointSetRepresentation") {
-      const points = xml as SimpleJson<resqml22.PointSetRepresentation>;
+      const points = xml as any;
       let NodeCount = 0;
-      const patches = points.NodePatchGeometry
-        ? Array.isArray(points.NodePatchGeometry)
+      // v2.2: NodePatchGeometry; v2.0.1-style: NodePatch[].Geometry
+      let patches: any[] = [];
+      if (points.NodePatchGeometry) {
+        patches = Array.isArray(points.NodePatchGeometry)
           ? points.NodePatchGeometry
-          : [points.NodePatchGeometry]
-        : [];
-      patches.forEach(p => {
+          : [points.NodePatchGeometry];
+      } else if (points.NodePatch) {
+        const nps = Array.isArray(points.NodePatch)
+          ? points.NodePatch
+          : [points.NodePatch];
+        patches = nps.map((np: any) => np.Geometry).filter(Boolean);
+      }
+      patches.forEach((p: any) => {
         if (p?.Points) {
           try {
             const arr = this.arrayInfos(p.Points);
@@ -126,8 +133,10 @@ export class GenericRepresentation22OSDU
         ]
         : undefined;
     } else if (xml.$type === "resqml22.PolylineRepresentation") {
-      const line = xml as SimpleJson<resqml22.PolylineRepresentation>;
-      const arr = this.arrayInfos(line.NodePatchGeometry.Points);
+      const line = xml as any;
+      const geom = line.NodePatchGeometry || line.NodePatch?.Geometry;
+      if (!geom?.Points) return undefined;
+      const arr = this.arrayInfos(geom.Points);
       const NodeCount = arr.rowCount ? arr.rowCount / 3 : undefined;
       const Count =
         line.IsClosed || NodeCount === undefined ? NodeCount : NodeCount - 1;
@@ -204,7 +213,7 @@ export class GenericRepresentation22OSDU
       ),
       InterpretationName: xml.RepresentedObject?.Title,
       LocalModelCompoundCrsID:
-        geometries.length > 0
+        geometries.length > 0 && geometries[0]?.LocalCrs
           ? await GenericRepresentation22OSDU.dorToSrn(
             ReservoirDMSUrl,
             geometries[0].LocalCrs,
@@ -263,9 +272,9 @@ export class GenericRepresentation22OSDU
         const geo = grid2d.Geometry;
 
         let lattice: any = undefined;
-        if (geo.Points.$type === "resqml22.Point3dLatticeArray") {
+        if (geo?.Points?.$type === "resqml22.Point3dLatticeArray") {
           lattice = geo.Points;
-        } else if (geo.Points.$type === "resqml22.Point3dZValueArray") {
+        } else if (geo?.Points?.$type === "resqml22.Point3dZValueArray") {
           const zArr = geo.Points as any;
           if (zArr.SupportingGeometry?.$type === "resqml22.Point3dLatticeArray") {
             lattice = zArr.SupportingGeometry;

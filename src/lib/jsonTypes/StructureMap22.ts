@@ -57,10 +57,13 @@ export class StructureMap22OSDU
 
     // Must NOT be on a seismic lattice (those go to SeismicHorizon)
     const geo = xml.Geometry;
+    if (!geo?.Points) {
+      return false;
+    }
     if (geo.Points.$type === "resqml22.Point3dZValueArray") {
       const p = geo.Points as SimpleJson<resqml22.Point3dZValueArray>;
       if (
-        p.SupportingGeometry.$type ===
+        p.SupportingGeometry?.$type ===
         "resqml22.Point3dFromRepresentationLatticeArray"
       ) {
         // This is on a seismic lattice → SeismicHorizon, not StructureMap
@@ -134,6 +137,11 @@ export class StructureMap22OSDU
     // SupportingGeometry containing the lattice.
     const geo = xml.Geometry;
     let lattice: SimpleJson<resqml22.Point3dLatticeArray> | undefined;
+
+    if (!geo?.Points) {
+      delete this.__context;
+      return this;
+    }
 
     if (geo.Points.$type === "resqml22.Point3dLatticeArray") {
       lattice = geo.Points as SimpleJson<resqml22.Point3dLatticeArray>;
