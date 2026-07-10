@@ -2031,7 +2031,7 @@ export class ResqmlWorkProductComponent<
       ReservoirDMSUrl,
       xml.InterpretedFeature,
       context
-    )) as SimpleJson<resqml20.AbstractFeature | resqml22.AbstractFeature>;
+    )) as SimpleJson<resqml20.AbstractFeature | resqml22.AbstractFeature> | undefined;
 
     const strAge = await this.age(client, ReservoirDMSUrl, xml);
     let OlderPossibleAge = strAge;
@@ -2109,7 +2109,7 @@ export class ResqmlWorkProductComponent<
         client,
         context
       ),
-      FeatureName: feat.Citation.Title,
+      FeatureName: feat?.Citation?.Title,
       MeanPossibleAge:
         OlderPossibleAge !== undefined && YoungerPossibleAge !== undefined
           ? (OlderPossibleAge + YoungerPossibleAge) / 2
