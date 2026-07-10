@@ -23,8 +23,7 @@ export class GenericProperty22OSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml22.AbstractValuesProperty>
   >
-  implements GenericProperty
-{
+  implements GenericProperty {
   public data: Data = {};
   public meta?: FrameOfReferenceMetaDataItem[];
 
@@ -174,21 +173,27 @@ export class GenericProperty22OSDU
         ? xml.PropertyKind
         : undefined;
 
-    //TODO: RealizationIndices, TimeIndices, TimeValues
+    //Map RealizationIndices, TimeIndices, Facets
+    const facetIDs = xml.Facet
+      ? xml.Facet.filter((f: any) => f.Facet && f.Value).map((f: any) => ({
+          FacetRoleID: context.addReferenceData("PropertyKindFacet", f.Value) as string,
+          FacetTypeID: context.addReferenceData("FacetType", f.Facet) as string
+        }))
+      : undefined;
 
     this.data = {
       ...(await this.AbstractCommonResources(context)),
       ...(await this.AbstractWPCGroupType(ReservoirDMSUrl, context)),
       ...(await this.AbstractWorkProductComponent(xml, context)),
-      FacetIDs: undefined,
+      FacetIDs: facetIDs,
       PropertyType: pKind
         ? {
-            PropertyTypeID: context.addReferenceData(
-              "PropertyType",
-              pKind.Uuid
-            ),
-            Name: pKind.Title
-          }
+          PropertyTypeID: context.addReferenceData(
+            "PropertyType",
+            pKind.Uuid
+          ),
+          Name: pKind.Title
+        }
         : undefined,
       /**
        * Only populated if ValueType=="string" and the values are expected to represent record
@@ -221,7 +226,9 @@ export class GenericProperty22OSDU
         "UnitOfMeasure",
         normalizeUom(continuous ? continuous.Uom : "Euc")
       ),
-      RealizationIndices: undefined, //xml.RealizationIndices,
+      RealizationIndices: xml.RealizationIndices
+        ? [xml.RealizationIndices as any as number]
+        : undefined,
       StdDeviation,
       TimeIndices: undefined,
       TimeSeriesID: undefined,
@@ -236,7 +243,7 @@ export class GenericProperty22OSDU
         client,
         context
       );
-      this.data.TimeIndices = undefined; //xml.TimeOrIntervalSeries.Index;
+      this.data.TimeIndices = (xml.TimeOrIntervalSeries as any).TimeIndexStart;
       this.data.TimeValues = xml.Time
         ? [xml.Time.DateTime.toISOString()]
         : undefined;

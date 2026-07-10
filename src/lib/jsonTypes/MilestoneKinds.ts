@@ -111,6 +111,8 @@ const FALLBACK_KINDS = new Map<string, string>([
   ["ActivityTemplate", `${PREFIX_MD}ActivityTemplate:1.0.0`],
   ["SeismicAcquisitionSurvey", `${PREFIX_MD}SeismicAcquisitionSurvey:1.3.0`],
   ["BoundaryFeature", `${PREFIX_MD}BoundaryFeature:1.1.0`],
+  ["Reservoir", `${PREFIX_MD}Reservoir:2.0.0`],
+  ["ReservoirSegment", `${PREFIX_MD}ReservoirSegment:2.0.0`],
 
   // ─── Work Product Components — Wells ───────────────────────────────────────
   ["WellLog", `${PREFIX_WPC}WellLog:1.3.0`],
@@ -133,6 +135,7 @@ const FALLBACK_KINDS = new Map<string, string>([
   ["WellboreMarkerSet", `${PREFIX_WPC}WellboreMarkerSet:1.2.0`],
   ["UnsealedSurfaceFramework", `${PREFIX_WPC}UnsealedSurfaceFramework:1.2.0`],
   ["SealedSurfaceFramework", `${PREFIX_WPC}SealedSurfaceFramework:1.2.0`],
+  ["ReservoirCompartmentInterpretation", `${PREFIX_WPC}ReservoirCompartmentInterpretation:1.2.0`],
 
   // ─── Work Product Components — Representations / Properties ────────────────
   ["GenericRepresentation", `${PREFIX_WPC}GenericRepresentation:1.1.0`],
@@ -163,6 +166,18 @@ const FALLBACK_KINDS = new Map<string, string>([
   ["Tubular", `${PREFIX_WPC}Tubular:1.2.0`],
   ["BHARunReport", `${PREFIX_WPC}BHARunReport:1.2.0`],
   ["WellboreCompletion", `${PREFIX_WPC}WellboreCompletion:1.2.0`],
+
+  // ─── Work Product Components — Reservoir Management / Simulation ───────────
+  ["FluidModel", `${PREFIX_WPC}FluidModel:1.0.0`],
+  ["SaturationFunctionSet", `${PREFIX_WPC}SaturationFunctionSet:1.0.0`],
+  ["ReservoirModelScenario", `${PREFIX_WPC}ReservoirModelScenario:1.0.0`],
+  ["ReservoirSimulationModel", `${PREFIX_WPC}ReservoirSimulationModel:1.0.0`],
+  ["ReservoirSimulationEquilibriumModel", `${PREFIX_WPC}ReservoirSimulationEquilibriumModel:1.0.0`],
+  ["ReservoirSimulationRockPhysicsModel", `${PREFIX_WPC}ReservoirSimulationRockPhysicsModel:1.0.0`],
+  ["ReservoirSimulationRunConfiguration", `${PREFIX_WPC}ReservoirSimulationRunConfiguration:1.0.0`],
+  ["ReservoirEstimatedVolumes", `${PREFIX_WPC}ReservoirEstimatedVolumes:1.1.1`],
+  ["ProductionValues", `${PREFIX_WPC}ProductionValues:1.1.1`],
+  ["GeoLabelSet", `${PREFIX_WPC}GeoLabelSet:1.1.0`],
 
   // ─── Reference Data ────────────────────────────────────────────────────────
   ["PropertyType", `${PREFIX_REF}PropertyType:1.0.0`],
