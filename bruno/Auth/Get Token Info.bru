@@ -1,0 +1,21 @@
+meta {
+  name: Get Token Info
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{host}}/auth/token
+  body: none
+  auth: none
+}
+
+headers {
+  Authorization: Bearer {{access_token}}
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

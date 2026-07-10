@@ -1,0 +1,22 @@
+meta {
+  name: Resolve Mnemonic
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{host}}/pwls/resolve?mnemonic=GR&vendor=SLB
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

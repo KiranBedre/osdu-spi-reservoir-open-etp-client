@@ -1,0 +1,28 @@
+meta {
+  name: List Dataspaces
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{host}}/dataspaces
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns at least one dataspace", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("array");
+    expect(body.length).to.be.greaterThan(0);
+  });
+}

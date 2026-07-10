@@ -1,0 +1,29 @@
+meta {
+  name: Query Objects
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/witsml/query
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "dataspace": "demo/Volve",
+    "objectType": "Well"
+  }
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}

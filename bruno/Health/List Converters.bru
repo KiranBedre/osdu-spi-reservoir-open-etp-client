@@ -1,0 +1,23 @@
+meta {
+  name: List Converters
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{host}}/health/converters
+  body: none
+  auth: none
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns converter list", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("array");
+    expect(body.length).to.be.greaterThan(0);
+  });
+}

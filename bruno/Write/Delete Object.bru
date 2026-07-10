@@ -1,0 +1,22 @@
+meta {
+  name: Delete Object
+  type: http
+  seq: 2
+}
+
+delete {
+  url: {{host}}/dataspaces/{{dataspaceId}}/resources/{{dataObjectType}}/{{guid}}?transactionId={{transactionId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+tests {
+  test("status is 200 or 204", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 204]);
+  });
+}

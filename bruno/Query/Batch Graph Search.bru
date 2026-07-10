@@ -1,0 +1,42 @@
+meta {
+  name: Batch Graph Search
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{host}}/query/graph/search
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "uris": [
+      "eml:///dataspace('demo/Volve')/{{dataObjectType}}({{guid}})"
+    ],
+    "scope": "targets",
+    "depth": 2,
+    "dataObjectTypes": [],
+    "countObjects": true,
+    "includeSecondaryTargets": false,
+    "includeSecondarySources": false
+  }
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns resources and links", function () {
+    const body = res.getBody();
+    expect(body).to.have.property("resources");
+    expect(body).to.have.property("links");
+  });
+}

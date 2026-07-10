@@ -1,0 +1,22 @@
+meta {
+  name: Graph Sources
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{host}}/dataspaces/{{dataspaceId}}/graph/{{dataObjectType}}/{{guid}}/sources
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+}
