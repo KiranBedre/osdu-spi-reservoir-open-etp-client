@@ -594,10 +594,10 @@ describe("A2: Grid2d routing logic", () => {
     expect(Grid2dToOsduKind(xml as any)).toContain("GenericRepresentation");
   });
 
-  it("Grid2d with no interpretation → NOT StructureMap (GenericRepresentation)", () => {
+  it("Grid2d with no interpretation → GenericBinGrid", () => {
     const xml = makeGrid2d20({});
     expect(StructureMapOSDU.matchType(xml as any)).toBe(false);
-    expect(Grid2dToOsduKind(xml as any)).toContain("GenericRepresentation");
+    expect(Grid2dToOsduKind(xml as any)).toContain("GenericBinGrid");
   });
 
   it("Grid2d with GenericFeatureInterpretation → NOT StructureMap (property/DEM)", () => {
@@ -619,10 +619,10 @@ describe("A2: Grid2d routing logic", () => {
     expect(Grid2dToOsduKind22(xml as any)).toContain("GenericRepresentation");
   });
 
-  it("v2.2: Grid2d with no interpretation → NOT StructureMap", () => {
+  it("v2.2: Grid2d with no interpretation → GenericBinGrid", () => {
     const xml = makeGrid2d22({});
     expect(StructureMap22OSDU.matchType(xml as any)).toBe(false);
-    expect(Grid2dToOsduKind22(xml as any)).toContain("GenericRepresentation");
+    expect(Grid2dToOsduKind22(xml as any)).toContain("GenericBinGrid");
   });
 });
 

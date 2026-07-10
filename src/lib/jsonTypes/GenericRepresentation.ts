@@ -17,6 +17,11 @@ import {
   StructureMapSurfaceManifest,
   StructureMapOSDU
 } from "./StructureMap";
+import {
+  isHorizonControlPoints,
+  HorizonControlPointsManifest,
+  HorizonControlPointsOSDU
+} from "./HorizonControlPoints";
 
 import {
   Data,
@@ -333,6 +338,9 @@ export const GenericRepresentationToOsduKind = (
       }
     }
   }
+  if (isHorizonControlPoints(genRep)) {
+    return getKindOrFallback("HorizonControlPoints");
+  }
   if (isStructureMapSurface(genRep)) {
     return getKindOrFallback("StructureMap");
   }
@@ -344,10 +352,13 @@ export const GenericRepresentationManifest = async (
   xml: SimpleJson<resqml20.AbstractSurfaceRepresentation>,
   context: OSDUContext,
   client: ResqmlClient
-): Promise<GenericRepresentationOSDU | SeismicFaultOSDU | StructureMapOSDU> => {
+): Promise<GenericRepresentationOSDU | SeismicFaultOSDU | StructureMapOSDU | HorizonControlPointsOSDU> => {
   const kind = GenericRepresentationToOsduKind(xml);
   if (kind === getKindOrFallback("SeismicFault")) {
     return new SeismicFaultOSDU(xml, context).initData(uri, xml, client);
+  }
+  if (kind === getKindOrFallback("HorizonControlPoints")) {
+    return HorizonControlPointsManifest(uri, xml, context, client);
   }
   if (kind === getKindOrFallback("StructureMap")) {
     return StructureMapSurfaceManifest(uri, xml, context, client);

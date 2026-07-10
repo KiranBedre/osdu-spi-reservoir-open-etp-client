@@ -376,6 +376,11 @@ import {
   StructureMapSurface22Manifest,
   StructureMap22OSDU
 } from "./StructureMap22";
+import {
+  isHorizonControlPoints22,
+  HorizonControlPoints22Manifest,
+  HorizonControlPoints22OSDU
+} from "./HorizonControlPoints";
 
 /**
  * Identify OSDU kind for Representation, can create either a SeismicFault, StructureMap, or GenericRepresentation
@@ -397,6 +402,9 @@ export const GenericRepresentation22ToOsduKind = (
       }
     }
   }
+  if (isHorizonControlPoints22(genRep)) {
+    return getKindOrFallback("HorizonControlPoints");
+  }
   if (isStructureMapSurface22(genRep)) {
     return getKindOrFallback("StructureMap");
   }
@@ -408,8 +416,11 @@ export const GenericRepresentation22Manifest = async (
   xml: SimpleJson<resqml22.AbstractSurfaceRepresentation>,
   context: OSDUContext,
   client: ResqmlClient
-): Promise<GenericRepresentation22OSDU | StructureMap22OSDU> => {
+): Promise<GenericRepresentation22OSDU | StructureMap22OSDU | HorizonControlPoints22OSDU> => {
   const kind = GenericRepresentation22ToOsduKind(xml);
+  if (kind === getKindOrFallback("HorizonControlPoints")) {
+    return HorizonControlPoints22Manifest(uri, xml, context, client);
+  }
   if (kind === getKindOrFallback("StructureMap")) {
     return StructureMapSurface22Manifest(uri, xml, context, client);
   }

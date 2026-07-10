@@ -159,6 +159,8 @@ const FALLBACK_KINDS = new Map<string, string>([
   ["SeismicHorizon", `${PREFIX_WPC}SeismicHorizon:2.0.0`],
   ["SeismicFault", `${PREFIX_WPC}SeismicFault:1.1.0`],
   ["SeismicLineGeometry", `${PREFIX_WPC}SeismicLineGeometry:1.2.0`],
+  ["GenericBinGrid", `${PREFIX_WPC}GenericBinGrid:1.0.0`],
+  ["HorizonControlPoints", `${PREFIX_WPC}HorizonControlPoints:1.0.0`],
 
   // ─── Work Product Components — WITSML ──────────────────────────────────────
   ["Rig", `${PREFIX_WPC}Rig:1.2.0`],
