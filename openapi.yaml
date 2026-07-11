@@ -11752,7 +11752,12 @@ components:
             maxLength: 2048
         typePatterns:
           maxItems: 99999
-          description: Energistics types to restrict search against when indexing entire dataspaces, accept * and . wildcard.
+          description: >-
+            Energistics types to restrict search against when indexing entire dataspaces, accept * and . wildcard.
+            When omitted, default patterns include features, interpretations, representations, and properties
+            with canonical OSDU/PWLS names (porosity, permeability, saturation, etc.). Non-canonical properties
+            are excluded to prevent manifest bloat. Pass ["*"] to include all types, or ["*Property", ...] to
+            include all properties regardless of name.
           example:
           - resqml20.obj_*Representation
           type: array

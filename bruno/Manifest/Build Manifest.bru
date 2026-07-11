@@ -24,6 +24,22 @@ body:json {
   }
 }
 
+docs {
+  ## Build Manifest
+
+  Builds an OSDU manifest from ETP dataspace content.
+
+  **typePatterns behavior:**
+  - `["*"]` — include all types (shown above)
+  - Omit field — default patterns include features, interpretations, representations, and only canonical properties (PWLS/OSDU names)
+  - `["*Property", "*Representation"]` — explicit inclusion of all properties
+
+  **New enrichments (Layer 1):**
+  - GridConnectionSet records include `HasTransmissibilityMultipliers` in ExtensionProperties
+  - WellLog records auto-populate TopMeasuredDepth/BottomMeasuredDepth from frame arrays
+  - eml23.ColumnBasedTable → WPC--ColumnBasedTable with column names, UOM, and inferred table type
+}
+
 tests {
   test("status is 200", function () {
     expect(res.getStatus()).to.equal(200);

@@ -11,6 +11,7 @@
 import * as resqml20 from "../mlTypes/xmlns/www.energistics.org/energyml/resqmlv201/resqmlv2";
 import { ResqmlClient } from "../client/ResqmlClient";
 import { Energistics } from "../common/Etp12";
+import type { IDataArray } from "../common/EtpTypes";
 import type { SimpleJson } from "../mlTypes/XmlJsonUtil";
 
 import { OSDUContext } from "./OsduContext";
@@ -25,8 +26,7 @@ import { Data, WellLog, Curves } from "./Generated/work-product-component/WellLo
  */
 export class WellboreFrameToWellLogOSDU
   extends ResqmlWorkProductComponent<SimpleJson<resqml20.obj_WellboreFrameRepresentation>>
-  implements WellLog
-{
+  implements WellLog {
   public data: Data = {};
 
   constructor(
@@ -68,6 +68,9 @@ export class WellboreFrameToWellLogOSDU
     // Build curves from attached properties
     const curves = await this.buildCurves(ReservoirDMSUrl, client, context);
 
+    // Extract depth range from frame index array (best-effort)
+    const depthRange = await this.extractDepthRange(ReservoirDMSUrl, xml, nodeCount, client);
+
     this.data = {
       ...(await this.AbstractCommonResources(context)),
       ...(await this.AbstractWPCGroupType(ReservoirDMSUrl, context)),
@@ -81,12 +84,11 @@ export class WellboreFrameToWellLogOSDU
         "MeasuredDepth"
       ),
 
-      // Frame does not carry these — leave absent
-      TopMeasuredDepth: undefined,
-      BottomMeasuredDepth: undefined,
-      SamplingStart: undefined,
-      SamplingStop: undefined,
-      SamplingInterval: undefined,
+      TopMeasuredDepth: depthRange?.top,
+      BottomMeasuredDepth: depthRange?.bottom,
+      SamplingStart: depthRange?.top,
+      SamplingStop: depthRange?.bottom,
+      SamplingInterval: depthRange?.interval,
 
       ExtensionProperties: undefined
     };
@@ -95,6 +97,66 @@ export class WellboreFrameToWellLogOSDU
 
     delete this.__context;
     return this;
+  }
+
+  /**
+   * Extract depth range from the frame's index array (NodeMd).
+   * Reads only the first and last array elements to avoid fetching
+   * the entire depth column. Returns undefined if arrays are unavailable.
+   */
+  private async extractDepthRange(
+    frameUri: string,
+    xml: SimpleJson<resqml20.obj_WellboreFrameRepresentation>,
+    nodeCount: number | undefined,
+    client: ResqmlClient
+  ): Promise<{ top: number; bottom: number; interval?: number } | undefined> {
+    if (!nodeCount || nodeCount < 1) return undefined;
+    try {
+      const arrays = new Map<string, IDataArray>();
+      client.findDataArrays(frameUri, xml as Record<string, any>, arrays);
+      // The frame's first array reference is the NodeMd index
+      const firstArray = Array.from(arrays.values())[0];
+      if (!firstArray) return undefined;
+
+      const { uri, pathInResource } = firstArray.uid;
+      // Read first element
+      const firstSub = await client.getDataSubarray(uri, pathInResource, [0], [1], false);
+      // Read last element
+      const lastSub = await client.getDataSubarray(uri, pathInResource, [nodeCount - 1], [1], false);
+
+      const topVal = this.extractNumericValue(firstSub?.data);
+      const bottomVal = this.extractNumericValue(lastSub?.data);
+      if (topVal === undefined || bottomVal === undefined) return undefined;
+
+      // Compute sampling interval for regular logs
+      let interval: number | undefined;
+      if (nodeCount > 1) {
+        const computed = (bottomVal - topVal) / (nodeCount - 1);
+        // Only report interval if it's positive (monotonically increasing depth)
+        if (computed > 0) {
+          interval = computed;
+        }
+      }
+
+      return { top: topVal, bottom: bottomVal, interval };
+    } catch {
+      return undefined;
+    }
+  }
+
+  /** Extract first numeric value from a DataArray response */
+  private extractNumericValue(
+    data: Energistics.Etp.v12.Datatypes.DataArrayTypes.DataArray | any | null | undefined
+  ): number | undefined {
+    if (!data?.data?.item) return undefined;
+    const item = data.data.item;
+    const arr =
+      item._ArrayOfDouble?.values ??
+      item._ArrayOfFloat?.values ??
+      item._ArrayOfInt?.values ??
+      item._ArrayOfLong?.values;
+    if (arr && arr.length > 0) return Number(arr[0]);
+    return undefined;
   }
 
   /**

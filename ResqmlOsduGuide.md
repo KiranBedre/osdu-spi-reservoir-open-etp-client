@@ -559,6 +559,78 @@ The converter extracts metadata through four abstract base methods, then type-sp
 
 ---
 
+## 9b. Manifest Behaviors: Property Filtering & Table Support
+
+### Smart Property Inclusion
+
+Properties (`ContinuousProperty`, `DiscreteProperty`, `CategoricalProperty`) are
+**excluded** from the default manifest type patterns to avoid bloat (a single grid
+may have 1000+ properties). However, properties whose `Citation.Title` matches a
+**canonical OSDU name** are automatically included.
+
+A property is "canonical" if its name matches:
+- A PWLS v4 standard property name (875 entries: porosity, permeability rock, water saturation, etc.)
+- An OSDU PropertyType reference-data Code (from `PropertyTypesManifest.json`)
+
+**To include ALL properties** regardless of name, pass explicit `typePatterns`:
+```json
+{ "uris": ["eml:///dataspace('x')"], "typePatterns": ["*Property", "*Representation", "*Interpretation*", "*Feature"] }
+```
+
+### GridConnectionSet: Transmissibility Detection
+
+The converter queries source resources (attached ContinuousProperty objects) on each
+GridConnectionSetRepresentation. If any property name contains "transmissibility" or
+"trans", the record's `ExtensionProperties` is populated:
+
+```json
+{
+  "HasTransmissibilityMultipliers": true,
+  "TransmissibilityPropertyCount": 2
+}
+```
+
+### WellLog: Depth Range from Frame Index Array
+
+The WellboreFrameRepresentation → WellLog converter now reads the first and last
+elements of the frame's index array (NodeMd) to populate:
+
+| OSDU Field | Source |
+|---|---|
+| `TopMeasuredDepth` | First value of NodeMd array |
+| `BottomMeasuredDepth` | Last value of NodeMd array |
+| `SamplingStart` | Same as TopMeasuredDepth |
+| `SamplingStop` | Same as BottomMeasuredDepth |
+| `SamplingInterval` | `(bottom - top) / (nodeCount - 1)` if positive |
+
+Best-effort: if the array is unavailable, fields remain undefined (no failure).
+
+### EML 2.3 ColumnBasedTable (Native Table Support)
+
+The `eml23.ColumnBasedTable` type is now registered as a converter source. This
+enables storing multi-column numeric tables (PVT, SCAL, equilibrium data) directly
+in an ETP dataspace alongside RESQML 2.0.1 geomodel objects.
+
+The enriched converter extracts:
+
+| OSDU Field | EML 2.3 Source |
+|---|---|
+| `Columns[].ColumnName` | `Column.Title` or `Column.PropertyKind.Title` |
+| `Columns[].UnitOfMeasureID` | `Column.Uom` |
+| `Columns[].PropertyType.Name` | `Column.PropertyKind.Title` |
+| `Columns[].ValueType` | Inferred from `Column.Values.$type` |
+| `KeyColumns[]` | `KeyColumn[]` (same mapping) |
+| `ColumnSize` | Row count from first column's array dimensions |
+| `ColumnBasedTableType` | Auto-inferred: KrPc, PVT, Facies, or Generic |
+
+**Table type inference heuristic:**
+- Contains "permeability" or "saturation" or "capillary" → **KrPc**
+- Contains "viscosity" or "formation volume" or "solution gas" → **PVT**
+- Contains "facies" or "lithology" → **Facies**
+- Otherwise → **Generic**
+
+---
+
 ## 10. Version Differences: RESQML 2.0.1 vs 2.2
 
 | Mechanism | RESQML 2.0.1 | RESQML 2.2 (EML 2.3) |

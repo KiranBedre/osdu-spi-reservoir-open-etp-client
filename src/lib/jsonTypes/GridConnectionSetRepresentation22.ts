@@ -1,5 +1,6 @@
 import * as resqml22 from "../mlTypes/xmlns/www.energistics.org/energyml/resqmlv22/resqmlv2";
 import { ResqmlClient } from "../client/ResqmlClient";
+import { Energistics } from "../common/Etp12";
 import type { SimpleJson } from "../mlTypes/XmlJsonUtil";
 
 import { OSDUContext } from "./OsduContext";
@@ -22,8 +23,7 @@ export class GridConnectionSetRepresentation22OSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml22.GridConnectionSetRepresentation>
   >
-  implements GridConnectionSetRepresentation
-{
+  implements GridConnectionSetRepresentation {
   public data: Data = {};
 
   constructor(
@@ -92,13 +92,42 @@ export class GridConnectionSetRepresentation22OSDU
       }),
 
       InterpretationIDs: InterpretationIDs.filter(a => a !== ""),
-      ExtensionProperties: undefined
+      ExtensionProperties: await this.detectTransmissibility(ReservoirDMSUrl, client)
     };
 
     this.assignExtraMetaData(xml.ExtensionNameValue);
 
     delete this.__context;
     return this;
+  }
+
+  /**
+   * Detect whether transmissibility multiplier properties are attached to
+   * this connection set. Returns ExtensionProperties if found, else undefined.
+   */
+  private async detectTransmissibility(
+    uri: string,
+    client: ResqmlClient
+  ): Promise<{ [key: string]: any } | undefined> {
+    try {
+      const related = await client.getResources(
+        uri,
+        Energistics.Etp.v12.Datatypes.Object.ContextScopeKind.sources
+      );
+      const transmProps = related.filter(
+        (r: any) =>
+          r.uri.includes("ContinuousProperty") &&
+          (r.name?.toLowerCase().includes("transmissibility") ||
+            r.name?.toLowerCase().includes("trans"))
+      );
+      if (transmProps.length === 0) return undefined;
+      return {
+        HasTransmissibilityMultipliers: true,
+        TransmissibilityPropertyCount: transmProps.length
+      };
+    } catch {
+      return undefined;
+    }
   }
 }
 

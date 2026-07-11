@@ -18,6 +18,8 @@ import {
   CollaborationProjectManifest,
   deriveCollaborationId
 } from "./CollaborationProject";
+import { getPropertyTypeIDFromResqmlAlias, PropertyTypesIds } from "./PropertyTypes";
+import { isKnownPwlsProperty } from "./PwlsCurveCatalog";
 
 import { ErrorCode, EtpError } from "../common/EtpTypes";
 
@@ -36,7 +38,6 @@ import {
 import { etpServerPath, osduUrl } from "../common/config";
 
 import serverSchema from "./server-schema.json";
-import { PropertyTypesIds } from "./PropertyTypes";
 
 export const dataspaceUriPattern =
   /^(?:eml:\/\/\/|^eml:\/\/\/dataspace\('[^'"]*?(?:''[^'"]*?)*'\))$/;
@@ -108,12 +109,12 @@ const getACLForDataspace = (
 /**
  * Default type patterns applied when indexing entire dataspaces without
  * explicit typePatterns. Focuses on discovery-worthy types (features,
- * interpretations, representations, wells) and excludes support objects
- * (properties, CRS, time series, property kinds) to avoid manifest bloat.
+ * interpretations, representations, wells) and excludes bulk properties
+ * to avoid manifest bloat. Properties with canonical OSDU names are
+ * included automatically via a secondary filter (see createManifest).
  *
- * To include grid properties, pass typePatterns explicitly:
- *   ["*Property", ...DEFAULT_DATASPACE_TYPE_PATTERNS]
- * Or pass ["*"] to index all types.
+ * Pass ["*"] to index all types, or ["*Property", ...DEFAULT_DATASPACE_TYPE_PATTERNS]
+ * to include ALL properties regardless of name.
  */
 export const DEFAULT_DATASPACE_TYPE_PATTERNS: string[] = [
   "*Feature",
@@ -124,6 +125,30 @@ export const DEFAULT_DATASPACE_TYPE_PATTERNS: string[] = [
   "*Collection",
   "witsml21.*"
 ];
+
+/** Property type pattern for secondary filter matching */
+const PROPERTY_TYPE_PATTERN = /Property$/i;
+
+/**
+ * Check if a resource is a Property with a canonical OSDU name.
+ * Used as a secondary inclusion filter so that simulation-critical
+ * properties (porosity, permeability, saturation, etc.) are included
+ * in manifests without pulling in every unnamed/local property.
+ *
+ * A property is "canonical" if its Citation.Title (exposed as Resource.name
+ * in ETP Discovery) matches either:
+ * - A known OSDU PropertyType from the reference-data manifest, OR
+ * - A known PWLS v4 standard property name
+ */
+function isCanonicalProperty(dataObjectType: string, name: string): boolean {
+  if (!PROPERTY_TYPE_PATTERN.test(dataObjectType)) return false;
+  if (!name) return false;
+  // Check PWLS catalog (875 standard property names)
+  if (isKnownPwlsProperty(name)) return true;
+  // Check OSDU PropertyType reference-data (RESQML alias or Code)
+  if (getPropertyTypeIDFromResqmlAlias(name) !== undefined) return true;
+  return false;
+}
 
 /**
  * Create a manifest for a list of uris
@@ -190,6 +215,12 @@ export const createManifest = async (
               if (u.dataObjectType.match(p)) {
                 return true;
               }
+            }
+            // Secondary filter: include Property objects whose name matches
+            // a canonical OSDU PropertyType or PWLS property (avoids bloat
+            // from unnamed/local properties while keeping simulation-critical ones)
+            if (isCanonicalProperty(u.dataObjectType, f.name)) {
+              return true;
             }
             return false;
           });
