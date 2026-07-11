@@ -247,7 +247,7 @@ export class IjkGridRepresentationOSDU
       ),
       ExpansionInDirection: ExpansionInDirection.K,
       HasCollocatedNodeInKDirection:
-        xml.Geometry?.NodeIsColocatedInKDirection !== undefined, //TODO
+        xml.Geometry?.NodeIsColocatedInKDirection !== undefined,
       HasKGaps:
         xml.KGaps && xml.KGaps.Count !== undefined && xml.KGaps.Count > 0,
       HasLateralGaps: xml.Geometry?.IjGaps !== undefined,

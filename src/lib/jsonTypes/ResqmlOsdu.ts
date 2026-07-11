@@ -432,6 +432,11 @@ ResqmlOSDU.add(
   ColumnBasedTable23Manifest
 );
 ResqmlOSDU.add(
+  "eml23.ColumnBasedTable",
+  () => getKindOrFallback("ColumnBasedTable"),
+  ColumnBasedTable23Manifest
+);
+ResqmlOSDU.add(
   "resqml20.obj_DoubleTableLookup",
   () => getKindOrFallback("ColumnBasedTable"),
   DoubleTableLookupManifest
