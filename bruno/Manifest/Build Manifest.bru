@@ -29,12 +29,17 @@ docs {
 
   Builds an OSDU manifest from ETP dataspace content.
 
+  **propertyFilter** (new):
+  - `"canonical"` (default) — include properties with standard names: PWLS (porosity, water saturation…), OSDU PropertyType aliases, and common simulator abbreviations (PORO, PERMX, SW, SATNUM, NTG…)
+  - `"none"` — exclude all properties from manifest
+  - `"all"` — include all properties regardless of name
+
   **typePatterns behavior:**
-  - `["*"]` — include all types (shown above)
-  - Omit field — default patterns include features, interpretations, representations, and only canonical properties (PWLS/OSDU names)
+  - `["*"]` — include all types (overrides propertyFilter)
+  - Omit field — default patterns apply, propertyFilter controls which properties are included
   - `["*Property", "*Representation"]` — explicit inclusion of all properties
 
-  **New enrichments (Layer 1):**
+  **Enrichments:**
   - GridConnectionSet records include `HasTransmissibilityMultipliers` in ExtensionProperties
   - WellLog records auto-populate TopMeasuredDepth/BottomMeasuredDepth from frame arrays
   - eml23.ColumnBasedTable → WPC--ColumnBasedTable with column names, UOM, and inferred table type

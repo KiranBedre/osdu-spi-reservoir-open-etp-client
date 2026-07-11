@@ -69,7 +69,8 @@ import {
   IsBoolean,
   IsObject,
   ValidateNested,
-  Matches
+  Matches,
+  IsIn
 } from "class-validator";
 import { Type } from "class-transformer";
 
@@ -79,7 +80,7 @@ import {
   ITechnicalAssurance,
   OSDUContext
 } from "../../jsonTypes/OsduContext";
-import { createManifest } from "../../jsonTypes/Manifest";
+import { createManifest, PropertyFilter } from "../../jsonTypes/Manifest";
 import { JwtPayload } from "jsonwebtoken";
 import { bigIntToString } from "../../mlTypes/XmlJsonUtil";
 import logging from "../../common/Logging";
@@ -339,6 +340,18 @@ export class ManifestInputDto {
   typePatterns?: string[];
 
   @ApiPropertyOptional({
+    name: "propertyFilter",
+    type: String,
+    enum: ["canonical", "none", "all"],
+    description: `Controls property inclusion when using default type patterns. "canonical" (default): include properties with standard names (PWLS, OSDU, simulator abbreviations like PORO, PERMX, SW). "none": exclude all properties. "all": include all properties regardless of name.`,
+    example: "canonical"
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(["canonical", "none", "all"])
+  propertyFilter?: PropertyFilter;
+
+  @ApiPropertyOptional({
     name: "technicalAssurances",
     type: [TechnicalAssuranceDto],
     maxItems: 1028,
@@ -553,7 +566,8 @@ export default class ObjectsManifestAPI {
         body.uris ?? [],
         context,
         body.typePatterns,
-        maxManifestSize
+        maxManifestSize,
+        body.propertyFilter ?? "canonical"
       );
       logger.info("Manifest creation successful.");
       await c.closeSession();

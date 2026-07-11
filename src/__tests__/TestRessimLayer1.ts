@@ -21,11 +21,8 @@ describe("Smart property inclusion filter", () => {
     let isCanonicalProperty: (type: string, name: string) => boolean;
 
     beforeAll(() => {
-        // Access the private function via module internals
-        const manifestModule = require("../lib/jsonTypes/Manifest");
-        // The function is module-scoped; test via DEFAULT_DATASPACE_TYPE_PATTERNS + logic
-        // Instead, test the exported patterns and the filter behavior indirectly
-        isCanonicalProperty = (manifestModule as any).isCanonicalProperty;
+        const { isCanonicalProperty: fn } = require("../lib/jsonTypes/Manifest");
+        isCanonicalProperty = fn;
     });
 
     it("DEFAULT_DATASPACE_TYPE_PATTERNS excludes *Property", () => {
@@ -40,6 +37,35 @@ describe("Smart property inclusion filter", () => {
         expect(DEFAULT_DATASPACE_TYPE_PATTERNS).toContain("*Feature");
         expect(DEFAULT_DATASPACE_TYPE_PATTERNS).toContain("*StratigraphicColumn");
         expect(DEFAULT_DATASPACE_TYPE_PATTERNS).toContain("witsml21.*");
+    });
+
+    it("accepts PWLS standard names (porosity, water saturation)", () => {
+        expect(isCanonicalProperty("ContinuousProperty", "porosity")).toBe(true);
+        expect(isCanonicalProperty("ContinuousProperty", "Porosity")).toBe(true);
+        expect(isCanonicalProperty("ContinuousProperty", "water saturation")).toBe(true);
+        expect(isCanonicalProperty("ContinuousProperty", "permeability")).toBe(true);
+    });
+
+    it("accepts common simulator abbreviations (PORO, PERMX, SW, SATNUM)", () => {
+        expect(isCanonicalProperty("ContinuousProperty", "PORO")).toBe(true);
+        expect(isCanonicalProperty("ContinuousProperty", "PERMX")).toBe(true);
+        expect(isCanonicalProperty("ContinuousProperty", "PERMY")).toBe(true);
+        expect(isCanonicalProperty("ContinuousProperty", "PERMZ")).toBe(true);
+        expect(isCanonicalProperty("DiscreteProperty", "SW")).toBe(true);
+        expect(isCanonicalProperty("DiscreteProperty", "SATNUM")).toBe(true);
+        expect(isCanonicalProperty("ContinuousProperty", "NTG")).toBe(true);
+        expect(isCanonicalProperty("DiscreteProperty", "EQLNUM")).toBe(true);
+        expect(isCanonicalProperty("ContinuousProperty", "TRANX")).toBe(true);
+    });
+
+    it("rejects non-property types even with canonical names", () => {
+        expect(isCanonicalProperty("IjkGridRepresentation", "PORO")).toBe(false);
+        expect(isCanonicalProperty("HorizonInterpretation", "porosity")).toBe(false);
+    });
+
+    it("rejects unknown/local property names", () => {
+        expect(isCanonicalProperty("ContinuousProperty", "my_custom_prop_123")).toBe(false);
+        expect(isCanonicalProperty("ContinuousProperty", "")).toBe(false);
     });
 });
 

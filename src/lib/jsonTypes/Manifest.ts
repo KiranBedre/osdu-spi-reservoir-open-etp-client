@@ -130,19 +130,53 @@ export const DEFAULT_DATASPACE_TYPE_PATTERNS: string[] = [
 const PROPERTY_TYPE_PATTERN = /Property$/i;
 
 /**
- * Check if a resource is a Property with a canonical OSDU name.
+ * Common reservoir-simulation property name abbreviations.
+ * These are the short names used by Eclipse, OPM, tNavigator, etc.
+ * that don't appear in PWLS or OSDU PropertyType catalogs.
+ */
+const RESSIM_PROPERTY_NAMES = new Set([
+  // Porosity & net-to-gross
+  "poro", "porosity", "ntg", "multpv",
+  // Permeability
+  "permx", "permy", "permz", "permxy", "permyz", "permzx",
+  "perm", "kx", "ky", "kz",
+  // Saturations
+  "sw", "sg", "so", "swat", "sgas", "soil",
+  "swl", "swu", "sgl", "sgu", "sowcr", "sogcr", "swcr", "sgcr",
+  // Region numbers
+  "satnum", "eqlnum", "fipnum", "pvtnum", "imbnum", "actnum",
+  "endnum", "rocknum", "fluxnum",
+  // Transmissibility & multipliers
+  "tranx", "trany", "tranz", "multx", "multy", "multz",
+  "multx-", "multy-", "multz-", "multregt",
+  // Pressure & depth
+  "pressure", "depth", "tops", "dz", "dx", "dy",
+  // Rock mechanics
+  "young", "poisson", "biot",
+  // Common output / init
+  "rporv", "porv", "fipoil", "fipgas", "fipwat",
+]);
+
+/** Property filter mode for manifest generation */
+export type PropertyFilter = "canonical" | "none" | "all";
+
+/**
+ * Check if a resource is a Property with a canonical or common name.
  * Used as a secondary inclusion filter so that simulation-critical
- * properties (porosity, permeability, saturation, etc.) are included
- * in manifests without pulling in every unnamed/local property.
+ * properties are included in manifests without pulling in every
+ * unnamed/local property.
  *
  * A property is "canonical" if its Citation.Title (exposed as Resource.name
- * in ETP Discovery) matches either:
- * - A known OSDU PropertyType from the reference-data manifest, OR
- * - A known PWLS v4 standard property name
+ * in ETP Discovery) matches any of:
+ * - A common reservoir-simulation abbreviation (PORO, PERMX, SW, SATNUM, …)
+ * - A known PWLS v4 standard property name (875 entries)
+ * - An OSDU PropertyType from the reference-data manifest
  */
-function isCanonicalProperty(dataObjectType: string, name: string): boolean {
+export function isCanonicalProperty(dataObjectType: string, name: string): boolean {
   if (!PROPERTY_TYPE_PATTERN.test(dataObjectType)) return false;
   if (!name) return false;
+  // Check common simulator abbreviations (case-insensitive)
+  if (RESSIM_PROPERTY_NAMES.has(name.toLowerCase())) return true;
   // Check PWLS catalog (875 standard property names)
   if (isKnownPwlsProperty(name)) return true;
   // Check OSDU PropertyType reference-data (RESQML alias or Code)
@@ -160,6 +194,10 @@ function isCanonicalProperty(dataObjectType: string, name: string): boolean {
  *   When undefined, DEFAULT_DATASPACE_TYPE_PATTERNS is used for dataspace-level URIs.
  *   Pass ["*"] to index all types.
  * @param {number} [maxManifestSize] Optional maximum size of the manifest in MB, default is 1000
+ * @param {PropertyFilter} [propertyFilter] Controls property inclusion:
+ *   - "canonical" (default): include properties with standard names (PWLS, OSDU, simulator)
+ *   - "none": exclude all properties
+ *   - "all": include all properties regardless of name
  * @return {Promise<Manifest>}
  */
 export const createManifest = async (
@@ -167,7 +205,8 @@ export const createManifest = async (
   uris: URI[],
   context: OSDUContext,
   typePatterns?: string[],
-  maxManifestSize: number = 1000
+  maxManifestSize: number = 1000,
+  propertyFilter: PropertyFilter = "canonical"
 ): Promise<Manifest> => {
   if (uris.length === 0) {
     return Promise.reject("No URI provided");
@@ -216,11 +255,12 @@ export const createManifest = async (
                 return true;
               }
             }
-            // Secondary filter: include Property objects whose name matches
-            // a canonical OSDU PropertyType or PWLS property (avoids bloat
-            // from unnamed/local properties while keeping simulation-critical ones)
-            if (isCanonicalProperty(u.dataObjectType, f.name)) {
-              return true;
+            // Property inclusion based on propertyFilter setting
+            if (PROPERTY_TYPE_PATTERN.test(u.dataObjectType)) {
+              if (propertyFilter === "none") return false;
+              if (propertyFilter === "all") return true;
+              // "canonical": include only properties with standard names
+              return isCanonicalProperty(u.dataObjectType, f.name);
             }
             return false;
           });

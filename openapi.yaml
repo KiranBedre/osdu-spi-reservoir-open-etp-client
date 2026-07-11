@@ -11765,6 +11765,18 @@ components:
             type: string
             maxLength: 2048
             pattern: ^[0-9a-zA-Z._*?]+$
+        propertyFilter:
+          type: string
+          enum:
+          - canonical
+          - none
+          - all
+          description: >-
+            Controls property inclusion when using default type patterns.
+            "canonical" (default): include properties with standard names (PWLS, OSDU, simulator abbreviations like PORO, PERMX, SW).
+            "none": exclude all properties.
+            "all": include all properties regardless of name.
+          example: canonical
         technicalAssurances:
           maxItems: 1028
           description: Technical Assurance information.
