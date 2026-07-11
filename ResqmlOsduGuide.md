@@ -16,66 +16,111 @@
 > **Schema versions:** Will vary by target milestone. See `MilestoneKinds.ts` — versions
 > shown here are M27 (Venus). Set `RDMS_OSDU_MILESTONE=M26` for Mercury equivalents.
 
-| OSDU Kind (schema version) | RESQML 2.0.1 Type | RESQML 2.2 Type | Routing Condition | Status |
-|---|---|---|---|---|
-| `master-data--ActivityTemplate:1.1.0` | `obj_ActivityTemplate` | `eml23.ActivityTemplate` | Direct | ✅ |
-| `master-data--BoundaryFeature:1.2.0` | — | — | Auto-created from LocalBoundaryFeature converter | ✅ |
-| `master-data--SeismicAcquisitionSurvey:1.4.0` | `obj_SeismicLatticeFeature` | `SeismicLatticeFeature` | Direct | ✅ |
-| `master-data--Well:1.3.0` | — | `witsml21.Well` | Direct (WITSML) | ✅ |
-| `master-data--Wellbore:1.3.0` | — | `witsml21.Wellbore` | Direct (WITSML) | ✅ |
-| `reference-data--PropertyType:1.0.0` | `obj_PropertyKind` | `eml23.PropertyKind` | Direct | ✅ |
-| `WPC--Activity:1.4.0` | `obj_Activity` | `eml23.Activity` | Direct | ✅ |
-| `WPC--BHARunReport:1.3.0` | — | `witsml21.BhaRun` | Direct (WITSML) | ✅ |
-| `WPC--ColumnBasedTable:1.3.0` | `obj_StringTableLookup`, `obj_DoubleTableLookup` | `eml23.ColumnBasedTable` | Direct | ✅ |
-| `WPC--EarthModelInterpretation:1.2.0` | `obj_EarthModelInterpretation` | `EarthModelInterpretation` | Direct | ✅ |
-| `WPC--FaultInterpretation:1.2.0` | `obj_FaultInterpretation` | `FaultInterpretation` | Direct | ✅ |
-| `WPC--FluidBoundaryInterpretation:1.2.0` | `obj_FluidBoundaryFeature` | `FluidBoundaryInterpretation` | Direct | ✅ |
-| `WPC--FluidsReport:1.3.0` | — | `witsml21.FluidsReport` | Direct (WITSML) | ✅ |
-| `WPC--GenericBinGrid:1.0.0` | `obj_Grid2dRepresentation` (no interp) | `Grid2dRepresentation` (no interp) | Grid2d with no interpretation (isochore, DEM, etc.) | ✅ |
-| `WPC--GenericProperty:1.2.0` | `obj_CategoricalProperty`, `obj_ContinuousProperty`, `obj_DiscreteProperty` | `ContinuousProperty`, `DiscreteProperty` | Direct (NOT on WellboreFrame) | ✅ |
-| `WPC--GenericRepresentation:1.2.0` | `obj_TriangulatedSetRepresentation`, `obj_PointSetRepresentation`, `obj_BlockedWellboreRepresentation` | same | Direct (catch-all) | ✅ |
-| `WPC--GenericRepresentation:1.1.0` | `obj_PolylineRepresentation`, `obj_PolylineSetRepresentation` | same | Fallback when NOT SeismicFault | ✅ |
-| `WPC--GeologicUnitOccurrenceInterpretation:1.2.0` | `obj_StratigraphicOccurrenceInterpretation` | `StratigraphicOccurrenceInterpretation` | Direct | ✅ |
-| `WPC--GeobodyBoundaryInterpretation:1.1.0` | `obj_GeobodyBoundaryInterpretation` | `GeobodyBoundaryInterpretation` | Direct | ✅ |
-| `WPC--GeobodyInterpretation:1.3.0` | `obj_GeobodyInterpretation` | `GeobodyInterpretation` | Direct | ✅ |
-| `WPC--GridConnectionSetRepresentation:1.2.0` | `obj_GridConnectionSetRepresentation` | `GridConnectionSetRepresentation` | Direct | ✅ |
-| `WPC--HorizonControlPoints:1.0.0` | `obj_PointSetRepresentation` + HorizonInterp | `PointSetRepresentation` + HorizonInterp | PointSet with HorizonInterpretation | ✅ |
-| `WPC--HorizonInterpretation:1.2.0` | `obj_HorizonInterpretation` | `HorizonInterpretation` | Direct | ✅ |
-| `WPC--IjkGridRepresentation:1.2.0` | `obj_IjkGridRepresentation` | `IjkGridRepresentation` | Direct | ✅ |
-| `WPC--LocalBoundaryFeature:1.2.0` | `obj_GeneticBoundaryFeature`, `obj_TectonicBoundaryFeature` | `BoundaryFeature` | Direct | ✅ |
-| `WPC--LocalModelCompoundCrs:1.2.0` | `obj_LocalDepth3dCrs`, `obj_LocalTime3dCrs` | `eml23.LocalEngineeringCompoundCrs` | Direct | ✅ |
-| `WPC--LocalModelFeature:1.2.0` | `obj_OrganizationFeature` | `OrganizationFeature` | Direct | ✅ |
-| `WPC--LocalRockVolumeFeature:1.2.0` | `obj_StratigraphicUnitFeature` | `StratigraphicUnitFeature` | Direct | ✅ |
-| `WPC--PersistedCollection:1.2.0` | `obj_PropertySet`, `obj_RepresentationSetRepresentation` | `eml23.DataobjectCollection` | Direct | ✅ |
-| `WPC--Rig:1.3.0` | — | `witsml21.Rig` | Direct (WITSML) | ✅ |
-| `WPC--RockFluidOrganizationInterpretation:1.2.0` | `obj_RockFluidOrganizationInterpretation` | same | Direct | ✅ |
-| `WPC--RockFluidUnitInterpretation:1.3.0` | `obj_RockFluidUnitInterpretation` | same | Direct | ✅ |
-| `WPC--ReservoirCompartmentInterpretation:1.2.0` | — | `ReservoirCompartmentInterpretation` | Direct (v2.2 only) | ✅ |
-| `WPC--SealedSurfaceFramework:1.2.0` | `obj_SealedSurfaceFrameworkRepresentation` | same | Direct | ✅ |
-| `WPC--SealedVolumeFramework:1.2.0` | `obj_SealedVolumeFrameworkRepresentation` | same | Direct | ✅ |
-| `WPC--SeismicBinGrid:1.3.0` | `obj_Grid2dRepresentation` | `Grid2dRepresentation` | InterpretedFeature is `SeismicLatticeFeature` | ✅ |
-| `WPC--SeismicFault:2.0.0` | `obj_PolylineRepresentation`, `obj_PolylineSetRepresentation` | same | FaultInterpretation + SeismicCoordinates | ✅ |
-| `WPC--SeismicHorizon:2.0.0` | `obj_Grid2dRepresentation` | `Grid2dRepresentation` | HorizonInterpretation + Z on seismic lattice | ✅ |
-| `WPC--SeismicLineGeometry:1.2.0` | `obj_SeismicLineFeature` | — | Direct (v2.0 only) | ✅ |
-| `WPC--StratigraphicColumn:1.2.0` | `obj_StratigraphicColumn` | `StratigraphicColumn` | Direct | ✅ |
-| `WPC--StratigraphicColumnRankInterpretation:1.3.0` | `obj_StratigraphicColumnRankInterpretation` | same | Direct | ✅ |
-| `WPC--StratigraphicUnitInterpretation:1.3.0` | `obj_StratigraphicUnitInterpretation` | same | Direct | ✅ |
-| `WPC--StructuralOrganizationInterpretation:1.2.0` | `obj_StructuralOrganizationInterpretation` | same | Direct | ✅ |
-| `WPC--StructureMap:1.0.0` | `obj_Grid2dRepresentation` | `Grid2dRepresentation` | HorizonInterpretation + NOT on lattice (M27 only) | ✅ |
-| `WPC--SubRepresentation:1.2.0` | `obj_SubRepresentation` | `SubRepresentation` | Direct | ✅ |
-| `WPC--TimeSeries:1.2.0` | `obj_TimeSeries` | `TimeSeries` | Direct | ✅ |
-| `WPC--Tubular:1.3.0` | — | `witsml21.Tubular` | Direct (WITSML) | ✅ |
-| `WPC--UnsealedSurfaceFramework:1.3.1` | `obj_NonSealedSurfaceFrameworkRepresentation` | same | Direct | ✅ |
-| `WPC--UnstructuredGridRepresentation:1.2.0` | `obj_UnstructuredGridRepresentation` | same | Direct | ✅ |
-| `WPC--WellboreMarkerSet:1.2.0` | `obj_WellboreMarkerFrameRepresentation` | `WellboreIntervalSet` | Direct | ✅ |
-| `WPC--WellboreCompletion:1.3.0` | — | `witsml21.WellCompletion` | Direct (WITSML) | ✅ |
-| `WPC--WellboreInterpretation:1.2.0` | — | `WellboreInterpretation` | Direct (v2.2 only) | ✅ |
-| `WPC--WellboreTrajectory:1.3.0` | — | `WellboreTrajectoryRepresentation`, `witsml21.Trajectory` | Direct | ✅ |
-| `WPC--WellLog:1.3.0` | `obj_WellboreFrameRepresentation` + Properties | same, `witsml21.Log` | Frame + attached properties → single WellLog | ✅ |
-| `WPC--FluidModel:1.0.0` | — | `prodml23.FluidCharacterization` | Direct (PRODML) | ✅ |
-| `WPC--ProductionValues:1.1.1` | — | `prodml23.TimeSeriesData` | Direct (PRODML) | ✅ |
-| `master-data--Reservoir:2.0.0` | — | — | MilestoneKinds only (no converter yet) | ⏳ |
-| `master-data--ReservoirSegment:2.0.0` | — | — | MilestoneKinds only (no converter yet) | ⏳ |
+> v2.2 types drop the `obj_` prefix (e.g. `obj_FaultInterpretation` → `FaultInterpretation`).
+> Where the v2.2 name follows this convention, only the base name is shown once.
+
+#### Structural & Spatial Representations
+
+| OSDU Kind | v2.0.1 | v2.2 | Routing |
+|---|---|---|---|
+| `WPC--IjkGridRepresentation` | `obj_IjkGridRepresentation` | ← | Direct |
+| `WPC--UnstructuredGridRepresentation` | `obj_UnstructuredGridRepresentation` | ← | Direct |
+| `WPC--GridConnectionSetRepresentation` | `obj_GridConnectionSetRepresentation` | ← | Direct |
+| `WPC--SubRepresentation` | `obj_SubRepresentation` | ← | Direct |
+| `WPC--SealedSurfaceFramework` | `obj_SealedSurfaceFrameworkRepresentation` | ← | Direct |
+| `WPC--SealedVolumeFramework` | `obj_SealedVolumeFrameworkRepresentation` | ← | Direct |
+| `WPC--UnsealedSurfaceFramework` | `obj_NonSealedSurfaceFrameworkRepresentation` | ← | Direct |
+| `WPC--StructureMap` | `obj_Grid2dRepresentation` | ← | HorizonInterp + NOT on lattice (M27) |
+| `WPC--HorizonControlPoints` | `obj_PointSetRepresentation` | ← | PointSet + HorizonInterpretation |
+| `WPC--LocalModelCompoundCrs` | `obj_LocalDepth3dCrs`, `obj_LocalTime3dCrs` | `eml23.LocalEngineeringCompoundCrs` | Direct |
+
+#### Geological Interpretations
+
+| OSDU Kind | v2.0.1 | v2.2 | Routing |
+|---|---|---|---|
+| `WPC--EarthModelInterpretation` | `obj_EarthModelInterpretation` | ← | Direct |
+| `WPC--FaultInterpretation` | `obj_FaultInterpretation` | ← | Direct |
+| `WPC--HorizonInterpretation` | `obj_HorizonInterpretation` | ← | Direct |
+| `WPC--GeobodyInterpretation` | `obj_GeobodyInterpretation` | ← | Direct |
+| `WPC--GeobodyBoundaryInterpretation` | `obj_GeobodyBoundaryInterpretation` | ← | Direct |
+| `WPC--StructuralOrganizationInterpretation` | `obj_StructuralOrganizationInterpretation` | ← | Direct |
+| `WPC--RockFluidOrganizationInterpretation` | `obj_RockFluidOrganizationInterpretation` | ← | Direct |
+| `WPC--RockFluidUnitInterpretation` | `obj_RockFluidUnitInterpretation` | ← | Direct |
+| `WPC--FluidBoundaryInterpretation` | `obj_FluidBoundaryFeature` | `FluidBoundaryInterpretation` | Direct |
+| `WPC--ReservoirCompartmentInterpretation` | — | `ReservoirCompartmentInterpretation` | v2.2 only |
+| `WPC--GeologicUnitOccurrenceInterpretation` | `obj_StratigraphicOccurrenceInterpretation` | ← | Direct |
+| `WPC--StratigraphicColumn` | `obj_StratigraphicColumn` | ← | Direct |
+| `WPC--StratigraphicColumnRankInterpretation` | `obj_StratigraphicColumnRankInterpretation` | ← | Direct |
+| `WPC--StratigraphicUnitInterpretation` | `obj_StratigraphicUnitInterpretation` | ← | Direct |
+
+#### Features & Reference Data
+
+| OSDU Kind | v2.0.1 | v2.2 | Routing |
+|---|---|---|---|
+| `WPC--LocalBoundaryFeature` | `obj_GeneticBoundaryFeature`, `obj_TectonicBoundaryFeature` | `BoundaryFeature` | Direct |
+| `master-data--BoundaryFeature` | — | — | Auto-created by LocalBoundaryFeature converter |
+| `WPC--LocalModelFeature` | `obj_OrganizationFeature` | ← | Direct |
+| `WPC--LocalRockVolumeFeature` | `obj_StratigraphicUnitFeature` | `StratigraphicUnitFeature`, `RockVolumeFeature` | Direct |
+| `reference-data--PropertyType` | `obj_PropertyKind` | `eml23.PropertyKind` | Direct |
+
+#### Seismic
+
+| OSDU Kind | v2.0.1 | v2.2 | Routing |
+|---|---|---|---|
+| `master-data--SeismicAcquisitionSurvey` | `obj_SeismicLatticeFeature` | ← | Direct |
+| `WPC--SeismicBinGrid` | `obj_Grid2dRepresentation` | ← | InterpretedFeature is SeismicLatticeFeature |
+| `WPC--SeismicHorizon` | `obj_Grid2dRepresentation` | ← | HorizonInterp + Z on seismic lattice |
+| `WPC--SeismicFault` | `obj_PolylineRepresentation`, `obj_PolylineSetRepresentation` | ← | FaultInterp + SeismicCoordinates |
+| `WPC--SeismicLineGeometry` | `obj_SeismicLineFeature` | — | v2.0.1 only |
+
+#### Generic & Catch-All
+
+| OSDU Kind | v2.0.1 | v2.2 | Routing |
+|---|---|---|---|
+| `WPC--GenericRepresentation` | `obj_TriangulatedSetRepresentation`, `obj_PointSetRepresentation`, `obj_BlockedWellboreRepresentation` | ← | Catch-all |
+| `WPC--GenericRepresentation` | `obj_PolylineRepresentation`, `obj_PolylineSetRepresentation` | ← | Fallback (not SeismicFault) |
+| `WPC--GenericBinGrid` | `obj_Grid2dRepresentation` | ← | Grid2d with no interpretation |
+| `WPC--GenericProperty` | `obj_CategoricalProperty`, `obj_ContinuousProperty`, `obj_DiscreteProperty` | `ContinuousProperty`, `DiscreteProperty` | NOT on WellboreFrame |
+| `WPC--ColumnBasedTable` | `obj_StringTableLookup`, `obj_DoubleTableLookup` | `eml23.ColumnBasedTable` | Direct |
+| `WPC--PersistedCollection` | `obj_PropertySet`, `obj_RepresentationSetRepresentation` | `eml23.DataobjectCollection` | Direct |
+| `WPC--TimeSeries` | `obj_TimeSeries` | ← | Direct |
+
+#### Activity & Provenance
+
+| OSDU Kind | v2.0.1 | v2.2 | Routing |
+|---|---|---|---|
+| `WPC--Activity` | `obj_Activity` | `eml23.Activity` | Direct |
+| `master-data--ActivityTemplate` | `obj_ActivityTemplate` | `eml23.ActivityTemplate` | Direct |
+
+#### Well & WITSML
+
+| OSDU Kind | v2.0.1 | v2.2 / WITSML | Routing |
+|---|---|---|---|
+| `master-data--Well` | — | `witsml21.Well` | WITSML |
+| `master-data--Wellbore` | — | `witsml21.Wellbore` | WITSML |
+| `WPC--WellboreInterpretation` | `obj_WellboreInterpretation` | `WellboreInterpretation` | Direct |
+| `WPC--WellboreTrajectory` | `obj_WellboreTrajectoryRepresentation` | `WellboreTrajectoryRepresentation`, `witsml21.Trajectory` | Direct |
+| `WPC--WellLog` | `obj_WellboreFrameRepresentation` | `WellboreFrameRepresentation`, `witsml21.Log` | Frame + properties → single WellLog |
+| `WPC--WellboreMarkerSet` | `obj_WellboreMarkerFrameRepresentation` | `WellboreIntervalSet` | Direct |
+| `WPC--WellboreCompletion` | — | `witsml21.WellCompletion` | WITSML |
+| `WPC--Rig` | — | `witsml21.Rig` | WITSML |
+| `WPC--Tubular` | — | `witsml21.Tubular` | WITSML |
+| `WPC--BHARunReport` | — | `witsml21.BhaRun` | WITSML |
+| `WPC--FluidsReport` | — | `witsml21.FluidsReport` | WITSML |
+
+#### PRODML
+
+| OSDU Kind | Source Type | Routing |
+|---|---|---|
+| `WPC--FluidModel` | `prodml23.FluidCharacterization` | Direct |
+| `WPC--ProductionValues` | `prodml23.TimeSeriesData` | Direct |
+
+#### Not Yet Implemented
+
+| OSDU Kind | Notes |
+|---|---|
+| `master-data--Reservoir` | MilestoneKinds registered, no converter |
+| `master-data--ReservoirSegment` | MilestoneKinds registered, no converter |
 
 ### Dynamic Routing
 
