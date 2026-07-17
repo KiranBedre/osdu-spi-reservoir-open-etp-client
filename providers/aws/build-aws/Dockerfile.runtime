@@ -13,7 +13,7 @@
 # limitations under the License.
 ########################################################
 # Build stage
-ARG docker_node_image=public.ecr.aws/docker/library/node:22.16.0-alpine
+ARG docker_node_image=public.ecr.aws/docker/library/node:22-alpine3.24
 
 FROM ${docker_node_image} as runtime_builder
 
