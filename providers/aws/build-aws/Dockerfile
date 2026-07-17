@@ -13,7 +13,7 @@
 # limitations under the License.
 
 ########################################################
-FROM public.ecr.aws/docker/library/node:22.16.0-alpine AS BASE
+FROM public.ecr.aws/docker/library/node:22-alpine3.24 AS BASE
 
 ENV NODE_ENV=production
 
@@ -27,7 +27,7 @@ COPY package.json package-lock.json ./
 RUN npm pkg delete scripts.prepare && npm ci --quiet
 
 ###############################################################################
-FROM public.ecr.aws/docker/library/node:22.16.0-alpine
+FROM public.ecr.aws/docker/library/node:22-alpine3.24
 
 # env
 ENV NODE_ENV=production
