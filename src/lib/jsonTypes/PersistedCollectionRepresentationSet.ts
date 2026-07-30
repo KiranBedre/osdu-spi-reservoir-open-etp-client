@@ -57,18 +57,39 @@ export class PersistedCollectionRepresentationSetOSDU
       );
     }
 
+    // Extract Purpose from ExtraMetadata if present (osdu/PurposeID convention)
+    let purposeId: string | undefined;
+    if (xml.ExtraMetadata) {
+      const purposeMeta = xml.ExtraMetadata.find(
+        (m: any) => m.Name === "osdu/PurposeID" || m.Name === "osdu/Purpose"
+      );
+      if (purposeMeta?.Value) {
+        purposeId = context.addReferenceData(
+          "PersistedCollectionPurpose",
+          purposeMeta.Value
+        );
+      }
+    }
+
+    // Extract ParentCollectionID from ExtraMetadata if present
+    let parentCollectionId: string | undefined;
+    if (xml.ExtraMetadata) {
+      const parentMeta = xml.ExtraMetadata.find(
+        (m: any) => m.Name === "osdu/ParentCollectionID"
+      );
+      if (parentMeta?.Value) {
+        parentCollectionId = parentMeta.Value;
+      }
+    }
+
     this.data = {
       ...(await this.AbstractCommonResources(context)),
       ...(await this.AbstractWPCGroupType(ReservoirDMSUrl, context)),
       ...(await this.AbstractWorkProductComponent(xml, context)),
       HomogeneousMemberKind: oType?.osduKind(xml),
       MemberIDs,
-      ParentCollectionID: undefined,
-      /**
-       * Purpose of the Collection
-       */
-      PurposeID: undefined,
-
+      ParentCollectionID: parentCollectionId,
+      PurposeID: purposeId,
       ExtensionProperties: undefined
     };
 

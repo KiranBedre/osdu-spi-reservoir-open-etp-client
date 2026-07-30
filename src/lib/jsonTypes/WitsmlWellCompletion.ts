@@ -50,13 +50,27 @@ export class WitsmlWellCompletionOSDU extends ResqmlWorkProductComponent<SimpleJ
       );
     }
 
-    // Map completion status history if available
+    // Map completion status history if available, including perforation intervals
     const statusHistory = x.CompletionStatusHistory?.map((h: any) => ({
       Status: h.Status,
       StartDate: h.StartDate,
       EndDate: h.EndDate,
-      Remark: h.Comment
+      Remark: h.Comment,
+      ...(h.PerforationMdInterval
+        ? {
+            PerforationTopMD: h.PerforationMdInterval.MdMin,
+            PerforationBaseMD: h.PerforationMdInterval.MdMax,
+            PerforationMdUOM: h.PerforationMdInterval.Uom
+          }
+        : {})
     }));
+
+    // Extract current status
+    const currentStatus = x.CurrentStatus;
+
+    // Extract effective/expiry dates
+    const effectiveDate = x.EffectiveDate;
+    const expiredDate = x.ExpiredDate;
 
     this.data = {
       ...(await this.AbstractCommonResources(context)),
@@ -68,7 +82,13 @@ export class WitsmlWellCompletionOSDU extends ResqmlWorkProductComponent<SimpleJ
       CompletionName: xml.Citation?.Title ?? x.Name,
       StatusHistory: statusHistory,
 
-      ExtensionProperties: undefined
+      ExtensionProperties: {
+        ...(currentStatus ? { CurrentStatus: currentStatus } : {}),
+        ...(effectiveDate ? { EffectiveDate: effectiveDate } : {}),
+        ...(expiredDate ? { ExpiredDate: expiredDate } : {}),
+        ...(x.FieldType ? { FieldType: x.FieldType } : {}),
+        ...(x.FieldCode ? { FieldCode: x.FieldCode } : {})
+      }
     };
 
     this.assignExtraMetaData(xml.ExtensionNameValue);

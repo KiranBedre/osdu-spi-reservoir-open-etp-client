@@ -87,23 +87,62 @@ export class ActivityOSDU
       return [];
     }
 
-    // Emit only a compact summary: one entry per unique Title grouping the count
-    const titleCounts: Record<string, number> = {};
-    for (const p of xml) {
-      const title = p.Title || "unnamed";
-      titleCounts[title] = (titleCounts[title] || 0) + 1;
-    }
-
     const Parameters: AbstractActivityParameter[] = [];
-    let idx = 0;
-    for (const [title, count] of Object.entries(titleCounts)) {
-      Parameters.push({
+    for (let idx = 0; idx < xml.length; idx++) {
+      const p = xml[idx];
+      const kind = this.getKind(p);
+      const base: AbstractActivityParameter = {
         ParameterKindID:
-          context.addReferenceData("ParameterKind", "DataObject") ?? "",
-        Title: title,
-        Index: idx++,
-        StringParameter: `${count} object(s)`
-      });
+          context.addReferenceData("ParameterKind", kind) ?? "",
+        Title: p.Title || "unnamed",
+        Index: p.Index ?? idx,
+        Selection: p.Selection || undefined,
+        Keys: p.Key
+          ? await this.getKeys(ReservoirDMSUrl, p.Key, client)
+          : undefined
+      };
+
+      if (p.$type === "resqml20.DataObjectParameter") {
+        const dop = p as SimpleJson<resqml20.DataObjectParameter>;
+        base.DataObjectParameter = await ActivityOSDU.dorToSrn(
+          ReservoirDMSUrl,
+          dop.DataObject,
+          client,
+          context
+        );
+      } else if (p.$type === "resqml20.FloatingPointQuantityParameter") {
+        const fqp = p as SimpleJson<resqml20.FloatingPointQuantityParameter>;
+        base.DataQuantityParameter = fqp.Value;
+        base.DataQuantityParameterUOMID =
+          context.addReferenceData("UnitOfMeasure", fqp.Uom);
+      } else if (p.$type === "resqml20.IntegerQuantityParameter") {
+        const iqp = p as SimpleJson<resqml20.IntegerQuantityParameter>;
+        base.IntegerQuantityParameter = iqp.Value;
+      } else if (p.$type === "resqml20.TimeIndexParameter") {
+        const tip = p as SimpleJson<resqml20.TimeIndexParameter>;
+        // Resolve the time value from the referenced TimeSeries
+        try {
+          const ts = (await ActivityOSDU.getObjectFromDor(
+            client,
+            ReservoirDMSUrl,
+            tip.TimeIndex.TimeSeries,
+            context
+          )) as SimpleJson<resqml20.obj_TimeSeries>;
+          if (ts?.Time?.[tip.TimeIndex.Index]) {
+            base.TimeIndexParameter =
+              ts.Time[tip.TimeIndex.Index].DateTime;
+          }
+        } catch {
+          // If TimeSeries resolution fails, store as string fallback
+          base.StringParameter = `TimeIndex[${tip.TimeIndex.Index}]`;
+        }
+      } else {
+        // StringParameter or unknown type
+        const sp = p as SimpleJson<resqml20.StringParameter>;
+        base.StringParameter = sp.Value;
+      }
+
+      Parameters.push(base);
     }
     return Parameters;
   }

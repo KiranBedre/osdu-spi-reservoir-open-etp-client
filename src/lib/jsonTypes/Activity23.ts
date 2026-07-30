@@ -69,7 +69,7 @@ export class Activity23OSDU
   private getKind(p: SimpleJson<eml23.AbstractActivityParameter>) {
     if (p.$type === "eml23.DataObjectParameter") {
       return "DataObjectParameter";
-    } else if (p.$type === "eml23.FloatingPointQuantityParameter") {
+    } else if (p.$type === "eml23.DoubleQuantityParameter" || p.$type === "eml23.FloatingPointQuantityParameter") {
       return "FloatingPointQuantityParameter";
     } else if (p.$type === "eml23.IntegerQuantityParameter") {
       return "IntegerQuantityParameter";
@@ -87,23 +87,62 @@ export class Activity23OSDU
       return [];
     }
 
-    // Emit only a compact summary: one entry per unique Title grouping the count
-    const titleCounts: Record<string, number> = {};
-    for (const p of xml) {
-      const title = p.Title || "unnamed";
-      titleCounts[title] = (titleCounts[title] || 0) + 1;
-    }
-
     const Parameters: AbstractActivityParameter[] = [];
-    let idx = 0;
-    for (const [title, count] of Object.entries(titleCounts)) {
-      Parameters.push({
+    for (let idx = 0; idx < xml.length; idx++) {
+      const p = xml[idx];
+      const kind = this.getKind(p);
+      const base: AbstractActivityParameter = {
         ParameterKindID:
-          context.addReferenceData("ParameterKind", "DataObject") ?? "",
-        Title: title,
-        Index: idx++,
-        StringParameter: `${count} object(s)`
-      });
+          context.addReferenceData("ParameterKind", kind) ?? "",
+        Title: p.Title || "unnamed",
+        Index: p.Index ?? idx,
+        Selection: p.Selection || undefined,
+        Keys: p.Key
+          ? await this.getKeys(ReservoirDMSUrl, p.Key, client)
+          : undefined
+      };
+
+      if (p.$type === "eml23.DataObjectParameter") {
+        const dop = p as SimpleJson<eml23.DataObjectParameter>;
+        base.DataObjectParameter = await Activity23OSDU.dorToSrn(
+          ReservoirDMSUrl,
+          dop.DataObject,
+          client,
+          context
+        );
+      } else if (p.$type === "eml23.FloatingPointQuantityParameter" || p.$type === "eml23.DoubleQuantityParameter") {
+        const fqp = p as SimpleJson<eml23.DoubleQuantityParameter>;
+        base.DataQuantityParameter = fqp.Value;
+        base.DataQuantityParameterUOMID =
+          context.addReferenceData("UnitOfMeasure", fqp.Uom);
+      } else if (p.$type === "eml23.IntegerQuantityParameter") {
+        const iqp = p as SimpleJson<eml23.IntegerQuantityParameter>;
+        base.IntegerQuantityParameter = iqp.Value;
+      } else if (p.$type === "eml23.TimeIndexParameter") {
+        const tip = p as SimpleJson<eml23.TimeIndexParameter>;
+        // Resolve the time value from the referenced TimeSeries
+        try {
+          const ts = (await Activity23OSDU.getObjectFromDor(
+            client,
+            ReservoirDMSUrl,
+            tip.TimeIndex.TimeSeries,
+            context
+          )) as SimpleJson<eml23.TimeSeries>;
+          if (ts?.Time?.[tip.TimeIndex.Index]) {
+            base.TimeIndexParameter =
+              ts.Time[tip.TimeIndex.Index].DateTime;
+          }
+        } catch {
+          // If TimeSeries resolution fails, store as string fallback
+          base.StringParameter = `TimeIndex[${tip.TimeIndex.Index}]`;
+        }
+      } else {
+        // StringParameter or unknown type
+        const sp = p as SimpleJson<eml23.StringParameter>;
+        base.StringParameter = sp.Value;
+      }
+
+      Parameters.push(base);
     }
     return Parameters;
   }
