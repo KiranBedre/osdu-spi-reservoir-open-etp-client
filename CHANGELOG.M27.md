@@ -261,17 +261,60 @@ Additive enhancements for reservoir modelling workflows and lossless round-trip 
 
 ---
 
+## Converter Enrichments (additive, backward-compatible)
+
+All changes populate previously-`undefined` optional fields. No existing field removed,
+no return type changed, no API signature altered. 275 unit tests pass after changes.
+
+### Activity parameter extraction (Activity.ts, Activity23.ts)
+**Problem:** `getParameters()` collapsed typed parameters to `"N object(s)"` count strings — all provenance lost.
+**Fix:** Now iterates `xml.Parameter[]` and produces individual `AbstractActivityParameter` records with typed values:
+- `resqml20.StringParameter` → `StringParameter.Value`
+- `resqml20.FloatingPointQuantityParameter` / `eml23.DoubleQuantityParameter` → `DataQuantityParameter` + UOM
+- `resqml20.IntegerQuantityParameter` → `IntegerQuantityParameter.Value`
+- `resqml20.DataObjectParameter` → resolved SRN via `dorToSrn()`
+- `resqml20.TimeIndexParameter` → resolved DateTime from TimeSeries
+
+### PersistedCollection Purpose/Parent (both v2.0.1 and EML 2.3)
+**Files:** `PersistedCollectionRepresentationSet.ts`, `PersistedCollectionDataobjectCollection23.ts`
+**Fix:**
+- `PurposeID` extracted from `ExtraMetadata` key `osdu/PurposeID` or `osdu/Purpose` (v2.0.1) / `DataobjectCollection.Kind` mapping (EML 2.3: folder/project/realization/scenario/study)
+- `ParentCollectionID` from `ExtraMetadata` key `osdu/ParentCollectionID` / EML 2.3 `ExtensionNameValue`
+
+### CollaborationProject LifecycleEvents (CollaborationProject.ts)
+**Fix:** Populates `LifecycleEvents[]` from dataspace timestamps:
+- Created event from `dataspace.storeCreated`
+- LastModified event from `dataspace.storeLastWrite`
+- Locked event (if `dataspace.lockState === "locked"`)
+
+### WellboreCompletion enrichment (WitsmlWellCompletion.ts)
+**Fix:** Extracts from WITSML `StatusHistory` entries:
+- `PerforationTopMD`, `PerforationBaseMD`, `PerforationMdUOM` (from `MdInterval`)
+- `CurrentStatus`, `EffectiveDate`, `ExpiredDate` into `ExtensionProperties`
+- `FieldType`, `FieldCode` into `ExtensionProperties`
+
+### ActivityTemplate enrichment (ActivityTemplate.ts, ActivityTemplate23.ts)
+**Fix:** Extracts from source XML instead of hardcoded `undefined`:
+- `AllowedParameterKind` (from `AllowedKind[0]`)
+- `DataObjectContentType` (as `string[]`)
+- `DefaultValue` (first default, typed: string/number/boolean)
+- `KeyConstraints` (from `KeyConstraint[]`)
+
+---
+
 ## Test Coverage
 
 | Suite | Count | What it covers |
 |-------|-------|----------------|
-| `TestCrsAndBugfixes.ts` | 41 | All bug fixes and non-additive changes above (rotation, node count, dateTime, delete, routing, chunking, SIGTERM, type filter, best-effort) |
+| `TestCrsAndBugfixes.ts` | 41 | All bug fixes and non-additive changes (rotation, node count, dateTime, delete, routing, chunking, SIGTERM, type filter, best-effort) |
 | `TestManifest.ts` | 12 | Converter registry, collaboration UUID, dedup, SSL toggle, lineage generation |
 | `TestSeismicLineGeometry.ts` | 7 | SeismicLine coordinate extraction and kind mapping |
 | `TestReservoirConverters.ts` | 40 | Reservoir management converters, IjkGrid enhancements, FacetIDs, MilestoneKinds, PRODML converters |
 | `TestBinGridAndControlPoints.ts` | 18 | GenericBinGrid + HorizonControlPoints routing (v2.0 + v2.2) |
-| Other suites (unchanged) | 70 | Pre-existing ETP protocol, client, error mapping, input validation, common tests |
-| **Total** | **188** | All pass via `npm test` |
+| `TestActivityConverter.ts` | 9 | Activity parameter extraction (String, Float+UOM, Integer, DataObject, multiple, empty, fallback) |
+| `TestRessimLayer1.ts` | 146 | Reservoir layer 1: smart property filter, transmissibility, ColumnBasedTable enrichment |
+| Other suites (unchanged) | 148 | ETP protocol, client, error mapping, input validation, common, providers |
+| **Total** | **421** | All pass via `npm test` |
 
 **Integration tests** (require running ETP server — excluded from `npm test`):
 - `TestClient.ts` — end-to-end ETP connection + auth

@@ -83,18 +83,33 @@ export class PersistedCollectionDataobjectCollection23OSDU
       HomogeneousMemberKind = orType?.osduKind(xml);
     }
 
+    // Map EML 2.3 DataobjectCollection.Kind → OSDU PurposeID
+    const purposeId = xml.Kind
+      ? context.addReferenceData("PersistedCollectionPurpose", xml.Kind)
+      : undefined;
+
+    // Extract ParentCollectionID from ExtensionNameValue if present
+    let parentCollectionId: string | undefined;
+    if (xml.ExtensionNameValue) {
+      const parentMeta = xml.ExtensionNameValue.find(
+        (m: any) => m.Name === "osdu/ParentCollectionID"
+      );
+      if (parentMeta?.Value?._ || parentMeta?.Value) {
+        parentCollectionId =
+          typeof parentMeta.Value === "string"
+            ? parentMeta.Value
+            : parentMeta.Value._;
+      }
+    }
+
     this.data = {
       ...(await this.AbstractCommonResources(context)),
       ...(await this.AbstractWPCGroupType(ReservoirDMSUrl, context)),
       ...(await this.AbstractWorkProductComponent(xml, context)),
       HomogeneousMemberKind,
       MemberIDs,
-      ParentCollectionID: undefined,
-      /**
-       * Purpose of the Collection
-       */
-      PurposeID: undefined,
-
+      ParentCollectionID: parentCollectionId,
+      PurposeID: purposeId,
       ExtensionProperties: undefined
     };
 
