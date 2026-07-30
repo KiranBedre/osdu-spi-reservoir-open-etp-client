@@ -191,6 +191,14 @@ export class ActivityOSDU
         context
       ),
       /**
+       * The (non-overlapping) historical activity states and effective dates.
+       */
+      ActivityStates: undefined,
+      /**
+       * The current or last state this activity transitioned to.
+       */
+      LastActivityState: undefined,
+      /**
        * The relationship to a parent project acting as a parent activity.
        */
       ParentProjectID: undefined,

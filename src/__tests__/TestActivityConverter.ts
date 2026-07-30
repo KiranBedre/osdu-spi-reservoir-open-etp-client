@@ -272,3 +272,119 @@ describe("Activity Converter – Parameter Extraction (RESQML 2.0.1)", () => {
     expect(params[2].DataQuantityParameter).toBe(3800.0);
   });
 });
+
+describe("Activity Converter – ExtraMetadata overrides (ActivityStates, BusinessActivities)", () => {
+  const context = new OSDUContext("test", "opendes");
+
+  /**
+   * Directly exercise assignExtraMetaData on an ActivityOSDU instance
+   * without calling initData (which requires ETP connectivity).
+   */
+  function applyMeta(meta: { Name: string; Value: string }[]): ActivityOSDU {
+    const xml = {
+      SchemaVersion: "2.0",
+      Uuid: "cccccccc-dddd-eeee-ffff-000000000001",
+      Citation: {
+        Title: "Exploration Well Decision - 34/4-19 S",
+        Originator: "UnitTest",
+        Creation: new Date("2026-06-01T00:00:00Z"),
+        Format: "RESQML 2.0.1"
+      },
+      ActivityDescriptor: {
+        Title: "ExplorationWellDecision",
+        ContentType:
+          "application/x-resqml+xml;version=2.0;type=obj_ActivityTemplate",
+        UUID: "22222222-3333-4444-5555-666666666666"
+      },
+      Parameter: []
+    } as unknown as SimpleJson<resqml20.obj_Activity>;
+
+    const activity = new ActivityOSDU(xml, context);
+    // Manually set data fields (normally done by initData spreads)
+    activity.data = {
+      Parameters: [],
+      BusinessActivities: undefined,
+      ActivityStates: undefined,
+      LastActivityState: undefined,
+      PriorActivityIDs: undefined,
+      ParentProjectID: undefined,
+      SoftwareSpecifications: undefined
+    } as any;
+    activity.assignExtraMetaData(meta as any);
+    return activity;
+  }
+
+  it("maps osdu/data/BusinessActivities to typed field", () => {
+    const activity = applyMeta([
+      { Name: "osdu/data/BusinessActivities", Value: '["Exploration"]' }
+    ]);
+
+    expect(activity.data.BusinessActivities).toEqual(["Exploration"]);
+  });
+
+  it("maps osdu/data/LastActivityState to typed field", () => {
+    const activity = applyMeta([
+      {
+        Name: "osdu/data/LastActivityState",
+        Value: JSON.stringify({
+          ActivityStatusID: "opendes:reference-data--ActivityStatus:Approved:",
+          EffectiveDateTime: "2026-03-15T00:00:00Z"
+        })
+      }
+    ]);
+
+    expect(activity.data.LastActivityState).toBeDefined();
+    expect(activity.data.LastActivityState!.ActivityStatusID).toContain("Approved");
+    expect(activity.data.LastActivityState!.EffectiveDateTime).toBe("2026-03-15T00:00:00Z");
+  });
+
+  it("maps osdu/data/ActivityStates array to typed field", () => {
+    const states = [
+      {
+        ActivityStatusID: "opendes:reference-data--ActivityStatus:Proposed:",
+        EffectiveDateTime: "2025-11-01T00:00:00Z",
+        TerminationDateTime: "2026-03-15T00:00:00Z"
+      },
+      {
+        ActivityStatusID: "opendes:reference-data--ActivityStatus:Approved:",
+        EffectiveDateTime: "2026-03-15T00:00:00Z"
+      }
+    ];
+    const activity = applyMeta([
+      { Name: "osdu/data/ActivityStates", Value: JSON.stringify(states) }
+    ]);
+
+    expect(activity.data.ActivityStates).toHaveLength(2);
+    expect(activity.data.ActivityStates![0].ActivityStatusID).toContain("Proposed");
+    expect(activity.data.ActivityStates![1].ActivityStatusID).toContain("Approved");
+  });
+
+  it("maps osdu/data/PriorActivityIDs for chaining decisions", () => {
+    const activity = applyMeta([
+      {
+        Name: "osdu/data/PriorActivityIDs",
+        Value: '["opendes:work-product-component--Activity:exploration-bd-uuid:"]'
+      },
+      { Name: "osdu/data/BusinessActivities", Value: '["Development"]' }
+    ]);
+
+    expect(activity.data.PriorActivityIDs).toEqual([
+      "opendes:work-product-component--Activity:exploration-bd-uuid:"
+    ]);
+    expect(activity.data.BusinessActivities).toEqual(["Development"]);
+  });
+
+  it("preserves non-osdu metadata in ExtensionProperties.ResqmlMetadata", () => {
+    const activity = applyMeta([
+      { Name: "osdu/data/BusinessActivities", Value: '["Exploration"]' },
+      { Name: "InternalProjectCode", Value: "DROGON-2024-EXP" }
+    ]);
+
+    expect(activity.data.BusinessActivities).toEqual(["Exploration"]);
+    expect(activity.data.ExtensionProperties).toBeDefined();
+    expect(activity.data.ExtensionProperties!["ResqmlMetadata"]).toHaveProperty(
+      "InternalProjectCode",
+      "DROGON-2024-EXP"
+    );
+  });
+});

@@ -294,6 +294,89 @@ Iterates `xml.Parameter[]` and produces individual typed records:
 - `DataObjectParameter` → resolved SRN
 - `TimeIndexParameter` → resolved DateTime
 
+### Activity: ExtraMetadata-Driven Fields
+
+The Activity converter initialises these OSDU fields as `undefined`, making them
+targetable via `osdu/data/` ExtraMetadata entries:
+
+| ExtraMetadata Key | OSDU Field | Value Format |
+|---|---|---|
+| `osdu/data/BusinessActivities` | `data.BusinessActivities` | JSON array: `["Exploration"]` |
+| `osdu/data/LastActivityState` | `data.LastActivityState` | JSON object (see below) |
+| `osdu/data/ActivityStates` | `data.ActivityStates` | JSON array of state objects |
+| `osdu/data/PriorActivityIDs` | `data.PriorActivityIDs` | JSON array of Activity SRNs |
+| `osdu/data/ParentProjectID` | `data.ParentProjectID` | Single SRN string |
+
+**ActivityState object shape:**
+```json
+{
+  "ActivityStatusID": "opendes:reference-data--ActivityStatus:Approved:",
+  "EffectiveDateTime": "2026-03-15T00:00:00Z",
+  "TerminationDateTime": "2026-06-01T00:00:00Z"
+}
+```
+
+### Activity: Decision Chain Pattern
+
+Link Exploration → Development decisions using native RESQML + ExtraMetadata:
+
+```xml
+<!-- Development Well Decision (child of Exploration BD) -->
+<obj_Activity uuid="dev-bd-uuid" schemaVersion="2.0">
+  <Citation><Title>Development BD - Omega Sør</Title>...</Citation>
+  <ActivityDescriptor>
+    <ContentType>...obj_ActivityTemplate</ContentType>
+    <UUID>template-field-dev-wells-uuid</UUID>
+    <Title>FieldDevWells</Title>
+  </ActivityDescriptor>
+  <!-- Native RESQML: links to parent activity -->
+  <Parent>
+    <ContentType>...obj_Activity</ContentType>
+    <UUID>exploration-bd-uuid</UUID>
+    <Title>Exploration BD - 34/4-19 S</Title>
+  </Parent>
+  <Parameter>
+    <StringParameter><Title>Decision</Title><Value>Approved</Value></StringParameter>
+  </Parameter>
+  <!-- OSDU-specific fields via ExtraMetadata -->
+  <ExtraMetadata>
+    <NameValuePair>
+      <Name>osdu/data/BusinessActivities</Name>
+      <Value>["Development"]</Value>
+    </NameValuePair>
+    <NameValuePair>
+      <Name>osdu/data/LastActivityState</Name>
+      <Value>{"ActivityStatusID":"opendes:reference-data--ActivityStatus:Approved:","EffectiveDateTime":"2026-03-15T00:00:00Z"}</Value>
+    </NameValuePair>
+    <NameValuePair>
+      <Name>osdu/data/PriorActivityIDs</Name>
+      <Value>["opendes:work-product-component--Activity:exploration-bd-uuid:"]</Value>
+    </NameValuePair>
+  </ExtraMetadata>
+</obj_Activity>
+```
+
+**Resulting OSDU record:**
+```json
+{
+  "kind": "osdu:wks:work-product-component--Activity:1.4.0",
+  "data": {
+    "Name": "Development BD - Omega Sør",
+    "ActivityTemplateID": "opendes:master-data--ActivityTemplate:template-field-dev-wells-uuid:",
+    "ParentActivityID": "opendes:work-product-component--Activity:exploration-bd-uuid:",
+    "PriorActivityIDs": ["opendes:work-product-component--Activity:exploration-bd-uuid:"],
+    "BusinessActivities": ["Development"],
+    "LastActivityState": {
+      "ActivityStatusID": "opendes:reference-data--ActivityStatus:Approved:",
+      "EffectiveDateTime": "2026-03-15T00:00:00Z"
+    },
+    "Parameters": [
+      { "Title": "Decision", "StringParameter": "Approved", "ParameterKindID": "...String:" }
+    ]
+  }
+}
+```
+
 ---
 
 ## 7. Common Pitfalls
