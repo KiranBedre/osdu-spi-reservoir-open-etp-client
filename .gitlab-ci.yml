@@ -17,6 +17,7 @@ variables:
 include:
   # pipeline logic
   - project: "osdu/platform/ci-cd-pipelines"
+    ref: release/0.30
     file: "standard-setup.yml"
 
   # global
@@ -28,10 +29,12 @@ include:
   # scan
   ## security scanners
   - project: "osdu/platform/ci-cd-pipelines"
+    ref: release/0.30
     file: "scanners/gitlab-ultimate.yml"
 
   ## fossa
   - project: "osdu/platform/ci-cd-pipelines"
+    ref: release/0.30
     file: "scanners/fossa-npm.yml"
 
   # lint
@@ -54,12 +57,14 @@ include:
 
   # cimpl
   - project: "osdu/platform/ci-cd-pipelines"
+    ref: release/0.30
     file: "cloud-providers/cimpl-global.yml"
 
   - local: "devops/core-plus/pipeline/override-stages.yml"
 
   # gc
   - project: "osdu/platform/ci-cd-pipelines"
+    ref: release/0.30
     file: "cloud-providers/gc-global.yml"
 
   - local: "devops/gc/pipeline/override-stages.yml"
