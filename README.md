@@ -38,6 +38,8 @@ Most classes functions return promises, allowing to easily chain requests.
 | [CHANGELOG](./CHANGELOG.M27.md) | All changes vs upstream Emerson open-etp-client |
 | [REST API Reference](./RestApi.md) | Developer guide for the REST API with workflow recipes and ETP protocol context |
 | [RESQML → OSDU Guide](./ResqmlOsduGuide.md) | How to populate RESQML metadata for lossless OSDU manifest roundtrips |
+| [OpenETPServer README](./README.openetpserver.md) | C++ ETP server: build, deploy, usage, telemetry, and server-side behavior |
+| [RddmsGov](../rddmsmg/docs/rddms/RddmsGov.md) | Governance, design principles, dataspace lifecycle, and responsibility model |
 
 ## Setup
 
