@@ -16,13 +16,11 @@ import {
     Parent,
     Args,
     Context,
-    Info,
     Int
 } from "@nestjs/graphql";
-import { GraphQLResolveInfo } from "graphql";
+import { UsePipes } from "@nestjs/common";
 
 import { GqlDataspace, GqlResource, GqlEdge, GqlGraph, GqlArrayMeta, GqlObjectContent } from "./types";
-import GraphQLJSON from "./scalars/json.scalar";
 import { GqlContext, EtpLoaders } from "./context";
 import { Resource, Dataspace, IDataArrayMetadata } from "../../common/EtpTypes";
 import { EtpUri } from "../../common/EtpUri";
@@ -65,6 +63,7 @@ const mapResource = (r: Resource): GqlResource => ({
 // ---------------------------------------------------------------------------
 
 @Resolver()
+@UsePipes()
 export class RootQueryResolver {
     @Query(() => [GqlDataspace], { description: "List all dataspaces" })
     async dataspaces(@Context() ctx: GqlContext): Promise<GqlDataspace[]> {
@@ -100,7 +99,7 @@ export class RootQueryResolver {
     @Query(() => GqlGraph, { description: "Batch graph search across multiple URIs" })
     async graphSearch(
         @Args("uris", { type: () => [String] }) uris: string[],
-        @Args("depth", { type: () => Int, nullable: true, defaultValue: 1 }) depth: number,
+        @Args("depth", { type: () => Int, defaultValue: 1 }) depth: number,
         @Context() ctx: GqlContext
     ): Promise<GqlGraph> {
         // Load graphs for all URIs (DataLoader deduplicates)
@@ -136,11 +135,11 @@ export class RootQueryResolver {
 // ---------------------------------------------------------------------------
 
 @Resolver(() => GqlResource)
+@UsePipes()
 export class ResourceFieldResolver {
     @ResolveField(() => [GqlResource], { description: "Target resources in the graph (lazy)" })
     async targets(
         @Parent() parent: GqlResource,
-        @Args("depth", { type: () => Int, nullable: true, defaultValue: 1 }) _depth: number,
         @Context() ctx: GqlContext
     ): Promise<GqlResource[]> {
         const graph = await ctx.loaders.graphLoader.load(parent.uri);
