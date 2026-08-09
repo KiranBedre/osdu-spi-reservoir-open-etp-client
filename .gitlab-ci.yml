@@ -6,6 +6,14 @@ variables:
   AWS_SERVICE_NAMESPACE_SUFFIX: reservoir-ddms
   AWS_EKS_DEPLOYMENT_NAME: os-rest-to-etp-proxy-server
 
+# Stub: upstream cimpl-global.yml defines jobs that `extends: .maven`, which is
+# only available for Java services. Define a minimal hidden template so YAML
+# validation passes; the individual cimpl-dev-* jobs are disabled via rules below.
+.maven:
+  image: alpine:3.21
+  script:
+    - echo "not applicable for Node services"
+
 include:
   # pipeline logic
   - project: "osdu/platform/ci-cd-pipelines"
@@ -82,5 +90,22 @@ cimpl-check-openapi-spec:
 # service, so the `extends: .maven` reference fails YAML validation and blocks the
 # whole pipeline. Disable the job here until the upstream template is fixed.
 cimpl-standby-test:
+  extends: []
+  rules:
+    - when: never
+
+# Override: cimpl-dev-* jobs also extend `.maven` which is unavailable for Node services.
+cimpl-dev-test:
+  extends: []
+  rules:
+    - when: never
+
+cimpl-dev-acceptance-test:
+  extends: []
+  rules:
+    - when: never
+
+cimpl-dev-acceptance-test-python:
+  extends: []
   rules:
     - when: never
