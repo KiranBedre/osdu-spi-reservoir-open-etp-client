@@ -41,6 +41,7 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { restApiRoutePath, serverUIUrl, swaggerUIUrl } from "./ControllerUtils";
 
 import ExceptionCounterFilter from "../restApi/monitoring.module/ExceptionCounter.filter";
+import GqlModule from "./graphql.module/graphql.module";
 
 Logging.getLogger("EtpClient");
 
@@ -61,6 +62,7 @@ const providers = requireDefaults("*.module/*.provider.+(js|ts)");
 const middleware = requireDefaults("*.module/*.middleware.+(js|ts)");
 
 @Module({
+  imports: [GqlModule],
   controllers,
   providers: [
     ...providers,
