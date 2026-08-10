@@ -90,22 +90,18 @@ cimpl-check-openapi-spec:
 # service, so the `extends: .maven` reference fails YAML validation and blocks the
 # whole pipeline. Disable the job here until the upstream template is fixed.
 cimpl-standby-test:
-  extends: []
   rules:
     - when: never
 
 # Override: cimpl-dev-* jobs also extend `.maven` which is unavailable for Node services.
 cimpl-dev-test:
-  extends: []
   rules:
     - when: never
 
 cimpl-dev-acceptance-test:
-  extends: []
   rules:
     - when: never
 
 cimpl-dev-acceptance-test-python:
-  extends: []
   rules:
     - when: never
