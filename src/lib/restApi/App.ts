@@ -41,6 +41,7 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { restApiRoutePath, serverUIUrl, swaggerUIUrl } from "./ControllerUtils";
 
 import ExceptionCounterFilter from "../restApi/monitoring.module/ExceptionCounter.filter";
+import GqlModule from "./graphql.module/graphql.module";
 
 Logging.getLogger("EtpClient");
 
@@ -61,6 +62,7 @@ const providers = requireDefaults("*.module/*.provider.+(js|ts)");
 const middleware = requireDefaults("*.module/*.middleware.+(js|ts)");
 
 @Module({
+  imports: [GqlModule],
   controllers,
   providers: [
     ...providers,
@@ -91,23 +93,29 @@ export default async function app(): Promise<NestExpressApplication> {
     await NestFactory.create<NestExpressApplication>(ApplicationModule);
 
   // allows for validation to be used
+  // Subclass that skips validation for GraphQL custom params (@Parent, @Context)
+  class GqlSafeValidationPipe extends ValidationPipe {
+    async transform(value: any, metadata: any) {
+      if (metadata.type === 'custom') return value;
+      return super.transform(value, metadata);
+    }
+  }
   nestApp.useGlobalPipes(
-    new ValidationPipe({
+    new GqlSafeValidationPipe({
       transform: true,
       skipUndefinedProperties: true,
       transformerPackage: require("class-transformer"),
       validatorPackage: require("class-validator"),
-      // Enhanced validation options to catch deserialization failures
-      whitelist: true, // Strip properties that don't have decorators
-      forbidNonWhitelisted: true, // Throw error for non-whitelisted properties
-      disableErrorMessages: false, // Enable detailed error messages
-      validateCustomDecorators: true, // Validate custom decorators
-      forbidUnknownValues: true, // Reject unknown values
-      stopAtFirstError: false, // Show all validation errors
-      dismissDefaultMessages: false, // Keep default error messages
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      disableErrorMessages: false,
+      validateCustomDecorators: false,
+      forbidUnknownValues: false,
+      stopAtFirstError: false,
+      dismissDefaultMessages: false,
       validationError: {
-        target: false, // Don't include the target object in error
-        value: false // Don't include the value in error (security)
+        target: false,
+        value: false
       }
     })
   );
