@@ -8,6 +8,7 @@ import {
 
 import {
   ApiBearerAuth,
+  ApiGoneResponse,
   ApiOkResponse,
   ApiOperation,
   ApiQuery,
@@ -29,7 +30,8 @@ import {
   extractToken,
   findResources,
   httpErrorFromEtpError,
-  swaggerServers
+  swaggerServers,
+  webSocketSessionTerminatedSchema
 } from "../ControllerUtils";
 
 import logging from "../../common/Logging";
@@ -68,6 +70,7 @@ function parseResource(res: Energistics.Etp.v12.Datatypes.Object.Resource) {
 @ApiBearerAuth("access-token")
 @UseGuards(HasBearerGuard("jwt"))
 @UseGuards(HasDataPartitionGuard())
+@ApiGoneResponse(webSocketSessionTerminatedSchema())
 export default class WellsController {
 
   @Get()

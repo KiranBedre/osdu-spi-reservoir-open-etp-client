@@ -390,6 +390,16 @@ export class ManifestInputDto {
   @IsOptional()
   @IsObject()
   tags?: Record<string, string>;
+
+  @ApiPropertyOptional({
+    name: "includeArrayData",
+    description: `When true, read bulk data arrays during manifest generation to compute spatial bounding boxes and active cell counts. When false (default), skip array reads for faster performance at the cost of missing SpatialArea and ActiveCellCount fields.`,
+    type: Boolean,
+    example: false
+  })
+  @IsOptional()
+  @IsBoolean()
+  includeArrayData?: boolean = false;
 }
 
 /**
@@ -537,7 +547,8 @@ export default class ObjectsManifestAPI {
         typeof partition === "string" ? partition : "osdu",
         jwt === null || typeof jwt === "string" ? undefined : jwt.unique_name,
         body.tags,
-        body.createMissingReferences
+        body.createMissingReferences,
+        body.includeArrayData
       );
 
       context.bearer = bearer;
