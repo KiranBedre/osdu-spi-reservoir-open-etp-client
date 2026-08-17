@@ -5,8 +5,11 @@ variables:
   CIMPL_DNS_NAME: "osdu.$CIMPL_DOMAIN"
   CIMPL_HELM_DEPLOYMENT_DIR: "devops/core-plus/deploy"
   CIMPL_HELM_PACKAGE_NAME: "cimpl-$CIMPL_SERVICE-deploy"
-  # The in-repo Bruno collection (bruno/) replaces the external Postman
-  # collection previously fetched from osdu/qa at runtime.
+  # Path to the Reservoir DDMS postman collection within osdu/qa.
+  # Named RESERVOIR_DDMS_COLLECTION_PATH (not COLLECTION_PATH) to avoid
+  # collision with an inherited group-level CI variable named COLLECTION_PATH
+  # that points at the stale v3.0 *_NotRun.json file.
+  RESERVOIR_DDMS_COLLECTION_PATH: "Postman%20Collection/45_CICD_Reservoir_DDMS/Reservoir%20DDMS%20CI-CD%20v3.1.postman_collection.json"
 
 cimpl-containerize-gitlab:
   tags: ["osdu-medium"]
@@ -20,15 +23,15 @@ cimpl-containerize-bootstrap-gitlab:
 
 .cimpl_bruno_tests:
   script:
+    - apk add --no-cache curl
     - npm install -g @usebruno/cli
     - >
-      ACCESS_TOKEN=$(curl -s -X POST "${CIMPL_TOKEN_URL}"
-      -d "grant_type=refresh_token"
+      ACCESS_TOKEN=$(curl -s -X POST "${CIMPL_TOKEN_URI}"
+      -d "grant_type=client_credentials"
       -d "client_id=${CIMPL_CLIENT_ID}"
       -d "client_secret=${CIMPL_CLIENT_SECRET}"
-      -d "refresh_token=${CIMPL_REFRESH_TOKEN}"
       -d "scope=openid"
-      | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+      | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.parse(d).access_token))")
     - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${CIMPL_DNS_NAME}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
     - bru run bruno/_Setup  $BRU_ENV
     - bru run bruno/Health   $BRU_ENV
@@ -74,6 +77,40 @@ cimpl-dev2-acceptance-test:
 cimpl-dev2-acceptance-test-python:
   extends:
     - .cimpl-dev2-variables
+
+# Postman/Newman tests (legacy, in parallel with Bruno)
+.cimpl_postman_tests:
+  script:
+    - export GET_COLLECTION_URL="${CIMPL_COLLECTION_HOST}/${CIMPL_COLLECTION_BRANCH}/${RESERVOIR_DDMS_COLLECTION_PATH}?inline=false"
+    - echo "Get a collection from ${GET_COLLECTION_URL}"
+    - >
+      echo "[{ \"CLIENT_ID\": \"${CIMPL_CLIENT_ID}\", \"CLIENT_SECRET\": \"${CIMPL_CLIENT_SECRET}\", \"grant_type\": \"${CIMPL_GRANT_TYPE}\", \"refresh_token\": \"${CIMPL_REFRESH_TOKEN}\"}]" > test_config_file.json
+    - curl "${GET_COLLECTION_URL}" > collection.json && COLLECTION=collection.json
+    - |
+      curl --header "data-partition-id: ${DATA_PARTITION_ID}" "${CIMPL_POSTMAN_ENV_URL}" > environment.json && ENVIRONMENT=environment.json
+    - newman run "$COLLECTION" --working-dir . -e "${ENVIRONMENT}" -d test_config_file.json --delay-request 3000 --env-var TENANT_ID=${CIMPL_TENANT} --env-var HOSTNAME=${CIMPL_DNS_NAME} --env-var RESERVOIR_DDMS_HOST=${CIMPL_DNS_NAME}/api/reservoir-ddms/v2 || exit $?
+
+cimpl-test-postman:
+  tags: ["osdu-small"]
+  stage: integration
+  image: community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-cimpl/image-for-postman-tests/osdu-cimpl-image-for-postman:df5a6d3c
+  allow_failure: true
+  retry: 1
+  extends:
+    - .cimpl-variables
+  script:
+    - !reference [.cimpl_postman_tests, script]
+
+cimpl-dev2-test-postman:
+  tags: ["osdu-small"]
+  stage: integration
+  image: community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-cimpl/image-for-postman-tests/osdu-cimpl-image-for-postman:df5a6d3c
+  allow_failure: true
+  retry: 1
+  extends:
+    - .cimpl-dev2-variables
+  script:
+    - !reference [.cimpl_postman_tests, script]
 
 # Disable the cimpl-check-openapi-spec job as this is a WebSocket ETP server and has no OpenAPI spec
 cimpl-check-openapi-spec:

@@ -43,7 +43,9 @@ aws_test:
     - .aws_common_variables
     - .aws_variables
   stage: integration
-  needs: ["aws-update-tf"]
+  needs:
+    - job: aws-update-tf
+      optional: true
   before_script:
     - apt-get update && apt-get install -y jq unzip
     - |
@@ -61,7 +63,7 @@ aws_test:
       -d "grant_type=refresh_token"
       -d "client_id=${AWS_COGNITO_CLIENT_ID}"
       -d "refresh_token=${AWS_COGNITO_REFRESH_TOKEN}"
-      | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+      | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.parse(d).access_token))")
   script:
     - npm install -g @usebruno/cli
     - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${API_ENDPOINT}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
