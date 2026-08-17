@@ -100,6 +100,10 @@ cimpl-test-postman:
     - .cimpl-variables
   script:
     - !reference [.cimpl_postman_tests, script]
+  rules:
+    - if: '$CIMPL == "1" && $RUN_POSTMAN_TESTS == "1"'
+      when: on_success
+    - when: never
 
 cimpl-dev2-test-postman:
   tags: ["osdu-small"]
@@ -111,6 +115,10 @@ cimpl-dev2-test-postman:
     - .cimpl-dev2-variables
   script:
     - !reference [.cimpl_postman_tests, script]
+  rules:
+    - if: '$CIMPL == "1" && $RUN_POSTMAN_TESTS == "1"'
+      when: on_success
+    - when: never
 
 # Disable the cimpl-check-openapi-spec job as this is a WebSocket ETP server and has no OpenAPI spec
 cimpl-check-openapi-spec:
