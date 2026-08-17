@@ -113,13 +113,13 @@ azure_test_postman:
     AZURE_CLIENT_ID: $AZURE_CLIENT_ID
     AZURE_CLIENT_SECRET: $AZURE_CLIENT_SECRET
     AZURE_REFRESH_TOKEN: $AZURE_REFRESH_TOKEN
-    # Collection fetched from osdu/qa project via GitLab API (project 1416)
-    RESERVOIR_DDMS_COLLECTION_PATH: "Postman%20Collection/45_CICD_Reservoir_DDMS/Reservoir%20DDMS%20CI-CD%20v3.1.postman_collection.json"
+    # Collection fetched from osdu/qa project raw URL
+    RESERVOIR_DDMS_COLLECTION_URL: "https://community.opengroup.org/osdu/qa/-/raw/main/Postman%20Collection/45_CICD_Reservoir_DDMS/Reservoir%20DDMS%20CI-CD%20v3.1.postman_collection.json?inline=false"
   script:
     - newman --version
     - >
       newman run
-      "https://community.opengroup.org/api/v4/projects/1416/repository/files/${RESERVOIR_DDMS_COLLECTION_PATH}/raw?ref=main"
+      "${RESERVOIR_DDMS_COLLECTION_URL}"
       --env-var TENANT_ID=${AZURE_TENANT_ID}
       --env-var CLIENT_ID=${AZURE_CLIENT_ID}
       --env-var CLIENT_SECRET=${AZURE_CLIENT_SECRET}
