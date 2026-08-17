@@ -1,0 +1,28 @@
+meta {
+  name: CL2 Verify Cleanup
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{host}}/dataspaces
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("test dataspace no longer listed", function () {
+    const body = res.getBody();
+    const ids = body.map(ds => ds.DataspaceId || ds.dataspaceId || ds.id || '');
+    expect(ids).to.not.include("test/ci-bruno");
+  });
+}

@@ -59,11 +59,15 @@ gc-containerize-bootstrap-gcr:
     
   script:
     - export ACCESS_TOKEN=$(gcloud auth print-identity-token)
-    - >
-      bru run bruno/ --env CI
-      --env-var "access_token=${ACCESS_TOKEN}"
-      --env-var "RESERVOIR_DDMS_HOST=${GC_DOMAIN}/api/reservoir-ddms/v2"
-      --env-var "DATA_PARTITION_ID=${DATA_PARTITION_ID}"
+    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${GC_DOMAIN}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
+    - bru run bruno/_Setup  $BRU_ENV
+    - bru run bruno/Health   $BRU_ENV
+    - bru run bruno/Dataspaces $BRU_ENV
+    - bru run bruno/Resources $BRU_ENV
+    - bru run bruno/Arrays    $BRU_ENV
+    - bru run bruno/Transactions $BRU_ENV
+    - bru run bruno/Query     $BRU_ENV
+    - bru run bruno/_Cleanup  $BRU_ENV || true
 
 gc-test:
   tags: ["osdu-small"]
