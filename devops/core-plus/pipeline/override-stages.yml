@@ -20,13 +20,13 @@ cimpl-containerize-bootstrap-gitlab:
 
 .cimpl_bruno_tests:
   script:
+    - apk add --no-cache curl
     - npm install -g @usebruno/cli
     - >
-      ACCESS_TOKEN=$(curl -s -X POST "${CIMPL_TOKEN_URL}"
-      -d "grant_type=refresh_token"
+      ACCESS_TOKEN=$(curl -s -X POST "${CIMPL_TOKEN_URI}"
+      -d "grant_type=client_credentials"
       -d "client_id=${CIMPL_CLIENT_ID}"
       -d "client_secret=${CIMPL_CLIENT_SECRET}"
-      -d "refresh_token=${CIMPL_REFRESH_TOKEN}"
       -d "scope=openid"
       | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.parse(d).access_token))")
     - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${CIMPL_DNS_NAME}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"

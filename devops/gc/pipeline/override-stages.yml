@@ -24,16 +24,12 @@ gc-containerize-bootstrap-gcr:
 
 .gc_bruno_tests:
   before_script:
-    # Ensure Node.js/npm, curl and Google Cloud SDK are available
-    - apt update && apt install apt-transport-https ca-certificates gnupg curl git -y
-    - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-    - apt install nodejs -y
-    - echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-    - curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
-    - apt update && apt-get install google-cloud-cli -y
-    - gcloud auth activate-service-account --key-file $GC_INTEGRATION_TESTER_SA_FILE
-    # Install Bruno CLI
+    # GC postman image is Alpine with curl, wget, bash, nodejs, npm
     - npm install -g @usebruno/cli
+    # Install gcloud CLI on Alpine
+    - curl -sSL https://sdk.cloud.google.com | bash -s -- --disable-prompts --install-dir=/opt
+    - export PATH="/opt/google-cloud-sdk/bin:$PATH"
+    - gcloud auth activate-service-account --key-file $GC_INTEGRATION_TESTER_SA_FILE
     # Setup ETP client function
     - >
       function oetp_client() {
