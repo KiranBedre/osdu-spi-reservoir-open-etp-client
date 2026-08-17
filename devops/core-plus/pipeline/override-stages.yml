@@ -33,14 +33,15 @@ cimpl-containerize-bootstrap-gitlab:
       -d "scope=openid"
       | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.parse(d).access_token))")
     - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${CIMPL_DNS_NAME}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
-    - bru run bruno/_Setup  $BRU_ENV
-    - bru run bruno/Health   $BRU_ENV
-    - bru run bruno/Dataspaces $BRU_ENV
-    - bru run bruno/Resources $BRU_ENV
-    - bru run bruno/Arrays    $BRU_ENV
-    - bru run bruno/Transactions $BRU_ENV
-    - bru run bruno/Query     $BRU_ENV
-    - bru run bruno/_Cleanup  $BRU_ENV || true
+    - cd bruno
+    - bru run _Setup  $BRU_ENV
+    - bru run Health   $BRU_ENV
+    - bru run Dataspaces $BRU_ENV
+    - bru run Resources $BRU_ENV
+    - bru run Arrays    $BRU_ENV
+    - bru run Transactions $BRU_ENV
+    - bru run Query     $BRU_ENV
+    - bru run _Cleanup  $BRU_ENV || true
 
 cimpl-test:
   tags: ["osdu-small"]
@@ -100,6 +101,10 @@ cimpl-test-postman:
     - .cimpl-variables
   script:
     - !reference [.cimpl_postman_tests, script]
+  rules:
+    - if: '$CIMPL == "1" && $RUN_POSTMAN_TESTS == "1"'
+      when: on_success
+    - when: never
 
 cimpl-dev2-test-postman:
   tags: ["osdu-small"]
@@ -111,6 +116,10 @@ cimpl-dev2-test-postman:
     - .cimpl-dev2-variables
   script:
     - !reference [.cimpl_postman_tests, script]
+  rules:
+    - if: '$CIMPL == "1" && $RUN_POSTMAN_TESTS == "1"'
+      when: on_success
+    - when: never
 
 # Disable the cimpl-check-openapi-spec job as this is a WebSocket ETP server and has no OpenAPI spec
 cimpl-check-openapi-spec:

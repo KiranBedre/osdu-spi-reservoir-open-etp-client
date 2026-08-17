@@ -43,9 +43,7 @@ aws_test:
     - .aws_common_variables
     - .aws_variables
   stage: integration
-  needs:
-    - job: aws-update-tf
-      optional: true
+  needs: ["aws-update-tf"]
   before_script:
     - apt-get update && apt-get install -y jq unzip
     - |
@@ -67,14 +65,15 @@ aws_test:
   script:
     - npm install -g @usebruno/cli
     - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${API_ENDPOINT}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
-    - bru run bruno/_Setup  $BRU_ENV
-    - bru run bruno/Health   $BRU_ENV
-    - bru run bruno/Dataspaces $BRU_ENV
-    - bru run bruno/Resources $BRU_ENV
-    - bru run bruno/Arrays    $BRU_ENV
-    - bru run bruno/Transactions $BRU_ENV
-    - bru run bruno/Query     $BRU_ENV
-    - bru run bruno/_Cleanup  $BRU_ENV || true
+    - cd bruno
+    - bru run _Setup  $BRU_ENV
+    - bru run Health   $BRU_ENV
+    - bru run Dataspaces $BRU_ENV
+    - bru run Resources $BRU_ENV
+    - bru run Arrays    $BRU_ENV
+    - bru run Transactions $BRU_ENV
+    - bru run Query     $BRU_ENV
+    - bru run _Cleanup  $BRU_ENV || true
 
   only:
     variables:
