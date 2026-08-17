@@ -33,6 +33,7 @@ import {
   ApiBody,
   ApiDefaultResponse,
   ApiForbiddenResponse,
+  ApiGoneResponse,
   ApiHeader,
   ApiInternalServerErrorResponse,
   ApiNotAcceptableResponse,
@@ -79,7 +80,8 @@ import {
   patternString,
   swaggerServers,
   partitionPattern,
-  transactionIdQueryParam
+  transactionIdQueryParam,
+  webSocketSessionTerminatedSchema
 } from "../ControllerUtils";
 
 import { XMLBuilder } from "../../mlTypes/Json2Xml";
@@ -607,6 +609,7 @@ function injectExternalArrayRefs(
 @ApiForbiddenResponse(errorMessageSchema("Forbidden", 403))
 @ApiNotAcceptableResponse(errorMessageSchema("Not acceptable response", 406))
 @ApiTooManyRequestsResponse(errorMessageSchema("Too many requests", 429))
+@ApiGoneResponse(webSocketSessionTerminatedSchema())
 @ApiInternalServerErrorResponse(errorMessageSchema("Unknown Error", 500))
 @ApiDefaultResponse(errorMessageSchema("Unknown Error", 500))
 export default class WitsmlController {

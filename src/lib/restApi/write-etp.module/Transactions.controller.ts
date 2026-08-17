@@ -72,6 +72,7 @@ import {
   rollbackTransaction,
   swaggerServers,
   uuidPattern,
+  validateTransactionDataspace,
   webSocketSessionTerminatedSchema
 } from "../ControllerUtils";
 import logging from "../../common/Logging";
@@ -236,6 +237,11 @@ export default class TransactionsAPI {
     @Param() params: TransactionParams
   ): Promise<boolean> {
     logger.info(`Committing transaction ${params.transactionId}...`);
+    try {
+      validateTransactionDataspace(params.transactionId, params.dataspaceId);
+    } catch (err) {
+      throw httpErrorFromEtpError(err);
+    }
     return commitTransaction(params.transactionId)
       .then(result => {
         if (result) {
@@ -278,6 +284,11 @@ export default class TransactionsAPI {
     @Param() params: TransactionParams
   ): Promise<boolean> {
     logger.info(`Rolling back transaction ${params.transactionId}...`);
+    try {
+      validateTransactionDataspace(params.transactionId, params.dataspaceId);
+    } catch (err) {
+      throw httpErrorFromEtpError(err);
+    }
     return rollbackTransaction(params.transactionId)
       .then(result => {
         if (result) {

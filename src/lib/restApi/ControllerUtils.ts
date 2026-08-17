@@ -98,6 +98,7 @@ const etpClients = new Map<
     timeoutId: NodeJS.Timeout;
     pingIntervalId: NodeJS.Timeout;
     timeoutPeriod: number;
+    dataspaceUri: string;
     onDisconnect: (
       connection?: unknown,
       closeCode?: number,
@@ -583,8 +584,7 @@ export const HasDataPartitionGuard: () => CanActivate = () => {
  * @implements {PipeTransform<number>}
  */
 export class OptionalParseBoolPipe
-  implements PipeTransform<string | boolean, Promise<boolean | undefined>>
-{
+  implements PipeTransform<string | boolean, Promise<boolean | undefined>> {
   transform(value: string | boolean | undefined): Promise<boolean | undefined> {
     if (value === undefined) {
       Promise.resolve(undefined);
@@ -603,8 +603,7 @@ export class OptionalParseBoolPipe
  * @implements {PipeTransform<number>}
  */
 export class OptionalParseIntPipe
-  implements PipeTransform<string | number, Promise<number | undefined>>
-{
+  implements PipeTransform<string | number, Promise<number | undefined>> {
   transform(value: number | string | undefined): Promise<number | undefined> {
     if (value === undefined) {
       return Promise.resolve(undefined);
@@ -624,8 +623,7 @@ export class OptionalParseIntPipe
  * @implements {PipeTransform<string[]>}
  */
 export class OptionalParseIntArrayPipe
-  implements PipeTransform<string | string[]>
-{
+  implements PipeTransform<string | string[]> {
   transform(
     value: string | string[] | undefined
   ): Promise<number[] | number | undefined> {
@@ -644,8 +642,7 @@ export class OptionalParseIntArrayPipe
  * @implements {PipeTransform<number>}
  */
 export class OptionalParseDatePipe
-  implements PipeTransform<Date | string, Promise<Date | undefined>>
-{
+  implements PipeTransform<Date | string, Promise<Date | undefined>> {
   transform(value: Date | string | undefined): Promise<Date | undefined> {
     if (value === undefined) {
       return Promise.resolve(undefined);
@@ -893,14 +890,23 @@ export const createTransaction = async (
   const c = new ResqmlClient(options);
   return c
     .openSession(etpServerUrl, jwt, dataPartitionId)
-    .then(() =>
-      c.startTransaction(
+    .then(async () => {
+      // Validate the dataspace exists before starting a transaction (#78)
+      const info = await c.getDataspaceInfo([dataspace]);
+      if (!info || info.length === 0 || info[0] === null) {
+        await c.closeSession();
+        throw new EtpError(
+          `Dataspace not found: ${dataspace}`,
+          ErrorCode.ENOT_FOUND
+        );
+      }
+      return c.startTransaction(
         false,
         [dataspace],
         `Creating transaction for dataspace ${dataspace}`,
         retries
-      )
-    )
+      );
+    })
     .then(id => {
       const idString = EtpUri.uuidByteArrayToString(id);
 
@@ -939,6 +945,7 @@ export const createTransaction = async (
         }, timeoutPeriod * 1000),
         pingIntervalId,
         timeoutPeriod,
+        dataspaceUri: dataspace,
         onDisconnect
       });
       return idString;
@@ -1098,6 +1105,32 @@ export const rollbackTransaction = (transactionId: string): Promise<boolean> =>
   finalizeTransaction(transactionId, "rollback");
 
 /**
+ * Validate that a transaction belongs to the given dataspace.
+ * Throws 404 if the transaction doesn't exist, or 400 if the dataspaceId
+ * doesn't match the transaction's actual dataspace.
+ */
+export const validateTransactionDataspace = (
+  transactionId: string,
+  dataspaceId: string
+): void => {
+  throwIfTerminated(transactionId);
+  const t = etpClients.get(transactionId);
+  if (t === undefined) {
+    throw new EtpError(
+      `Transaction ${transactionId} does not exists`,
+      ErrorCode.ENOT_FOUND
+    );
+  }
+  const expectedUri = EtpUri.createDataSpaceUri(dataspaceId).uri;
+  if (t.dataspaceUri !== expectedUri) {
+    throw new EtpError(
+      `Transaction ${transactionId} does not belong to dataspace ${dataspaceId}`,
+      ErrorCode.EINVALID_ARGUMENT
+    );
+  }
+};
+
+/**
  * Create the string part of etp uri based on REST query
  *
  * @param {QueryInput} query
@@ -1138,7 +1171,7 @@ const getContext = (
 
   const navigable: Energistics.Etp.v12.Datatypes.Object.RelationshipKind =
     Energistics.Etp.v12.Datatypes.Object.RelationshipKind[
-      context.navigableEdges || "Both"
+    context.navigableEdges || "Both"
     ];
 
   return {

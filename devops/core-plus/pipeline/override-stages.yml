@@ -5,15 +5,8 @@ variables:
   CIMPL_DNS_NAME: "osdu.$CIMPL_DOMAIN"
   CIMPL_HELM_DEPLOYMENT_DIR: "devops/core-plus/deploy"
   CIMPL_HELM_PACKAGE_NAME: "cimpl-$CIMPL_SERVICE-deploy"
-  # Path to the Reservoir DDMS postman collection within osdu/qa.
-  # Combined with CIMPL_COLLECTION_HOST + CIMPL_COLLECTION_BRANCH (defined in
-  # .cimpl-variables / .cimpl-dev2-variables) to form GET_COLLECTION_URL in
-  # .cimpl_postman_tests. Not defined upstream, so must be set here.
-  # Named RESERVOIR_DDMS_COLLECTION_PATH (not COLLECTION_PATH) to avoid
-  # collision with an inherited group-level CI variable named COLLECTION_PATH
-  # that points at the stale v3.0 *_NotRun.json file (group vars outrank YAML
-  # per GitLab variable precedence).
-  RESERVOIR_DDMS_COLLECTION_PATH: "Postman%20Collection/45_CICD_Reservoir_DDMS/Reservoir%20DDMS%20CI-CD%20v3.1.postman_collection.json"
+  # The in-repo Bruno collection (bruno/) replaces the external Postman
+  # collection previously fetched from osdu/qa at runtime.
 
 cimpl-containerize-gitlab:
   tags: ["osdu-medium"]
@@ -25,37 +18,37 @@ cimpl-containerize-gitlab:
 cimpl-containerize-bootstrap-gitlab:
   needs: []
 
-.cimpl_postman_tests:
+.cimpl_bruno_tests:
   script:
-    - export GET_COLLECTION_URL="${CIMPL_COLLECTION_HOST}/${CIMPL_COLLECTION_BRANCH}/${RESERVOIR_DDMS_COLLECTION_PATH}?inline=false"
-    - echo "Get a collection from ${GET_COLLECTION_URL}"
+    - npm install -g @usebruno/cli
     - >
-      if [[ -v TEST_SOURCE_FILES_DIR ]]; then
-        wget -q -O tmp.zip "${CIMPL_COLLECTION_ARCHIVE_HOST}/${CIMPL_COLLECTION_BRANCH}/testing-master.zip?path=${TEST_SOURCE_FILES_DIR}" \
-        && unzip -j tmp.zip \
-        && rm tmp.zip
-      fi
-    - >
-      echo "[{ \"CLIENT_ID\": \"${CIMPL_CLIENT_ID}\", \"CLIENT_SECRET\": \"${CIMPL_CLIENT_SECRET}\", \"grant_type\": \"${CIMPL_GRANT_TYPE}\", \"refresh_token\": \"${CIMPL_REFRESH_TOKEN}\"}]" > test_config_file.json
-    - curl "${GET_COLLECTION_URL}" > collection.json && COLLECTION=collection.json
-    - |
-      curl --header "data-partition-id: ${DATA_PARTITION_ID}" "${CIMPL_POSTMAN_ENV_URL}" > environment.json && ENVIRONMENT=environment.json
-    # The v3.1 collection reads Token_Fetch_URL and the entitlements 'domain' value
-    # directly from the postman environment file, and S1b idempotently creates
-    # '<partition>-RDDMS-Legal-Tag' (201/409 both acceptable). No pre-step is needed
-    # here -- newman drives everything via the refresh_token flow in '0. Auth'.
-    - newman run "$COLLECTION" --working-dir . -e "${ENVIRONMENT}" -d  test_config_file.json --delay-request 3000 --env-var TENANT_ID=${CIMPL_TENANT} --env-var HOSTNAME=${CIMPL_DNS_NAME} --env-var RESERVOIR_DDMS_HOST=${CIMPL_DNS_NAME}/api/reservoir-ddms/v2 || exit $?
+      ACCESS_TOKEN=$(curl -s -X POST "${CIMPL_TOKEN_URL}"
+      -d "grant_type=refresh_token"
+      -d "client_id=${CIMPL_CLIENT_ID}"
+      -d "client_secret=${CIMPL_CLIENT_SECRET}"
+      -d "refresh_token=${CIMPL_REFRESH_TOKEN}"
+      -d "scope=openid"
+      | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${CIMPL_DNS_NAME}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
+    - bru run bruno/_Setup  $BRU_ENV
+    - bru run bruno/Health   $BRU_ENV
+    - bru run bruno/Dataspaces $BRU_ENV
+    - bru run bruno/Resources $BRU_ENV
+    - bru run bruno/Arrays    $BRU_ENV
+    - bru run bruno/Transactions $BRU_ENV
+    - bru run bruno/Query     $BRU_ENV
+    - bru run bruno/_Cleanup  $BRU_ENV || true
 
 cimpl-test:
   tags: ["osdu-small"]
   stage: integration
-  image: community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-cimpl/image-for-postman-tests/osdu-cimpl-image-for-postman:df5a6d3c
+  image: node:20-alpine
   allow_failure: true
   retry: 1
   extends:
     - .cimpl-variables
   script:
-    - !reference [.cimpl_postman_tests, script]
+    - !reference [.cimpl_bruno_tests, script]
 
 cimpl-acceptance-test:
   extends:
@@ -66,13 +59,13 @@ cimpl-acceptance-test:
 cimpl-dev2-test:
   tags: ["osdu-small"]
   stage: integration
-  image: community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-cimpl/image-for-postman-tests/osdu-cimpl-image-for-postman:df5a6d3c
+  image: node:20-alpine
   allow_failure: false
   retry: 1
   extends:
     - .cimpl-dev2-variables
   script:
-    - !reference [.cimpl_postman_tests, script]
+    - !reference [.cimpl_bruno_tests, script]
 
 cimpl-dev2-acceptance-test:
   extends:

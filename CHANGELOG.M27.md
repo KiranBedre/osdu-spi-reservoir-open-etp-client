@@ -1,6 +1,26 @@
 # CHANGELOG: M27 (2026) Summary of Bug fixes and Feature Extensions for RDDMS Client
 
-All changes vs upstream Emerson `@osdu/open-etp-client` (base commit: `cfffaa2`).
+## High-Level Summary
+
+### New Features (non-breaking, additive)
+- **8 new REST endpoints**: resource search, object query, growing-object parts, channel streaming, WITSML store/query, well search
+- **5 new ETP protocol handlers**: DiscoveryQuery (13), StoreQuery (14), GrowingObject (6), GrowingObjectNotification (7), ChannelSubscribe (21) — auto-negotiated at session open
+- **20+ new OSDU converters**: reservoir modelling types (IjkGrid enrichments, GenericBinGrid, HorizonControlPoints, ReservoirCompartmentInterpretation, FluidModel, ProductionValues), WITSML types (Rig, Tubular, FluidsReport, BHARun, WellCompletion), SeismicLineGeometry, StructuralOrganizationInterpretation, and more
+- **CRS enrichment**: vertical CRS extraction, WKT detection, local-frame metadata, rotated-CRS affine transforms
+- **Round-trip fidelity**: ExtraMetadata preservation, AuthoringSoftware, Activity parameters, IjkGrid field completion, PropertyKind→UnitQuantity mapping
+- **CollaborationProject**: auto-generates master-data record per dataspace with deterministic UUID and lifecycle events
+- **Lineage**: auto-generated Activity record linking source EPC to output manifest records
+- **Schema Service**: live OSDU kind versions queried at startup (M27+); static fallback for M26
+- **`includeArrayData` option** on `/manifest/build` to opt-in to bulk data array reads
+
+### Behavioral Changes (non-additive, may affect consumers)
+- **Default manifest filter**: only Interpretations, Representations, and WITSML objects included (was: everything). Use `typePatterns: ["*"]` to restore
+- **Best-effort manifest**: converter errors skip the failed object instead of aborting the entire build
+- **Grid2d routing**: depth-domain Grid2d with HorizonInterpretation now routes to StructureMap instead of GenericRepresentation
+
+---
+
+All changes vs upstream `@osdu/open-etp-client` (base commit: `cfffaa2`).
 
 **Risk legend:** 🐛 bugfix (output values change) · ⚠️ non-additive (existing behavior/API changes) · 🧪 needs integration testing
 

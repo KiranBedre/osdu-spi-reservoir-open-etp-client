@@ -1,0 +1,121 @@
+meta {
+  name: S4 Put RESQML Objects
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{host}}/dataspaces/{{dataspaceId}}/resources?transactionId={{transactionId}}
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:pre-request {
+  // Generate UUID v4
+  function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0;
+      var v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+
+  var crsGuid = uuid();
+  var extGuid = uuid();
+  var psrGuid = uuid();
+
+  bru.setVar("crs_guid", crsGuid);
+  bru.setVar("ext_guid", extGuid);
+  bru.setVar("psr_guid", psrGuid);
+  bru.setVar("dataObjectType", "resqml20.obj_PointSetRepresentation");
+  bru.setVar("guid", psrGuid);
+  bru.setVar("array_path_encoded", encodeURIComponent("/RESQML/" + psrGuid + "/points_patch0"));
+}
+
+body:json {
+  [
+    {
+      "$type": "resqml20.obj_LocalDepth3dCrs",
+      "SchemaVersion": "2.0",
+      "Uuid": "{{crs_guid}}",
+      "Citation": {
+        "Title": "CI Local CRS",
+        "Originator": "BrunoCLI",
+        "Creation": "2026-01-01T00:00:00Z",
+        "Format": "[ADME:BrunoCLI:1.0]"
+      },
+      "XOffset": 0,
+      "YOffset": 0,
+      "ZOffset": 0,
+      "ArealRotation": { "_": 0, "$type": "eml20.PlaneAngleMeasure", "Uom": "dega" },
+      "ProjectedAxisOrder": "easting northing",
+      "ProjectedUom": "m",
+      "VerticalUom": "m",
+      "ZIncreasingDownward": true,
+      "VerticalCrs": { "$type": "eml20.VerticalUnknownCrs", "Unknown": "unknown" },
+      "ProjectedCrs": { "$type": "eml20.ProjectedUnknownCrs", "Unknown": "WKT" }
+    },
+    {
+      "$type": "eml20.obj_EpcExternalPartReference",
+      "SchemaVersion": "2.0",
+      "Uuid": "{{ext_guid}}",
+      "Citation": {
+        "Title": "CI HDF Proxy",
+        "Originator": "BrunoCLI",
+        "Creation": "2026-01-01T00:00:00Z",
+        "Format": "[ADME:BrunoCLI:1.0]"
+      },
+      "MimeType": "application/x-hdf5"
+    },
+    {
+      "$type": "resqml20.obj_PointSetRepresentation",
+      "SchemaVersion": "2.0",
+      "Uuid": "{{psr_guid}}",
+      "Citation": {
+        "Title": "CI PointSet",
+        "Originator": "BrunoCLI",
+        "Creation": "2026-01-01T00:00:00Z",
+        "Format": "[ADME:BrunoCLI:1.0]"
+      },
+      "NodePatch": [
+        {
+          "PatchIndex": 0,
+          "Count": 3,
+          "Geometry": {
+            "$type": "resqml20.PointGeometry",
+            "LocalCrs": {
+              "$type": "eml20.DataObjectReference",
+              "ContentType": "application/x-resqml+xml;version=2.0;type=obj_LocalDepth3dCrs",
+              "Title": "CI Local CRS",
+              "UUID": "{{crs_guid}}"
+            },
+            "Points": {
+              "$type": "resqml20.Point3dHdf5Array",
+              "Coordinates": {
+                "$type": "eml20.Hdf5Dataset",
+                "PathInHdfFile": "/RESQML/{{psr_guid}}/points_patch0",
+                "HdfProxy": {
+                  "$type": "eml20.DataObjectReference",
+                  "ContentType": "application/x-eml+xml;version=2.0;type=obj_EpcExternalPartReference",
+                  "Title": "CI HDF Proxy",
+                  "UUID": "{{ext_guid}}"
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+}

@@ -1,0 +1,37 @@
+meta {
+  name: S2 Create Test Dataspace
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/dataspaces
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  [
+    {
+      "DataspaceId": "test/ci-bruno",
+      "Path": "test/ci-bruno",
+      "CustomData": {
+        "viewers": ["data.default.viewers@{{data-partition-id}}.{{domain}}"],
+        "owners": ["data.default.owners@{{data-partition-id}}.{{domain}}"],
+        "legaltags": "{{data-partition-id}}-RDDMS-Legal-Tag",
+        "otherRelevantDataCountries": ["US"]
+      }
+    }
+  ]
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+}

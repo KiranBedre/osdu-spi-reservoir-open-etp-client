@@ -31,6 +31,7 @@ import {
   ApiBody,
   ApiDefaultResponse,
   ApiForbiddenResponse,
+  ApiGoneResponse,
   ApiHeader,
   ApiInternalServerErrorResponse,
   ApiNotAcceptableResponse,
@@ -77,7 +78,8 @@ import {
   patternString,
   requireProtocol,
   toDate,
-  toJSonCustomData
+  toJSonCustomData,
+  webSocketSessionTerminatedSchema
 } from "../ControllerUtils";
 
 import Logging from "../../common/Logging";
@@ -291,6 +293,7 @@ const swaggerServers = [{ url: "" }];
 @ApiForbiddenResponse(errorMessageSchema("Forbidden", 403))
 @ApiNotAcceptableResponse(errorMessageSchema("Not acceptable response", 406))
 @ApiTooManyRequestsResponse(errorMessageSchema("Too many requests", 429))
+@ApiGoneResponse(webSocketSessionTerminatedSchema())
 @ApiInternalServerErrorResponse(errorMessageSchema("Unknown Error", 500))
 @ApiDefaultResponse(errorMessageSchema("Unknown Error", 500))
 export default class QueryController {
