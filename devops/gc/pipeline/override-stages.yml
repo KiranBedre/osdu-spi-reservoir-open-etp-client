@@ -71,7 +71,9 @@ gc-test:
   image: community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-gcp/image-for-postman-tests/osdu-gcp-image-for-postman
   allow_failure: true
   retry: 1
-  needs: ["gc-deploy"]
+  needs:
+    - job: gc-deploy
+      optional: true
   extends:
     - .gc-variables
   script:

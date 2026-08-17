@@ -64,7 +64,9 @@ azure_test:
     name: node:20-alpine
   stage: integration
   tags: ["osdu-small"]
-  needs: ["azure_deploy"]
+  needs:
+    - job: azure_deploy
+      optional: true
   extends: .azure_variables
   variables:
     AZURE_CLIENT_ID: $AZURE_CLIENT_ID
@@ -103,7 +105,9 @@ azure_test_postman:
     entrypoint: [""]
   stage: integration
   tags: ["osdu-small"]
-  needs: ["azure_deploy"]
+  needs:
+    - job: azure_deploy
+      optional: true
   extends: .azure_variables
   variables:
     AZURE_POSTMAN_COLLECTION_FILE_URL: $AZURE_POSTMAN_COLLECTION_FILE_URL
