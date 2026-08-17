@@ -1,6 +1,5 @@
 variables:
   GC_SERVICE: "oetp-client"
-  COLLECTION_PATH: "Postman%20Collection/45_CICD_Reservoir_DDMS/Reservoir%20DDMS%20CI-CD%20v3.1.postman_collection.json"
   GC_SUPPORTED_PLATFORM: "linux/amd64"
 
 gc-containerize-gitlab:
@@ -23,7 +22,7 @@ gc-containerize-bootstrap-gitlab:
 gc-containerize-bootstrap-gcr:
   needs: []
 
-.gc_postman_tests:
+.gc_bruno_tests:
   before_script:
     # Ensure Node.js/npm, curl and Google Cloud SDK are available
     - apt update && apt install apt-transport-https ca-certificates gnupg curl git -y
@@ -33,8 +32,8 @@ gc-containerize-bootstrap-gcr:
     - curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key --keyring /usr/share/keyrings/cloud.google.gpg add -
     - apt update && apt-get install google-cloud-cli -y
     - gcloud auth activate-service-account --key-file $GC_INTEGRATION_TESTER_SA_FILE
-    # Ensure Newman is available for collection execution
-    - npm install -g newman
+    # Install Bruno CLI
+    - npm install -g @usebruno/cli
     # Setup ETP client function
     - >
       function oetp_client() {
@@ -59,18 +58,12 @@ gc-containerize-bootstrap-gcr:
       done
     
   script:
-    - export GET_COLLECTION_URL="${GC_COLLECTION_HOST}/${GC_COLLECTION_BRANCH}/${COLLECTION_PATH}?inline=false"
-    - echo "Get a collection from ${GET_COLLECTION_URL}"
+    - export ACCESS_TOKEN=$(gcloud auth print-identity-token)
     - >
-      if [[ -v TEST_SOURCE_FILES_DIR ]]; then
-        wget -q -O tmp.zip "${GC_COLLECTION_ARCHIVE_HOST}/${GC_COLLECTION_BRANCH}/testing-master.zip?path=${TEST_SOURCE_FILES_DIR}"         && unzip -j tmp.zip         && rm tmp.zip
-      fi
-    - >
-      echo "[{ \"CLIENT_ID\": \"${GC_CLIENT_ID}\", \"CLIENT_SECRET\": \"${GC_CLIENT_SECRET}\", \"grant_type\": \"${GC_GRANT_TYPE}\", \"refresh_token\": \"${GC_REFRESH_TOKEN}\"}]" > test_config_file.json
-    - curl "${GET_COLLECTION_URL}" > collection.json && COLLECTION=collection.json
-    - |
-      curl --header "data-partition-id: ${DATA_PARTITION_ID}" "${GC_POSTMAN_ENV_URL}" > environment.json && ENVIRONMENT=environment.json
-    - newman run "$COLLECTION" --working-dir . -e "${ENVIRONMENT}" -d test_config_file.json --delay-request 3000 --env-var HOSTNAME=${GC_DOMAIN} --env-var TENANT_ID=${GC_TENANT} --env-var RESERVOIR_DDMS_HOST=${GC_DOMAIN}/api/reservoir-ddms/v2 --reporters cli,junit --reporter-junit-export test-results.log || exit $?
+      bru run bruno/ --env CI
+      --env-var "access_token=${ACCESS_TOKEN}"
+      --env-var "RESERVOIR_DDMS_HOST=${GC_DOMAIN}/api/reservoir-ddms/v2"
+      --env-var "DATA_PARTITION_ID=${DATA_PARTITION_ID}"
 
 gc-test:
   tags: ["osdu-small"]
@@ -82,7 +75,8 @@ gc-test:
   extends:
     - .gc-variables
   script:
-    - !reference [.gc_postman_tests, script]
+    - !reference [.gc_bruno_tests, before_script]
+    - !reference [.gc_bruno_tests, script]
   rules:
     - if: "$CI_COMMIT_BRANCH =~ /^release/"
       when: never
