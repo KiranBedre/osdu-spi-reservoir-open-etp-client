@@ -64,19 +64,16 @@ azure_test:
     name: node:20-alpine
   stage: integration
   tags: ["osdu-small"]
-  needs:
-    - job: azure_deploy
-      optional: true
+  needs: ["azure_deploy"]
   extends: .azure_variables
   variables:
     AZURE_CLIENT_ID: $AZURE_CLIENT_ID
     AZURE_CLIENT_SECRET: $AZURE_CLIENT_SECRET
-    AZURE_REFRESH_TOKEN: $AZURE_REFRESH_TOKEN
   script:
     - npm install -g @usebruno/cli
     - >
       ACCESS_TOKEN=$(wget -qO- --post-data
-      "grant_type=refresh_token&client_id=${AZURE_CLIENT_ID}&client_secret=${AZURE_CLIENT_SECRET}&refresh_token=${AZURE_REFRESH_TOKEN}&scope=openid"
+      "grant_type=client_credentials&client_id=${AZURE_CLIENT_ID}&client_secret=${AZURE_CLIENT_SECRET}&scope=${AZURE_CLIENT_ID}/.default"
       "https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token"
       | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.parse(d).access_token))")
     - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${AZURE_DNS_NAME}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
@@ -88,16 +85,7 @@ azure_test:
     - bru run bruno/Transactions $BRU_ENV
     - bru run bruno/Query     $BRU_ENV
     - bru run bruno/_Cleanup  $BRU_ENV || true
-  only:
-    refs:
-      - branches
-      - main
-      - merge_requests
-      - tags
   allow_failure: true
-  except:
-    variables:
-      - $AZURE_SKIP_TEST == 'true'
 
 azure_test_postman:
   image:
@@ -105,14 +93,11 @@ azure_test_postman:
     entrypoint: [""]
   stage: integration
   tags: ["osdu-small"]
-  needs:
-    - job: azure_deploy
-      optional: true
+  needs: ["azure_deploy"]
   extends: .azure_variables
   variables:
     AZURE_CLIENT_ID: $AZURE_CLIENT_ID
     AZURE_CLIENT_SECRET: $AZURE_CLIENT_SECRET
-    AZURE_REFRESH_TOKEN: $AZURE_REFRESH_TOKEN
     # Collection fetched from osdu/qa project raw URL
     RESERVOIR_DDMS_COLLECTION_URL: "https://community.opengroup.org/osdu/qa/-/raw/main/Postman%20Collection/45_CICD_Reservoir_DDMS/Reservoir%20DDMS%20CI-CD%20v3.1.postman_collection.json?inline=false"
   script:
@@ -124,19 +109,9 @@ azure_test_postman:
       --env-var CLIENT_ID=${AZURE_CLIENT_ID}
       --env-var CLIENT_SECRET=${AZURE_CLIENT_SECRET}
       --env-var HOSTNAME=${AZURE_DNS_NAME}
-      --env-var refresh_token=${AZURE_REFRESH_TOKEN}
       --env-var RESERVOIR_DDMS_HOST=${AZURE_DNS_NAME}/api/reservoir-ddms/v2
       --delay-request 3000
-  only:
-    refs:
-      - branches
-      - main
-      - merge_requests
-      - tags
   allow_failure: true
-  except:
-    variables:
-      - $AZURE_SKIP_TEST == 'true'
 
 # It is a temporary change as azure_code_coverage not yet been implemented for CPP services.
 # Therefore the job has been disabled

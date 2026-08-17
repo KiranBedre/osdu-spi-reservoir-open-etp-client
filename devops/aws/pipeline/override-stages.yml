@@ -43,9 +43,7 @@ aws_test:
     - .aws_common_variables
     - .aws_variables
   stage: integration
-  needs:
-    - job: aws-update-tf
-      optional: true
+  needs: ["aws-update-tf"]
   before_script:
     - apt-get update && apt-get install -y jq unzip
     - |
