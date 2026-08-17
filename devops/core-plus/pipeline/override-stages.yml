@@ -28,7 +28,7 @@ cimpl-containerize-bootstrap-gitlab:
       -d "client_secret=${CIMPL_CLIENT_SECRET}"
       -d "refresh_token=${CIMPL_REFRESH_TOKEN}"
       -d "scope=openid"
-      | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+      | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.parse(d).access_token))")
     - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${CIMPL_DNS_NAME}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
     - bru run bruno/_Setup  $BRU_ENV
     - bru run bruno/Health   $BRU_ENV
