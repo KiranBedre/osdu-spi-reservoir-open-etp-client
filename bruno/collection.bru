@@ -2,3 +2,18 @@ headers {
   Authorization: Bearer {{access_token}}
   data-partition-id: {{data-partition-id}}
 }
+
+script:post-response {
+  // CI diagnostics: on any error status, log the method/URL and response body so
+  // failures in the pipeline trace are actionable (e.g. 403 vs 404 vs 400 cause).
+  try {
+    if (res && typeof res.getStatus === "function" && res.getStatus() >= 400) {
+      const method = (req && (req.method || (req.getMethod && req.getMethod()))) || "?";
+      const url = (req && (req.url || (req.getUrl && req.getUrl()))) || "?";
+      let body = res.getBody();
+      if (typeof body !== "string") { body = JSON.stringify(body); }
+      console.log("[HTTP " + res.getStatus() + "] " + method + " " + url);
+      console.log("[RESP BODY] " + body);
+    }
+  } catch (e) { /* never fail a request because of diagnostics */ }
+}
