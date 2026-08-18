@@ -18,8 +18,17 @@ headers {
 script:post-response {
   if (res.getStatus() === 200 || res.getStatus() === 201) {
     const body = res.getBody();
-    if (body && body.transactionId) {
-      bru.setVar("transactionId", body.transactionId);
+    // The server returns the transaction id as a bare string (see
+    // Transactions.controller.ts PostTransaction -> Promise<string>).
+    // Accept either a bare string or an object with a transactionId field.
+    const transactionId =
+      typeof body === "string"
+        ? body.trim()
+        : body && body.transactionId
+          ? body.transactionId
+          : undefined;
+    if (transactionId) {
+      bru.setVar("transactionId", transactionId);
     }
   }
 }
@@ -30,7 +39,7 @@ tests {
   });
 
   test("returns transactionId", function () {
-    const body = res.getBody();
-    expect(body).to.have.property("transactionId");
+    const transactionId = bru.getVar("transactionId");
+    expect(transactionId, "transactionId captured from response").to.be.a("string").and.to.not.be.empty;
   });
 }

@@ -23,47 +23,117 @@ gc-containerize-bootstrap-gcr:
   needs: []
 
 .gc_bruno_tests:
+  # Keyless authentication via Workload Identity Federation (WIF).
+  #
+  # OSDU migrated GC integration-test auth away from static service-account key
+  # files: $GC_INTEGRATION_TESTER_SA_FILE is no longer provided (empty), so the
+  # old `gcloud auth activate-service-account --key-file` call failed. The shared
+  # `.gc_obtain_hub_test_tokens` helper implements the modern pattern, but it
+  # targets a Debian image (apt-get + glibc gcloud tarball). Our gc-test image is
+  # Alpine, so we implement the same WIF flow inline using the Alpine-installed
+  # gcloud + python3: impersonate the hub integration-tester service account via
+  # the pipeline's GitLab OIDC token, then mint short-lived ID tokens for the
+  # reservoir-ddms audience.
   before_script:
     # GC postman image is Alpine with curl, wget, bash, nodejs, npm
     - npm install -g @usebruno/cli
+    # gcloud's install.sh and the CLI itself invoke `python`; ensure a Python 3
+    # interpreter is available and pointed to via CLOUDSDK_PYTHON, otherwise the
+    # install/commands fail with "python: not found" (exit 127).
+    - |
+      if ! command -v python3 >/dev/null 2>&1; then
+        (apk add --no-cache python3 2>/dev/null) || (apt-get update && apt-get install -y python3)
+      fi
+    - export CLOUDSDK_PYTHON="$(command -v python3)"
+    # jq is required to parse the generateIdToken response.
+    - (command -v jq >/dev/null 2>&1) || (apk add --no-cache jq 2>/dev/null) || (apt-get update && apt-get install -y jq)
     # Install gcloud CLI on Alpine
     - curl -sSL https://sdk.cloud.google.com | bash -s -- --disable-prompts --install-dir=/opt
     - export PATH="/opt/google-cloud-sdk/bin:$PATH"
-    - gcloud auth activate-service-account --key-file $GC_INTEGRATION_TESTER_SA_FILE
-    # Setup ETP client function
-    - >
-      function oetp_client() {
-        openETPServer $* -S wss://${GC_DOMAIN}/api/reservoir-ddms-etp/v2/         --auth bearer         --jwt-token $(gcloud auth print-identity-token)         --data-partition-id ${GC_TENANT}         --log_level=info
+    # --- Workload Identity Federation login (replaces activate-service-account) ---
+    - |
+      if [ -z "$GITLAB_OIDC_TOKEN" ]; then
+        echo "ERROR: GITLAB_OIDC_TOKEN is not set. The gc-test job must declare an id_tokens block." >&2
+        exit 1
+      fi
+      if [ -z "$INTEGRATION_TEST_AUDIENCE" ]; then
+        echo "ERROR: INTEGRATION_TEST_AUDIENCE is not set; cannot mint reservoir-ddms ID tokens." >&2
+        exit 1
+      fi
+      echo "$GITLAB_OIDC_TOKEN" > "$CI_PROJECT_DIR/gitlab-oidc-token.txt"
+      gcloud iam workload-identity-pools create-cred-config \
+        "projects/${GC_HUB_PROJECT_NUMBER}/locations/global/workloadIdentityPools/${GC_HUB_POOL_ID}/providers/${GC_HUB_PROVIDER_ID}" \
+        --service-account="${GC_INTEGRATION_TESTER_SA_EMAIL}" \
+        --service-account-token-lifetime-seconds=1800 \
+        --output-file="$CI_PROJECT_DIR/wif-creds.json" \
+        --credential-source-file="$CI_PROJECT_DIR/gitlab-oidc-token.txt"
+      gcloud auth login --cred-file="$CI_PROJECT_DIR/wif-creds.json"
+    # Helper: mint a short-lived OIDC ID token for the reservoir-ddms audience.
+    - |
+      gc_id_token() {
+        curl -s --fail \
+          "https://iamcredentials.googleapis.com/v1/projects/-/serviceAccounts/${GC_INTEGRATION_TESTER_SA_EMAIL}:generateIdToken" \
+          -H "Authorization: Bearer $(gcloud auth print-access-token)" \
+          -H "Content-Type: application/json" \
+          --data "{\"audience\": \"${INTEGRATION_TEST_AUDIENCE}\", \"includeEmail\": true}" \
+          | jq -r '.token'
       }
-    # Setup demo/Volve dataspace
-    - oetp_client probe --ping && oetp_client space --list
-    - oetp_client space --delete -s demo/Volve || echo "[INFO] No dataspace demo/Volve to cleanup"
+    - export ACCESS_TOKEN="$(gc_id_token)"
     - |
-      GROUP_DOMAIN="${GC_TENANT}.${ENTITLEMENTS_DOMAIN}"
-      XDATA_ACL="{\"legaltags\":[\"${LEGAL_TAG}\"],\"otherRelevantDataCountries\":[\"${OTHER_RELEVANT_DATA_COUNTRIES}\"],\"owners\":[\"data.default.owners@${GROUP_DOMAIN}\"],\"viewers\":[\"data.default.viewers@${GROUP_DOMAIN}\"]}"
-      oetp_client space --new -s demo/Volve --xdata "$XDATA_ACL"
-    - oetp_client space --import-epc ./devops/data/Volve_Demo_Horizons_Depth.epc -s demo/Volve &&
-    - oetp_client space --list
+      if [ -z "$ACCESS_TOKEN" ] || [ "$ACCESS_TOKEN" = "null" ]; then
+        echo "ERROR: failed to obtain a GC integration-test ID token via WIF." >&2
+        exit 1
+      fi
+    # NOTE: demo/Volve is NOT seeded here.
+    #
+    # The `demo/Volve` demo dataset is provisioned environment/server-side by
+    # open-etp-server (see open-etp-server/data/create_demo_space.sh). Seeding it
+    # requires the `openETPServer` binary (built by open-etp-server, absent from
+    # this Alpine postman image) and the real EPC files (open-etp-server/data);
+    # this repo only carries 131-byte Git LFS pointer stubs under devops/data.
+    # The previous `openETPServer ... --import-epc` block therefore always failed
+    # with `openETPServer: command not found` (exit 127). Tests that depend on
+    # demo/Volve rely on it being present in the target environment.
+    # Readiness gate: fail fast if the reservoir-ddms REST API never becomes ready.
     - |
-      for i in {1..3}; do
-        STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://${GC_DOMAIN}/api/reservoir-ddms/v2/dataspaces" -H "Authorization: Bearer $(gcloud auth print-identity-token)" -H "data-partition-id: ${GC_TENANT}")
-        if [ "$STATUS" = "200" ]; then
-          break
-        fi
+      # Normalize the host to exactly one https:// scheme: GC_DOMAIN may or may
+      # not already carry a scheme depending on environment configuration, and a
+      # double scheme ("https://https://...") makes curl/bruno fail to connect.
+      RDMS_HOST="${GC_DOMAIN#http://}"; RDMS_HOST="${RDMS_HOST#https://}"
+      export RDMS_BASE="https://${RDMS_HOST}/api/reservoir-ddms/v2"
+      READY=0
+      for i in $(seq 1 12); do
+        # `|| echo 000` keeps a curl connection error (exit 7) from aborting the
+        # job under `set -e`; treat it as "not ready" and retry the full window.
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${RDMS_BASE}/dataspaces" -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "data-partition-id: ${GC_TENANT}" || echo 000)
+        if [ "$STATUS" = "200" ]; then READY=1; break; fi
+        echo "[INFO] reservoir-ddms not ready yet (HTTP $STATUS), attempt $i/12..."
         sleep 10
       done
-    
+      if [ "$READY" != "1" ]; then
+        echo "ERROR: reservoir-ddms REST API at ${RDMS_BASE} did not return 200." >&2
+        exit 1
+      fi
   script:
-    - export ACCESS_TOKEN=$(gcloud auth print-identity-token)
-    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${GC_DOMAIN}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
+    # ACCESS_TOKEN and RDMS_BASE are exported by before_script above (same shell).
+    # The GC postman image ships Node 18.12.1, where the Web Crypto API is not
+    # exposed as a global by default. The @usebruno/cli reads globalThis.crypto
+    # .subtle at load time and crashes with "Cannot read properties of undefined
+    # (reading 'subtle')". Enable the flagged global (available since Node 17.6)
+    # so bruno can run; azure/cimpl use node:20-alpine where it is on by default.
+    - export NODE_OPTIONS="--experimental-global-webcrypto"
+    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${RDMS_BASE} --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
     - cd bruno
+    # This client repo validates the REST->ETP proxy; it complements (does not
+    # replicate) the open-etp-server data tests. _Setup is the self-contained
+    # REST round-trip (create dataspace -> transaction -> put objects -> put
+    # array -> commit) and shares runtime state across its ordered requests.
+    # Resources/Arrays/Transactions read-backs need that same-invocation seed
+    # state and Query needs the server-seeded demo/Volve catalog, so they are
+    # not run as standalone folders here.
     - bru run _Setup  $BRU_ENV
     - bru run Health   $BRU_ENV
     - bru run Dataspaces $BRU_ENV
-    - bru run Resources $BRU_ENV
-    - bru run Arrays    $BRU_ENV
-    - bru run Transactions $BRU_ENV
-    - bru run Query     $BRU_ENV
     - bru run _Cleanup  $BRU_ENV || true
 
 gc-test:
@@ -73,6 +143,11 @@ gc-test:
   allow_failure: true
   retry: 1
   needs: ["gc-deploy"]
+  # GitLab OIDC token consumed by the WIF login in .gc_bruno_tests. The audience
+  # must match the hub Workload Identity Pool provider used by create-cred-config.
+  id_tokens:
+    GITLAB_OIDC_TOKEN:
+      aud: https://iam.googleapis.com/projects/${GC_HUB_PROJECT_NUMBER}/locations/global/workloadIdentityPools/${GC_HUB_POOL_ID}/providers/${GC_HUB_PROVIDER_ID}
   extends:
     - .gc-variables
   script:

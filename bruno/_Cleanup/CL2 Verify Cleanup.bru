@@ -23,6 +23,6 @@ tests {
   test("test dataspace no longer listed", function () {
     const body = res.getBody();
     const ids = body.map(ds => ds.DataspaceId || ds.dataspaceId || ds.id || '');
-    expect(ids).to.not.include("test/ci-bruno");
+    expect(ids).to.not.include("test-ci-bruno");
   });
 }

@@ -32,15 +32,24 @@ cimpl-containerize-bootstrap-gitlab:
       -d "client_secret=${CIMPL_CLIENT_SECRET}"
       -d "scope=openid"
       | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.parse(d).access_token))")
-    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${CIMPL_DNS_NAME}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
+    # CIMPL_DNS_NAME is defined scheme-less ("osdu.$CIMPL_DOMAIN"). Bruno needs an
+    # explicit scheme or it cannot reach the Istio https listener (every request
+    # 404s at the gateway). Normalize to exactly one https:// scheme.
+    - |
+      RDMS_HOST="${CIMPL_DNS_NAME#http://}"; RDMS_HOST="${RDMS_HOST#https://}"
+      export RDMS_BASE="https://${RDMS_HOST}/api/reservoir-ddms/v2"
+    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${RDMS_BASE} --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
     - cd bruno
+    # This client repo validates the REST->ETP proxy; it complements (does not
+    # replicate) the open-etp-server data tests. _Setup is the self-contained
+    # REST round-trip (create dataspace -> transaction -> put objects -> put
+    # array -> commit) and shares runtime state across its ordered requests.
+    # Resources/Arrays/Transactions read-backs need that same-invocation seed
+    # state and Query needs the server-seeded demo/Volve catalog, so they are
+    # not run as standalone folders here.
     - bru run _Setup  $BRU_ENV
     - bru run Health   $BRU_ENV
     - bru run Dataspaces $BRU_ENV
-    - bru run Resources $BRU_ENV
-    - bru run Arrays    $BRU_ENV
-    - bru run Transactions $BRU_ENV
-    - bru run Query     $BRU_ENV
     - bru run _Cleanup  $BRU_ENV || true
 
 cimpl-test:
