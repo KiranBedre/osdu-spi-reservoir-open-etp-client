@@ -116,6 +116,12 @@ gc-containerize-bootstrap-gcr:
       fi
   script:
     # ACCESS_TOKEN and RDMS_BASE are exported by before_script above (same shell).
+    # The GC postman image ships Node 18.12.1, where the Web Crypto API is not
+    # exposed as a global by default. The @usebruno/cli reads globalThis.crypto
+    # .subtle at load time and crashes with "Cannot read properties of undefined
+    # (reading 'subtle')". Enable the flagged global (available since Node 17.6)
+    # so bruno can run; azure/cimpl use node:20-alpine where it is on by default.
+    - export NODE_OPTIONS="--experimental-global-webcrypto"
     - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${RDMS_BASE} --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
     - cd bruno
     - bru run _Setup  $BRU_ENV
