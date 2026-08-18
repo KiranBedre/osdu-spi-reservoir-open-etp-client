@@ -24,7 +24,8 @@ const DATASPACE_SUBRESOURCES = new Set<string>([
     "deleted",
     "resources",
     "graph",
-    "transactions"
+    "transactions",
+    "objects"
 ]);
 
 /**

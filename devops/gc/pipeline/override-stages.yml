@@ -96,22 +96,27 @@ gc-containerize-bootstrap-gcr:
     # demo/Volve rely on it being present in the target environment.
     # Readiness gate: fail fast if the reservoir-ddms REST API never becomes ready.
     - |
+      # Normalize the host to exactly one https:// scheme: GC_DOMAIN may or may
+      # not already carry a scheme depending on environment configuration, and a
+      # double scheme ("https://https://...") makes curl/bruno fail to connect.
+      RDMS_HOST="${GC_DOMAIN#http://}"; RDMS_HOST="${RDMS_HOST#https://}"
+      export RDMS_BASE="https://${RDMS_HOST}/api/reservoir-ddms/v2"
       READY=0
       for i in $(seq 1 12); do
-        STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://${GC_DOMAIN}/api/reservoir-ddms/v2/dataspaces" -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "data-partition-id: ${GC_TENANT}")
+        # `|| echo 000` keeps a curl connection error (exit 7) from aborting the
+        # job under `set -e`; treat it as "not ready" and retry the full window.
+        STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${RDMS_BASE}/dataspaces" -H "Authorization: Bearer ${ACCESS_TOKEN}" -H "data-partition-id: ${GC_TENANT}" || echo 000)
         if [ "$STATUS" = "200" ]; then READY=1; break; fi
         echo "[INFO] reservoir-ddms not ready yet (HTTP $STATUS), attempt $i/12..."
         sleep 10
       done
       if [ "$READY" != "1" ]; then
-        echo "ERROR: reservoir-ddms REST API at https://${GC_DOMAIN}/api/reservoir-ddms/v2 did not return 200." >&2
+        echo "ERROR: reservoir-ddms REST API at ${RDMS_BASE} did not return 200." >&2
         exit 1
       fi
   script:
-    # ACCESS_TOKEN is exported by before_script above (same shell).
-    # GC_DOMAIN is scheme-less (the readiness gate above prepends https://); bruno
-    # needs an explicit scheme too or every request 404s at the Istio gateway.
-    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=https://${GC_DOMAIN}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
+    # ACCESS_TOKEN and RDMS_BASE are exported by before_script above (same shell).
+    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${RDMS_BASE} --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
     - cd bruno
     - bru run _Setup  $BRU_ENV
     - bru run Health   $BRU_ENV

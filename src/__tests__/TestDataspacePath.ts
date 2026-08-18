@@ -30,6 +30,12 @@ describe("normalizeDataspacePath", () => {
         );
     });
 
+    it("re-encodes for the WITSML objects sub-resource", () => {
+        expect(
+            normalizeDataspacePath(`${prefix}/dataspaces/demo/Volve/objects`)
+        ).toBe(`${prefix}/dataspaces/demo%2FVolve/objects`);
+    });
+
     it("re-encodes for the transaction commit route (trailing id)", () => {
         expect(
             normalizeDataspacePath(

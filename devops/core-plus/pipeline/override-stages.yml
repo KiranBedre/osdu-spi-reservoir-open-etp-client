@@ -34,8 +34,11 @@ cimpl-containerize-bootstrap-gitlab:
       | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.parse(d).access_token))")
     # CIMPL_DNS_NAME is defined scheme-less ("osdu.$CIMPL_DOMAIN"). Bruno needs an
     # explicit scheme or it cannot reach the Istio https listener (every request
-    # 404s at the gateway). Prepend https:// like the gc readiness gate does.
-    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=https://${CIMPL_DNS_NAME}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
+    # 404s at the gateway). Normalize to exactly one https:// scheme.
+    - |
+      RDMS_HOST="${CIMPL_DNS_NAME#http://}"; RDMS_HOST="${RDMS_HOST#https://}"
+      export RDMS_BASE="https://${RDMS_HOST}/api/reservoir-ddms/v2"
+    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${RDMS_BASE} --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
     - cd bruno
     - bru run _Setup  $BRU_ENV
     - bru run Health   $BRU_ENV
