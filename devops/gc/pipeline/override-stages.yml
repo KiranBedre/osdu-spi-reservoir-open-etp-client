@@ -84,20 +84,16 @@ gc-containerize-bootstrap-gcr:
         echo "ERROR: failed to obtain a GC integration-test ID token via WIF." >&2
         exit 1
       fi
-    # Setup ETP client function (authenticates with the WIF-minted ID token)
-    - >
-      function oetp_client() {
-        openETPServer $* -S wss://${GC_DOMAIN}/api/reservoir-ddms-etp/v2/         --auth bearer         --jwt-token "${ACCESS_TOKEN}"         --data-partition-id ${GC_TENANT}         --log_level=info
-      }
-    # Setup demo/Volve dataspace
-    - oetp_client probe --ping && oetp_client space --list
-    - oetp_client space --delete -s demo/Volve || echo "[INFO] No dataspace demo/Volve to cleanup"
-    - |
-      GROUP_DOMAIN="${GC_TENANT}.${ENTITLEMENTS_DOMAIN}"
-      XDATA_ACL="{\"legaltags\":[\"${LEGAL_TAG}\"],\"otherRelevantDataCountries\":[\"${OTHER_RELEVANT_DATA_COUNTRIES}\"],\"owners\":[\"data.default.owners@${GROUP_DOMAIN}\"],\"viewers\":[\"data.default.viewers@${GROUP_DOMAIN}\"]}"
-      oetp_client space --new -s demo/Volve --xdata "$XDATA_ACL"
-    - oetp_client space --import-epc ./devops/data/Volve_Demo_Horizons_Depth.epc -s demo/Volve &&
-    - oetp_client space --list
+    # NOTE: demo/Volve is NOT seeded here.
+    #
+    # The `demo/Volve` demo dataset is provisioned environment/server-side by
+    # open-etp-server (see open-etp-server/data/create_demo_space.sh). Seeding it
+    # requires the `openETPServer` binary (built by open-etp-server, absent from
+    # this Alpine postman image) and the real EPC files (open-etp-server/data);
+    # this repo only carries 131-byte Git LFS pointer stubs under devops/data.
+    # The previous `openETPServer ... --import-epc` block therefore always failed
+    # with `openETPServer: command not found` (exit 127). Tests that depend on
+    # demo/Volve rely on it being present in the target environment.
     # Readiness gate: fail fast if the reservoir-ddms REST API never becomes ready.
     - |
       READY=0
@@ -113,7 +109,9 @@ gc-containerize-bootstrap-gcr:
       fi
   script:
     # ACCESS_TOKEN is exported by before_script above (same shell).
-    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${GC_DOMAIN}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
+    # GC_DOMAIN is scheme-less (the readiness gate above prepends https://); bruno
+    # needs an explicit scheme too or every request 404s at the Istio gateway.
+    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=https://${GC_DOMAIN}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
     - cd bruno
     - bru run _Setup  $BRU_ENV
     - bru run Health   $BRU_ENV

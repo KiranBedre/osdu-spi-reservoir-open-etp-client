@@ -40,6 +40,8 @@ import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 
 import { restApiRoutePath, serverUIUrl, swaggerUIUrl } from "./ControllerUtils";
 
+import { normalizeDataspacePath } from "./dataspacePath";
+
 import ExceptionCounterFilter from "../restApi/monitoring.module/ExceptionCounter.filter";
 import GqlModule from "./graphql.module/graphql.module";
 
@@ -169,6 +171,25 @@ export default async function app(): Promise<NestExpressApplication> {
   });
 
   nestApp.setGlobalPrefix(restApiRoutePath);
+
+  // Some ingress layers (e.g. Istio/Envoy path normalization) decode the "%2F"
+  // in a dataspace id (e.g. "demo/Volve" -> …/dataspaces/demo%2FVolve/…) back
+  // to a literal "/" before the request reaches this pod, which splits the id
+  // across path segments and breaks route matching (spurious 404s). Re-encode
+  // it here so slash-containing dataspace ids route correctly on every platform.
+  nestApp.use(
+    (
+      req: express.Request,
+      _res: express.Response,
+      next: express.NextFunction
+    ) => {
+      const normalized = normalizeDataspacePath(req.url);
+      if (normalized !== req.url) {
+        req.url = normalized;
+      }
+      return next();
+    }
+  );
 
   nestApp.use(express.json({ limit: "50mb" }));
   nestApp.use(express.urlencoded({ limit: "50mb", extended: true }));
