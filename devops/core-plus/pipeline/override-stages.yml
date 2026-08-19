@@ -61,6 +61,27 @@ cimpl-acceptance-test:
   extends:
     - .cimpl-variables
 
+# cimpl-prod
+
+cimpl-prod-test:
+  tags: ["osdu-small"]
+  stage: integration
+  image: community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-cimpl/image-for-postman-tests/osdu-cimpl-image-for-postman:df5a6d3c
+  allow_failure: false
+  retry: 1
+  extends:
+    - .cimpl-prod-variables
+  script:
+    - !reference [.cimpl_postman_tests, script]
+
+cimpl-prod-acceptance-test:
+  extends:
+    - .cimpl-prod-variables
+
+cimpl-prod-acceptance-test-python:
+  extends:
+    - .cimpl-prod-variables
+
 # dev2
 
 cimpl-dev2-test:
