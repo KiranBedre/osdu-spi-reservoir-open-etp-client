@@ -372,6 +372,81 @@ DELETE /dataspaces/{dataspaceId}
 
 Returns 403 if dataspace is locked (breaking change from MR 3).
 
+### Upload EPC + H5 *(new)*
+
+```
+POST /dataspaces/{dataspaceId}/epc/upload
+```
+
+Upload a RESQML EPC file (ZIP with XML objects) and an optional HDF5 companion file.
+The endpoint unzips the EPC, parses all XML objects from `[Content_Types].xml`,
+reads referenced array data from the H5 file, and ingests everything into the
+target dataspace within a transaction.
+
+**Content-Type:** `multipart/form-data`
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `epc` | yes | EPC file (ZIP archive containing RESQML/EML XML) |
+| `h5` | no | HDF5 file with array data referenced by the XML objects |
+
+**Query parameters:**
+
+| Param | Required | Description |
+|-------|----------|-------------|
+| `transactionId` | no | Use an existing transaction. If omitted, auto-creates and commits. |
+
+**Processing flow:**
+
+1. Validate file sizes against configured limits
+2. Unzip EPC → parse `[Content_Types].xml` manifest
+3. Extract XML objects, identify `EpcExternalPartReference` entries
+4. Scan XML for `<Hdf5Dataset>` blocks → collect H5 dataset paths
+5. Open H5 file with h5wasm, pre-scan dataset metadata
+6. Start transaction (or reuse caller's)
+7. PUT objects in batches of 100 (avoids ETP message size limits)
+8. PUT arrays one-by-one from H5 file (bounded memory)
+9. Commit transaction
+10. Clean up temp files
+
+**Example:**
+
+```bash
+curl -X POST ".../dataspaces/demo%2Fvolve/epc/upload" \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "epc=@model.epc" \
+  -F "h5=@model.h5"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "objectsStored": 42,
+  "arraysStored": 156,
+  "skippedArrays": 0,
+  "objects": [
+    { "objectType": "resqml20.obj_IjkGridRepresentation", "uuid": "9a487aca-...", "title": "flow_simulation_grid" }
+  ]
+}
+```
+
+**Size limits** (configurable via env vars):
+
+| Limit | Default | Env var |
+|-------|---------|--------|
+| EPC file size | 200 MB | `RDMS_EPC_MAX_SIZE_MB` |
+| H5 file size | 2 GB | `RDMS_H5_MAX_SIZE_MB` |
+| Max objects per EPC | 10,000 | `RDMS_EPC_MAX_OBJECTS` |
+
+**Performance notes:**
+
+- H5 file is written to disk (multer disk storage), not buffered in memory
+- Arrays are read and sent one at a time to bound memory usage
+- Objects are batched in groups of 100 for PutDataObjects calls
+- Large arrays are automatically chunked by the ETP layer (~10 MB per WebSocket message)
+- Duplicate H5 dataset references (same path + external part UUID) are deduplicated
+
 ---
 
 ## Transactions
@@ -683,3 +758,6 @@ Body: vendor catalog JSON (SLB format supported).
 | `RDMS_DATA_PARTITION_MODE` | `single` | `single` or `multi` |
 | `OSDU_MILESTONE` | `M27` | OSDU schema milestone (`M26` or `M27`) |
 | `RDMS_ETP_SSL_VERIFY` | `true` | Set `false` for self-signed certs |
+| `RDMS_EPC_MAX_SIZE_MB` | `200` | Max EPC upload file size (MB) |
+| `RDMS_H5_MAX_SIZE_MB` | `2048` | Max H5 upload file size (MB) |
+| `RDMS_EPC_MAX_OBJECTS` | `10000` | Max objects allowed per EPC upload |

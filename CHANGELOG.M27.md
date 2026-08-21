@@ -1,344 +1,146 @@
-# CHANGELOG: M27 (2026) Summary of Bug fixes and Feature Extensions for RDDMS Client
-
-## High-Level Summary
-
-### New Features (non-breaking, additive)
-- **8 new REST endpoints**: resource search, object query, growing-object parts, channel streaming, WITSML store/query, well search
-- **5 new ETP protocol handlers**: DiscoveryQuery (13), StoreQuery (14), GrowingObject (6), GrowingObjectNotification (7), ChannelSubscribe (21) — auto-negotiated at session open
-- **20+ new OSDU converters**: reservoir modelling types (IjkGrid enrichments, GenericBinGrid, HorizonControlPoints, ReservoirCompartmentInterpretation, FluidModel, ProductionValues), WITSML types (Rig, Tubular, FluidsReport, BHARun, WellCompletion), SeismicLineGeometry, StructuralOrganizationInterpretation, and more
-- **CRS enrichment**: vertical CRS extraction, WKT detection, local-frame metadata, rotated-CRS affine transforms
-- **Round-trip fidelity**: ExtraMetadata preservation, AuthoringSoftware, Activity parameters, IjkGrid field completion, PropertyKind→UnitQuantity mapping
-- **CollaborationProject**: auto-generates master-data record per dataspace with deterministic UUID and lifecycle events
-- **Lineage**: auto-generated Activity record linking source EPC to output manifest records
-- **Schema Service**: live OSDU kind versions queried at startup (M27+); static fallback for M26
-- **`includeArrayData` option** on `/manifest/build` to opt-in to bulk data array reads
-
-### Behavioral Changes (non-additive, may affect consumers)
-- **Default manifest filter**: only Interpretations, Representations, and WITSML objects included (was: everything). Use `typePatterns: ["*"]` to restore
-- **Best-effort manifest**: converter errors skip the failed object instead of aborting the entire build
-- **Grid2d routing**: depth-domain Grid2d with HorizonInterpretation now routes to StructureMap instead of GenericRepresentation
-
----
+# CHANGELOG: M27 (2026) — Reservoir DDMS Client
 
 All changes vs upstream `@osdu/open-etp-client` (base commit: `cfffaa2`).
 
-**Risk legend:** 🐛 bugfix (output values change) · ⚠️ non-additive (existing behavior/API changes) · 🧪 needs integration testing
+---
+
+## New Interfaces
+
+### REST Endpoints (8 new)
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| POST | `/query/resources/find` | FindResources by URI + scope/depth/type filter (ETP Protocol 13) |
+| POST | `/query/objects/find` | FindDataObjects with full XML content (ETP Protocol 14) |
+| POST | `/query/graph/search` | Batch graph search — merged subgraph for multiple URIs |
+| POST | `/query/growing/metadata` | Growing-object part metadata (ETP Protocol 6) |
+| POST | `/query/growing/range` | Growing-object parts by index range (ETP Protocol 6) |
+| POST | `/query/channels/metadata` | Channel metadata for streaming (ETP Protocol 21) |
+| PUT | `/witsml/store` | Ingest WITSML 2.1/1.4.1 XML with auto-transaction and channel extraction |
+| POST | `/dataspaces/{id}/epc/upload` | Upload EPC + H5 file pair, unzip, parse, and ingest with transaction |
+| GET | `/wells?name=&dataspace=&include=` | Cross-dataspace well search with hierarchy resolution |
+
+### GraphQL API
+
+New `/graphql` endpoint with field-level selection and DataLoader batching. Query types: `dataspaces`, `resources` (with lazy `content` and `arrays` fields), `graph` traversal. Uses the same ETP session pool as REST.
+
+### ETP Protocol Handlers (5 new)
+
+| Protocol | ID | Handler | Purpose |
+|----------|---|---------|---------|
+| DiscoveryQuery | 13 | `DiscoveryQueryCustomer` | URI-pattern resource search with scope/depth |
+| StoreQuery | 14 | `StoreQueryCustomer` | Bulk data object retrieval |
+| GrowingObject | 6 | `GrowingObjectCustomer` | Log curve / trajectory station parts by range |
+| GrowingObjectNotification | 7 | `GrowingObjectNotificationCustomer` | Push notifications for part changes |
+| ChannelSubscribe | 21 | `ChannelSubscribeCustomer` | Real-time channel metadata and streaming |
+
+All protocols are auto-negotiated at ETP session open — no configuration needed. The `RDMS_ETP_EXTENDED_PROTOCOLS` env var has been removed.
 
 ---
 
-## FIRP Manifest Fixes (`mr/7-firp-manifest-fixes`) 🐛⚠️🧪
+## New Features
 
-Manifest round-trip fidelity improvements (FIRP = Full Information Round-trip Preservation).
+### OSDU Manifest Builder Enhancements
 
-### Circular reference resolution 🐛
-**File:** `ResqmlClient.ts`
-**Problem:** `resolveReferences()` used `resolved.set()` prematurely, causing objects with circular relationships (e.g., mutual DORs between StratigraphicColumn ↔ StratigraphicColumnRank) to be incompletely resolved — missing child references.
-**Fix:** Track in-progress resolution with an `inProgress` Set; only mark as resolved after full traversal completes.
+- **Schema Service integration** — on boot, queries OSDU Schema Service for latest kind versions (M27+). Falls back to static `FALLBACK_KINDS` if unavailable.
+- **CollaborationProject** — auto-generates a `master-data--CollaborationProject:1.0.0` record per dataspace with deterministic UUID v5 and lifecycle events.
+- **Lineage** — auto-generated Activity record linking source EPC to output manifest records.
+- **Best-effort mode** — converter errors skip the failed object instead of aborting the entire build. Check `errors[]` in the response.
+- **`includeArrayData` option** — opt-in to bulk data array reads during manifest build.
+- **Smart property inclusion** — properties with canonical OSDU/PWLS names are auto-included; non-canonical properties excluded to avoid manifest bloat.
+- **Transmissibility detection** — GridConnectionSet records report `HasTransmissibilityMultipliers` when attached properties are found.
+- **WellLog depth range** — WellboreFrame→WellLog populates TopMeasuredDepth/BottomMeasuredDepth.
 
-### Name enrichment for display labels ⚠️
-**Files:** `StructureMap.ts`, `StructureMap22.ts`, `GenericRepresentation.ts`, `GenericRepresentation22.ts`
-**Change:** Prepend `InterpretationName` to WPC `Name` for richer display labels in OSDU catalog (e.g., `"Top Draupne - Grid2d_1"` instead of `"Grid2d_1"`).
+### OSDU Converters (20+ new)
+
+| Category | Types |
+|----------|-------|
+| **Reservoir modelling** | IjkGrid enrichments (RealizationIndex, ParentGrid, HasTruncations, RockFluidOrganization), GenericBinGrid, HorizonControlPoints, ReservoirCompartmentInterpretation, GridConnectionSetRepresentation |
+| **Structural** | StructuralOrganizationInterpretation, SeismicLineGeometry |
+| **PRODML** | FluidModel (FluidCharacterization), ProductionValues (TimeSeriesData) |
+| **WITSML** | Rig, Tubular, FluidsReport, BHARun, WellCompletion |
+| **WellLog flattening** | WellboreFrame with N properties → single WellLog record |
+| **Master data dedup** | BoundaryFeature de-duplication on re-ingest |
+| **Lineage** | Activity parameter extraction with typed values |
+
+### CRS Enrichment
+
+- **Vertical CRS extraction** — reads EPSG from inline (v2.0) or DOR-resolved (v2.2) vertical CRS definitions.
+- **Local-frame metadata** — preserves all 9 local engineering CRS parameters in `rddms/localFrame/*` for lossless round-trip.
+- **WKT CRS detection** — supports non-EPSG coordinate systems via WKT string parsing.
+- **Rotated-CRS affine transforms** — correct SpatialArea bounding boxes for rotated local CRS.
+- **LocalAuthority CRS (v2.2)** — maps company-managed CRS codes to OSDU reference-data IDs.
+
+### Round-Trip Fidelity
+
+- **ExtraMetadata preservation** — non-`osdu/`-prefixed entries kept in `ResqmlMetadata`.
+- **AuthoringSoftware** — `Citation.Format` mapped for all WPCs.
+- **IjkGrid field completion** — RealizationIndex, ParentGridID, RockFluidOrganizationInterpretationIDs, HasTruncations.
+- **PropertyKind→UnitQuantity** — QuantityClass lookup for v2.2 PropertyKinds.
+- **Activity parameters** — full typed extraction (String, Float+UOM, Integer, DataObject, TimeIndex).
+- **Display labels** — InterpretationName prepended to WPC names for richer catalog display.
+
+### WITSML Support
+
+- **Store endpoint** (`PUT /witsml/store`) — accepts WITSML 2.1 and 1.4.1 XML. Auto-detects plural containers, generates deterministic UUIDs, extracts channel data and trajectory stations as ETP arrays.
+- **Query endpoint** (`POST /witsml/query`) — query objects by type filter.
+- **Well search** (`GET /wells`) — cross-dataspace search with automatic hierarchy resolution (wellbores, logs, trajectories, channelSets).
+
+### EPC Upload
+
+- **Upload endpoint** (`POST /dataspaces/{id}/epc/upload`) — accepts `multipart/form-data` with an EPC file (ZIP) and optional H5 file. Unzips the EPC, parses `[Content_Types].xml`, extracts all XML objects, reads referenced HDF5 datasets, and ingests everything into the target dataspace.
+- **Auto-transaction** — wraps the entire ingest in a transaction (start → put objects → put arrays → commit). Rolls back on failure. Supports caller-managed transactions via `?transactionId`.
+- **Batched object writes** — objects are sent in batches of 100 to stay within ETP message size limits.
+- **Bounded memory** — H5 file stored on disk (multer disk storage), arrays read and sent one at a time.
+- **Configurable limits** — `RDMS_EPC_MAX_SIZE_MB` (200), `RDMS_H5_MAX_SIZE_MB` (2048), `RDMS_EPC_MAX_OBJECTS` (10000).
+
+### Operational
+
+- **Converter registry** — `GET /health/converters` lists all registered source types and target OSDU kinds.
+- **SIGTERM graceful shutdown** — stops accepting requests, rolls back open transactions, exits within 30s.
+- **SSL config** — `RDMS_ETP_SSL_VERIFY=false` for self-signed certificates.
+- **Retry + array chunking** — exponential backoff and 4MB chunk limit for large array uploads.
 
 ---
 
-## FIRP Manifest Gaps (`mr/6-firp-manifest-gaps`) ⚠️
+## Behavioral Changes ⚠️
 
-### AuthoringSoftware preservation
-**File:** `WorkProductComponent.ts`
-**Change:** Map `Citation.Format` to `data.ExtensionProperties.AuthoringSoftware` for all WPCs. Enables round-trip identification of source application.
+These changes may affect existing consumers:
 
-### Default type patterns expanded ⚠️
-**File:** `Manifest.ts`
-**Change:** Add `*Property` to `DEFAULT_DATASPACE_TYPE_PATTERNS`. Without this, grid models exported without properties lose their attached PORO/PERMX/SW — breaking grid round-trip.
-
-### StructureMap interpreter field
-**Files:** `StructureMap.ts`, `StructureMap22.ts`
-**Change:** Populate `ExtensionProperties.Interpreter` from the resolved HorizonInterpretation name (parity with SeismicHorizon converter).
-
----
-
-## Auto-Negotiate Protocols (`mr/5-auto-negotiate-protocols`) ⚠️🧪
-
-### Protocol auto-negotiation
-**Files:** `ResqmlClient.ts`, `ETPClient.ts`
-**Change:** Always register DiscoveryQuery (13), StoreQuery (14), GrowingObject (6), and ChannelSubscribe (21) handlers. The `RDMS_ETP_EXTENDED_PROTOCOLS` env var is removed — protocols are now negotiated at ETP session open.
-
-### Runtime protocol guard
-**File:** `ControllerUtils.ts`
-**Change:** `requireProtocol()` checks server-negotiated capabilities at runtime. REST endpoints backed by unsupported protocols return **501 Not Implemented** instead of crashing.
-
-### Swagger cleanup ⚠️
-**File:** `Query.controller.ts`
-**Change:** Remove duplicate `/health/pwls` routes. Consolidate Swagger tag order (Auth/Health first, domain-specific last). Replace personal dataspace names in examples with `test/`.
-
----
-
-## Addenda — Schema Service & CollaborationProject
-
-### Schema Service query at startup (MR 270 related)
-**Files:** `MilestoneKinds.ts`
-**Change:** On startup, query OSDU Schema Service for all registered kind versions. M27+ uses live versions from the catalog; M26 falls back to static map. Env var renamed: `RDMS_OSDU_MILESTONE` → `OSDU_MILESTONE`.
-
-### S5: CollaborationProject support (MR 270)
-**Files:** `CollaborationProject.ts`, `Manifest.ts`
-**Change:** Every manifest build auto-generates a `master-data--CollaborationProject:1.0.0` record from the ETP dataspace. UUID v5 from dataspace name (deterministic). Checks existing OSDU version and bumps on update. Lifecycle reflects lock state.
-
-### Dataspace ACL override fix (`mr/fix-dataspace-acl-override`) 🐛
-**File:** `Manifest.ts`
-**Problem:** Pre-configured `dataspaceACLs` (e.g., targeting a different OSDU partition) were always overwritten by ETP dataspace customData.
-**Fix:** Only read ACL/legal from ETP customData when no override is already set in context.
+| Change | Old behavior | New behavior | Workaround |
+|--------|-------------|--------------|------------|
+| **Default manifest filter** | All RESQML types included | Only Interpretations, Representations, WITSML | Pass `typePatterns: ["*"]` |
+| **Grid2d routing** | Depth-domain Grid2d with HorizonInterpretation → GenericRepresentation | → StructureMap | — |
+| **DELETE locked dataspace** | Returned 204 (silent success) | Returns 403 | Unlock before delete |
+| **Protocol negotiation** | `RDMS_ETP_EXTENDED_PROTOCOLS` env var | Auto-negotiated, env var removed | — |
+| **Dataspace ACL override** | ETP customData always overrode pre-configured ACLs | Pre-configured ACLs take priority | — |
 
 ---
 
 ## Bug Fixes
 
-### #67 — TriangulatedSurface node count 3× overcount 🐛⚠️🧪
-**File:** `WorkProductComponent.ts`
-**Problem:** `IndexableElementCount` reported ~3× the actual node count for triangulated surfaces, causing OSDU validation failures and incorrect array sizing.
-**Root cause:** The counter `pNodeCount++` fired on every coordinate value (x, y, z separately) instead of once per 3D point.
-**Fix:** Move the increment inside a `mod === 0` branch so it fires once per complete (x,y,z) tuple.
-
-### #126 — Invalid dateTime → HTTP 500 🐛⚠️
-**File:** `Json2Xml.ts`
-**Problem:** Submitting an invalid date string (e.g. `"not-a-date"`) via `PUT /witsml/store` caused an unhandled `RangeError` from `new Date(...).toISOString()`, returning a 500 to the client.
-**Fix:** Added `isNaN(d.getTime())` guard; returns HTTP 400 with a descriptive message instead.
-
-### #130 — DELETE locked dataspace returns 204 🐛⚠️🧪
-**File:** `ResqmlClient.ts`
-**Problem:** Deleting a locked dataspace appeared successful (204) because a `.catch()` block silently swallowed the ETP `ProtocolException` (code 27 = locked resource).
-**Fix:** Removed the overly broad catch; the 403 now propagates to the REST caller.
-
-### CRS-2 — ArealRotation wrong for rotated local CRS 🐛⚠️🧪
-**File:** `WorkProductComponent.ts` → `createSpatialInfoFrom2dPoints`
-**Problem:** `SpatialArea` bounding box coordinates were incorrect when the RESQML model used a rotated local coordinate reference system. The old code applied a simple `point + offset` translation, ignoring the CRS rotation angle.
-**Fix:** Apply the full affine transform (`cosθ·x − sinθ·y + xOffset`, `sinθ·x + cosθ·y + yOffset`) using the areal rotation from the CRS definition.
-
----
-
-## Non-Additive Behavioral Changes
-
-### #125 — SIGTERM graceful shutdown ⚠️🧪
-**Files:** `RestServer.ts`, `ControllerUtils.ts`
-**Problem:** When Kubernetes sent SIGTERM during pod scaling or deployment, the process hung until the full grace period expired because no signal handler was registered. Any in-flight ETP transactions were abandoned (no rollback).
-**Change:** Register a SIGTERM handler that: (1) stops accepting new requests, (2) rolls back open ETP transactions, (3) exits within 30 seconds. Consumers relying on abrupt termination behavior should verify no side effects.
-
-### S1 — Default manifest type filter ⚠️🧪
-**File:** `Manifest.ts`
-**Problem:** `buildManifest()` returned every RESQML object (~600 records for a typical Volve-sized model), making the output unusable for most consumers and slow to ingest.
-**Change:** Default filter now includes only Interpretations, Representations, and WITSML objects (~90% reduction). To restore previous behavior, pass `typePatterns: ["*"]` in the manifest options.
-
-### A2 — Grid2d routing to StructureMap ⚠️🧪
-**Files:** `StructureMap.ts`/`22.ts`, `SeismicBinGrid2Representation*.ts`
-**Problem:** A depth-domain `Grid2dRepresentation` associated with a `HorizonInterpretation` fell through to `GenericRepresentation` (losing geological semantics).
-**Change:** Now routes to `osdu:wks:work-product-component--StructureMap:1.0.0`. Downstream systems expecting the generic kind will see a different OSDU kind for these objects.
-
-### Manifest builder: best-effort mode ⚠️🧪
-**File:** `Manifest.ts`
-**Problem:** A single converter error (e.g. malformed XML in one object) aborted the entire manifest build, returning nothing even though 99% of objects were fine.
-**Change:** Errors are now caught per-object. Failed objects are logged and skipped; the manifest returns everything that succeeded. Callers should check the `errors[]` array in the response.
-
----
-
-## CRS Enrichments (additive)
-
-All changes in `WorkProductComponent.ts` → `createSpatialInfoFrom2dPoints` / `createSpatialInfo`.
-
-### Vertical CRS extraction
-**Motivation:** OSDU consumers performing 3D coordinate transforms need the vertical datum (e.g. MSL, LAT) but it was never populated.
-**v2.0:** Reads `VerticalCrs.EpsgCode` from inline vertical CRS definition.
-**v2.2:** Follows the DOR (data object reference) to resolve the vertical CRS object and extracts the EPSG code.
-
-### localFrame metadata
-**Motivation:** When RESQML uses a local engineering CRS (origin + rotation), the original frame parameters must be preserved for lossless OSDU→RESQML round-trip reconstruction.
-**Output:** Returns all 9 local frame fields (`xOffset`, `yOffset`, `zOffset`, `arealRotation`, `projectedUom`, `verticalUom`, `originX`, `originY`, `originZ`) under the `rddms/localFrame/*` namespace.
-
-### WKT CRS detection
-**Motivation:** Models using non-EPSG coordinate systems (e.g. company-internal or WKT-defined) got zero spatial metadata because the code only checked for EPSG codes.
-**v2.0:** Detects WKT string in `ProjectedUnknownCrs.Unknown` (heuristic: starts with `PROJCS[`).
-**v2.2:** Reads `ProjectedWktCrs.WellKnownText` directly.
-
-### LocalAuthority CRS (v2.2 only)
-**Motivation:** RESQML v2.2 introduced `ProjectedLocalAuthorityCrs` for company-managed CRS codes, which had no mapping to OSDU reference data.
-**Fix:** Maps the authority + code to an OSDU `CoordinateReferenceSystem` reference-data ID.
-
----
-
-## New Converters
-
-| Feature | Motivation | Key Files |
-|---------|-----------|-----------|
-| **M27 Phase 1** (9 schemas) | Upstream used approximate kind mappings (e.g. all organizations → GenericInterpretation), losing semantic distinctions | `StructuralOrganizationInterpretation.ts`…`GridConnectionSetRepresentation22.ts` |
-| **SeismicLineGeometry** (#66) | 2D seismic lines had no dedicated OSDU kind; were dropped during manifest | `SeismicLineGeometry.ts` (7 unit tests) |
-| **S2: WellLog flattening** | A WellboreFrame with N properties produced N+1 OSDU records; should be 1 WellLog | `WellboreFrameToWellLog.ts` / `22.ts` |
-| **S3: MasterData dedup** | Re-ingesting the same EPC created duplicate BoundaryFeature master-data records | `MasterDataBoundaryFeature.ts` / `22.ts` |
-| **A1: 15 type registrations** | 15 RESQML types were unregistered — silently skipped during manifest build | `ResqmlOsdu.ts` |
-| **A3: Activity generation** | Ingested manifests had no lineage/provenance linking source EPC to output records | `Manifest.ts` |
-| **A4+A7: WITSML converters** | Rig, Tubular, FluidsReport, BHARun, WellCompletion had no OSDU mapping | `WitsmlRig.ts`…`WitsmlWellCompletion.ts` |
-| **O1: PropertyKind→UnitQuantity** | `UnitQuantityID` was always `undefined` for v2.2 PropertyKinds (QuantityClass lookup missing) | `PropertyType23.ts` |
-| **S4: Auto-collaboration** | Every API call required a manual `x-collaboration` header; most callers forgot it | `Manifest.ts` — generates UUID v5 from dataspace name |
-| **O4: Retry + array chunking** | Large HDF5 array uploads failed (payload too big); transient 503s crashed the client | `Util.ts`, `ResqmlClient.ts` — exponential backoff + 4MB chunk limit |
-| **R4: Converter registry** | No runtime way to discover which RESQML/WITSML types are supported | `registerConverter.ts` + `GET /health/converters` endpoint |
-| **#24: SSL config** | Cannot connect to ETP servers with self-signed certificates | `RDMS_ETP_SSL_VERIFY=false` env var in `config.default.env` |
-| **#91/#23/#25: OpenAPI fixes** | Response schemas wrong; `x-collaboration` header undocumented | `Manifest.controller.ts` |
-
----
-
-## ETP Protocol Handlers (new files)
-
-| Protocol | File | Purpose |
-|----------|------|---------|
-| 13 — DiscoveryQuery | `DiscoveryQueryCustomer.ts` | Find resources by URI pattern with scope/depth/type filtering. Wraps `FindResources` message. |
-| 14 — StoreQuery | `StoreQueryCustomer.ts` | Retrieve full DataObject XML/content by URI set. Wraps `FindDataObjects`. |
-| 6 — GrowingObject | `GrowingObjectCustomer.ts` | Read/write/delete parts (log curves, trajectory stations) by UID or index range. |
-| 7 — GrowingObjectNotification | `GrowingObjectNotificationCustomer.ts` | Subscribe to push notifications when parts are added/changed/deleted. EventEmitter pattern. |
-| 21 — ChannelSubscribe | `ChannelSubscribeCustomer.ts` | Real-time streaming subscription for channel data (curves). Supports metadata discovery + range queries. |
-
-All handlers registered in `ResqmlClient.ts` and exposed via REST endpoints below.
-
----
-
-## REST Endpoints (new)
-
-| Method | Path | Purpose |
-|--------|------|---------|
-| POST | `/query/resources/find` | Find resources by URI + filter (wraps Protocol 13) |
-| POST | `/query/objects/find` | Get DataObjects with XML content (wraps Protocol 14) |
-| POST | `/query/growing/metadata` | Get growing-object part metadata (Protocol 6) |
-| POST | `/query/growing/range` | Get parts by index range (Protocol 6) |
-| POST | `/query/channels/metadata` | Get channel metadata for streaming (Protocol 21) |
-| PUT | `/witsml/store` | Ingest WITSML XML (v1.3–2.1) via ETP transaction |
-| POST | `/witsml/query` | Query WITSML objects by type + filter |
-| GET | `/wells?name=&dataspace=&include=` | Cross-dataspace well search with optional include of logs/trajectories |
-
----
-
-## Reservoir Management & Round-Trip Enhancements
-
-Additive enhancements for reservoir modelling workflows and lossless round-trip fidelity.
-
-### ExtraMetadata preservation
-**File:** `WorkProductComponent.ts`
-**Change:** Non-`osdu/`-prefixed ExtraMetadata entries are now preserved in `data.ExtensionProperties.ResqmlMetadata` (previously discarded). Enables lossless OSDU→RESQML reconstruction of arbitrary metadata.
-
-### IjkGrid field completion (v2.0 + v2.2)
-**Files:** `IjkGridRepresentation.ts`, `IjkGridRepresentation22.ts`
-**Change:** Previously hardcoded `undefined` fields now populated from RESQML data:
-- `RealizationIndex` — from `AbstractRepresentation.RealizationIndex`
-- `ParentGridID` — resolved from `ParentWindow.ParentIjkGridRepresentation` DOR
-- `RockFluidOrganizationInterpretationIDS` — resolved from `CellFluidPhaseUnits.FluidOrganization` (v2.0) / `.RockFluidOrganizationInterpretation` (v2.2)
-- `HasTruncations` — detected from `TruncationCells` (v2.0) / `TruncationCellPatch` (v2.2)
-
-### GenericProperty FacetIDs (v2.0 + v2.2)
-**Files:** `GenericProperty.ts`, `GenericProperty22.ts`
-**Change:** `FacetIDs` now mapped from `xml.Facet[]` → `{ FacetRoleID, FacetTypeID }[]` reference-data SRNs (previously `undefined`).
-
-### GenericProperty22 RealizationIndices + TimeIndices
-**File:** `GenericProperty22.ts`
-**Change:** `RealizationIndices` mapped from `xml.RealizationIndices`. `TimeIndices` mapped from `xml.TimeOrIntervalSeries.TimeIndexStart` when a time series is attached.
-
-### New converter: ReservoirCompartmentInterpretation (v2.2)
-**File:** `ReservoirCompartmentInterpretation22.ts`
-**Target:** `osdu:wks:work-product-component--ReservoirCompartmentInterpretation:1.2.0`
-**Source:** `resqml22.ReservoirCompartmentInterpretation`
-**Maps:** GeologicUnit3dShape, GeologicUnitComposition, DepositionalEnvironment → reference-data IDs. Nested `ReservoirCompartmentUnit[]` with FluidUnit + GeologicUnit DORs.
-
-### New converter: FluidModel (PRODML 2.3)
-**File:** `FluidModel.ts`
-**Target:** `osdu:wks:work-product-component--FluidModel:1.0.0`
-**Source:** `prodml23.FluidCharacterization`
-**Maps:** Kind → FluidModelTypeID, RockFluidUnitInterpretation → ModelAreaOfInterestIDs, IntendedUsage → BasisOfModelling. Preserves rich PRODML data (component catalogs, model names, standard conditions) in ExtensionProperties.
-
-### New converter: ProductionValues (PRODML 2.3)
-**File:** `ProductionValues.ts`
-**Target:** `osdu:wks:work-product-component--ProductionValues:1.1.1`
-**Source:** `prodml23.TimeSeriesData`
-**Maps:** DataValue date range → StartDateTime/EndDateTime, Key[] → PropertyIDs, MeasureClass → reference-data. Preserves Comment, Uom, SampleCount in ExtensionProperties.
-
-### MilestoneKinds expansion
-**File:** `MilestoneKinds.ts`
-**Change:** Added 13 entries to static M27 fallback table:
-- Master-data: `Reservoir:2.0.0`, `ReservoirSegment:2.0.0`
-- WPC: `ReservoirCompartmentInterpretation:1.2.0`, `FluidModel:1.0.0`, `SaturationFunctionSet:1.0.0`, `ReservoirModelScenario:1.0.0`, `ReservoirSimulationModel:1.0.0`, `ReservoirSimulationEquilibriumModel:1.0.0`, `ReservoirSimulationRockPhysicsModel:1.0.0`, `ReservoirSimulationRunConfiguration:1.0.0`, `ReservoirEstimatedVolumes:1.1.1`, `ProductionValues:1.1.1`, `GeoLabelSet:1.1.0`
-
-### New converter: GenericBinGrid
-**File:** `GenericBinGrid.ts`
-**Target:** `osdu:wks:work-product-component--GenericBinGrid:1.0.0`
-**Source:** `Grid2dRepresentation` with no interpretation
-**Maps:** Grid lattice geometry (NodeCount, BinWidth, Origin, Bearing), spatial info from corners. Previously these fell through to GenericRepresentation losing grid semantics.
-
-### New converter: HorizonControlPoints
-**File:** `HorizonControlPoints.ts`
-**Target:** `osdu:wks:work-product-component--HorizonControlPoints:1.0.0`
-**Source:** `PointSetRepresentation` with `HorizonInterpretation`
-**Maps:** InterpretationID, InterpretationName, spatial info from point set. Previously these routed to StructureMap (which is for grid/surface representations, not scattered control points).
-
-### Grid2d routing update ⚠️
-**Files:** `SeismicBinGrid2Representation.ts`/`22.ts`, `GenericRepresentation.ts`/`22.ts`
-**Change:** Updated routing priority:
-- Grid2d: SeismicBinGrid → SeismicHorizon → StructureMap → **GenericBinGrid** → GenericRepresentation
-- PointSet: **HorizonControlPoints** (PointSet only) → StructureMap (TriangulatedSet/etc) → GenericRepresentation
-- Grid2d with non-horizon/non-seismic interpretation still falls to GenericRepresentation
-
----
-
-## Converter Enrichments (additive, backward-compatible)
-
-All changes populate previously-`undefined` optional fields. No existing field removed,
-no return type changed, no API signature altered. 275 unit tests pass after changes.
-
-### Activity parameter extraction (Activity.ts, Activity23.ts)
-**Problem:** `getParameters()` collapsed typed parameters to `"N object(s)"` count strings — all provenance lost.
-**Fix:** Now iterates `xml.Parameter[]` and produces individual `AbstractActivityParameter` records with typed values:
-- `resqml20.StringParameter` → `StringParameter.Value`
-- `resqml20.FloatingPointQuantityParameter` / `eml23.DoubleQuantityParameter` → `DataQuantityParameter` + UOM
-- `resqml20.IntegerQuantityParameter` → `IntegerQuantityParameter.Value`
-- `resqml20.DataObjectParameter` → resolved SRN via `dorToSrn()`
-- `resqml20.TimeIndexParameter` → resolved DateTime from TimeSeries
-
-### PersistedCollection Purpose/Parent (both v2.0.1 and EML 2.3)
-**Files:** `PersistedCollectionRepresentationSet.ts`, `PersistedCollectionDataobjectCollection23.ts`
-**Fix:**
-- `PurposeID` extracted from `ExtraMetadata` key `osdu/PurposeID` or `osdu/Purpose` (v2.0.1) / `DataobjectCollection.Kind` mapping (EML 2.3: folder/project/realization/scenario/study)
-- `ParentCollectionID` from `ExtraMetadata` key `osdu/ParentCollectionID` / EML 2.3 `ExtensionNameValue`
-
-### CollaborationProject LifecycleEvents (CollaborationProject.ts)
-**Fix:** Populates `LifecycleEvents[]` from dataspace timestamps:
-- Created event from `dataspace.storeCreated`
-- LastModified event from `dataspace.storeLastWrite`
-- Locked event (if `dataspace.lockState === "locked"`)
-
-### WellboreCompletion enrichment (WitsmlWellCompletion.ts)
-**Fix:** Extracts from WITSML `StatusHistory` entries:
-- `PerforationTopMD`, `PerforationBaseMD`, `PerforationMdUOM` (from `MdInterval`)
-- `CurrentStatus`, `EffectiveDate`, `ExpiredDate` into `ExtensionProperties`
-- `FieldType`, `FieldCode` into `ExtensionProperties`
-
-### ActivityTemplate enrichment (ActivityTemplate.ts, ActivityTemplate23.ts)
-**Fix:** Extracts from source XML instead of hardcoded `undefined`:
-- `AllowedParameterKind` (from `AllowedKind[0]`)
-- `DataObjectContentType` (as `string[]`)
-- `DefaultValue` (first default, typed: string/number/boolean)
-- `KeyConstraints` (from `KeyConstraint[]`)
+| # | Summary | Impact |
+|---|---------|--------|
+| — | Circular reference resolution in `resolveReferences()` | Objects with mutual DORs now fully resolved |
+| — | TriangulatedSurface node count 3× overcount | `IndexableElementCount` was counting x,y,z separately |
+| #126 | Invalid dateTime → HTTP 500 | Now returns 400 with descriptive message |
+| #130 | DELETE locked dataspace → 204 | Now propagates 403 |
+| CRS-2 | ArealRotation wrong for rotated local CRS | Correct affine transform applied |
 
 ---
 
 ## Test Coverage
 
-| Suite | Count | What it covers |
-|-------|-------|----------------|
-| `TestCrsAndBugfixes.ts` | 41 | All bug fixes and non-additive changes (rotation, node count, dateTime, delete, routing, chunking, SIGTERM, type filter, best-effort) |
-| `TestManifest.ts` | 12 | Converter registry, collaboration UUID, dedup, SSL toggle, lineage generation |
-| `TestSeismicLineGeometry.ts` | 7 | SeismicLine coordinate extraction and kind mapping |
-| `TestReservoirConverters.ts` | 40 | Reservoir management converters, IjkGrid enhancements, FacetIDs, MilestoneKinds, PRODML converters |
-| `TestBinGridAndControlPoints.ts` | 18 | GenericBinGrid + HorizonControlPoints routing (v2.0 + v2.2) |
-| `TestActivityConverter.ts` | 9 | Activity parameter extraction (String, Float+UOM, Integer, DataObject, multiple, empty, fallback) |
-| `TestRessimLayer1.ts` | 146 | Reservoir layer 1: smart property filter, transmissibility, ColumnBasedTable enrichment |
-| Other suites (unchanged) | 148 | ETP protocol, client, error mapping, input validation, common, providers |
-| **Total** | **421** | All pass via `npm test` |
+| Suite | Count | Scope |
+|-------|-------|-------|
+| CRS and bugfixes | 41 | Bug fixes, rotation, routing, chunking, SIGTERM |
+| Manifest | 12 | Converter registry, collaboration UUID, dedup, lineage |
+| Seismic line geometry | 7 | Coordinate extraction and kind mapping |
+| Reservoir converters | 40 | IjkGrid, FacetIDs, MilestoneKinds, PRODML |
+| BinGrid + ControlPoints | 18 | GenericBinGrid, HorizonControlPoints routing |
+| Activity converter | 9 | Parameter extraction (all typed variants) |
+| Reservoir layer 1 | 146 | Smart property filter, transmissibility, ColumnBasedTable |
+| Other (unchanged) | 148 | ETP protocol, client, error mapping, validation |
+| **Total** | **421** | `npm test` |
 
-**Integration tests** (require running ETP server — excluded from `npm test`):
-- `TestClient.ts` — end-to-end ETP connection + auth
-- `TestProtocols.ts` — all 5 protocol handlers against live server
-- `TestWitsmlQuery.ts` — WITSML ingest + query round-trip
-
-Run: `npm run test:integration`
+Integration tests (require ETP server): `npm run test:integration`
