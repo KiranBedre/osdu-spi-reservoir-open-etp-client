@@ -60,12 +60,25 @@ export class SeismicBinGridOSDU
     xml: SimpleJson<resqml20.obj_Grid2dRepresentation>
   ): boolean {
     const grid2d = xml as SimpleJson<resqml20.obj_Grid2dRepresentation>;
-    return (
+    const isSeismicLattice =
       (
         grid2d.RepresentedInterpretation
           ?._data as SimpleJson<resqml20.AbstractFeatureInterpretation>
       )?.InterpretedFeature._data?.$type ===
-      "resqml20.obj_SeismicLatticeFeature"
+      "resqml20.obj_SeismicLatticeFeature";
+    if (!isSeismicLattice) {
+      return false;
+    }
+    // Require constant (regular) spacing — irregular grids cannot populate
+    // P6 bin grid fields and should fall through to GenericRepresentation.
+    const lArray = grid2d.Grid2dPatch?.Geometry
+      ?.Points as SimpleJson<resqml20.Point3dLatticeArray>;
+    if (!lArray?.Offset || lArray.Offset.length < 2) {
+      return false;
+    }
+    return (
+      lArray.Offset[0].Spacing?.$type === DBL_CST_ARRAY &&
+      lArray.Offset[1].Spacing?.$type === DBL_CST_ARRAY
     );
   }
 

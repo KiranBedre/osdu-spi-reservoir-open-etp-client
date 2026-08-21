@@ -58,11 +58,25 @@ export class SeismicBinGrid22OSDU
    */
   static matchType(xml: SimpleJson<resqml22.Grid2dRepresentation>): boolean {
     const grid2d = xml as SimpleJson<resqml22.Grid2dRepresentation>;
-    return (
+    const isSeismicLattice =
       (
         grid2d.RepresentedObject
           ?._data as SimpleJson<resqml22.AbstractFeatureInterpretation>
-      )?.InterpretedFeature._data?.$type === "resqml22.SeismicLatticeFeature"
+      )?.InterpretedFeature._data?.$type === "resqml22.SeismicLatticeFeature";
+    if (!isSeismicLattice) {
+      return false;
+    }
+    // Require constant (regular) spacing — irregular grids cannot populate
+    // P6 bin grid fields and should fall through to GenericRepresentation.
+    const dims = grid2d.Geometry?.Points as SimpleJson<resqml22.Point3dLatticeArray>;
+    if (!dims?.Dimension || dims.Dimension.length < 2) {
+      return false;
+    }
+    const dim0 = dims.Dimension[0] as SimpleJson<resqml22.Point3dLatticeDimension>;
+    const dim1 = dims.Dimension[1] as SimpleJson<resqml22.Point3dLatticeDimension>;
+    return (
+      dim0.Spacing?.$type === DBL_CST_ARRAY &&
+      dim1.Spacing?.$type === DBL_CST_ARRAY
     );
   }
 

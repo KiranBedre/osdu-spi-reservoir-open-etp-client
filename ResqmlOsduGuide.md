@@ -218,14 +218,29 @@ EML 2.3:
 
 ### Dynamic Routing (Grid2d)
 
-```
-Grid2dRepresentation → InterpretedFeature?
-  ├─ SeismicLatticeFeature → SeismicBinGrid
-  ├─ HorizonInterp + on lattice → SeismicHorizon
-  ├─ HorizonInterp + NOT lattice → StructureMap
-  ├─ No interpretation → GenericBinGrid
-  └─ Other → GenericRepresentation
-```
+All Grid2d routing logic lives in `Grid2dToOsduKind` (v2.0.1) and `Grid2dToOsduKind22` (v2.2) in `SeismicBinGrid2Representation[22].ts`. Each candidate's `matchType()` is evaluated in priority order - first match wins.
+
+| Priority | WPC Kind | `matchType` criteria | Notes |
+|---|---|---|---|
+| 1st | **SeismicBinGrid:1.3.0** | `InterpretedFeature.$type` = `SeismicLatticeFeature` AND constant spacing (`DoubleConstantArray` v2.0.1 / `FloatingPointConstantArray` v2.2) | Irregular spacing now rejected in `matchType` and falls through. Populates P6BinGridOriginI/J, IncrementOnIaxis/Jaxis, OriginEasting/Northing, corner polygon A/B/C/D. |
+| 2nd | **SeismicHorizon:2.0.0** | `Points.$type` = `Point3dZValueArray` AND `SupportingGeometry.$type` = `Point3dFromRepresentationLatticeArray` AND interpretation = `HorizonInterpretation` | Domain NOT filtered - both depth and time CRS accepted. `DomainTypeID` set dynamically from CRS. |
+| 3rd | **StructureMap:1.0.0** | Interpretation = `HorizonInterpretation` AND NOT on seismic lattice | Both depth and time domain. `DomainTypeID` set dynamically from CRS. Lattice exclusion is defensive (step 2 already caught lattice cases). |
+| 4th | **GenericBinGrid:1.0.0** | No `RepresentedInterpretation` / `RepresentedObject` (no interpretation at all) | Grid2ds with non-Horizon, non-SeismicLattice interpretations skip this and hit fallback. Uses `getKind()` - falls through if schema not in milestone. |
+| 5th | **GenericRepresentation:1.2.0** | Fallback | Unrecognized interpretation type, or none of the above matched. |
+
+**DomainTypeID derivation:** All Grid2d WPCs set DomainTypeID dynamically from the linked CRS:
+- `LocalDepth3dCrs` / `LocalEngineeringCompoundCrs` (non-time) → `Depth`
+- `LocalTime3dCrs` / `LocalEngineeringCompoundCrs` (IsTime=true) → `Time`
+
+**v2.0.1 vs v2.2 differences:**
+
+| Aspect | v2.0.1 | v2.2 |
+|---|---|---|
+| Interpretation ref | `RepresentedInterpretation.ContentType` (EtpContentType parser) | `RepresentedObject.QualifiedType` (string endsWith) |
+| Constant spacing type | `resqml20.DoubleConstantArray` | `eml23.FloatingPointConstantArray` |
+| SeismicLatticeFeature type | `resqml20.obj_SeismicLatticeFeature` | `resqml22.SeismicLatticeFeature` |
+
+**Milestone fallback:** The manifest factory uses `getKind()` (not `getKindOrFallback()`) for StructureMap and GenericBinGrid. If those schema kinds are not registered in the target milestone, the dispatch silently falls through to GenericRepresentation.
 
 ---
 
