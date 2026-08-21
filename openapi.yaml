@@ -22,7 +22,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       requestBody:
@@ -268,7 +268,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: transactionId
@@ -503,7 +503,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: transactionId
@@ -721,7 +721,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: transactionId
@@ -1072,7 +1072,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: $skip
@@ -1345,7 +1345,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: dataObjectType
@@ -1579,7 +1579,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: dataObjectType
@@ -1935,7 +1935,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: transactionId
@@ -2305,7 +2305,7 @@ paths:
                     description: Name of dataspace
                     example: demo/Volve
                     maxLength: 2048
-                    pattern: ^[^/]+\/[^/]+$
+                    pattern: ^[^/]+(\/[^/]+)?$
                   Path:
                     type: string
                     description: Path of dataspace
@@ -2832,7 +2832,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       requestBody:
@@ -2848,7 +2848,7 @@ paths:
                   description: Name of dataspace
                   example: demo/Volve
                   maxLength: 2048
-                  pattern: ^[^/]+\/[^/]+$
+                  pattern: ^[^/]+(\/[^/]+)?$
                 Path:
                   type: string
                   description: Path of dataspace
@@ -3087,7 +3087,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       responses:
@@ -3848,7 +3848,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       responses:
@@ -4075,7 +4075,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       responses:
@@ -4301,7 +4301,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       responses:
@@ -4529,7 +4529,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: $skip
@@ -4902,7 +4902,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: $skip
@@ -5275,7 +5275,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: dataObjectType
@@ -5640,7 +5640,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: dataObjectType
@@ -6047,7 +6047,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: dataObjectType
@@ -6453,7 +6453,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: dataObjectType
@@ -6860,7 +6860,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: dataObjectType
@@ -7266,7 +7266,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: storeLastWriteFilter
@@ -9205,7 +9205,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: dataObjectType
@@ -9534,7 +9534,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: dataObjectType
@@ -9878,7 +9878,7 @@ paths:
         description: Name of dataspace
         schema:
           maxLength: 2048
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
           example: demo/Volve
           type: string
       - name: dataObjectType
@@ -11397,7 +11397,7 @@ components:
           type: string
           description: Target dataspace path
           example: test/witsml
-          pattern: ^[^/]+\/[^/]+$
+          pattern: ^[^/]+(\/[^/]+)?$
         xml:
           type: string
           description: WITSML 2.1 or EnergyML Common v2 XML document(s) to store
