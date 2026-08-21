@@ -25,7 +25,8 @@ const DATASPACE_SUBRESOURCES = new Set<string>([
     "resources",
     "graph",
     "transactions",
-    "objects"
+    "objects",
+    "epc"
 ]);
 
 /**

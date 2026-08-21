@@ -510,10 +510,6 @@ export default class EpcUploadAPI {
             }
 
             const h5Refs: H5Reference[] = [];
-            const pathInHdfRegex =
-                /<eml:PathInHdfFile[^>]*>([^<]+)<\/eml:PathInHdfFile>/g;
-            const hdfProxyUuidRegex =
-                /<eml:HdfProxy[^>]*>[\s\S]*?<eml:UUID[^>]*>([^<]+)<\/eml:UUID>[\s\S]*?<\/eml:HdfProxy>/g;
 
             for (const obj of epcObjects) {
                 // Skip EpcExternalPartReference objects — they don't contain HDF references
@@ -521,24 +517,27 @@ export default class EpcUploadAPI {
 
                 // Find all PathInHdfFile references in this object's XML
                 const xmlStr = obj.xml;
-                // Reset regex state
-                pathInHdfRegex.lastIndex = 0;
 
-                // Simple approach: find all <eml:Hdf5Dataset> blocks
-                const hdf5DatasetRegex =
-                    /<(?:[\w]+:)?Hdf5Dataset[^>]*>([\s\S]*?)<\/(?:[\w]+:)?Hdf5Dataset>/g;
-                let dsMatch;
-                while ((dsMatch = hdf5DatasetRegex.exec(xmlStr)) !== null) {
-                    const block = dsMatch[1];
-                    const pathMatch = block.match(
-                        /<(?:[\w]+:)?PathInHdfFile[^>]*>([^<]+)<\/(?:[\w]+:)?PathInHdfFile>/
+                // RESQML 2.0/2.2: PathInHdfFile + HdfProxy/UUID appear as
+                // siblings under various container elements (Values,
+                // Coordinates, Hdf5Dataset, etc.). We scan for every
+                // PathInHdfFile and then look for the nearest HdfProxy UUID.
+                const pathRegex =
+                    /<(?:[\w]+:)?PathInHdfFile[^>]*>([^<]+)<\/(?:[\w]+:)?PathInHdfFile>/g;
+                let pathMatch;
+                while ((pathMatch = pathRegex.exec(xmlStr)) !== null) {
+                    const pathValue = pathMatch[1];
+                    // Search forward from the PathInHdfFile match for the
+                    // sibling HdfProxy > UUID.  In both v2.0 and v2.2 the
+                    // UUID element lives inside <eml:HdfProxy> or a similar
+                    // parent within the same container element.
+                    const afterPath = xmlStr.slice(pathMatch.index);
+                    const uuidMatch = afterPath.match(
+                        /<(?:[\w]+:)?HdfProxy[^>]*>[\s\S]*?<(?:[\w]+:)?UUID[^>]*>([0-9a-fA-F-]{36})<\/(?:[\w]+:)?UUID>/
                     );
-                    const uuidMatch = block.match(
-                        /<(?:[\w]+:)?UUID[^>]*>([0-9a-fA-F-]{36})<\/(?:[\w]+:)?UUID>/
-                    );
-                    if (pathMatch?.[1] && uuidMatch?.[1]) {
+                    if (uuidMatch?.[1]) {
                         h5Refs.push({
-                            pathInHdfFile: pathMatch[1],
+                            pathInHdfFile: pathValue,
                             objectUuid: obj.uuid,
                             externalPartUuid: uuidMatch[1]
                         });
@@ -557,7 +556,15 @@ export default class EpcUploadAPI {
 
             if (h5Refs.length > 0 && h5File) {
                 logger.info("Loading h5wasm...");
-                h5wasm = await import("h5wasm");
+                // h5wasm 0.10+ is ESM-only; the ./node export has no CJS
+                // "require" condition.  Import the Node entry point by
+                // absolute path so it works from compiled CJS code.
+                // __dirname = dist/src/lib/restApi/write-etp.module (5 levels from root)
+                const h5NodeEntry = path.resolve(
+                    __dirname, "..", "..", "..", "..", "..",
+                    "node_modules", "h5wasm", "dist", "node", "hdf5_hl.js"
+                );
+                h5wasm = await import(h5NodeEntry);
                 await h5wasm.ready;
 
                 // h5wasm uses an emscripten virtual FS — we need to mount the file
@@ -616,8 +623,8 @@ export default class EpcUploadAPI {
                     : "Using caller-provided transaction"
             );
 
-            // ── 6. PUT data objects in batches ──
-            const dataObjects: DataObject[] = epcObjects.map(obj => {
+            // ── 6. Build DataObject records ──
+            const toDataObject = (obj: EpcObject): DataObject => {
                 const uri = EtpUri.createObjectUri(
                     params.dataspaceId,
                     obj.domainFamily,
@@ -644,27 +651,56 @@ export default class EpcUploadAPI {
                     format: "xml",
                     blobId: null
                 };
-            });
+            };
 
-            // Batch objects to avoid exceeding ETP message limits
-            let objectsStored = 0;
-            for (let i = 0; i < dataObjects.length; i += OBJECT_BATCH_SIZE) {
-                const batch = dataObjects.slice(i, i + OBJECT_BATCH_SIZE);
-                logger.info(
-                    `Putting objects batch ${Math.floor(i / OBJECT_BATCH_SIZE) + 1}/${Math.ceil(dataObjects.length / OBJECT_BATCH_SIZE)} (${batch.length} objects)`
-                );
-                const result = await c.putDataObjects(batch);
-                if (!result) {
-                    if (txId) {
-                        await c.rollbackTransaction(txId).catch(() => { });
+            // Split: EpcExternalPartReference objects must be stored first so
+            // that the ETP server accepts the subsequent PutDataArrays calls.
+            // Then the remaining objects (which reference arrays) are stored
+            // after the arrays are in place.
+            const extPartObjects = epcObjects.filter(
+                o => o.dataType === "obj_EpcExternalPartReference"
+            );
+            const remainingObjects = epcObjects.filter(
+                o => o.dataType !== "obj_EpcExternalPartReference"
+            );
+
+            // Helper: put a list of DataObjects in batches
+            const putBatched = async (
+                items: DataObject[],
+                label: string
+            ): Promise<number> => {
+                let stored = 0;
+                for (let i = 0; i < items.length; i += OBJECT_BATCH_SIZE) {
+                    const batch = items.slice(i, i + OBJECT_BATCH_SIZE);
+                    logger.info(
+                        `Putting ${label} batch ${Math.floor(i / OBJECT_BATCH_SIZE) + 1}/${Math.ceil(items.length / OBJECT_BATCH_SIZE)} (${batch.length} objects)`
+                    );
+                    const result = await c!.putDataObjects(batch);
+                    if (!result) {
+                        if (txId) {
+                            await c!.rollbackTransaction(txId).catch(() => { });
+                        }
+                        throw new InternalServerErrorException({
+                            description: `PutDataObjects failed at ${label} batch starting from index ${i}`
+                        });
                     }
-                    throw new InternalServerErrorException({
-                        description: `PutDataObjects failed at batch starting from index ${i}`
-                    });
+                    stored += batch.length;
                 }
-                objectsStored += batch.length;
+                return stored;
+            };
+
+            // 6a. PUT EpcExternalPartReference objects first
+            let objectsStored = 0;
+            if (extPartObjects.length > 0) {
+                const n = await putBatched(
+                    extPartObjects.map(toDataObject),
+                    "EpcExternalPartReference"
+                );
+                objectsStored += n;
+                logger.info(
+                    `Stored ${n} EpcExternalPartReference object(s)`
+                );
             }
-            logger.info(`Stored ${objectsStored} object(s)`);
 
             // ── 7. PUT array data from H5 file ──
             let arraysStored = 0;
@@ -733,6 +769,16 @@ export default class EpcUploadAPI {
                     }
                 }
             }
+
+            // 6b. PUT remaining objects (after arrays are in place)
+            if (remainingObjects.length > 0) {
+                const n = await putBatched(
+                    remainingObjects.map(toDataObject),
+                    "objects"
+                );
+                objectsStored += n;
+            }
+            logger.info(`Stored ${objectsStored} object(s) total`);
 
             // ── 8. Commit transaction ──
             if (txId) {
