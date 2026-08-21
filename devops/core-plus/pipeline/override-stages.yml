@@ -38,13 +38,20 @@ cimpl-containerize-bootstrap-gitlab:
     - >
       echo "[{ \"CLIENT_ID\": \"${CIMPL_CLIENT_ID}\", \"CLIENT_SECRET\": \"${CIMPL_CLIENT_SECRET}\", \"grant_type\": \"${CIMPL_GRANT_TYPE}\", \"refresh_token\": \"${CIMPL_REFRESH_TOKEN}\"}]" > test_config_file.json
     - curl "${GET_COLLECTION_URL}" > collection.json && COLLECTION=collection.json
+    # Bypass Config Service postman-environment: pass required vars from CI.
+    # CIMPL_TOKEN_URI is missing on ci-cd-pipelines release/0.30 (.cimpl-variables);
+    # compose it from TEST_OPENID_PROVIDER_URL when unset.
+    # domain must include the leading dot (e.g. .group).
     - |
-      curl --header "data-partition-id: ${DATA_PARTITION_ID}" "${CIMPL_POSTMAN_ENV_URL}" > environment.json && ENVIRONMENT=environment.json
-    # The v3.1 collection reads Token_Fetch_URL and the entitlements 'domain' value
-    # directly from the postman environment file, and S1b idempotently creates
-    # '<partition>-RDDMS-Legal-Tag' (201/409 both acceptable). No pre-step is needed
-    # here -- newman drives everything via the refresh_token flow in '0. Auth'.
-    - newman run "$COLLECTION" --working-dir . -e "${ENVIRONMENT}" -d  test_config_file.json --delay-request 3000 --env-var TENANT_ID=${CIMPL_TENANT} --env-var HOSTNAME=${CIMPL_DNS_NAME} --env-var RESERVOIR_DDMS_HOST=${CIMPL_DNS_NAME}/api/reservoir-ddms/v2 || exit $?
+      CIMPL_TOKEN_URI="${CIMPL_TOKEN_URI:-${TEST_OPENID_PROVIDER_URL}/protocol/openid-connect/token}"
+      newman run "$COLLECTION" --working-dir . -d test_config_file.json --delay-request 3000 \
+        --env-var "Token_Fetch_URL=${CIMPL_TOKEN_URI}" \
+        --env-var "domain=.${GROUP_ID}" \
+        --env-var "Scope=email openid profile" \
+        --env-var "data-partition-id=${DATA_PARTITION_ID}" \
+        --env-var "HOSTNAME=${HOST}" \
+        --env-var "RESERVOIR_DDMS_HOST=${HOST}/api/reservoir-ddms/v2" \
+        || exit $?
 
 cimpl-test:
   tags: ["osdu-small"]
