@@ -659,7 +659,7 @@ export class OptionalParseDatePipe
   }
 }
 
-export const dataspaceNamePattern = /^[^/]+\/[^/]+$/;
+export const dataspaceNamePattern = /^[^/]+(\/[^/]+)?$/;
 
 /*
  * Describe parameters to find resources in a dataspace
