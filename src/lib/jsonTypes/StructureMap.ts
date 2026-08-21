@@ -13,7 +13,8 @@ import {
 import { FrameOfReferenceMetaDataItem } from "./Generated/manifest/Manifest.1.0.0";
 
 /**
- * Extract StructureMap information from a depth-domain Resqml 2.0.1 Grid2dRepresentation.
+ * Extract StructureMap information from a Resqml 2.0.1 Grid2dRepresentation.
+ * Handles both depth and time domain - DomainTypeID is set dynamically from CRS.
  *
  * @export
  * @class StructureMapOSDU
