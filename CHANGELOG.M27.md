@@ -17,6 +17,7 @@ All changes vs upstream `@osdu/open-etp-client` (base commit: `cfffaa2`).
 | POST | `/query/growing/range` | Growing-object parts by index range (ETP Protocol 6) |
 | POST | `/query/channels/metadata` | Channel metadata for streaming (ETP Protocol 21) |
 | PUT | `/witsml/store` | Ingest WITSML 2.1/1.4.1 XML with auto-transaction and channel extraction |
+| POST | `/dataspaces/{id}/epc/upload` | Upload EPC + H5 file pair, unzip, parse, and ingest with transaction |
 | GET | `/wells?name=&dataspace=&include=` | Cross-dataspace well search with hierarchy resolution |
 
 ### GraphQL API
@@ -84,6 +85,14 @@ All protocols are auto-negotiated at ETP session open — no configuration neede
 - **Store endpoint** (`PUT /witsml/store`) — accepts WITSML 2.1 and 1.4.1 XML. Auto-detects plural containers, generates deterministic UUIDs, extracts channel data and trajectory stations as ETP arrays.
 - **Query endpoint** (`POST /witsml/query`) — query objects by type filter.
 - **Well search** (`GET /wells`) — cross-dataspace search with automatic hierarchy resolution (wellbores, logs, trajectories, channelSets).
+
+### EPC Upload
+
+- **Upload endpoint** (`POST /dataspaces/{id}/epc/upload`) — accepts `multipart/form-data` with an EPC file (ZIP) and optional H5 file. Unzips the EPC, parses `[Content_Types].xml`, extracts all XML objects, reads referenced HDF5 datasets, and ingests everything into the target dataspace.
+- **Auto-transaction** — wraps the entire ingest in a transaction (start → put objects → put arrays → commit). Rolls back on failure. Supports caller-managed transactions via `?transactionId`.
+- **Batched object writes** — objects are sent in batches of 100 to stay within ETP message size limits.
+- **Bounded memory** — H5 file stored on disk (multer disk storage), arrays read and sent one at a time.
+- **Configurable limits** — `RDMS_EPC_MAX_SIZE_MB` (200), `RDMS_H5_MAX_SIZE_MB` (2048), `RDMS_EPC_MAX_OBJECTS` (10000).
 
 ### Operational
 
