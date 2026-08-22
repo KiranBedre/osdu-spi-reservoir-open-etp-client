@@ -83,6 +83,12 @@ import {
 
 import { qualifiedTypeRegex } from "../../common/EtpQualifiedType";
 
+import { createManifest } from "../../jsonTypes/Manifest";
+import { OSDUContext } from "../../jsonTypes/OsduContext";
+import { osduUrl } from "../../common/config";
+import { bigIntToString } from "../../mlTypes/XmlJsonUtil";
+import { decode, JwtPayload } from "jsonwebtoken";
+
 import logging from "../../common/Logging";
 const logger = logging.getLogger("EtpClient");
 
@@ -110,6 +116,12 @@ const MAX_OBJECTS = parseInt(
 
 /** Batch size for putDataObjects calls */
 const OBJECT_BATCH_SIZE = 100;
+
+/** Batch size for pushing records to OSDU Storage Service */
+const STORAGE_BATCH_SIZE = 500;
+
+/** Valid values for the autoIngest query parameter */
+type IngestMode = "records" | "workflow";
 
 // ---------------------------------------------------------------------------
 // Multer disk storage — files go to OS temp dir, cleaned up after ingest
@@ -311,6 +323,20 @@ export default class EpcUploadAPI {
         }
     })
     @ApiQuery(transactionIdQueryParam)
+    @ApiQuery({
+        name: "autoIngest",
+        required: false,
+        description:
+            "When set, automatically builds an OSDU manifest after EPC ingest and pushes it to the OSDU catalog. " +
+            "Values: 'records' (default if set to 'true') pushes records directly via Storage Service; " +
+            "'workflow' submits the manifest to the OSDU ingestion workflow (Airflow DAG) for processing. " +
+            "Omit or set to 'false' to skip catalog registration (current default behavior).",
+        schema: {
+            type: "string",
+            enum: ["false", "true", "records", "workflow"],
+            default: "false"
+        }
+    })
     @ApiOkResponse({
         description: "Ingest result summary",
         schema: {
@@ -329,6 +355,17 @@ export default class EpcUploadAPI {
                             uuid: { type: "string" },
                             title: { type: "string" }
                         }
+                    }
+                },
+                catalogIngestion: {
+                    type: "object",
+                    nullable: true,
+                    properties: {
+                        status: { type: "string", enum: ["submitted", "completed", "failed", "skipped"] },
+                        mode: { type: "string", enum: ["records", "workflow"] },
+                        recordCount: { type: "integer" },
+                        workflowRunId: { type: "string" },
+                        error: { type: "string" }
                     }
                 }
             }
@@ -349,7 +386,8 @@ export default class EpcUploadAPI {
             "The endpoint unzips the EPC, parses all XML objects, reads referenced array data " +
             "from the H5 file, and ingests everything into the target dataspace within a transaction. " +
             "If no transactionId is provided, an internal transaction is created and committed automatically. " +
-            "If transactionId is provided, the caller is responsible for commit/rollback.",
+            "If transactionId is provided, the caller is responsible for commit/rollback. " +
+            "Set autoIngest to automatically build an OSDU manifest and push to the catalog after ingest.",
         servers: swaggerServers
     })
     @UseInterceptors(
@@ -371,6 +409,7 @@ export default class EpcUploadAPI {
         @UploadedFiles() files: { epc?: Express.Multer.File[]; h5?: Express.Multer.File[] },
         @Param() params: FindInDataSpaceParams,
         @Query("transactionId") transactionId?: string,
+        @Query("autoIngest") autoIngest?: string,
         @Req() request?: express.Request
     ) {
         logger.info(
@@ -791,7 +830,31 @@ export default class EpcUploadAPI {
                 await c.closeSession();
             }
 
-            const result = {
+            // ── 9. Auto-ingest to OSDU catalog (optional) ──
+            let catalogIngestion: {
+                status: string;
+                mode?: string;
+                recordCount?: number;
+                workflowRunId?: string;
+                error?: string;
+            } | undefined;
+
+            const ingestMode = this.parseIngestMode(autoIngest);
+            if (ingestMode && !transactionId) {
+                catalogIngestion = await this.performCatalogIngestion(
+                    ingestMode,
+                    params.dataspaceId,
+                    request
+                );
+            } else if (ingestMode && transactionId) {
+                // Cannot auto-ingest when using external transaction — data may not be committed yet
+                catalogIngestion = {
+                    status: "skipped",
+                    error: "autoIngest requires internal transaction (omit transactionId)"
+                };
+            }
+
+            const result: Record<string, unknown> = {
                 success: true,
                 objectsStored,
                 arraysStored,
@@ -800,7 +863,8 @@ export default class EpcUploadAPI {
                     objectType: `${o.domainFamily}${o.domainVersion}.${o.dataType}`,
                     uuid: o.uuid,
                     title: o.title
-                }))
+                })),
+                ...(catalogIngestion ? { catalogIngestion } : {})
             };
 
             logger.info(
@@ -831,5 +895,180 @@ export default class EpcUploadAPI {
             // Clean up temp files
             cleanupFiles(files ?? {});
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Auto-ingest helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private parseIngestMode(autoIngest?: string): IngestMode | undefined {
+        if (!autoIngest || autoIngest === "false") return undefined;
+        if (autoIngest === "true" || autoIngest === "records") return "records";
+        if (autoIngest === "workflow") return "workflow";
+        return undefined;
+    }
+
+    private async performCatalogIngestion(
+        mode: IngestMode,
+        dataspaceId: string,
+        request?: express.Request
+    ): Promise<{
+        status: string;
+        mode?: string;
+        recordCount?: number;
+        workflowRunId?: string;
+        error?: string;
+    }> {
+        const bearer = extractToken(request);
+        const partition = extractDataPartitionId(request);
+
+        if (!osduUrl || osduUrl === "http://localhost") {
+            return {
+                status: "skipped",
+                mode,
+                error: "RDMS_OSDU_URL not configured — cannot push to catalog"
+            };
+        }
+
+        try {
+            logger.info(`[autoIngest] Building manifest for dataspace '${dataspaceId}' (mode=${mode})...`);
+
+            // Create a fresh ETP session for manifest building
+            const manifestClient = await createSession(bearer, partition);
+            if (!manifestClient) {
+                return { status: "failed", mode, error: "Failed to create ETP session for manifest" };
+            }
+
+            const jwt = bearer ? (decode(bearer) as JwtPayload) : {};
+            const context = new OSDUContext(
+                typeof partition === "string" ? partition : "osdu",
+                jwt === null || typeof jwt === "string" ? undefined : jwt?.unique_name,
+                undefined, // tags
+                true,      // createMissingReferences
+                false      // includeArrayData — skip for speed
+            );
+            context.bearer = bearer;
+
+            const collaboration = request?.headers?.["x-collaboration"] as string | undefined;
+            if (collaboration) {
+                context.collaboration = collaboration;
+            }
+
+            const dataspaceUri = `eml:///dataspace('${dataspaceId}')`;
+            const manifest = await createManifest(
+                manifestClient,
+                [dataspaceUri],
+                context,
+                undefined, // use default type patterns
+                1000,
+                "canonical"
+            );
+            await manifestClient.closeSession();
+
+            // Collect all records from manifest
+            const records = [
+                ...(manifest.Data?.Datasets ?? []),
+                ...(manifest.Data?.WorkProductComponents ?? []),
+                ...(manifest.Data?.WorkProduct ? [manifest.Data.WorkProduct] : []),
+                ...(manifest.MasterData ?? []),
+                ...(manifest.ReferenceData ?? [])
+            ];
+
+            if (records.length === 0) {
+                return { status: "completed", mode, recordCount: 0 };
+            }
+
+            logger.info(`[autoIngest] Manifest built: ${records.length} record(s). Pushing via ${mode}...`);
+
+            if (mode === "workflow") {
+                return await this.pushViaWorkflow(manifest, bearer, partition);
+            } else {
+                return await this.pushViaRecords(records, bearer, partition);
+            }
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            logger.error(`[autoIngest] Failed: ${msg}`);
+            return { status: "failed", mode, error: msg };
+        }
+    }
+
+    private async pushViaRecords(
+        records: unknown[],
+        bearer?: string,
+        partition?: string | string[]
+    ): Promise<{ status: string; mode: string; recordCount?: number; error?: string }> {
+        const partitionStr = typeof partition === "string" ? partition : "osdu";
+        let totalPushed = 0;
+
+        for (let i = 0; i < records.length; i += STORAGE_BATCH_SIZE) {
+            const batch = records.slice(i, i + STORAGE_BATCH_SIZE);
+            const body = JSON.stringify(batch, bigIntToString);
+            const res = await fetch(`${osduUrl}/api/storage/v2/records`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Content-Length": `${Buffer.byteLength(body)}`,
+                    "Authorization": `Bearer ${bearer}`,
+                    "data-partition-id": partitionStr
+                },
+                body
+            });
+            if (res.ok) {
+                const result = await res.json() as { recordCount?: number };
+                totalPushed += result?.recordCount ?? batch.length;
+            } else {
+                const errText = await res.text().catch(() => "unknown");
+                logger.warn(
+                    `[autoIngest] Storage batch ${Math.floor(i / STORAGE_BATCH_SIZE) + 1} failed (${res.status}): ${errText}`
+                );
+            }
+        }
+
+        logger.info(`[autoIngest] Pushed ${totalPushed}/${records.length} records via Storage Service`);
+        return { status: "completed", mode: "records", recordCount: totalPushed };
+    }
+
+    private async pushViaWorkflow(
+        manifest: unknown,
+        bearer?: string,
+        partition?: string | string[]
+    ): Promise<{ status: string; mode: string; workflowRunId?: string; error?: string }> {
+        const partitionStr = typeof partition === "string" ? partition : "osdu";
+        const workflowBody = JSON.stringify({
+            executionContext: {
+                manifest
+            }
+        }, bigIntToString);
+
+        const res = await fetch(
+            `${osduUrl}/api/workflow/v1/workflow/Osdu_ingest/workflowRun`,
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Content-Length": `${Buffer.byteLength(workflowBody)}`,
+                    "Authorization": `Bearer ${bearer}`,
+                    "data-partition-id": partitionStr
+                },
+                body: workflowBody
+            }
+        );
+
+        if (!res.ok) {
+            const errText = await res.text().catch(() => "unknown");
+            return {
+                status: "failed",
+                mode: "workflow",
+                error: `Workflow service returned ${res.status}: ${errText}`
+            };
+        }
+
+        const result = await res.json() as { runId?: string };
+        logger.info(`[autoIngest] Workflow run submitted: ${result?.runId}`);
+        return {
+            status: "submitted",
+            mode: "workflow",
+            workflowRunId: result?.runId
+        };
     }
 }

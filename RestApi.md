@@ -395,6 +395,7 @@ target dataspace within a transaction.
 | Param | Required | Description |
 |-------|----------|-------------|
 | `transactionId` | no | Use an existing transaction. If omitted, auto-creates and commits. |
+| `autoIngest` | no | Auto-register in OSDU catalog after ingest. Values: `false` (default), `true`/`records` (direct Storage Service PUT), `workflow` (submit to OSDU Ingestion Workflow DAG). |
 
 **Processing flow:**
 
@@ -412,7 +413,7 @@ target dataspace within a transaction.
 **Example:**
 
 ```bash
-curl -X POST ".../dataspaces/demo%2Fvolve/epc/upload" \
+curl -X POST ".../dataspaces/demo%2Fvolve/epc/upload?autoIngest=true" \
   -H "Authorization: Bearer $TOKEN" \
   -F "epc=@model.epc" \
   -F "h5=@model.h5"
@@ -427,8 +428,24 @@ curl -X POST ".../dataspaces/demo%2Fvolve/epc/upload" \
   "skippedArrays": 0,
   "objects": [
     { "objectType": "resqml20.obj_IjkGridRepresentation", "uuid": "9a487aca-...", "title": "flow_simulation_grid" }
-  ]
+  ],
+  "catalogIngestion": {
+    "status": "completed",
+    "mode": "records",
+    "recordCount": 38
+  }
 }
+```
+
+**Auto-ingest modes:**
+
+| Mode | Behavior | Latency | When to use |
+|------|----------|---------|-------------|
+| `false` (default) | No catalog registration | 0 | Manual manifest workflow, SoE dataspaces |
+| `true` / `records` | Builds manifest → pushes records via `PUT /api/storage/v2/records` | +5-30s | **Default for SoR** — data immediately searchable |
+| `workflow` | Builds manifest → submits to Airflow `Osdu_ingest` DAG | +5-30s (response), +30-90s (indexed) | Environments requiring audit trail or platform-managed ingestion |
+
+> **Note:** `autoIngest` requires internal transaction (omit `transactionId`). When using an external transaction, the data may not be committed yet, so auto-ingest is skipped.
 ```
 
 **Size limits** (configurable via env vars):
