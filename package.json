@@ -87,7 +87,6 @@
     "class-transformer": "~0.5.1",
     "class-validator": "~0.14.1",
     "dataloader": "~2.2.3",
-    "events": "~3.3.0",
     "express": "^5.2.1",
     "fast-xml-parser": "~5.7.3",
     "glob": "~10.5.0",
@@ -105,7 +104,7 @@
     "ts-morph": "~24.0.0",
     "uuid": "~11.1.1",
     "websocket": "~1.0.35",
-    "xml-js": "~1.6.11"
+    "adm-zip": "~0.5.17"
   },
   "devDependencies": {
     "@babel/core": "~7.23.9",
@@ -125,14 +124,12 @@
     "@types/node-fetch": "~2.6.12",
     "@types/sax": "~1.2.7",
     "@types/semver": "~7.5.8",
-    "@types/superagent": "~4.1.24",
     "@types/supertest": "~2.0.16",
     "@types/swagger-ui-express": "~4.1.8",
     "@types/uuid": "~9.0.8",
     "@types/validator": "~13.11.10",
     "@types/websocket": "~1.0.10",
     "@typescript-eslint/eslint-plugin": "~6.9.1",
-    "adm-zip": "~0.5.17",
     "commander": "~11.1.0",
     "commitizen": "~4.3.1",
     "cpy-cli": "~4.2.0",
