@@ -186,3 +186,17 @@ Integration tests (require ETP server): `npm run test:integration`
   \* Drogon has 1 RDDMS-compat info (missing `.rels` for EpcExternalPartReference) — not a validity error.
 
 - **Performance** — without XSD (fast-path), even the 395-object Olympus model validates in under 100 ms. XSD validation is ~30 ms/object (libxml2 parse + validate per object).
+
+---
+
+## Performance Optimizations
+
+| # | Change | File(s) | Impact |
+|---|--------|---------|--------|
+| 1 | Chunked Buffer accumulation — collect in array, single `concat` at end (was O(n²) per chunk) | `StoreCustomer.ts` | Eliminates ~5 GB intermediate allocations for 50 MB chunked objects |
+| 2 | Direct recursive BigInt converter replaces `JSON.parse(JSON.stringify(...))` roundtrip | `XmlJsonUtil.ts`, `ControllerUtils.ts` | Avoids double allocation + string parsing for custom data fields |
+| 3 | `Set` for key filtering in `simpleJson` (was `Array.includes` — O(n) per key) | `XmlJsonUtil.ts` | O(1) lookup per property for large RESQML objects |
+| 4 | XML builder uses `string[]` + `.join("")` instead of `val +=` concatenation in recursion | `Json2Xml.ts` | Reduces GC pressure for 100KB+ XML generation |
+| 5 | Index-based `slice` replaces mutating `splice`; loop-push replaces spread (stack overflow risk) | `Array.controller.ts` | Prevents stack overflow for 1000+ arrays, removes O(n²) splice |
+| 6 | EPC validation passes file paths directly (avoids re-reading multi-GB files into memory) | `EpcUpload.controller.ts`, `ValidatorClient.ts` | Saves up to 4 GB redundant memory allocation during validation |
+| 7 | EPC HDF proxy regex uses `lastIndex` positioning instead of `slice` per match | `EpcUpload.controller.ts` | Eliminates O(n×m) string allocations during path rewriting |

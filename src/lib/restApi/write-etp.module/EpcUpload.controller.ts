@@ -633,6 +633,8 @@ export default class EpcUploadAPI {
                 // PathInHdfFile and then look for the nearest HdfProxy UUID.
                 const pathRegex =
                     /<(?:[\w]+:)?PathInHdfFile[^>]*>([^<]+)<\/(?:[\w]+:)?PathInHdfFile>/g;
+                const hdfProxyRegex =
+                    /<(?:[\w]+:)?HdfProxy[^>]*>[\s\S]*?<(?:[\w]+:)?UUID[^>]*>([0-9a-fA-F-]{36})<\/(?:[\w]+:)?UUID>/g;
                 let pathMatch;
                 while ((pathMatch = pathRegex.exec(xmlStr)) !== null) {
                     const pathValue = pathMatch[1];
@@ -640,10 +642,8 @@ export default class EpcUploadAPI {
                     // sibling HdfProxy > UUID.  In both v2.0 and v2.2 the
                     // UUID element lives inside <eml:HdfProxy> or a similar
                     // parent within the same container element.
-                    const afterPath = xmlStr.slice(pathMatch.index);
-                    const uuidMatch = afterPath.match(
-                        /<(?:[\w]+:)?HdfProxy[^>]*>[\s\S]*?<(?:[\w]+:)?UUID[^>]*>([0-9a-fA-F-]{36})<\/(?:[\w]+:)?UUID>/
-                    );
+                    hdfProxyRegex.lastIndex = pathMatch.index;
+                    const uuidMatch = hdfProxyRegex.exec(xmlStr);
                     if (uuidMatch?.[1]) {
                         h5Refs.push({
                             pathInHdfFile: pathValue,
