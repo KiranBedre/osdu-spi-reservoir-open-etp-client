@@ -533,7 +533,7 @@ Auto-populated: `FacetIDs` (from `xml.Facet[]`), `RealizationIndices` (v2.2), `T
     <eml:Title>Top Draupne - Drogon Base Case 2024</eml:Title>
     <eml:Originator>john.doe@company.com</eml:Originator>
     <eml:Creation>2024-03-15T10:30:00Z</eml:Creation>
-    <eml:Format>AspenTech SKUA-GOCAD 2023.1</eml:Format>
+    <eml:Format>RESQML Modeling Application v1.0</eml:Format>
     <eml:Description>Top Draupne horizon for Drogon field.</eml:Description>
   </eml:Citation>
   <eml:OSDUIntegration>

@@ -141,7 +141,7 @@ These changes may affect existing consumers:
 | Activity converter | 9 | Parameter extraction (all typed variants) |
 | Reservoir layer 1 | 146 | Smart property filter, transmissibility, ColumnBasedTable |
 | Other (unchanged) | 148 | ETP protocol, client, error mapping, validation |
-| RESQML Validator | 50 | 9 layers, real datasets (pyetp, SKUA, DGI, Aspen RMS), ValidatorClient local mode |
+| RESQML Validator | 50 | 9 layers, real datasets (pyetp, Volve, DGI, fesapi), ValidatorClient local mode |
 | **Total** | **437** | `npm test` (+ 44 validator/dataset tests via `--testPathIgnorePatterns=/node_modules/`) |
 
 Integration tests (require ETP server): `npm run test:integration`
@@ -178,7 +178,7 @@ Integration tests (require ETP server): `npm run test:integration`
 |---------|--------|---------|--------|----------|----------|-----------|
 | demo_seismic | pyetp | 6 | 0 | 2 | 656 ms | 3 ms |
 | pyetp_demo | pyetp | 9 | 0 | 4 | 210 ms | 2 ms |
-| Volve (SKUA) | PDGM-DX ETP Client | 30 | 0 | 4 | 1.0 s | 7 ms |
+| Volve | ETP Client | 30 | 0 | 4 | 1.0 s | 7 ms |
 | Olympus | DGI cv_etpexport + fesapi | 395 | 0 | 251 | 12.8 s | 95 ms |
 | Teapot | DGI cv_etpexport + fesapi | 108 | 0 | 28 | 3.1 s | 23 ms |
 | Drogon | Aspen RMS + ores (fesapi roundtrip) | 276 | 0* | 46 | 8.3 s | 101 ms |

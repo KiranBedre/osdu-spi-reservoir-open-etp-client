@@ -2,18 +2,11 @@
 
 REST and GraphQL gateway for [OpenETPServer](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-server). Bridges HTTP/JSON consumers to the binary Avro ETP 1.2 protocol — dataspace management, RESQML/WITSML/PRODML object access, data array streaming, OSDU manifest generation, EPC upload, and well search.
 
-```
-┌──────────────┐  REST / GraphQL   ┌──────────────────┐  Binary Avro ETP 1.2  ┌────────────────┐
-│  Consumers   │ ◀───────────────▶ │  open-etp-client │ ◀──────────────────▶  │ open-etp-server│
-│  (apps, CI,  │   HTTP/JSON/GQL   │  (this service)  │   WebSocket frames    │   (C++ binary) │
-│   Swagger)   │                   │  NestJS · :8003  │                       │   :9004 → PG   │
-└──────────────┘                   └────────┬─────────┘                       └────────────────┘
-                                            │ OSDU APIs (optional)
-                                   ┌────────▼─────────┐
-                                   │  Schema Service   │  Kind version resolution
-                                   │  Storage Service  │  Manifest ingestion
-                                   │  CRS Service      │  Coordinate transforms
-                                   └──────────────────┘
+```mermaid
+graph LR
+    A["Consumers<br/>(apps, CI, Swagger)"] <-->|"REST / GraphQL<br/>HTTP · JSON · GQL"| B["open-etp-client<br/>(this service)<br/>NestJS · :8003"]
+    B <-->|"Binary Avro ETP 1.2<br/>WebSocket frames"| C["open-etp-server<br/>(C++ binary)<br/>:9004 → PG"]
+    B -.->|"OSDU APIs (optional)"| D["Schema Service — Kind version resolution<br/>Storage Service — Manifest ingestion<br/>CRS Service — Coordinate transforms"]
 ```
 
 | Document | Description |
@@ -22,14 +15,13 @@ REST and GraphQL gateway for [OpenETPServer](https://community.opengroup.org/osd
 | [Swagger UI](http://localhost:8003/Reservoir/v2/) | Interactive endpoint reference (served by the running application) |
 | [RESQML → OSDU Guide](./ResqmlOsduGuide.md) | Populating RESQML metadata for lossless OSDU roundtrips |
 | [OpenETPServer](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-server/-/blob/main/README.md) | C++ ETP server: build, deploy, telemetry |
-| [RddmsGov](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/rddmsmg/-/blob/main/docs/rddms/RddmsGov.md) | Governance, design principles, dataspace lifecycle |
 
 ---
 
 ## Quick Start
 
 ```sh
-# 1. Clone and install
+# 1. Clone and install for standalone deployment/testing
 git clone https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client.git
 cd open-etp-client
 npm install && npm run build
@@ -232,5 +224,5 @@ npm i /path/to/osdu-open-etp-client-x.x.x.tgz   # install in another project
 ### Publishing
 
 1. Update version in `package.json` + `npm i` to sync lock file
-2. Update `CHANGELOG.M27.md`
+2. Update `CHANGELOG.md`
 3. Create MR "Bump version to vX.Y.Z"
