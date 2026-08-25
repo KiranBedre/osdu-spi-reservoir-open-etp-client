@@ -96,6 +96,16 @@ import logging from "../../common/Logging";
 const logger = logging.getLogger("EtpClient");
 
 // ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+/** Warning collected during upload for the response */
+interface UploadWarning {
+    phase: string;
+    message: string;
+}
+
+// ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 
@@ -114,6 +124,23 @@ const MAX_H5_BYTES = parseInt(
 /** Max objects allowed in a single EPC (default 10 000) */
 const MAX_OBJECTS = parseInt(
     process.env.RDMS_EPC_MAX_OBJECTS ?? "10000",
+    10
+);
+
+/** Overall upload timeout in ms (default 10 minutes) */
+const UPLOAD_TIMEOUT_MS = parseInt(
+    process.env.RDMS_EPC_UPLOAD_TIMEOUT_MS ?? "600000",
+    10
+);
+
+/** If more than this fraction of arrays fail, rollback (default 0.5) */
+const ARRAY_FAILURE_THRESHOLD = parseFloat(
+    process.env.RDMS_ARRAY_FAILURE_THRESHOLD ?? "0.5"
+);
+
+/** Max concurrent array uploads (default 5) */
+const ARRAY_CONCURRENCY = parseInt(
+    process.env.RDMS_ARRAY_CONCURRENCY ?? "5",
     10
 );
 
@@ -487,10 +514,24 @@ export default class EpcUploadAPI {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         let h5FileHandle: any;
 
+        const warnings: UploadWarning[] = [];
+        const timings: Record<string, number> = {};
+        const uploadStart = performance.now();
+
+        /** Check if we've exceeded the upload timeout */
+        const checkTimeout = (phase: string) => {
+            const elapsed = performance.now() - uploadStart;
+            if (elapsed > UPLOAD_TIMEOUT_MS) {
+                throw new InternalServerErrorException({
+                    description: `Upload timeout exceeded in phase '${phase}' after ${(elapsed / 1000).toFixed(1)}s (limit: ${UPLOAD_TIMEOUT_MS / 1000}s)`
+                });
+            }
+        };
+
         try {
             // ── 1. Unzip EPC ──
+            let phaseStart = performance.now();
             logger.info("Unzipping EPC file...");
-            // Use the built-in Node.js zlib/unzip — EPC is a standard ZIP
             const AdmZip = (await import("adm-zip")).default;
             const zip = new AdmZip(epcFile.path);
             const zipEntries = zip.getEntries();
@@ -510,8 +551,12 @@ export default class EpcUploadAPI {
             }
             const contentTypes = parseContentTypes(ctEntry.getData().toString("utf-8"));
             logger.info(`Found ${contentTypes.size} part(s) in [Content_Types].xml`);
+            timings.unzip = performance.now() - phaseStart;
 
             // ── 2. Extract XML objects ──
+            phaseStart = performance.now();
+            checkTimeout("extract");
+
             interface EpcObject {
                 uuid: string;
                 title: string;
@@ -524,6 +569,7 @@ export default class EpcUploadAPI {
 
             const epcObjects: EpcObject[] = [];
             const epcExternalPartUuids = new Set<string>();
+            const seenUuids = new Map<string, string>(); // uuid → entryName (for duplicate detection)
 
             for (const [partName, contentType] of contentTypes) {
                 const m = epcContentTypeRegex.exec(contentType);
@@ -542,9 +588,22 @@ export default class EpcUploadAPI {
                 const xmlStr = entry.getData().toString("utf-8");
                 const uuid = extractUuidFromXml(xmlStr);
                 if (!uuid) {
+                    warnings.push({ phase: "extract", message: `Skipping ${partName}: no UUID found in XML` });
                     logger.warn(`Skipping ${partName}: no UUID found in XML`);
                     continue;
                 }
+
+                // #12: Detect duplicate UUIDs
+                if (seenUuids.has(uuid)) {
+                    const firstEntry = seenUuids.get(uuid)!;
+                    warnings.push({
+                        phase: "extract",
+                        message: `Duplicate UUID ${uuid} in '${partName}' (first seen in '${firstEntry}') — skipping duplicate`
+                    });
+                    logger.warn(`Duplicate UUID ${uuid} in '${partName}' — already seen in '${firstEntry}'`);
+                    continue;
+                }
+                seenUuids.set(uuid, partName);
 
                 const title = extractTitleFromXml(xmlStr);
 
@@ -577,6 +636,7 @@ export default class EpcUploadAPI {
                     description: `EPC contains ${epcObjects.length} objects, exceeding limit of ${MAX_OBJECTS}`
                 });
             }
+            timings.extract = performance.now() - phaseStart;
 
             logger.info(
                 `Extracted ${epcObjects.length} object(s), ${epcExternalPartUuids.size} external part reference(s)`
@@ -587,12 +647,14 @@ export default class EpcUploadAPI {
             const doValidate = validate === "true" || validate === "strict";
 
             if (doValidate) {
+                phaseStart = performance.now();
                 logger.info("Running RESQML validation on EPC...");
                 const validator = new ValidatorClient();
                 validationReport = await validator.validateEpcFromPaths(
                     epcFile.path,
                     h5File?.path
                 );
+                timings.validate = performance.now() - phaseStart;
                 logger.info(
                     `Validation complete: ${validationReport.is_valid ? "VALID" : "INVALID"} ` +
                     `(${validationReport.error_count} errors, ${validationReport.warning_count} warnings)`
@@ -610,6 +672,9 @@ export default class EpcUploadAPI {
             }
 
             // ── 3. Scan XML for HDF5 dataset references ──
+            phaseStart = performance.now();
+            checkTimeout("h5scan");
+
             interface H5Reference {
                 pathInHdfFile: string;
                 /** UUID of the object that references this dataset */
@@ -659,19 +724,33 @@ export default class EpcUploadAPI {
 
             logger.info(`Found ${h5Refs.length} HDF5 dataset reference(s) in XML`);
 
+            // #4: Validate that all referenced EpcExternalPartReference UUIDs exist in the EPC
+            const danglingRefs = new Set<string>();
+            for (const ref of h5Refs) {
+                if (!epcExternalPartUuids.has(ref.externalPartUuid)) {
+                    danglingRefs.add(ref.externalPartUuid);
+                }
+            }
+            if (danglingRefs.size > 0) {
+                const msg = `${danglingRefs.size} HDF proxy UUID(s) referenced in XML but missing from EPC: ${[...danglingRefs].slice(0, 5).join(", ")}${danglingRefs.size > 5 ? "..." : ""}`;
+                warnings.push({ phase: "h5scan", message: msg });
+                logger.warn(msg);
+            }
+            timings.h5scan = performance.now() - phaseStart;
+
             // ── 4. Open H5 file if we have references and a file ──
+            phaseStart = performance.now();
             // Map: pathInHdfFile → { shape, typedArrayName }
             const h5DatasetInfo = new Map<
                 string,
                 { shape: number[]; typedArrayName: string }
             >();
+            let h5TotalElements = 0;
+            let h5TotalBytes = 0;
 
             if (h5Refs.length > 0 && h5File) {
+                checkTimeout("h5open");
                 logger.info("Loading h5wasm...");
-                // h5wasm 0.10+ is ESM-only; the ./node export has no CJS
-                // "require" condition.  Import the Node entry point by
-                // absolute path so it works from compiled CJS code.
-                // __dirname = dist/src/lib/restApi/write-etp.module (5 levels from root)
                 const h5NodeEntry = path.resolve(
                     __dirname, "..", "..", "..", "..", "..",
                     "node_modules", "h5wasm", "dist", "node", "hdf5_hl.js"
@@ -691,27 +770,46 @@ export default class EpcUploadAPI {
                     try {
                         const ds = h5FileHandle.get(ref.pathInHdfFile);
                         if (ds && ds.shape) {
-                            h5DatasetInfo.set(ref.pathInHdfFile, {
-                                shape: ds.shape as number[],
-                                typedArrayName: h5DtypeToTypedArrayName(ds.dtype as string)
-                            });
+                            const shape = ds.shape as number[];
+                            const typedArrayName = h5DtypeToTypedArrayName(ds.dtype as string);
+                            h5DatasetInfo.set(ref.pathInHdfFile, { shape, typedArrayName });
+
+                            // #5: Accumulate size totals
+                            const elements = shape.reduce((a, b) => a * b, 1);
+                            const bytesPerElement = typedArrayName.includes("64") ? 8
+                                : typedArrayName.includes("32") ? 4
+                                : typedArrayName.includes("16") ? 2 : 1;
+                            h5TotalElements += elements;
+                            h5TotalBytes += elements * bytesPerElement;
+
+                            // #10: Warn on potentially mismatched dtype
+                            if (typedArrayName === "BigInt64Array" || typedArrayName === "BigUint64Array") {
+                                warnings.push({
+                                    phase: "h5open",
+                                    message: `Dataset '${ref.pathInHdfFile}' uses 64-bit integer dtype — may require special handling`
+                                });
+                            }
                         }
                     } catch (e) {
+                        warnings.push({ phase: "h5open", message: `Could not read H5 dataset metadata at ${ref.pathInHdfFile}: ${e}` });
                         logger.warn(
                             `Could not read H5 dataset metadata at ${ref.pathInHdfFile}: ${e}`
                         );
                     }
                 }
                 logger.info(
-                    `Pre-scanned ${h5DatasetInfo.size} H5 dataset(s) for metadata`
+                    `Pre-scanned ${h5DatasetInfo.size} H5 dataset(s): ${h5TotalElements.toLocaleString()} elements, ~${(h5TotalBytes / 1024 / 1024).toFixed(1)} MB to transfer`
                 );
             } else if (h5Refs.length > 0 && !h5File) {
-                logger.warn(
-                    "XML objects reference HDF5 datasets but no H5 file was uploaded"
-                );
+                const msg = "XML objects reference HDF5 datasets but no H5 file was uploaded";
+                warnings.push({ phase: "h5open", message: msg });
+                logger.warn(msg);
             }
+            timings.h5open = performance.now() - phaseStart;
 
             // ── 5. Create ETP session & transaction ──
+            phaseStart = performance.now();
+            checkTimeout("session");
             logger.info("Creating ETP session...");
             c = await createSession(
                 extractToken(request),
@@ -735,8 +833,10 @@ export default class EpcUploadAPI {
                     ? "Started internal transaction for EPC upload"
                     : "Using caller-provided transaction"
             );
+            timings.session = performance.now() - phaseStart;
 
             // ── 6. Build DataObject records ──
+            phaseStart = performance.now();
             const toDataObject = (obj: EpcObject): DataObject => {
                 const uri = EtpUri.createObjectUri(
                     params.dataspaceId,
@@ -768,8 +868,6 @@ export default class EpcUploadAPI {
 
             // Split: EpcExternalPartReference objects must be stored first so
             // that the ETP server accepts the subsequent PutDataArrays calls.
-            // Then the remaining objects (which reference arrays) are stored
-            // after the arrays are in place.
             const extPartObjects = epcObjects.filter(
                 o => o.dataType === "obj_EpcExternalPartReference"
             );
@@ -784,6 +882,7 @@ export default class EpcUploadAPI {
             ): Promise<number> => {
                 let stored = 0;
                 for (let i = 0; i < items.length; i += OBJECT_BATCH_SIZE) {
+                    checkTimeout("putObjects");
                     const batch = items.slice(i, i + OBJECT_BATCH_SIZE);
                     logger.info(
                         `Putting ${label} batch ${Math.floor(i / OBJECT_BATCH_SIZE) + 1}/${Math.ceil(items.length / OBJECT_BATCH_SIZE)} (${batch.length} objects)`
@@ -814,15 +913,25 @@ export default class EpcUploadAPI {
                     `Stored ${n} EpcExternalPartReference object(s)`
                 );
             }
+            timings.putObjects = performance.now() - phaseStart;
 
             // ── 7. PUT array data from H5 file ──
+            phaseStart = performance.now();
             let arraysStored = 0;
             let skippedArrays = 0;
+            const arrayErrors: string[] = [];
 
             if (h5FileHandle && h5Refs.length > 0) {
+                checkTimeout("putArrays");
                 // Deduplicate — multiple objects may reference the same H5 dataset path
-                // but with different externalPartUuids. Group by externalPartUuid + path.
                 const seen = new Set<string>();
+
+                // Build work items (deduplicated)
+                interface ArrayWorkItem {
+                    ref: H5Reference;
+                    info: { shape: number[]; typedArrayName: string };
+                }
+                const workItems: ArrayWorkItem[] = [];
 
                 for (const ref of h5Refs) {
                     const dedupeKey = `${ref.externalPartUuid}::${ref.pathInHdfFile}`;
@@ -831,69 +940,101 @@ export default class EpcUploadAPI {
 
                     const info = h5DatasetInfo.get(ref.pathInHdfFile);
                     if (!info) {
-                        logger.warn(
-                            `Skipping array ${ref.pathInHdfFile}: no metadata available`
-                        );
+                        warnings.push({ phase: "putArrays", message: `Skipping array ${ref.pathInHdfFile}: no metadata available` });
                         skippedArrays++;
                         continue;
                     }
+                    workItems.push({ ref, info });
+                }
 
-                    try {
-                        // Read dataset values — h5wasm returns a typed array
-                        const ds = h5FileHandle.get(ref.pathInHdfFile);
-                        if (!ds || !ds.value) {
-                            logger.warn(
-                                `Skipping array ${ref.pathInHdfFile}: could not read values`
-                            );
-                            skippedArrays++;
-                            continue;
+                // #11: Process arrays with bounded concurrency
+                const processArray = async (item: ArrayWorkItem): Promise<boolean> => {
+                    const { ref, info } = item;
+                    const ds = h5FileHandle.get(ref.pathInHdfFile);
+                    if (!ds || !ds.value) {
+                        warnings.push({ phase: "putArrays", message: `Skipping array ${ref.pathInHdfFile}: could not read values` });
+                        return false;
+                    }
+
+                    const values = ds.value;
+                    const containerUri = EtpUri.createObjectUri(
+                        params.dataspaceId,
+                        "eml",
+                        "20",
+                        "obj_EpcExternalPartReference",
+                        ref.externalPartUuid
+                    ).uri;
+
+                    const arrayId: IArrayId = {
+                        uri: containerUri,
+                        pathInResource: ref.pathInHdfFile
+                    };
+
+                    // #8: Retry putDataArray once on failure
+                    let lastError: unknown;
+                    for (let attempt = 0; attempt < 2; attempt++) {
+                        try {
+                            await c!.putDataArray(arrayId, info.shape, values);
+                            return true;
+                        } catch (err) {
+                            lastError = err;
+                            if (attempt === 0) {
+                                logger.warn(`putDataArray retry for ${ref.pathInHdfFile}: ${err instanceof Error ? err.message : err}`);
+                            }
                         }
+                    }
+                    const msg = lastError instanceof Error ? lastError.message : String(lastError);
+                    arrayErrors.push(`${ref.pathInHdfFile}: ${msg}`);
+                    warnings.push({ phase: "putArrays", message: `Failed to store array ${ref.pathInHdfFile} after retry: ${msg}` });
+                    return false;
+                };
 
-                        const values = ds.value;
+                // Process in batches of ARRAY_CONCURRENCY
+                for (let i = 0; i < workItems.length; i += ARRAY_CONCURRENCY) {
+                    checkTimeout("putArrays");
+                    const batch = workItems.slice(i, i + ARRAY_CONCURRENCY);
+                    const results = await Promise.all(batch.map(processArray));
+                    for (const ok of results) {
+                        if (ok) arraysStored++;
+                        else skippedArrays++;
+                    }
 
-                        // Build the ETP array ID using the EpcExternalPartReference as container
-                        const containerUri = EtpUri.createObjectUri(
-                            params.dataspaceId,
-                            "eml",
-                            "20",
-                            "obj_EpcExternalPartReference",
-                            ref.externalPartUuid
-                        ).uri;
-
-                        const arrayId: IArrayId = {
-                            uri: containerUri,
-                            pathInResource: ref.pathInHdfFile
-                        };
-
-                        await c.putDataArray(arrayId, info.shape, values);
-                        arraysStored++;
-
-                        logger.info(
-                            `Stored array ${ref.pathInHdfFile} (${info.shape.join("×")}) ` +
-                            `for object ${ref.objectUuid}`
-                        );
-                    } catch (arrErr: unknown) {
-                        const msg =
-                            arrErr instanceof Error ? arrErr.message : String(arrErr);
-                        logger.warn(
-                            `Failed to store array ${ref.pathInHdfFile} for ${ref.objectUuid}: ${msg}`
-                        );
-                        skippedArrays++;
+                    // #3: Check failure threshold — rollback if too many arrays failed
+                    const totalProcessed = arraysStored + skippedArrays;
+                    if (totalProcessed > 0 && skippedArrays / totalProcessed > ARRAY_FAILURE_THRESHOLD && totalProcessed >= 5) {
+                        const msg = `Array failure threshold exceeded: ${skippedArrays}/${totalProcessed} failed (>${(ARRAY_FAILURE_THRESHOLD * 100).toFixed(0)}%)`;
+                        logger.error(msg);
+                        if (txId) {
+                            await c!.rollbackTransaction(txId).catch(() => { });
+                        }
+                        throw new InternalServerErrorException({
+                            description: msg,
+                            arrayErrors: arrayErrors.slice(0, 10)
+                        });
                     }
                 }
+
+                logger.info(
+                    `Arrays complete: ${arraysStored} stored, ${skippedArrays} skipped`
+                );
             }
+            timings.putArrays = performance.now() - phaseStart;
 
             // 6b. PUT remaining objects (after arrays are in place)
+            phaseStart = performance.now();
             if (remainingObjects.length > 0) {
+                checkTimeout("putRemainingObjects");
                 const n = await putBatched(
                     remainingObjects.map(toDataObject),
                     "objects"
                 );
                 objectsStored += n;
             }
+            timings.putObjects += performance.now() - phaseStart;
             logger.info(`Stored ${objectsStored} object(s) total`);
 
             // ── 8. Commit transaction ──
+            phaseStart = performance.now();
             if (txId) {
                 logger.info("Committing transaction...");
                 await c.commitTransaction(txId);
@@ -903,6 +1044,7 @@ export default class EpcUploadAPI {
             if (!transactionId) {
                 await c.closeSession();
             }
+            timings.commit = performance.now() - phaseStart;
 
             // ── 9. Auto-ingest to OSDU catalog (optional) ──
             let catalogIngestion: {
@@ -915,35 +1057,45 @@ export default class EpcUploadAPI {
 
             const ingestMode = this.parseIngestMode(autoIngest);
             if (ingestMode && !transactionId) {
+                phaseStart = performance.now();
                 catalogIngestion = await this.performCatalogIngestion(
                     ingestMode,
                     params.dataspaceId,
                     request
                 );
+                timings.autoIngest = performance.now() - phaseStart;
             } else if (ingestMode && transactionId) {
-                // Cannot auto-ingest when using external transaction — data may not be committed yet
                 catalogIngestion = {
                     status: "skipped",
                     error: "autoIngest requires internal transaction (omit transactionId)"
                 };
             }
 
+            // Build response with timings and warnings
+            timings.total = performance.now() - uploadStart;
+
             const result: Record<string, unknown> = {
                 success: true,
                 objectsStored,
                 arraysStored,
                 skippedArrays,
+                ...(h5TotalBytes > 0 ? { h5DataSize: { elements: h5TotalElements, bytes: h5TotalBytes } } : {}),
                 objects: epcObjects.map(o => ({
                     objectType: `${o.domainFamily}${o.domainVersion}.${o.dataType}`,
                     uuid: o.uuid,
                     title: o.title
                 })),
+                ...(warnings.length > 0 ? { warnings } : {}),
+                timings: Object.fromEntries(
+                    Object.entries(timings).map(([k, v]) => [k, Math.round(v)])
+                ),
                 ...(catalogIngestion ? { catalogIngestion } : {}),
                 ...(validationReport ? { validation: validationReport } : {})
             };
 
             logger.info(
-                `EPC upload complete: ${objectsStored} objects, ${arraysStored} arrays, ${skippedArrays} skipped`
+                `EPC upload complete: ${objectsStored} objects, ${arraysStored} arrays, ${skippedArrays} skipped ` +
+                `(${(timings.total / 1000).toFixed(1)}s)`
             );
 
             return result;

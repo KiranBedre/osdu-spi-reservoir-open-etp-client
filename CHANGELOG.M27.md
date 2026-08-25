@@ -204,3 +204,18 @@ Integration tests (require ETP server): `npm run test:integration`
 | 9 | Remove `new Uint8Array(h5Data)` copy — pass Buffer directly to emscripten FS | `EpcUpload.controller.ts` | Saves 1× H5 file size in peak memory (~14 MB–2 GB) |
 | 10 | Eliminate `Array.prototype.slice.call(array)` — pass TypedArray directly | `ResqmlClient.ts` | Saves 1 full array copy for small array uploads |
 | 11 | `Array.from({length})` → `new Array(n)` pre-allocation for chunked slices | `ResqmlClient.ts` | Faster allocation for sub-array slicing in large transfers |
+| 12 | Parallel array uploads with bounded concurrency (default 5) | `EpcUpload.controller.ts` | 3-5× faster for many small arrays |
+
+## EPC Upload Robustness & Diagnostics
+
+| # | Feature | Impact |
+|---|---------|--------|
+| 1 | `warnings[]` in response — structured actionable feedback | No more log-scraping for issues |
+| 2 | `timings` breakdown per phase (ms) | Performance visibility for large uploads |
+| 3 | Rollback on array failure threshold (>50%) | Prevents half-ingested corrupt dataspaces |
+| 4 | Validate EpcExternalPartReference UUID refs exist in ZIP | Catches dangling HDF proxy refs early |
+| 5 | H5 dataset size totals in response (`elements`, `bytes`) | Transfer size estimation |
+| 6 | Upload timeout (configurable, default 10 min) | Prevents hung requests on large H5 files |
+| 7 | Retry `putDataArray` once on transient failure | Handles intermittent ETP errors |
+| 8 | Dtype compatibility warning (64-bit int datasets) | Catches potential data-type issues |
+| 9 | Duplicate UUID detection in EPC | Handles malformed EPCs from broken exporters |
