@@ -389,6 +389,15 @@ export default class EpcUploadAPI {
                 objectsStored: { type: "integer" },
                 arraysStored: { type: "integer" },
                 skippedArrays: { type: "integer" },
+                h5DataSize: {
+                    type: "object",
+                    nullable: true,
+                    description: "Total H5 array data size (present when arrays were uploaded)",
+                    properties: {
+                        elements: { type: "integer", description: "Total number of array elements" },
+                        bytes: { type: "integer", description: "Total bytes to transfer" }
+                    }
+                },
                 objects: {
                     type: "array",
                     items: {
@@ -398,6 +407,35 @@ export default class EpcUploadAPI {
                             uuid: { type: "string" },
                             title: { type: "string" }
                         }
+                    }
+                },
+                warnings: {
+                    type: "array",
+                    nullable: true,
+                    description: "Diagnostic warnings collected during upload",
+                    items: {
+                        type: "object",
+                        properties: {
+                            phase: { type: "string", description: "Processing phase (extract, h5scan, h5open, putArrays)" },
+                            message: { type: "string" }
+                        }
+                    }
+                },
+                timings: {
+                    type: "object",
+                    description: "Elapsed time per phase in milliseconds",
+                    properties: {
+                        unzip: { type: "integer" },
+                        extract: { type: "integer" },
+                        validate: { type: "integer" },
+                        h5scan: { type: "integer" },
+                        h5open: { type: "integer" },
+                        session: { type: "integer" },
+                        putObjects: { type: "integer" },
+                        putArrays: { type: "integer" },
+                        commit: { type: "integer" },
+                        autoIngest: { type: "integer" },
+                        total: { type: "integer" }
                     }
                 },
                 catalogIngestion: {
