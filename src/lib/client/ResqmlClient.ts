@@ -2247,10 +2247,8 @@ export class ResqmlClient {
           : nbSliceInPart;
       const sliceLength = counts.reduce((p, c) => p * c, 1);
       const start = d * maxSliceLength;
-      const values = new Array<number>(sliceLength);
-      for (let i = 0; i < sliceLength; i++) {
-        values[i] = array[start + i] as number;
-      }
+      // Zero-copy view into the source TypedArray (data is stable during upload)
+      const values = (array as Exclude<typeof array, string>).subarray(start, start + sliceLength);
 
       promises.push(
         this.dataArray.sendSubArray(
@@ -2258,7 +2256,7 @@ export class ResqmlClient {
           [...starts],
           [...counts],
           array,
-          values
+          values as unknown as number[]
         )
       );
     }

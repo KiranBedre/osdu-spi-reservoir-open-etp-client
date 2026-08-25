@@ -298,7 +298,9 @@ export default class ArrayCustomer extends BaseHandler {
         return {
           item: {
             __keyName: "_bytes",
-            _bytes: Buffer.from(values as number[])
+            _bytes: ArrayBuffer.isView(values)
+              ? Buffer.from(values.buffer, values.byteOffset, values.byteLength)
+              : Buffer.from(values as number[])
           }
         };
     }
