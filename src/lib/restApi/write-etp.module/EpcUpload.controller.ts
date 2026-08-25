@@ -816,7 +816,7 @@ export default class EpcUploadAPI {
                             const elements = shape.reduce((a, b) => a * b, 1);
                             const bytesPerElement = typedArrayName.includes("64") ? 8
                                 : typedArrayName.includes("32") ? 4
-                                : typedArrayName.includes("16") ? 2 : 1;
+                                    : typedArrayName.includes("16") ? 2 : 1;
                             h5TotalElements += elements;
                             h5TotalBytes += elements * bytesPerElement;
 
