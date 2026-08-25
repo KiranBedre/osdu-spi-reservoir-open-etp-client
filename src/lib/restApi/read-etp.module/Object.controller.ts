@@ -150,9 +150,9 @@ export const sendObjects = async (
       .map(o =>
         o && o.data.length > 0
           ? byteToString(o.data).replace(
-              `<?xml version="1.0" encoding="UTF-8"?>`,
-              ""
-            )
+            `<?xml version="1.0" encoding="UTF-8"?>`,
+            ""
+          )
           : ""
       )
       .join("");
@@ -348,7 +348,7 @@ export default class ObjectsReadAPI {
   @Get(":dataObjectType/:guid")
   @ApiOperation({
     summary: "Get object content.",
-    description: `Get the actual content of a data object formatted as xml or json.`,
+    description: `Retrieve the full content of a single data object by type and UUID. Returns Energistics XML by default, or JSON with \`$format=json\`.\n\n**JSON mode**: Adds \`$type\` annotations and converts XML attributes to JSON properties — useful for client-side processing without an XML parser.\n\n**arrayMetadata**: When \`true\`, includes inline metadata for all HDF5 arrays referenced by this object (dimensions, data type, path).`,
     servers: swaggerServers
   })
   @ApiQuery(versionQueryParam)

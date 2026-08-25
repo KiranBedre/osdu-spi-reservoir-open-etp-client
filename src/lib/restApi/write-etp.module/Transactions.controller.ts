@@ -181,12 +181,24 @@ export default class TransactionsAPI {
     required: false
   })
   @ApiOperation({
-    summary: "Create new transaction.",
-    description: `Create new transaction.
-  Returns a transaction ID that can be used to commit (Put) or rollback(Delete).
-  Transaction will be automatically rolled back after the timeout period if no new transaction messages occur.
-  TimeoutPeriod is in seconds and defaults to 300 seconds if not provided.
-  Only one transaction can be active at a time for a given dataspace.`,
+    summary: "Start a new transaction",
+    description: `Start a new transaction for atomic write operations in this dataspace.
+
+Returns a \`transactionId\` UUID. Pass it to write/array endpoints as a query parameter.
+
+**Lifecycle**: commit with \`PUT …/transactions/{txId}\`, rollback with \`DELETE …/transactions/{txId}\`.
+
+**Timeout**: Auto-rollback after \`TimeoutPeriod\` seconds (default 300) if no new transaction messages occur.
+
+**Constraint**: Only one transaction can be active per dataspace at a time.
+
+**Typical write workflow**:
+\`\`\`
+POST  /dataspaces/{ds}/transactions              → transactionId
+PUT   /dataspaces/{ds}/resources?transactionId=…  → put objects (JSON array)
+PUT   /dataspaces/{ds}/resources/arrays?transactionId=… → put arrays (one per channel)
+PUT   /dataspaces/{ds}/transactions/{txId}        → commit
+\`\`\``,
     servers: swaggerServers
   })
   public async PostTransaction(
@@ -229,8 +241,8 @@ export default class TransactionsAPI {
   })
   @ApiPreconditionFailedResponse(errorMessageSchema("Precondition failed", 412))
   @ApiOperation({
-    summary: "Commit transaction.",
-    description: `Commit a transaction using the ID provided by Post.`,
+    summary: "Commit transaction",
+    description: `Commit a transaction, making all writes within it permanent. Returns \`true\` on success. The \`transactionId\` is no longer valid after commit.`,
     servers: swaggerServers
   })
   public async CommitTransaction(
@@ -276,8 +288,8 @@ export default class TransactionsAPI {
     }
   })
   @ApiOperation({
-    summary: "Rollback transaction.",
-    description: `Rollback a transaction using the ID provided by Post.`,
+    summary: "Rollback transaction",
+    description: `Rollback a transaction, discarding all writes within it. Returns \`true\` on success. Use this to cleanly abort a failed write sequence.`,
     servers: swaggerServers
   })
   public async RollbackTransaction(

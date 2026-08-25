@@ -85,7 +85,9 @@ export const swaggerUIUrl = `${restApiMainUrl}:${restApiPort}${restApiRoutePath}
 
 export const serverUIUrl = `${restApiMainUrl}:${openApiPort}${restApiServerPath}`;
 
-export const swaggerServers = [{ url: serverUIUrl, description: "API server" }];
+// No per-operation server override — all operations inherit the global
+// relative-path server declared via .addServer() in App.ts.
+export const swaggerServers: any = undefined;
 
 let userInfo: string;
 

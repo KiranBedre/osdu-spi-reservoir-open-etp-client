@@ -407,11 +407,19 @@ export default class MutationsAPI {
     }
   })
   @ApiOperation({
-    summary: "Create or update objects.",
-    description: `Create new objects by providing their content as a JSON array.
-    Each JSON objects should conform to the Energistics JSON schema defined for that type, including a $type field that is an Energistics qualified type when needed.
-    Some extra metadata on the resource representing the object can added inside a _ResourceCustomData field of each object, its value is a JSON object of key-value pairs for each metadata.
-    Object modification should be done within a transaction.`,
+    summary: "Create or update data objects",
+    description: `Create new objects or replace existing ones by providing their content as a JSON array.
+
+Each object must conform to the Energistics JSON schema for its type and include:
+- \`$type\` — Energistics qualified type (e.g., \`resqml20.obj_IjkGridRepresentation\`)
+- \`Uuid\` — unique identifier
+- \`Citation\` — with at least \`Title\`, \`Originator\`, and \`Creation\`
+
+**Transaction**: Pass \`transactionId\` to write within a transaction (recommended). Without it, operates in auto-commit mode.
+
+**Custom metadata**: Include a \`_ResourceCustomData\` field (JSON key-value object) to attach extra metadata to the ETP resource.
+
+**Batch size**: Objects are sent to the ETP server in batches. For very large payloads (>100 objects), consider splitting across multiple calls within the same transaction.`,
     servers: swaggerServers
   })
   public async PutDataObject(
@@ -558,8 +566,8 @@ export default class MutationsAPI {
   @ApiQuery(transactionIdQueryParam)
   @HttpCode(204)
   @ApiOperation({
-    summary: "Delete existing object.",
-    description: `Delete existing object.`,
+    summary: "Delete a data object",
+    description: `Delete a data object by type and UUID. Requires an active transaction (pass \`transactionId\`) or operates in auto-commit mode.\n\n**Note**: Deleting an object does not cascade-delete its arrays or referenced objects. Clean up related resources explicitly if needed.`,
     servers: swaggerServers
   })
   public async DeleteDataObject(
@@ -674,9 +682,8 @@ export default class MutationsAPI {
             result[i] = NaN;
           } else {
             throw new BadRequestException({
-              description: `Invalid value at index ${i}: expected number or null for ${arrayType}, got ${
-                typeof v === "object" ? JSON.stringify(v) : String(v)
-              }`
+              description: `Invalid value at index ${i}: expected number or null for ${arrayType}, got ${typeof v === "object" ? JSON.stringify(v) : String(v)
+                }`
             });
           }
         }
@@ -693,9 +700,8 @@ export default class MutationsAPI {
           const v = data[i];
           if (typeof v !== "bigint") {
             throw new BadRequestException({
-              description: `Invalid value at index ${i}: expected bigint for ${arrayType}, got ${
-                typeof v === "object" ? JSON.stringify(v) : String(v)
-              }`
+              description: `Invalid value at index ${i}: expected bigint for ${arrayType}, got ${typeof v === "object" ? JSON.stringify(v) : String(v)
+                }`
             });
           }
           result[i] = v;
@@ -730,9 +736,8 @@ export default class MutationsAPI {
           const v = data[i];
           if (!Number.isInteger(v)) {
             throw new BadRequestException({
-              description: `Invalid value at index ${i}: expected integer for ${arrayType}, got ${
-                typeof v === "object" ? JSON.stringify(v) : String(v)
-              }`
+              description: `Invalid value at index ${i}: expected integer for ${arrayType}, got ${typeof v === "object" ? JSON.stringify(v) : String(v)
+                }`
             });
           }
           result[i] = v;
@@ -786,11 +791,8 @@ export default class MutationsAPI {
     )
   )
   @ApiOperation({
-    summary: "Create or update a data array.",
-    description: `Create or update data array to attach to existing object.
-    When starts and count are present, it will update a subarray.
-    When data are not present, it will create an empty array else the data can be provided as either an array of number or a base64 encoded string.
-    Should be done within a transaction. `,
+    summary: "Create or update a data array",
+    description: `Create or update a data array attached to an existing object (well log curves, grid properties, seismic traces, etc.).\n\n**Data formats**: Provide \`Data\` as a JSON number array or a base64-encoded string. For float arrays, JSON \`null\` values are converted to IEEE 754 NaN (standard missing-value representation).\n\n**Subarrays**: Include \`Starts\` and \`Counts\` to write a slice of an existing array. Both must be present together and match the \`Dimensions\` length.\n\n**Empty arrays**: Omit \`Data\` to create an empty array with the specified dimensions and type.\n\n**Chunking**: Large arrays (> ~10 MB) are automatically chunked by the ETP layer into multiple WebSocket messages.\n\n**Transaction**: Should be done within a transaction — pass \`transactionId\` from \`POST /dataspaces/{ds}/transactions\`.`,
     servers: swaggerServers
   })
   public async PutDataArray(

@@ -275,7 +275,8 @@ function scopeFromString(
   }
 }
 
-const swaggerServers = [{ url: "" }];
+// Per-operation server override removed — inherits the global relative-path server.
+const swaggerServers: any = undefined;
 
 // ── Controller ───────────────────────────────────────────────────────────────
 
@@ -476,15 +477,15 @@ export default class QueryController {
   @HttpCode(200)
   @ApiOperation({
     summary: "Batch graph search across multiple URIs (Discovery Protocol 3)",
-    description: `Build a merged subgraph for multiple resource URIs in a single session.
-    For each URI, traverses the relationship graph with the given scope and depth,
-    then merges all discovered nodes and edges into a deduplicated result.
+    description: `Build a merged, deduplicated subgraph for multiple resource URIs in a single ETP session.
 
-    This is significantly more efficient than calling GET /graph/{type}/{guid}/targets
-    for each URI individually, as it reuses a single ETP session.
+For each URI, traverses the relationship graph with the given scope and depth, then merges all discovered nodes and edges into a single result.
 
-    Designed for deep search scenarios where a consumer (e.g., GraphQL) needs
-    to discover properties, representations, and interpretations for many objects at once.`,
+**Why use this**: Without batch search, deep search across N objects requires N+ individual REST calls. This endpoint does it in one call, reusing a single ETP session.
+
+**Performance**: For very large batches (>100 URIs), split into chunks — URIs are processed sequentially within the session. Depth values > 100 may timeout depending on server configuration.
+
+**Best-effort**: If traversal fails for one URI, remaining URIs are still processed and partial results returned.`,
     servers: swaggerServers
   })
   @ApiOkResponse({

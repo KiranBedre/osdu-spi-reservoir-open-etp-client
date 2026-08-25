@@ -1,32 +1,28 @@
 /**
- * ValidatorClient — TypeScript HTTP client for the RESQML Validator Service.
+ * ValidatorClient — RESQML Validator with local (in-process) and remote modes.
+ *
+ * **Local mode** (default): Uses the built-in TypeScript validator — no external
+ * service needed, no subprocess, no Python. Runs in the Node.js process.
+ *
+ * **Remote mode**: Falls back to HTTP calls to an external validator service
+ * (e.g. the Python FastAPI service) when RDMS_VALIDATOR_URL is set.
  *
  * Usage:
  *   import { ValidatorClient } from "../client/ValidatorClient";
- *   const validator = new ValidatorClient("http://localhost:8010");
+ *   const validator = new ValidatorClient();           // local mode
  *   const report = await validator.validateObjects(objects);
  *   if (!report.is_valid) { ... }
+ *
+ *   const remote = new ValidatorClient("http://validator:8010");  // remote mode
  */
 
-export interface ValidationError {
-  message: string;
-  severity: "error" | "warning" | "info";
-  category: string;
-  object_uuid?: string;
-  object_type?: string;
-  xpath?: string;
-  line?: number;
-}
+import * as LocalValidator from "../validation/ResqmlValidator";
 
-export interface ValidationReport {
-  is_valid: boolean;
-  version: string | null;
-  object_count: number;
-  validated_count: number;
-  error_count: number;
-  warning_count: number;
-  errors: ValidationError[];
-}
+// Re-export types from the local validator for backwards compatibility
+export type { ValidationError, ValidationReport, ValidationOptions } from "../validation/ResqmlValidator";
+export { Severity, ValidationCategory } from "../validation/ResqmlValidator";
+
+import type { ValidationError, ValidationReport, ValidationOptions } from "../validation/ResqmlValidator";
 
 export interface RoundtripDiff {
   missing_in_received: string[];
@@ -45,19 +41,6 @@ export interface RoundtripResult {
   roundtrip_ok: boolean;
 }
 
-export interface ValidationOptions {
-  skip_xsd?: boolean;
-  skip_dor?: boolean;
-  skip_epc_structure?: boolean;
-  skip_hdf5?: boolean;
-  skip_cross_object?: boolean;
-  skip_fesapi?: boolean;
-  skip_fesapi_native?: boolean;
-  skip_rddms?: boolean;
-  skip_business_rules?: boolean;
-  skip_pwls?: boolean;
-}
-
 export interface ObjectPayload {
   content_type: string;
   uuid: string;
@@ -65,19 +48,25 @@ export interface ObjectPayload {
 }
 
 export class ValidatorClient {
-  private baseUrl: string;
+  private baseUrl: string | null;
   private timeoutMs: number;
+  private readonly useLocal: boolean;
 
+  /**
+   * Create a validator client.
+   *
+   * - No args / no env var → **local mode** (in-process TypeScript validator)
+   * - `baseUrl` or `RDMS_VALIDATOR_URL` set → **remote mode** (HTTP to external service)
+   */
   constructor(baseUrl?: string, timeoutMs = 30_000) {
-    this.baseUrl =
-      baseUrl ||
-      process.env.RDMS_VALIDATOR_URL ||
-      "http://localhost:8010";
+    this.baseUrl = baseUrl || process.env.RDMS_VALIDATOR_URL || null;
+    this.useLocal = !this.baseUrl;
     this.timeoutMs = timeoutMs;
   }
 
-  /** Health check — returns true if the validator service is reachable. */
+  /** Health check — local mode always returns true. */
   async isHealthy(): Promise<boolean> {
+    if (this.useLocal) return true;
     try {
       const res = await fetch(`${this.baseUrl}/health`, {
         signal: AbortSignal.timeout(5000),
@@ -90,13 +79,36 @@ export class ValidatorClient {
 
   /**
    * Validate an EPC file (as a Buffer).
-   * Optionally provide an H5 buffer.
+   * In local mode, writes to a temp file and validates in-process.
    */
   async validateEpc(
     epcBuffer: Buffer,
     h5Buffer?: Buffer,
     options?: ValidationOptions
   ): Promise<ValidationReport> {
+    if (this.useLocal) {
+      const fs = await import("fs");
+      const os = await import("os");
+      const path = await import("path");
+
+      const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "rddms-validate-"));
+      const epcPath = path.join(tmpDir, "model.epc");
+      fs.writeFileSync(epcPath, epcBuffer);
+
+      let h5Path: string | undefined;
+      if (h5Buffer) {
+        h5Path = path.join(tmpDir, "model.h5");
+        fs.writeFileSync(h5Path, h5Buffer);
+      }
+
+      try {
+        return LocalValidator.validateEpc(epcPath, options ?? {}, h5Path);
+      } finally {
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+      }
+    }
+
+    // Remote mode
     const formData = new FormData();
     formData.append(
       "epc",
@@ -128,12 +140,17 @@ export class ValidatorClient {
 
   /**
    * Validate in-memory XML objects (e.g. from ETP GetDataObjects).
-   * Fast path — no file I/O on the client side.
+   * In local mode, runs the validator directly — no file I/O, no HTTP.
    */
   async validateObjects(
     objects: ObjectPayload[],
     options?: ValidationOptions
   ): Promise<ValidationReport> {
+    if (this.useLocal) {
+      return LocalValidator.validateObjects(objects, options ?? {});
+    }
+
+    // Remote mode
     const res = await fetch(`${this.baseUrl}/validate/objects`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -152,12 +169,53 @@ export class ValidatorClient {
   /**
    * Roundtrip validation: compare what was sent (PutDataObjects)
    * against what was received back (GetDataObjects).
+   *
+   * In local mode, validates the received objects and computes diff.
    */
   async validateRoundtrip(
     sent: ObjectPayload[],
     received: ObjectPayload[],
     options?: ValidationOptions
   ): Promise<RoundtripResult> {
+    if (this.useLocal) {
+      const receivedReport = LocalValidator.validateObjects(received, options ?? {});
+
+      // Compute diff
+      const sentUuids = new Set(sent.map(o => o.uuid.toLowerCase()));
+      const receivedUuids = new Set(received.map(o => o.uuid.toLowerCase()));
+
+      const missing = sent
+        .filter(o => !receivedUuids.has(o.uuid.toLowerCase()))
+        .map(o => o.uuid);
+      const extra = received
+        .filter(o => !sentUuids.has(o.uuid.toLowerCase()))
+        .map(o => o.uuid);
+
+      const contentMismatches: RoundtripDiff["content_mismatches"] = [];
+      for (const s of sent) {
+        const r = received.find(o => o.uuid.toLowerCase() === s.uuid.toLowerCase());
+        if (r && s.xml.length !== r.xml.length) {
+          contentMismatches.push({
+            uuid: s.uuid,
+            sent_content_type: s.content_type,
+            sent_length: s.xml.length,
+            received_length: r.xml.length,
+          });
+        }
+      }
+
+      return {
+        received_validation: receivedReport,
+        roundtrip_diff: {
+          missing_in_received: missing,
+          extra_in_received: extra,
+          content_mismatches: contentMismatches,
+        },
+        roundtrip_ok: missing.length === 0 && extra.length === 0 && contentMismatches.length === 0,
+      };
+    }
+
+    // Remote mode
     const res = await fetch(`${this.baseUrl}/validate/roundtrip`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

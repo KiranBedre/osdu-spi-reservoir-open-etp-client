@@ -124,8 +124,8 @@ export default class HealthAPI {
   @ApiOkResponse({ description: "Success", type: Boolean })
   @ApiInternalServerErrorResponse(errorMessageSchema("Unknown Error"))
   @ApiOperation({
-    summary: "Check the readiness of the server.",
-    description: `Used by to check server availability. Can be used by orchestrator for services availability`,
+    summary: "Check readiness (ETP backend connectivity).",
+    description: `Returns true if the underlying ETP WebSocket server is reachable and accepting connections. Returns 500 if the ETP server cannot be contacted.\n\n**Use case**: Kubernetes readiness probe — the pod is removed from service endpoints while the ETP backend is unreachable.`,
     security: [],
     servers: swaggerServers
   })
@@ -166,8 +166,8 @@ export default class HealthAPI {
   @ApiOkResponse({ description: "Success", type: Boolean })
   @ApiInternalServerErrorResponse(errorMessageSchema("Unknown Error"))
   @ApiOperation({
-    summary: "Check liveness of the server.",
-    description: `Used by to check server availability. Can be used by orchestrator for services availability`,
+    summary: "Check liveness of the REST process.",
+    description: `Returns true immediately — confirms the NestJS process is alive. Does not verify ETP backend connectivity (use \`/health/readiness\` for that).\n\n**Use case**: Kubernetes liveness probe — the pod is restarted if this endpoint stops responding.`,
     security: [],
     servers: swaggerServers
   })
@@ -196,8 +196,8 @@ export default class HealthAPI {
   @ApiNotFoundResponse(errorMessageSchema("Not found", 404))
   @ApiInternalServerErrorResponse(errorMessageSchema("Unknown Error"))
   @ApiOperation({
-    summary: "Check liveness of the server.",
-    description: `Used by to check server availability. Can be used by orchestrator for services availability`,
+    summary: "Get server version and build metadata.",
+    description: `Returns package name, version, git commit hash, commit time, and build time from package.json and git. Use for deployment verification, client compatibility checks, and diagnostics.`,
     security: [],
     servers: swaggerServers
   })

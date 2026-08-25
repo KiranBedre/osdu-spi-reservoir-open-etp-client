@@ -51,7 +51,7 @@ REST and GraphQL gateway for [OpenETPServer](https://community.opengroup.org/osd
 | Document | Description |
 |----------|-------------|
 | [CHANGELOG](./CHANGELOG.M27.md) | Summary of features, new interfaces, and behavioral changes per milestone |
-| [REST API Reference](./RestApi.md) | Full endpoint reference with request/response examples and workflow recipes |
+| [REST API Reference (Swagger UI)](http://localhost:8003/Reservoir/v2/) | Interactive endpoint reference with descriptions, examples, and try-it-out (served by the running application) |
 | [RESQML → OSDU Guide](./ResqmlOsduGuide.md) | How to populate RESQML metadata for lossless OSDU manifest roundtrips |
 | [OpenETPServer README](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-server/-/blob/main/README.md) | C++ ETP server: build, deploy, usage, telemetry, and server-side behavior |
 | [RddmsGov](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/rddmsmg/-/blob/main/docs/rddms/RddmsGov.md) | Governance, design principles, dataspace lifecycle, and responsibility model |
@@ -85,7 +85,7 @@ ETP protocols are **auto-negotiated** at session open — the client registers a
 
 ### REST API
 
-Interactive Swagger UI at the configured root path (default: `http://localhost:8003/Reservoir/v2/`). See [RestApi.md](./RestApi.md) for full reference.
+Interactive Swagger UI at the configured root path (default: `http://localhost:8003/Reservoir/v2/`). The Swagger page includes full endpoint descriptions, workflow examples, and try-it-out support.
 
 | Category | Key endpoints |
 |----------|---------------|

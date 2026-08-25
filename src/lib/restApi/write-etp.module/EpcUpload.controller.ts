@@ -382,12 +382,24 @@ export default class EpcUploadAPI {
     @ApiOperation({
         summary: "Upload EPC + H5 and ingest into dataspace",
         description:
-            "Upload a RESQML EPC file (ZIP with XML objects) and an optional HDF5 companion file. " +
-            "The endpoint unzips the EPC, parses all XML objects, reads referenced array data " +
-            "from the H5 file, and ingests everything into the target dataspace within a transaction. " +
-            "If no transactionId is provided, an internal transaction is created and committed automatically. " +
-            "If transactionId is provided, the caller is responsible for commit/rollback. " +
-            "Set autoIngest to automatically build an OSDU manifest and push to the catalog after ingest.",
+            "Upload a RESQML EPC file (ZIP with XML objects) and an optional HDF5 companion file.\n\n" +
+            "**Processing flow**:\n" +
+            "1. Validate file sizes against configured limits\n" +
+            "2. Unzip EPC → parse `[Content_Types].xml` manifest\n" +
+            "3. Extract XML objects, identify `EpcExternalPartReference` entries\n" +
+            "4. Scan XML for `<Hdf5Dataset>` blocks → collect H5 dataset paths\n" +
+            "5. Open H5 file, pre-scan dataset metadata\n" +
+            "6. Start transaction (or reuse caller's)\n" +
+            "7. PUT objects in batches of 100 (avoids ETP message size limits)\n" +
+            "8. PUT arrays one-by-one from H5 file (bounded memory)\n" +
+            "9. Commit transaction\n" +
+            "10. Auto-ingest to OSDU catalog (if `autoIngest` is set)\n\n" +
+            "**Auto-ingest modes**:\n" +
+            "- `false` (default) — no catalog registration\n" +
+            "- `true` / `records` — builds manifest → pushes records via Storage Service (data immediately searchable)\n" +
+            "- `workflow` — builds manifest → submits to OSDU ingestion workflow DAG\n\n" +
+            "**Note**: `autoIngest` requires an internal transaction (omit `transactionId`). When using an external transaction, auto-ingest is skipped because the data may not be committed yet.\n\n" +
+            "**Performance**: H5 file is written to disk (not buffered in memory). Arrays are read and sent one at a time. Duplicate H5 dataset references are deduplicated.",
         servers: swaggerServers
     })
     @UseInterceptors(
