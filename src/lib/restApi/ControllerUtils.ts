@@ -71,7 +71,7 @@ import {
   EtpSessionTerminatedError
 } from "../common/EtpTypes";
 
-import { bigIntToString } from "../mlTypes/XmlJsonUtil";
+import { convertBigInts } from "../mlTypes/XmlJsonUtil";
 
 import { ApiProperty, ApiQueryOptions } from "@nestjs/swagger";
 import { IsUUID, Matches, MaxLength } from "class-validator";
@@ -304,7 +304,7 @@ export const toJSonCustomData = (
               obj[key] = v;
             }
           } else {
-            obj[key] = JSON.parse(JSON.stringify(v, bigIntToString));
+            obj[key] = convertBigInts(v);
           }
         }
       }

@@ -139,6 +139,27 @@ export class ValidatorClient {
   }
 
   /**
+   * Validate an EPC file from disk paths (avoids reading into memory).
+   * In local mode, passes paths directly to the validator.
+   * In remote mode, streams the files to the validator service.
+   */
+  async validateEpcFromPaths(
+    epcPath: string,
+    h5Path?: string,
+    options?: ValidationOptions
+  ): Promise<ValidationReport> {
+    if (this.useLocal) {
+      return LocalValidator.validateEpc(epcPath, options ?? {}, h5Path);
+    }
+
+    // Remote mode: read files for upload
+    const fs = await import("fs");
+    const epcBuffer = fs.readFileSync(epcPath);
+    const h5Buffer = h5Path ? fs.readFileSync(h5Path) : undefined;
+    return this.validateEpc(epcBuffer, h5Buffer, options);
+  }
+
+  /**
    * Validate in-memory XML objects (e.g. from ETP GetDataObjects).
    * In local mode, runs the validator directly — no file I/O, no HTTP.
    */

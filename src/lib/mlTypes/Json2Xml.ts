@@ -368,7 +368,7 @@ export class XMLBuilder {
 
     const rule = xmlType?.rule;
 
-    let val = "";
+    const valParts: string[] = [];
     const props = this.orderedProps(jObj);
     for (const key of props) {
       if (key.startsWith(this.attributeNamePrefix) || key === "$type") {
@@ -424,7 +424,7 @@ export class XMLBuilder {
         // suppress undefined node
       } else if (jObj[key] === null) {
         // Process null node
-        val += `${this.indentBy(level)}<${curKey}/>\n`;
+        valParts.push(`${this.indentBy(level)}<${curKey}/>\n`);
       } else if (typeof jObj[key] !== "object" || jObj[key] instanceof Date) {
         // Process primitive type
 
@@ -441,17 +441,17 @@ export class XMLBuilder {
           attrStr += ` ${schemaAttr}="${newVal}"`;
         } else {
           // Tag value
-          val += this.buildTextValueNode(jObj[key], curKey, xsdType, level);
+          valParts.push(this.buildTextValueNode(jObj[key], curKey, xsdType, level));
         }
       } else if (Array.isArray(jObj[key])) {
         // Repeated nodes
         if (this.isXMLList(jObj.$type, key)) {
-          val += this.buildTextValueNode(
+          valParts.push(this.buildTextValueNode(
             jObj[key].join(" "),
             curKey,
             xsdType,
             level
-          );
+          ));
         } else {
           const arrLen = jObj[key].length;
           for (let j = 0; j < arrLen; j++) {
@@ -459,17 +459,17 @@ export class XMLBuilder {
             if (typeof item === "undefined") {
               // Suppress undefined node
             } else if (item === null) {
-              val += `${this.indentBy(level)}<${curKey}/>\n`;
+              valParts.push(`${this.indentBy(level)}<${curKey}/>\n`);
             } else if (typeof item === "object") {
-              val += this.processTextOrObjectNode(
+              valParts.push(this.processTextOrObjectNode(
                 item,
                 curKey,
                 level,
                 curMl,
                 curType
-              );
+              ));
             } else {
-              val += this.buildTextValueNode(item, curKey, xsdType, level);
+              valParts.push(this.buildTextValueNode(item, curKey, xsdType, level));
             }
           }
         }
@@ -491,20 +491,20 @@ export class XMLBuilder {
                 }"`;
             }
           }
-          val += this.buildTextValueNode(jObj[key]["_"], curKey, attr2, level);
+          valParts.push(this.buildTextValueNode(jObj[key]["_"], curKey, attr2, level));
         } else {
           // Process complex XML node (structure)
-          val += this.processTextOrObjectNode(
+          valParts.push(this.processTextOrObjectNode(
             jObj[key],
             curKey,
             level,
             curMl,
             curType
-          );
+          ));
         }
       }
     }
-    return { attrStr: attrStr, val: val };
+    return { attrStr: attrStr, val: valParts.join("") };
   }
 
   /**

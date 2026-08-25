@@ -589,9 +589,10 @@ export default class EpcUploadAPI {
             if (doValidate) {
                 logger.info("Running RESQML validation on EPC...");
                 const validator = new ValidatorClient();
-                const epcBuffer = fs.readFileSync(epcFile.path);
-                const h5Buffer = h5File ? fs.readFileSync(h5File.path) : undefined;
-                validationReport = await validator.validateEpc(epcBuffer, h5Buffer);
+                validationReport = await validator.validateEpcFromPaths(
+                    epcFile.path,
+                    h5File?.path
+                );
                 logger.info(
                     `Validation complete: ${validationReport.is_valid ? "VALID" : "INVALID"} ` +
                     `(${validationReport.error_count} errors, ${validationReport.warning_count} warnings)`

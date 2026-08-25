@@ -369,13 +369,14 @@ const getObjectDataArrays = async (
     let message = "";
 
     const concatMessage = (err: string) => (message += `${err} `);
-    while (arrayList.length > 0) {
+    const depth = c.messageQueueDepth();
+    for (let i = 0; i < arrayList.length; i += depth) {
       // Limit concurrent requests to what server can handle
-      const sp = arrayList.splice(0, c.messageQueueDepth());
+      const sp = arrayList.slice(i, i + depth);
       await Promise.all(
         sp.map(v => c.getDataArrayMetadata(v.uid.uri, v.uid.pathInResource))
       )
-        .then(a => arrays.push(...a))
+        .then(a => { for (const item of a) arrays.push(item); })
         .catch(concatMessage);
     }
     if (message !== "") {

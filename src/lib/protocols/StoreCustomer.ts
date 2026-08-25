@@ -41,6 +41,7 @@ const PROTOCOL = Energistics.Etp.v12.Datatypes.Protocol;
 
 class DataObjectsResponseHandler extends MapResponseHandler<DataObject> {
   chunkKeys: Map<string, { key: string; correlationId: Integer64 }> = new Map();
+  private chunkBuffers: Map<string, Buffer[]> = new Map();
 
   /**
    * Process the content of a Chunk message
@@ -94,10 +95,18 @@ class DataObjectsResponseHandler extends MapResponseHandler<DataObject> {
       );
     }
 
-    // Add chunk data to data object
-    dataObject.data = Buffer.concat([dataObject.data, chunk.data]);
+    // Accumulate chunk data efficiently (avoid O(n²) Buffer.concat in loop)
+    let buffers = this.chunkBuffers.get(uuid);
+    if (!buffers) {
+      buffers = [];
+      this.chunkBuffers.set(uuid, buffers);
+    }
+    buffers.push(chunk.data);
 
     if (chunk.final) {
+      // Concat all chunks at once
+      dataObject.data = Buffer.concat(buffers);
+      this.chunkBuffers.delete(uuid);
       // Remove chunk from map
       this.chunkKeys.delete(uuid);
       dataObject.blobId = null;
@@ -281,10 +290,10 @@ export class StoreCustomer extends BaseHandler {
           uriMap.set(key, key);
         }
         const getDataObject2: Energistics.Etp.v12.Protocol.Store.GetDataObjects =
-          {
-            format: "xml",
-            uris: uriMap
-          };
+        {
+          format: "xml",
+          uris: uriMap
+        };
         const data2 = this.sessionManager.computeData(header, getDataObject2);
         if (i === nbPart - 1) {
           // Last part, create a promise
@@ -514,10 +523,10 @@ export class StoreCustomer extends BaseHandler {
       return key;
     });
     const deleteDataObject: Energistics.Etp.v12.Protocol.Store.DeleteDataObjects =
-      {
-        pruneContainedObjects: pruneContainedObjects,
-        uris
-      };
+    {
+      pruneContainedObjects: pruneContainedObjects,
+      uris
+    };
 
     const data = this.sessionManager.computeData(header, deleteDataObject);
     this.logTrace(`Sending Store.DeleteDataObjects ${header.messageId}.`);
@@ -539,10 +548,10 @@ export class StoreCustomer extends BaseHandler {
           uriMap.set(key, key);
         }
         const deleteDataObject2: Energistics.Etp.v12.Protocol.Store.DeleteDataObjects =
-          {
-            pruneContainedObjects: pruneContainedObjects,
-            uris: uriMap
-          };
+        {
+          pruneContainedObjects: pruneContainedObjects,
+          uris: uriMap
+        };
         const data2 = this.sessionManager.computeData(
           header,
           deleteDataObject2
