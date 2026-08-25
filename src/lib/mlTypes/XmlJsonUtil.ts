@@ -47,17 +47,17 @@ type Camel<T> = T extends any[]
   ? T
   : T extends Record<string, any>
   ? {
-      [P in keyof T as `${Capitalize<string & P>}`]: T[P];
-    }
+    [P in keyof T as `${Capitalize<string & P>}`]: T[P];
+  }
   : T;
 
 // Types transformations used in OmitRecursively
 type OmitDistributive<T, K extends PropertyKey> = T extends any
   ? T extends Date
-    ? Date
-    : T extends object
-    ? Id<OmitRecursively<Camel<T>, K>>
-    : T
+  ? Date
+  : T extends object
+  ? Id<OmitRecursively<Camel<T>, K>>
+  : T
   : never;
 type Id<T> = (Record<string, unknown> | Record<string, unknown>[] | unknown[]) &
   Camel<{
@@ -147,6 +147,30 @@ export const bigIntToString = (
     return value > Number.MAX_SAFE_INTEGER
       ? value.toString() + "n"
       : Number(value);
+  }
+  return value;
+};
+
+/**
+ * Recursively convert BigInt values in an object to numbers or strings.
+ * Avoids the overhead of JSON.parse(JSON.stringify(...)) for deep cloning.
+ */
+export const convertBigInts = (value: unknown): unknown => {
+  if (value === null || value === undefined) return value;
+  if (typeof value === "bigint") {
+    return value > Number.MAX_SAFE_INTEGER
+      ? value.toString() + "n"
+      : Number(value);
+  }
+  if (Array.isArray(value)) {
+    return value.map(convertBigInts);
+  }
+  if (typeof value === "object") {
+    const result: Record<string, unknown> = {};
+    for (const key of Object.keys(value as Record<string, unknown>)) {
+      result[key] = convertBigInts((value as Record<string, unknown>)[key]);
+    }
+    return result;
   }
   return value;
 };
@@ -281,7 +305,7 @@ export const simpleJson = (
 
   const newObj: Record<string, any> = {};
 
-  const keys: string[] = [
+  const keys = new Set([
     // keys of eml20.HandlerInstances
     "content",
     "_exists",
@@ -291,10 +315,10 @@ export const simpleJson = (
     "_type",
     "_before",
     "_after"
-  ];
+  ]);
 
   Object.getOwnPropertyNames(obj)
-    .filter(key => !keys.includes(key)) // Remove optional elements
+    .filter(key => !keys.has(key)) // Remove optional elements
     .forEach(key => {
       const pascalKey = toPascalCase(key);
       newObj[pascalKey] = simpleJson(obj[key], schemaVersion);
@@ -340,16 +364,16 @@ const xmlDocument = (dataObjectType: string) => {
   return dataObjectType.startsWith("resqml20")
     ? resqml20.document
     : dataObjectType.startsWith("prodml22")
-    ? prodml22.document
-    : dataObjectType.startsWith("prodml23")
-    ? prodml23.document
-    : dataObjectType.startsWith("resqml22")
-    ? resqml22.document
-    : dataObjectType.startsWith("witsml21")
-    ? witsml21.document
-    : dataObjectType.startsWith("eml23")
-    ? eml23.document
-    : eml20.document;
+      ? prodml22.document
+      : dataObjectType.startsWith("prodml23")
+        ? prodml23.document
+        : dataObjectType.startsWith("resqml22")
+          ? resqml22.document
+          : dataObjectType.startsWith("witsml21")
+            ? witsml21.document
+            : dataObjectType.startsWith("eml23")
+              ? eml23.document
+              : eml20.document;
 };
 
 /**
@@ -589,9 +613,9 @@ export class InterfaceTypeUtils {
     const c = this.findInterface(interfaceName);
     return c
       ? c[0]
-          .getProperties()
-          .filter(p => p.getQuestionTokenNode() === undefined)
-          .map(p => p.getName())
+        .getProperties()
+        .filter(p => p.getQuestionTokenNode() === undefined)
+        .map(p => p.getName())
       : [];
   }
 

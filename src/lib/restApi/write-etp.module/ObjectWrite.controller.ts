@@ -94,6 +94,9 @@ import { AvroString, Integer32 } from "../../common/Etp12";
 import { XMLBuilder } from "../../mlTypes/Json2Xml";
 import { bigIntToString } from "../../mlTypes/XmlJsonUtil";
 
+import { ValidatorClient } from "../../client/ValidatorClient";
+import type { ValidationReport } from "../../client/ValidatorClient";
+
 import { AnyTypedArray } from "../../protocols/ArrayCustomer";
 import { EmlObjectDto } from "../read-etp.module/Object.controller";
 import {
@@ -302,7 +305,7 @@ export default class MutationsAPI {
               Originator: "dalsaab",
               Creation: "2021-09-02T07:57:28.000Z",
               Format:
-                "Paradigm SKUA-GOCAD 22 Alpha 1 Build:20210830-0200 (id: origin/master|56050|1fb1cf919c2|20210827-1108) for Linux_x64_2.17_gcc91",
+                "RESQML Modeling Application v1.0 for Linux_x64",
               Editor: "dalsaab",
               LastUpdate: "2021-09-06T13:30:24.000Z"
             },
@@ -349,12 +352,12 @@ export default class MutationsAPI {
               Originator: "user1",
               Creation: "2019-01-08T13:41:25.000Z",
               Format:
-                "Paradigm SKUA-GOCAD 22 Alpha 1 Build:20210830-0200 (id: origin/master|56050|1fb1cf919c2|20210827-1108) for Linux_x64_2.17_gcc91",
+                "RESQML Modeling Application v1.0 for Linux_x64",
               $type: "eml20.Citation"
             },
             ExtraMetadata: [
               {
-                Name: "pdgm/dx/resqml/creatorGroup",
+                Name: "app/resqml/creatorGroup",
                 Value: "Interpreters",
                 $type: "resqml20.NameValuePair"
               }
@@ -400,26 +403,68 @@ export default class MutationsAPI {
     }
   })
   @ApiQuery(transactionIdQueryParam)
+  @ApiQuery({
+    name: "validate",
+    required: false,
+    description:
+      "When 'true', runs RESQML validation (XSD, DOR integrity, business rules) on the objects before writing. " +
+      "The write still proceeds but the response includes a `validation` report. " +
+      "Set to 'strict' to reject the write on validation errors (returns 400).",
+    schema: {
+      type: "string",
+      enum: ["false", "true", "strict"],
+      default: "false"
+    }
+  })
   @ApiOkResponse({
     description: "Success",
     schema: {
-      type: "boolean"
+      oneOf: [
+        { type: "boolean" },
+        {
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            validation: {
+              type: "object",
+              properties: {
+                is_valid: { type: "boolean" },
+                version: { type: "string", nullable: true },
+                object_count: { type: "integer" },
+                validated_count: { type: "integer" },
+                error_count: { type: "integer" },
+                warning_count: { type: "integer" },
+                errors: { type: "array", items: { type: "object" } }
+              }
+            }
+          }
+        }
+      ]
     }
   })
   @ApiOperation({
-    summary: "Create or update objects.",
-    description: `Create new objects by providing their content as a JSON array.
-    Each JSON objects should conform to the Energistics JSON schema defined for that type, including a $type field that is an Energistics qualified type when needed.
-    Some extra metadata on the resource representing the object can added inside a _ResourceCustomData field of each object, its value is a JSON object of key-value pairs for each metadata.
-    Object modification should be done within a transaction.`,
+    summary: "Create or update data objects",
+    description: `Create new objects or replace existing ones by providing their content as a JSON array.
+
+Each object must conform to the Energistics JSON schema for its type and include:
+- \`$type\` — Energistics qualified type (e.g., \`resqml20.obj_IjkGridRepresentation\`)
+- \`Uuid\` — unique identifier
+- \`Citation\` — with at least \`Title\`, \`Originator\`, and \`Creation\`
+
+**Transaction**: Pass \`transactionId\` to write within a transaction (recommended). Without it, operates in auto-commit mode.
+
+**Custom metadata**: Include a \`_ResourceCustomData\` field (JSON key-value object) to attach extra metadata to the ETP resource.
+
+**Batch size**: Objects are sent to the ETP server in batches. For very large payloads (>100 objects), consider splitting across multiple calls within the same transaction.`,
     servers: swaggerServers
   })
   public async PutDataObject(
     @Body() requestBody: EmlObjectDto[],
     @Param() params: FindInDataSpaceParams,
     @Query("transactionId") transactionId?: string,
+    @Query("validate") validate?: string,
     @Req() request?: express.Request
-  ): Promise<boolean> {
+  ): Promise<boolean | Record<string, unknown>> {
     logger.info(
       `Received request to put data objects in dataspace: ${params.dataspaceId}`
     );
@@ -530,6 +575,56 @@ export default class MutationsAPI {
           blobId: null
         };
       });
+
+      // ── Optional RESQML validation ──
+      let validationReport: ValidationReport | undefined;
+      const doValidate = validate === "true" || validate === "strict";
+
+      if (doValidate) {
+        logger.info("Running RESQML validation on objects...");
+        const validator = new ValidatorClient();
+        const xmlPayloads = dataObjects.map(d => {
+          // Extract content_type from URI: eml:///dataspace('...')/resqml20.obj_Foo(uuid)
+          const uriMatch = d.resource.uri.match(
+            /\/(?<qt>(?:resqml|eml|witsml|prodml)\d+\.(?:obj_)?\w+)\(/
+          );
+          const qt = uriMatch?.groups?.qt ?? "unknown";
+          const ctMatch = qt.match(
+            /^(?<domain>resqml|eml|witsml|prodml)(?<ver>\d+)\.(?<type>\w+)$/
+          );
+          const domain = ctMatch?.groups?.domain ?? "resqml";
+          const ver = ctMatch?.groups?.ver ?? "20";
+          const type = ctMatch?.groups?.type ?? "Unknown";
+          const version = ver === "20" ? "2.0" : ver === "22" ? "2.2" : ver;
+          const contentType =
+            `application/x-${domain}+xml;version=${version};type=${type}`;
+          // Extract UUID from URI
+          const uuidMatch = d.resource.uri.match(
+            /\(([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\)/
+          );
+          return {
+            content_type: contentType,
+            uuid: uuidMatch?.[1] ?? "",
+            xml: Buffer.from(d.data as Buffer).toString("utf-8")
+          };
+        });
+        validationReport = await validator.validateObjects(xmlPayloads);
+        logger.info(
+          `Validation: ${validationReport.is_valid ? "VALID" : "INVALID"} ` +
+          `(${validationReport.error_count} errors, ${validationReport.warning_count} warnings)`
+        );
+
+        if (validate === "strict" && !validationReport.is_valid) {
+          if (!transactionId) await c.closeSession();
+          throw new BadRequestException({
+            statusCode: 400,
+            message: `RESQML validation failed: ${validationReport.error_count} error(s)`,
+            error: "Validation Failed",
+            validation: validationReport
+          });
+        }
+      }
+
       logger.info("Sending data objects...");
       const r = await c.putDataObjects(dataObjects as DataObject[]);
       logger.info("Data objects sent successfully.");
@@ -537,6 +632,9 @@ export default class MutationsAPI {
         logger.info("Closing session...");
         await c.closeSession();
         logger.info("Session closed successfully.");
+      }
+      if (validationReport) {
+        return { success: r, validation: validationReport };
       }
       return r;
     } catch (err) {
@@ -558,8 +656,8 @@ export default class MutationsAPI {
   @ApiQuery(transactionIdQueryParam)
   @HttpCode(204)
   @ApiOperation({
-    summary: "Delete existing object.",
-    description: `Delete existing object.`,
+    summary: "Delete a data object",
+    description: `Delete a data object by type and UUID. Requires an active transaction (pass \`transactionId\`) or operates in auto-commit mode.\n\n**Note**: Deleting an object does not cascade-delete its arrays or referenced objects. Clean up related resources explicitly if needed.`,
     servers: swaggerServers
   })
   public async DeleteDataObject(
@@ -674,9 +772,8 @@ export default class MutationsAPI {
             result[i] = NaN;
           } else {
             throw new BadRequestException({
-              description: `Invalid value at index ${i}: expected number or null for ${arrayType}, got ${
-                typeof v === "object" ? JSON.stringify(v) : String(v)
-              }`
+              description: `Invalid value at index ${i}: expected number or null for ${arrayType}, got ${typeof v === "object" ? JSON.stringify(v) : String(v)
+                }`
             });
           }
         }
@@ -693,9 +790,8 @@ export default class MutationsAPI {
           const v = data[i];
           if (typeof v !== "bigint") {
             throw new BadRequestException({
-              description: `Invalid value at index ${i}: expected bigint for ${arrayType}, got ${
-                typeof v === "object" ? JSON.stringify(v) : String(v)
-              }`
+              description: `Invalid value at index ${i}: expected bigint for ${arrayType}, got ${typeof v === "object" ? JSON.stringify(v) : String(v)
+                }`
             });
           }
           result[i] = v;
@@ -730,9 +826,8 @@ export default class MutationsAPI {
           const v = data[i];
           if (!Number.isInteger(v)) {
             throw new BadRequestException({
-              description: `Invalid value at index ${i}: expected integer for ${arrayType}, got ${
-                typeof v === "object" ? JSON.stringify(v) : String(v)
-              }`
+              description: `Invalid value at index ${i}: expected integer for ${arrayType}, got ${typeof v === "object" ? JSON.stringify(v) : String(v)
+                }`
             });
           }
           result[i] = v;
@@ -786,11 +881,8 @@ export default class MutationsAPI {
     )
   )
   @ApiOperation({
-    summary: "Create or update a data array.",
-    description: `Create or update data array to attach to existing object.
-    When starts and count are present, it will update a subarray.
-    When data are not present, it will create an empty array else the data can be provided as either an array of number or a base64 encoded string.
-    Should be done within a transaction. `,
+    summary: "Create or update a data array",
+    description: `Create or update a data array attached to an existing object (well log curves, grid properties, seismic traces, etc.).\n\n**Data formats**: Provide \`Data\` as a JSON number array or a base64-encoded string. For float arrays, JSON \`null\` values are converted to IEEE 754 NaN (standard missing-value representation).\n\n**Subarrays**: Include \`Starts\` and \`Counts\` to write a slice of an existing array. Both must be present together and match the \`Dimensions\` length.\n\n**Empty arrays**: Omit \`Data\` to create an empty array with the specified dimensions and type.\n\n**Chunking**: Large arrays (> ~10 MB) are automatically chunked by the ETP layer into multiple WebSocket messages.\n\n**Transaction**: Should be done within a transaction — pass \`transactionId\` from \`POST /dataspaces/{ds}/transactions\`.`,
     servers: swaggerServers
   })
   public async PutDataArray(

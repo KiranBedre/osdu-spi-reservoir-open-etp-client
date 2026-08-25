@@ -2189,7 +2189,7 @@ export class ResqmlClient {
     ) {
       const data = ArrayCustomer.createDataFromValues(
         array,
-        Array.prototype.slice.call(array)
+        array as unknown as number[]
       );
       const da: Energistics.Etp.v12.Datatypes.DataArrayTypes.PutDataArraysType =
       {
@@ -2246,13 +2246,9 @@ export class ResqmlClient {
           ? nbSliceExtraPart
           : nbSliceInPart;
       const sliceLength = counts.reduce((p, c) => p * c, 1);
-      const values: number[] = Array.from({
-        length: sliceLength
-      });
       const start = d * maxSliceLength;
-      for (let i = 0; i < sliceLength; i++) {
-        values[i] = array[start + i] as number;
-      }
+      // Zero-copy view into the source TypedArray (data is stable during upload)
+      const values = (array as Exclude<typeof array, string>).subarray(start, start + sliceLength);
 
       promises.push(
         this.dataArray.sendSubArray(
@@ -2260,7 +2256,7 @@ export class ResqmlClient {
           [...starts],
           [...counts],
           array,
-          values
+          values as unknown as number[]
         )
       );
     }

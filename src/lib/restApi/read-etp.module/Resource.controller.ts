@@ -381,7 +381,7 @@ const toJSonResource = (
     targetCount: d.targetCount === null ? undefined : d.targetCount,
     activeStatus:
       d.activeStatus ===
-      Energistics.Etp.v12.Datatypes.Object.ActiveStatusKind.Inactive
+        Energistics.Etp.v12.Datatypes.Object.ActiveStatusKind.Inactive
         ? "Inactive"
         : "Active",
     lastChanged: toDate(d.lastChanged),
@@ -645,7 +645,7 @@ export default class ResourcesReadAPI {
   @ApiQuery(storeLastWriteFilterQueryParam)
   @ApiOperation({
     summary: "List dataspaces.",
-    description: `List the dataspaces available in a server. Output can be paginated.`,
+    description: `List all dataspaces available on the connected ETP server. Returns path, custom data, and timestamps for each.\n\n**Pagination**: Use \`$skip\` and \`$top\` for client-side pagination. \`storeLastWriteFilter\` returns only dataspaces modified after the given ISO timestamp.`,
     servers: swaggerServers
   })
   public async ListDataspaces(
@@ -675,10 +675,10 @@ export default class ResourcesReadAPI {
 
       const pros = projects
         ? sliceArray<Energistics.Etp.v12.Datatypes.Object.Dataspace>(
-            skip,
-            top,
-            projects
-          ).map(p => toJSonDataspace(p))
+          skip,
+          top,
+          projects
+        ).map(p => toJSonDataspace(p))
         : [];
       logger.info("Dataspaces processed");
 
@@ -705,8 +705,8 @@ export default class ResourcesReadAPI {
     type: DataspaceDto
   })
   @ApiOperation({
-    summary: "Get info on a dataspace.",
-    description: `Get all information bout explicit dataspace.`,
+    summary: "Get dataspace info",
+    description: `Get metadata for a specific dataspace including path, custom data, and timestamps.\n\n**dataspaceId format**: URL-encoded path (e.g., \`foo%2Fdrogon\` for \`foo/drogon\`).`,
     servers: swaggerServers
   })
   public async GetDataspaceInfo(
@@ -753,6 +753,130 @@ export default class ResourcesReadAPI {
   }
 
   /**
+   * Validate all RESQML objects in a dataspace.
+   *
+   * @memberof ResourcesReadAPI
+   */
+  @Post(":dataspaceId/validate")
+  @ApiOkResponse({
+    description: "Validation report",
+    schema: {
+      type: "object",
+      properties: {
+        is_valid: { type: "boolean" },
+        version: { type: "string", nullable: true },
+        object_count: { type: "integer" },
+        validated_count: { type: "integer" },
+        error_count: { type: "integer" },
+        warning_count: { type: "integer" },
+        errors: { type: "array", items: { type: "object" } }
+      }
+    }
+  })
+  @ApiOperation({
+    summary: "Validate RESQML objects in a dataspace",
+    description:
+      "Fetches all data objects from the dataspace via ETP and runs RESQML strict validation " +
+      "(XSD schema, DOR integrity, cross-object consistency, business rules). " +
+      "Read-only — does not modify any data.\n\n" +
+      "**Performance**: Fetches full XML for every object in the dataspace. " +
+      "For large dataspaces (>1000 objects), this may take several seconds.",
+    servers: swaggerServers
+  })
+  public async ValidateDataspace(
+    @Param() params: FindInDataSpaceParams,
+    @Req() request?: express.Request
+  ) {
+    logger.info(
+      `Validate request for dataspace: ${params.dataspaceId}`
+    );
+    let c = undefined;
+    try {
+      c = await createSession(
+        extractToken(request),
+        extractDataPartitionId(request)
+      );
+
+      // Discover all resources in the dataspace
+      const dataspaceUri = `eml:///dataspace('${params.dataspaceId}')`;
+      const context: Energistics.Etp.v12.Datatypes.Object.ContextInfo = {
+        uri: dataspaceUri,
+        depth: 1,
+        dataObjectTypes: [],
+        navigableEdges:
+          Energistics.Etp.v12.Datatypes.Object.RelationshipKind.Primary,
+        includeSecondaryTargets: false,
+        includeSecondarySources: false
+      };
+
+      const resources = await c.discovery.getResources(
+        context,
+        Energistics.Etp.v12.Datatypes.Object.ContextScopeKind.targets,
+        false,
+        null
+      );
+
+      if (resources.length === 0) {
+        return {
+          is_valid: true,
+          version: null,
+          object_count: 0,
+          validated_count: 0,
+          error_count: 0,
+          warning_count: 0,
+          errors: []
+        };
+      }
+
+      // Fetch all object bodies
+      const uris = resources.map(r => r.uri);
+      const objects = await c.getDataObjects(uris);
+      await c.closeSession();
+      c = undefined;
+
+      // Convert to validator format
+      const xmlPayloads = objects
+        .filter(o => o !== null)
+        .map(o => {
+          const uri = o!.resource.uri;
+          // Extract content type from URI pattern: /resqml20.obj_Foo(uuid)
+          const uriMatch = uri.match(
+            /\/(?<domain>resqml|eml|witsml|prodml)(?<ver>\d+)\.(?<type>(?:obj_)?\w+)\(/
+          );
+          const domain = uriMatch?.groups?.domain ?? "resqml";
+          const ver = uriMatch?.groups?.ver ?? "20";
+          const type = uriMatch?.groups?.type ?? "Unknown";
+          const version = ver === "20" ? "2.0" : ver === "22" ? "2.2" : ver;
+          const contentType =
+            `application/x-${domain}+xml;version=${version};type=${type}`;
+          const uuidMatch = uri.match(
+            /\(([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\)/
+          );
+          return {
+            content_type: contentType,
+            uuid: uuidMatch?.[1] ?? "",
+            xml: o!.data ? Buffer.from(o!.data).toString("utf-8") : ""
+          };
+        })
+        .filter(o => o.xml.length > 0);
+
+      logger.info(`Validating ${xmlPayloads.length} objects from dataspace ${params.dataspaceId}...`);
+      const { ValidatorClient } = await import("../../client/ValidatorClient");
+      const validator = new ValidatorClient();
+      const report = await validator.validateObjects(xmlPayloads);
+      logger.info(
+        `Validation complete: ${report.is_valid ? "VALID" : "INVALID"} ` +
+        `(${report.error_count} errors, ${report.warning_count} warnings)`
+      );
+      return report;
+    } catch (err) {
+      logger.error(`Error validating dataspace ${params.dataspaceId}: ${err}`);
+      await c?.closeSession();
+      throw httpErrorFromEtpError(err);
+    }
+  }
+
+  /**
    * Lock a dataspace
    *
    * @memberof ResourcesReadAPI
@@ -763,8 +887,8 @@ export default class ResourcesReadAPI {
     type: Boolean
   })
   @ApiOperation({
-    summary: "Lock a dataspace.",
-    description: `Set a dataspace read-only.`,
+    summary: "Lock a dataspace",
+    description: `Set a dataspace to read-only. Write operations and delete will be rejected (403) while locked. Use \`DELETE /dataspaces/{dataspaceId}/lock\` to unlock.`,
     servers: swaggerServers
   })
   public async LockDataspace(
@@ -818,8 +942,8 @@ export default class ResourcesReadAPI {
     type: Boolean
   })
   @ApiOperation({
-    summary: "Unlock a dataspace.",
-    description: `Set a dataspace read-write.`,
+    summary: "Unlock a dataspace",
+    description: `Remove the read-only lock from a dataspace, allowing write operations again.`,
     servers: swaggerServers
   })
   public async UnlockDataspace(
@@ -882,8 +1006,8 @@ export default class ResourcesReadAPI {
     }
   })
   @ApiOperation({
-    summary: "List types inside a dataspace.",
-    description: `List the types present in the dataspace, and the number of items for each type.`,
+    summary: "List resource types in a dataspace.",
+    description: `Returns each Energistics type present in the dataspace with its object count (e.g., \`resqml20.obj_IjkGridRepresentation: 12\`). Use this to discover what data exists before listing individual resources.`,
     servers: swaggerServers
   })
   public async ListTypes(
@@ -952,10 +1076,8 @@ export default class ResourcesReadAPI {
   @ApiQuery(transactionIdQueryParam)
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
-    summary: "List all resources.",
-    description: `List all resources in a dataspace.
-    Output can be paginated and filtered by types, content, last update time.
-    Use depth > 1 to recursively discover related resources (graph traversal).`,
+    summary: "List all resources in a dataspace",
+    description: `List all resources (data objects) in a dataspace. Returns URI, name, type, and timestamps for each.\n\n**Filtering**: Use \`dataObjectTypes\` to restrict by type (e.g., \`resqml20.obj_IjkGridRepresentation\`), \`storeLastWriteFilter\` for incremental sync, and \`$filter\` for XPath content queries.\n\n**Graph traversal**: Set \`depth\` > 1 to recursively discover related resources. Combined with \`dataObjectTypes\`, this enables server-side deep search without N+1 client calls.\n\n**Pagination**: \`$skip\` and \`$top\` are applied client-side after fetching all results from ETP.`,
     servers: swaggerServers
   })
   public async ListResources(
@@ -1048,10 +1170,8 @@ export default class ResourcesReadAPI {
   @ApiQuery(transactionIdQueryParam)
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
-    summary: "Graph all resources.",
-    description: `Create a graph for all resources in a dataspace.
-    Use depth > 1 to recursively traverse relationships.
-    Output can be paginated and filtered by types, content, last update time.`,
+    summary: "Full relationship graph for a dataspace",
+    description: `Build a complete relationship graph for all resources in a dataspace. Returns nodes and edges (relationships between objects).\n\n**Difference from List All**: This endpoint returns edges/relationships in addition to the resource list. Use it when you need to understand how objects reference each other.\n\n**depth**: 1 = direct relationships only, N = recursive traversal. Higher values may be slow for large dataspaces.`,
     servers: swaggerServers
   })
   public async GraphResources(
@@ -1224,10 +1344,8 @@ export default class ResourcesReadAPI {
   @ApiQuery(transactionIdQueryParam)
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
-    summary: "Get the resources referenced by current one.",
-    description: `List all resources referenced by a given resource.
-    Referencing can be recursive with a depth greater than 1.
-    Output can be paginated and filtered by content, types and last update time.`,
+    summary: "List targets (resources referenced by this object)",
+    description: `Flat list of resources that this object references (e.g., a Property's supporting Representation, or a Representation's CRS). Follows relationships forward (parent → child).\n\n**depth**: 1 = immediate targets only, N = recursive (e.g., depth=2 gets targets of targets).\n\n**For graph with edges**: Use \`GET /graph/{type}/{guid}/targets\` instead.`,
     servers: swaggerServers
   })
   public async ListTargets(
@@ -1340,11 +1458,8 @@ export default class ResourcesReadAPI {
   @ApiQuery(transactionIdQueryParam)
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
-    summary: "Graph the resources referenced by current one.",
-    description: `Graph all resources referenced by a given resource.
-    Referencing can be recursive with a depth greater than 1.
-    Includes the relationships between the resources.
-    Output can be paginated and filtered by content, types and last update time.`,
+    summary: "Graph targets (with edges)",
+    description: `Graph of resources referenced by this object, including the relationship edges between them. Same traversal as List Targets but returns edge information.\n\n**When to use**: When you need to visualize or process the relationship structure, not just the flat list.`,
     servers: swaggerServers
   })
   public async GraphTargets(
@@ -1444,10 +1559,8 @@ export default class ResourcesReadAPI {
   @ApiQuery(transactionIdQueryParam)
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
-    summary: "Get the resources referencing current one.",
-    description: `List all resources referencing a given resource.
-    Referencing can be recursive with a depth greater than 1.
-    Output can be paginated and filtered by content, types and last update time.`,
+    summary: "List sources (resources that reference this object)",
+    description: `Flat list of resources that reference this object (e.g., Properties attached to a Representation). Follows relationships backward (child → parent).\n\n**depth**: 1 = immediate sources only, N = recursive.\n\n**For graph with edges**: Use \`GET /graph/{type}/{guid}/sources\` instead.`,
     servers: swaggerServers
   })
   public async ListSources(
@@ -1558,11 +1671,8 @@ export default class ResourcesReadAPI {
   @ApiQuery(transactionIdQueryParam)
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
-    summary: "Graph the resources referencing current one.",
-    description: `Graph all resources referencing a given resource.
-    Referencing can be recursive with a depth greater than 1.
-    Includes the relationships between the resources.
-    Output can be paginated and filtered by content, types and last update time.`,
+    summary: "Graph sources (with edges).",
+    description: `Graph of resources that reference this object, including the relationship edges. Same traversal as List Sources but returns edge information.\n\n**When to use**: When you need to visualize or process the relationship structure, not just the flat list. For example, understanding which Properties are attached to a Representation and how.`,
     servers: swaggerServers
   })
   public async GraphSources(
@@ -1668,10 +1778,8 @@ export default class ResourcesReadAPI {
     }
   })
   @ApiOperation({
-    summary: "List deleted resources in a dataspace.",
-    description: `Returns resources that have been deleted from a dataspace.
-    Useful for cache invalidation and synchronization with external systems (e.g., OSDU catalog).
-    Optionally filter by deletion time and data object types.`,
+    summary: "List deleted resources in a dataspace",
+    description: `Returns resources that have been deleted from a dataspace with deletion timestamps. Useful for cache invalidation and synchronization with external systems (e.g., OSDU catalog).\n\n**Note**: Deleted resource tracking depends on the ETP server version — not all servers track deletions.`,
     servers: swaggerServers
   })
   public async ListDeletedResources(

@@ -98,9 +98,8 @@ export class UrisDto {
 export default class MultiObjectsReadAPI {
   @Post("get-content")
   @ApiOperation({
-    summary: "Get content or multiple objects.",
-    description: `Get the actual content of a data objects using a list of uris,
-    formatted as xml or json.`,
+    summary: "Batch-fetch content of multiple objects.",
+    description: `Retrieve the full content of multiple data objects by URI in a single call. More efficient than individual GET requests when fetching several objects.\n\nReturns results in the same format as single-object GET (\`$format=json\` or \`$format=xml\`). Pass an array of ETP URIs in the request body.`,
     servers: swaggerServers
   })
   @ApiBody({

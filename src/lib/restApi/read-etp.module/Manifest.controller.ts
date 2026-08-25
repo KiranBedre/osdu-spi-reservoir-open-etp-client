@@ -501,8 +501,21 @@ export default class ObjectsManifestAPI {
     type: ManifestInputDto
   })
   @ApiOperation({
-    summary: "Create OSDU manifest.",
-    description: `Create the OSDU manifest for several resources.`,
+    summary: "Build OSDU manifest from ETP resources",
+    description: `Generate an OSDU-compatible manifest from ETP dataspace resources. Converts RESQML, WITSML, PRODML, and EML objects to OSDU record format.
+
+**Supported source domains**: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. Use \`GET /health/converters\` to list all registered mappings.
+
+**Type filtering**: Default includes common representation/interpretation types. Pass \`typePatterns: ["*"]\` for all types. Properties with canonical OSDU/PWLS names (porosity, permeability, saturation, etc.) are auto-included even without an explicit \`*Property\` pattern.
+
+**Key behaviors**:
+- Best-effort mode — partial results returned on converter errors (check \`errors[]\` in response)
+- Auto-generates deterministic collaboration UUID (v5 from dataspace name)
+- Uses \`OSDU_MILESTONE\` env var (default M27) for OSDU schema versions
+- GridConnectionSet records report \`HasTransmissibilityMultipliers\` when attached transmissibility properties are found
+- WellLog records populate TopMeasuredDepth/BottomMeasuredDepth from frame index arrays
+
+**createMissingReferences**: When true, creates placeholder records for unresolved data object references (DORs). When false, missing references appear in the error list.`,
     servers: swaggerServers
   })
   @ApiOkResponse({

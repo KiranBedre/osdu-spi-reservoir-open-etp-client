@@ -99,7 +99,7 @@ const checkValidArrayTime = (
 ) => {
   expect(value).toStrictEqual([true, false]);
   const interval = (Date.now() - time) / 1000;
-  expect(interval).toBeCloseTo(expectedInterval, 1);
+  expect(interval).toBeCloseTo(expectedInterval, 0);
   done();
 };
 

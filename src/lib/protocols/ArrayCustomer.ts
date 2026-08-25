@@ -298,7 +298,9 @@ export default class ArrayCustomer extends BaseHandler {
         return {
           item: {
             __keyName: "_bytes",
-            _bytes: Buffer.from(values as number[])
+            _bytes: ArrayBuffer.isView(values)
+              ? Buffer.from(values.buffer, values.byteOffset, values.byteLength)
+              : Buffer.from(values as number[])
           }
         };
     }
@@ -583,12 +585,12 @@ export default class ArrayCustomer extends BaseHandler {
     values: number[] | Integer64[]
   ): Promise<boolean> {
     const da: Energistics.Etp.v12.Datatypes.DataArrayTypes.PutDataSubarraysType =
-      {
-        counts: counts.map(BigInt),
-        data: ArrayCustomer.createDataFromValues(array, values),
-        starts: starts.map(BigInt),
-        uid
-      };
+    {
+      counts: counts.map(BigInt),
+      data: ArrayCustomer.createDataFromValues(array, values),
+      starts: starts.map(BigInt),
+      uid
+    };
     return this.putSubarrays([da])
       .then(b => b.map(e => e.code === ErrorCode.IS_OK))
       .then(b => b.reduce((p, c) => p && c, true));

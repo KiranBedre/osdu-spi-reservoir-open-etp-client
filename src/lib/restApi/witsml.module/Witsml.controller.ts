@@ -595,7 +595,7 @@ function injectExternalArrayRefs(
 
 // ─── Controller ──────────────────────────────────────────────────────────────
 
-@ApiTags("Wells")
+@ApiTags("WITSML")
 @Controller("witsml")
 @ApiBearerAuth("access-token")
 @UseGuards(HasBearerGuard("jwt"))
@@ -626,9 +626,13 @@ export default class WitsmlController {
   @ApiOperation({
     summary: "Store WITSML 2.1 objects",
     description:
-      "Parse WITSML 2.1 XML and store as ETP data objects in the specified dataspace. " +
-      "If no transactionId is provided, automatically wraps the write in a transaction. " +
-      "If transactionId is provided, uses the existing transaction (caller commits).",
+      "Parse WITSML 2.1 (or 1.4.1 container) XML and store as ETP data objects. " +
+      "If no transactionId is provided, automatically wraps the write in a transaction (start → put → commit).\n\n" +
+      "**Key features**:\n" +
+      "- **WITSML 1.4.1 support**: Detects plural container wrappers (`<wells>`, `<logs>`, etc.) and splits into individual WITSML 2.1 objects with deterministic UUID v5 from uid\n" +
+      "- **Channel data extraction**: Automatically extracts `<logData><data>` rows (1.4.1) or ChannelSet data (2.1) as separate ETP data arrays\n" +
+      "- **Trajectory support**: Extracts MD/Inclination/Azimuth from `<trajectoryStation>` elements as arrays\n" +
+      "- **Auto-transaction**: If no `transactionId` is provided, the write is wrapped in an internal transaction. If provided, the caller manages commit/rollback.",
     servers: swaggerServers
   })
   @ApiBody({ type: WitsmlStoreDto })
