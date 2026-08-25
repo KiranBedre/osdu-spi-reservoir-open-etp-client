@@ -89,6 +89,9 @@ import { osduUrl } from "../../common/config";
 import { bigIntToString } from "../../mlTypes/XmlJsonUtil";
 import { decode, JwtPayload } from "jsonwebtoken";
 
+import { ValidatorClient } from "../../client/ValidatorClient";
+import type { ValidationReport } from "../../client/ValidatorClient";
+
 import logging from "../../common/Logging";
 const logger = logging.getLogger("EtpClient");
 
@@ -337,6 +340,19 @@ export default class EpcUploadAPI {
             default: "false"
         }
     })
+    @ApiQuery({
+        name: "validate",
+        required: false,
+        description:
+            "When 'true', runs RESQML strict validation (XSD, DOR integrity, business rules) on the EPC before ingesting. " +
+            "If validation finds errors, the upload still proceeds but the response includes a `validation` report. " +
+            "Set to 'strict' to reject the upload on validation errors (returns 400).",
+        schema: {
+            type: "string",
+            enum: ["false", "true", "strict"],
+            default: "false"
+        }
+    })
     @ApiOkResponse({
         description: "Ingest result summary",
         schema: {
@@ -366,6 +382,20 @@ export default class EpcUploadAPI {
                         recordCount: { type: "integer" },
                         workflowRunId: { type: "string" },
                         error: { type: "string" }
+                    }
+                },
+                validation: {
+                    type: "object",
+                    nullable: true,
+                    description: "RESQML validation report (present when ?validate=true or ?validate=strict)",
+                    properties: {
+                        is_valid: { type: "boolean" },
+                        version: { type: "string", nullable: true },
+                        object_count: { type: "integer" },
+                        validated_count: { type: "integer" },
+                        error_count: { type: "integer" },
+                        warning_count: { type: "integer" },
+                        errors: { type: "array", items: { type: "object" } }
                     }
                 }
             }
@@ -422,6 +452,7 @@ export default class EpcUploadAPI {
         @Param() params: FindInDataSpaceParams,
         @Query("transactionId") transactionId?: string,
         @Query("autoIngest") autoIngest?: string,
+        @Query("validate") validate?: string,
         @Req() request?: express.Request
     ) {
         logger.info(
@@ -550,6 +581,32 @@ export default class EpcUploadAPI {
             logger.info(
                 `Extracted ${epcObjects.length} object(s), ${epcExternalPartUuids.size} external part reference(s)`
             );
+
+            // ── 2b. Optional RESQML validation ──
+            let validationReport: ValidationReport | undefined;
+            const doValidate = validate === "true" || validate === "strict";
+
+            if (doValidate) {
+                logger.info("Running RESQML validation on EPC...");
+                const validator = new ValidatorClient();
+                const epcBuffer = fs.readFileSync(epcFile.path);
+                const h5Buffer = h5File ? fs.readFileSync(h5File.path) : undefined;
+                validationReport = await validator.validateEpc(epcBuffer, h5Buffer);
+                logger.info(
+                    `Validation complete: ${validationReport.is_valid ? "VALID" : "INVALID"} ` +
+                    `(${validationReport.error_count} errors, ${validationReport.warning_count} warnings)`
+                );
+
+                if (validate === "strict" && !validationReport.is_valid) {
+                    cleanupFiles(files ?? {});
+                    throw new BadRequestException({
+                        statusCode: 400,
+                        message: `RESQML validation failed: ${validationReport.error_count} error(s)`,
+                        error: "Validation Failed",
+                        validation: validationReport
+                    });
+                }
+            }
 
             // ── 3. Scan XML for HDF5 dataset references ──
             interface H5Reference {
@@ -876,7 +933,8 @@ export default class EpcUploadAPI {
                     uuid: o.uuid,
                     title: o.title
                 })),
-                ...(catalogIngestion ? { catalogIngestion } : {})
+                ...(catalogIngestion ? { catalogIngestion } : {}),
+                ...(validationReport ? { validation: validationReport } : {})
             };
 
             logger.info(

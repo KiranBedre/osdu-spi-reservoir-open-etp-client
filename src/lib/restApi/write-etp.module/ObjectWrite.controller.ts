@@ -94,6 +94,9 @@ import { AvroString, Integer32 } from "../../common/Etp12";
 import { XMLBuilder } from "../../mlTypes/Json2Xml";
 import { bigIntToString } from "../../mlTypes/XmlJsonUtil";
 
+import { ValidatorClient } from "../../client/ValidatorClient";
+import type { ValidationReport } from "../../client/ValidatorClient";
+
 import { AnyTypedArray } from "../../protocols/ArrayCustomer";
 import { EmlObjectDto } from "../read-etp.module/Object.controller";
 import {
@@ -400,10 +403,43 @@ export default class MutationsAPI {
     }
   })
   @ApiQuery(transactionIdQueryParam)
+  @ApiQuery({
+    name: "validate",
+    required: false,
+    description:
+      "When 'true', runs RESQML validation (XSD, DOR integrity, business rules) on the objects before writing. " +
+      "The write still proceeds but the response includes a `validation` report. " +
+      "Set to 'strict' to reject the write on validation errors (returns 400).",
+    schema: {
+      type: "string",
+      enum: ["false", "true", "strict"],
+      default: "false"
+    }
+  })
   @ApiOkResponse({
     description: "Success",
     schema: {
-      type: "boolean"
+      oneOf: [
+        { type: "boolean" },
+        {
+          type: "object",
+          properties: {
+            success: { type: "boolean" },
+            validation: {
+              type: "object",
+              properties: {
+                is_valid: { type: "boolean" },
+                version: { type: "string", nullable: true },
+                object_count: { type: "integer" },
+                validated_count: { type: "integer" },
+                error_count: { type: "integer" },
+                warning_count: { type: "integer" },
+                errors: { type: "array", items: { type: "object" } }
+              }
+            }
+          }
+        }
+      ]
     }
   })
   @ApiOperation({
@@ -426,8 +462,9 @@ Each object must conform to the Energistics JSON schema for its type and include
     @Body() requestBody: EmlObjectDto[],
     @Param() params: FindInDataSpaceParams,
     @Query("transactionId") transactionId?: string,
+    @Query("validate") validate?: string,
     @Req() request?: express.Request
-  ): Promise<boolean> {
+  ): Promise<boolean | Record<string, unknown>> {
     logger.info(
       `Received request to put data objects in dataspace: ${params.dataspaceId}`
     );
@@ -538,6 +575,56 @@ Each object must conform to the Energistics JSON schema for its type and include
           blobId: null
         };
       });
+
+      // ── Optional RESQML validation ──
+      let validationReport: ValidationReport | undefined;
+      const doValidate = validate === "true" || validate === "strict";
+
+      if (doValidate) {
+        logger.info("Running RESQML validation on objects...");
+        const validator = new ValidatorClient();
+        const xmlPayloads = dataObjects.map(d => {
+          // Extract content_type from URI: eml:///dataspace('...')/resqml20.obj_Foo(uuid)
+          const uriMatch = d.resource.uri.match(
+            /\/(?<qt>(?:resqml|eml|witsml|prodml)\d+\.(?:obj_)?\w+)\(/
+          );
+          const qt = uriMatch?.groups?.qt ?? "unknown";
+          const ctMatch = qt.match(
+            /^(?<domain>resqml|eml|witsml|prodml)(?<ver>\d+)\.(?<type>\w+)$/
+          );
+          const domain = ctMatch?.groups?.domain ?? "resqml";
+          const ver = ctMatch?.groups?.ver ?? "20";
+          const type = ctMatch?.groups?.type ?? "Unknown";
+          const version = ver === "20" ? "2.0" : ver === "22" ? "2.2" : ver;
+          const contentType =
+            `application/x-${domain}+xml;version=${version};type=${type}`;
+          // Extract UUID from URI
+          const uuidMatch = d.resource.uri.match(
+            /\(([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\)/
+          );
+          return {
+            content_type: contentType,
+            uuid: uuidMatch?.[1] ?? "",
+            xml: Buffer.from(d.data as Buffer).toString("utf-8")
+          };
+        });
+        validationReport = await validator.validateObjects(xmlPayloads);
+        logger.info(
+          `Validation: ${validationReport.is_valid ? "VALID" : "INVALID"} ` +
+          `(${validationReport.error_count} errors, ${validationReport.warning_count} warnings)`
+        );
+
+        if (validate === "strict" && !validationReport.is_valid) {
+          if (!transactionId) await c.closeSession();
+          throw new BadRequestException({
+            statusCode: 400,
+            message: `RESQML validation failed: ${validationReport.error_count} error(s)`,
+            error: "Validation Failed",
+            validation: validationReport
+          });
+        }
+      }
+
       logger.info("Sending data objects...");
       const r = await c.putDataObjects(dataObjects as DataObject[]);
       logger.info("Data objects sent successfully.");
@@ -545,6 +632,9 @@ Each object must conform to the Energistics JSON schema for its type and include
         logger.info("Closing session...");
         await c.closeSession();
         logger.info("Session closed successfully.");
+      }
+      if (validationReport) {
+        return { success: r, validation: validationReport };
       }
       return r;
     } catch (err) {

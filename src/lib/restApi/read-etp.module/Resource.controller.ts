@@ -753,6 +753,130 @@ export default class ResourcesReadAPI {
   }
 
   /**
+   * Validate all RESQML objects in a dataspace.
+   *
+   * @memberof ResourcesReadAPI
+   */
+  @Post(":dataspaceId/validate")
+  @ApiOkResponse({
+    description: "Validation report",
+    schema: {
+      type: "object",
+      properties: {
+        is_valid: { type: "boolean" },
+        version: { type: "string", nullable: true },
+        object_count: { type: "integer" },
+        validated_count: { type: "integer" },
+        error_count: { type: "integer" },
+        warning_count: { type: "integer" },
+        errors: { type: "array", items: { type: "object" } }
+      }
+    }
+  })
+  @ApiOperation({
+    summary: "Validate RESQML objects in a dataspace",
+    description:
+      "Fetches all data objects from the dataspace via ETP and runs RESQML strict validation " +
+      "(XSD schema, DOR integrity, cross-object consistency, business rules). " +
+      "Read-only — does not modify any data.\n\n" +
+      "**Performance**: Fetches full XML for every object in the dataspace. " +
+      "For large dataspaces (>1000 objects), this may take several seconds.",
+    servers: swaggerServers
+  })
+  public async ValidateDataspace(
+    @Param() params: FindInDataSpaceParams,
+    @Req() request?: express.Request
+  ) {
+    logger.info(
+      `Validate request for dataspace: ${params.dataspaceId}`
+    );
+    let c = undefined;
+    try {
+      c = await createSession(
+        extractToken(request),
+        extractDataPartitionId(request)
+      );
+
+      // Discover all resources in the dataspace
+      const dataspaceUri = `eml:///dataspace('${params.dataspaceId}')`;
+      const context: Energistics.Etp.v12.Datatypes.Object.ContextInfo = {
+        uri: dataspaceUri,
+        depth: 1,
+        dataObjectTypes: [],
+        navigableEdges:
+          Energistics.Etp.v12.Datatypes.Object.RelationshipKind.Primary,
+        includeSecondaryTargets: false,
+        includeSecondarySources: false
+      };
+
+      const resources = await c.discovery.getResources(
+        context,
+        Energistics.Etp.v12.Datatypes.Object.ContextScopeKind.targets,
+        false,
+        null
+      );
+
+      if (resources.length === 0) {
+        return {
+          is_valid: true,
+          version: null,
+          object_count: 0,
+          validated_count: 0,
+          error_count: 0,
+          warning_count: 0,
+          errors: []
+        };
+      }
+
+      // Fetch all object bodies
+      const uris = resources.map(r => r.uri);
+      const objects = await c.getDataObjects(uris);
+      await c.closeSession();
+      c = undefined;
+
+      // Convert to validator format
+      const xmlPayloads = objects
+        .filter(o => o !== null)
+        .map(o => {
+          const uri = o!.resource.uri;
+          // Extract content type from URI pattern: /resqml20.obj_Foo(uuid)
+          const uriMatch = uri.match(
+            /\/(?<domain>resqml|eml|witsml|prodml)(?<ver>\d+)\.(?<type>(?:obj_)?\w+)\(/
+          );
+          const domain = uriMatch?.groups?.domain ?? "resqml";
+          const ver = uriMatch?.groups?.ver ?? "20";
+          const type = uriMatch?.groups?.type ?? "Unknown";
+          const version = ver === "20" ? "2.0" : ver === "22" ? "2.2" : ver;
+          const contentType =
+            `application/x-${domain}+xml;version=${version};type=${type}`;
+          const uuidMatch = uri.match(
+            /\(([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\)/
+          );
+          return {
+            content_type: contentType,
+            uuid: uuidMatch?.[1] ?? "",
+            xml: o!.data ? Buffer.from(o!.data).toString("utf-8") : ""
+          };
+        })
+        .filter(o => o.xml.length > 0);
+
+      logger.info(`Validating ${xmlPayloads.length} objects from dataspace ${params.dataspaceId}...`);
+      const { ValidatorClient } = await import("../../client/ValidatorClient");
+      const validator = new ValidatorClient();
+      const report = await validator.validateObjects(xmlPayloads);
+      logger.info(
+        `Validation complete: ${report.is_valid ? "VALID" : "INVALID"} ` +
+        `(${report.error_count} errors, ${report.warning_count} warnings)`
+      );
+      return report;
+    } catch (err) {
+      logger.error(`Error validating dataspace ${params.dataspaceId}: ${err}`);
+      await c?.closeSession();
+      throw httpErrorFromEtpError(err);
+    }
+  }
+
+  /**
    * Lock a dataspace
    *
    * @memberof ResourcesReadAPI

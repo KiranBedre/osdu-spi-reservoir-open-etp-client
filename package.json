@@ -12,7 +12,7 @@
   "scripts": {
     "all": "npm run git:hooks && npm run build && npm run validate",
     "build:dts": "cpy \"src/lib/mlTypes/xmlns/**\" dist/src/lib/mlTypes/xmlns",
-    "build:quick": "git clean -xdff dist && tsc && npm run build:dts",
+    "build:quick": "git clean -xdff dist && tsc && cp -r src/lib/validation/schemas dist/src/lib/validation/ && npm run build:dts",
     "build": "npm run build:quick && npm run openAPI && npm run docs",
     "build:noclean": "npx tsc && npm run build:dts && npm run openAPI && typedoc src",
     "docs": "git clean -xdff docs/ && typedoc src",
