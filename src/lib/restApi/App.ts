@@ -128,70 +128,7 @@ export default async function app(): Promise<NestExpressApplication> {
   const config = new DocumentBuilder()
     .setTitle("Reservoir DMS")
     .setDescription(
-      `REST API for OSDU Reservoir DMS — a NestJS protocol bridge that exposes ETP 1.2 (binary Avro over WebSocket) as a conventional REST/JSON interface.
-
-## Authentication
-
-All endpoints require \`Authorization: Bearer <token>\`. In multi-partition mode (\`RDMS_DATA_PARTITION_MODE=multi\`), a \`data-partition-id\` header is also required.
-
-## Typical write workflow
-
-1. **Start transaction** — \`POST /dataspaces/{ds}/transactions\` → returns \`transactionId\`
-2. **Put objects** — \`PUT /dataspaces/{ds}/resources?transactionId=…\` (JSON array with \`$type\` field)
-3. **Put arrays** — \`PUT /dataspaces/{ds}/resources/arrays?transactionId=…\` (one per channel/mnemonic)
-4. **Commit** — \`PUT /dataspaces/{ds}/transactions/{txId}\`
-
-Transactions auto-rollback after the timeout period (default 300 s) if not committed. Only one transaction can be active per dataspace.
-
-## ETP protocols exposed
-
-| ETP Protocol | ID | REST surface |
-|---|---|---|
-| Core | 0 | Session management (internal) |
-| Discovery | 3 | \`GET /dataspaces/…\`, \`POST /query/graph/search\` |
-| Store | 4 | \`GET\` object content, \`PUT\` objects |
-| DataArray | 9 | Array read/write with chunking |
-| DiscoveryQuery | 13 | \`POST /query/resources/find\` |
-| StoreQuery | 14 | \`POST /query/objects/find\` |
-| GrowingObject | 6 | \`POST /query/growing/…\` |
-| ChannelSubscribe | 21 | \`POST /query/channels/metadata\` |
-| Transaction | 18 | \`POST/PUT/DELETE\` transactions |
-| Dataspace | 24 | Dataspace CRUD, clone, lock |
-| SupportedTypes | 25 | \`GET /dataspaces/{ds}/resources\` |
-
-Protocols are auto-negotiated at session open. Endpoints backed by unsupported protocols return 501.
-
-## Graph scope values
-
-| Scope | Returns |
-|---|---|
-| \`self\` | Resources directly in the context |
-| \`targets\` | Resources referenced *by* the context object |
-| \`sources\` | Resources that *reference* the context object |
-| \`targetsOrSelf\` | Targets + the context object itself |
-| \`sourcesOrSelf\` | Sources + the context object itself |
-
-**Depth**: 1 = immediate neighbours only, N = recursive up to N levels, 0 = unlimited (caution: may timeout).
-
-## Pagination
-
-ETP does not support server-side pagination. \`$skip\`/\`$top\` are applied client-side after fetching all results from the ETP server.
-
-## Configuration
-
-| Variable | Default | Description |
-|---|---|---|
-| \`RDMS_ETP_HOST\` | — | ETP server hostname |
-| \`RDMS_ETP_PORT\` | \`9002\` | ETP server port |
-| \`RDMS_ETP_PROTOCOL\` | \`wss\` | \`ws\` or \`wss\` |
-| \`RDMS_REST_PORT\` | \`8080\` | REST API port |
-| \`RDMS_REST_ROOT_PATH\` | \`/api/reservoir-ddms/v2/\` | Base path |
-| \`RDMS_DATA_PARTITION_MODE\` | \`single\` | \`single\` or \`multi\` |
-| \`OSDU_MILESTONE\` | \`M27\` | OSDU schema milestone |
-| \`RDMS_ETP_SSL_VERIFY\` | \`true\` | Set \`false\` for self-signed certs |
-| \`RDMS_EPC_MAX_SIZE_MB\` | \`200\` | Max EPC upload file size |
-| \`RDMS_H5_MAX_SIZE_MB\` | \`2048\` | Max H5 upload file size |
-| \`RDMS_EPC_MAX_OBJECTS\` | \`10000\` | Max objects per EPC upload |`
+      `REST API for OSDU Reservoir DMS.`
     )
     .setVersion("1.2")
     .setLicense(
@@ -218,23 +155,19 @@ ETP does not support server-side pagination. \`$skip\`/\`$top\` are applied clie
       "Use `GET /health/converters` to list all registered source types and their target OSDU kinds."
     )
     .addTag("Query & Growing Objects",
-      "Advanced search using ETP Discovery (Protocol 3), DiscoveryQuery (Protocol 13), GrowingObject (Protocol 6), and ChannelSubscribe (Protocol 21). " +
-      "Read-only — no transaction required. " +
-      "**Limitations**: Depth is server-limited — values > 100 may timeout. " +
-      "Discovery responses return metadata (URI, name, counts) not object content. " +
-      "Client-side pagination only (`$skip`/`$top` applied after fetch)."
+      "Advanced search — read-only, no transaction required.\n\n" +
+      "**Graph scope**: `self` (direct), `targets` (referenced by), `sources` (referencing), `targetsOrSelf`, `sourcesOrSelf`. " +
+      "**Depth**: 1 = immediate, N = recursive, 0 = unlimited (may timeout).\n\n" +
+      "**Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP has no server-side pagination)."
     )
     .addTag("Transactions",
-      "ETP transaction lifecycle (start, commit, rollback). " +
-      "**Required for all write operations** — read and query endpoints do not need a transaction. " +
-      "Transactions auto-rollback after the timeout period (default 300 s). " +
-      "Only one transaction can be active per dataspace at a time. " +
-      "Pass the returned `transactionId` to write and array endpoints."
+      "Start, commit, or rollback a transaction. Required before any write operation. " +
+      "Auto-rollback after timeout (default 300 s). One active transaction per dataspace."
     )
     .addTag("Write",
-      "ETP object write (PutDataObjects, DeleteDataObjects), dataspace management, and EPC+H5 file upload. " +
-      "All write operations require a transaction — either pass an explicit `transactionId` or let the endpoint auto-create one. " +
-      "Typical order: create dataspace → start transaction → put objects → put arrays → commit."
+      "Create, update, and delete objects, manage dataspaces, upload EPC+H5 files. " +
+      "**Requires a transaction** — start one first via Transactions, then pass `transactionId`. " +
+      "Typical flow: create dataspace → start transaction → put objects → put arrays → commit."
     )
     .addTag("Wells", "Well-centric search with hierarchy resolution across dataspaces. Domain-specific — not part of core ETP data management.")
     .addTag("WITSML", "Query and store WITSML/EnergyML objects in ETP dataspaces. Domain-specific — supports WITSML 2.1 and 1.4.1 container formats.")
