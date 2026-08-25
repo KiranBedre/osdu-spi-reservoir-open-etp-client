@@ -142,7 +142,7 @@ These changes may affect existing consumers:
 | Reservoir layer 1 | 146 | Smart property filter, transmissibility, ColumnBasedTable |
 | Other (unchanged) | 148 | ETP protocol, client, error mapping, validation |
 | RESQML Validator | 50 | 9 layers, real datasets (pyetp, SKUA, DGI, Aspen RMS), ValidatorClient local mode |
-| **Total** | **471** | `npm test` |
+| **Total** | **437** | `npm test` (+ 44 validator/dataset tests via `--testPathIgnorePatterns=/node_modules/`) |
 
 Integration tests (require ETP server): `npm run test:integration`
 
@@ -205,6 +205,7 @@ Integration tests (require ETP server): `npm run test:integration`
 | 10 | Eliminate `Array.prototype.slice.call(array)` — pass TypedArray directly | `ResqmlClient.ts` | Saves 1 full array copy for small array uploads |
 | 11 | `Array.from({length})` → `new Array(n)` pre-allocation for chunked slices | `ResqmlClient.ts` | Faster allocation for sub-array slicing in large transfers |
 | 12 | Parallel array uploads with bounded concurrency (default 5) | `EpcUpload.controller.ts` | 3-5× faster for many small arrays |
+| 13 | Zero-copy TypedArray chunking + Avro memcpy for float/double serialization | `ResqmlClient.ts`, `EtpAvro.ts`, `ArrayCustomer.ts` | 15% faster putArrays; eliminates ~1 GB heap allocation for large datasets |
 
 ## EPC Upload Robustness & Diagnostics
 
