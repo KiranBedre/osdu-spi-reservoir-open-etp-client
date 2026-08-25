@@ -200,3 +200,7 @@ Integration tests (require ETP server): `npm run test:integration`
 | 5 | Index-based `slice` replaces mutating `splice`; loop-push replaces spread (stack overflow risk) | `Array.controller.ts` | Prevents stack overflow for 1000+ arrays, removes O(n²) splice |
 | 6 | EPC validation passes file paths directly (avoids re-reading multi-GB files into memory) | `EpcUpload.controller.ts`, `ValidatorClient.ts` | Saves up to 4 GB redundant memory allocation during validation |
 | 7 | EPC HDF proxy regex uses `lastIndex` positioning instead of `slice` per match | `EpcUpload.controller.ts` | Eliminates O(n×m) string allocations during path rewriting |
+| 8 | Hoist regex constants out of per-object XML scanning loop | `EpcUpload.controller.ts` | Avoids regex recompilation per RESQML object |
+| 9 | Remove `new Uint8Array(h5Data)` copy — pass Buffer directly to emscripten FS | `EpcUpload.controller.ts` | Saves 1× H5 file size in peak memory (~14 MB–2 GB) |
+| 10 | Eliminate `Array.prototype.slice.call(array)` — pass TypedArray directly | `ResqmlClient.ts` | Saves 1 full array copy for small array uploads |
+| 11 | `Array.from({length})` → `new Array(n)` pre-allocation for chunked slices | `ResqmlClient.ts` | Faster allocation for sub-array slicing in large transfers |

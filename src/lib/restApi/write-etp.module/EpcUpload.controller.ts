@@ -620,6 +620,12 @@ export default class EpcUploadAPI {
 
             const h5Refs: H5Reference[] = [];
 
+            // Pre-compiled regexes — hoisted out of the per-object loop
+            const pathRegex =
+                /<(?:[\w]+:)?PathInHdfFile[^>]*>([^<]+)<\/(?:[\w]+:)?PathInHdfFile>/g;
+            const hdfProxyRegex =
+                /<(?:[\w]+:)?HdfProxy[^>]*>[\s\S]*?<(?:[\w]+:)?UUID[^>]*>([0-9a-fA-F-]{36})<\/(?:[\w]+:)?UUID>/g;
+
             for (const obj of epcObjects) {
                 // Skip EpcExternalPartReference objects — they don't contain HDF references
                 if (obj.dataType === "obj_EpcExternalPartReference") continue;
@@ -631,10 +637,7 @@ export default class EpcUploadAPI {
                 // siblings under various container elements (Values,
                 // Coordinates, Hdf5Dataset, etc.). We scan for every
                 // PathInHdfFile and then look for the nearest HdfProxy UUID.
-                const pathRegex =
-                    /<(?:[\w]+:)?PathInHdfFile[^>]*>([^<]+)<\/(?:[\w]+:)?PathInHdfFile>/g;
-                const hdfProxyRegex =
-                    /<(?:[\w]+:)?HdfProxy[^>]*>[\s\S]*?<(?:[\w]+:)?UUID[^>]*>([0-9a-fA-F-]{36})<\/(?:[\w]+:)?UUID>/g;
+                pathRegex.lastIndex = 0;
                 let pathMatch;
                 while ((pathMatch = pathRegex.exec(xmlStr)) !== null) {
                     const pathValue = pathMatch[1];
@@ -678,8 +681,9 @@ export default class EpcUploadAPI {
 
                 // h5wasm uses an emscripten virtual FS — we need to mount the file
                 const h5FileName = path.basename(h5File.path);
+                // Buffer IS a Uint8Array — pass directly, avoid an extra copy
                 const h5Data = fs.readFileSync(h5File.path);
-                h5wasm.FS.writeFile(h5FileName, new Uint8Array(h5Data));
+                h5wasm.FS.writeFile(h5FileName, h5Data);
                 h5FileHandle = new h5wasm.File(h5FileName, "r");
 
                 // Pre-scan referenced datasets for metadata

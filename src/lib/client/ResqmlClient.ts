@@ -2189,7 +2189,7 @@ export class ResqmlClient {
     ) {
       const data = ArrayCustomer.createDataFromValues(
         array,
-        Array.prototype.slice.call(array)
+        array as unknown as number[]
       );
       const da: Energistics.Etp.v12.Datatypes.DataArrayTypes.PutDataArraysType =
       {
@@ -2246,10 +2246,8 @@ export class ResqmlClient {
           ? nbSliceExtraPart
           : nbSliceInPart;
       const sliceLength = counts.reduce((p, c) => p * c, 1);
-      const values: number[] = Array.from({
-        length: sliceLength
-      });
       const start = d * maxSliceLength;
+      const values = new Array<number>(sliceLength);
       for (let i = 0; i < sliceLength; i++) {
         values[i] = array[start + i] as number;
       }
