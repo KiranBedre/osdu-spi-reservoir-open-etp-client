@@ -38,6 +38,8 @@
     "coverage",
     "commitlint.config.js",
     "devops",
+    "sdk",
+    "src/examples/sdk",
     "tests"
   ],
   "typedocOptions": {
