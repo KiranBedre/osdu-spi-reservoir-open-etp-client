@@ -19,20 +19,11 @@ ETP protocol, session lifecycle, and Avro serialization.
 The gateway handles all ETP complexity. Users just call typed methods and get JSON
 back.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  Your code                                                  │
-│  const pts = await rddms.resources.get(ds, type, guid);    │
-└──────────────┬──────────────────────────────────────────────┘
-               │  HTTP/JSON (this SDK)
-┌──────────────▼──────────────────────────────────────────────┐
-│  open-etp-client REST API  (NestJS, already running)        │
-│  Swagger UI at /api/reservoir-ddms/v2/                      │
-└──────────────┬──────────────────────────────────────────────┘
-               │  WebSocket/Avro ETP 1.2 (handled internally)
-┌──────────────▼──────────────────────────────────────────────┐
-│  ETP Server  (C++ binary, PostgreSQL)                       │
-└─────────────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    A["<b>Your code</b><br/><code>const pts = await rddms.resources.get(ds, type, guid);</code>"]
+    -->|"HTTP/JSON (this SDK)"| B["<b>open-etp-client REST API</b> (NestJS, already running)<br/>Swagger UI at /api/reservoir-ddms/v2/"]
+    -->|"WebSocket/Avro ETP 1.2 (handled internally)"| C["<b>ETP Server</b> (C++ binary, PostgreSQL)"]
 ```
 
 ## Quick Start

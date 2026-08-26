@@ -246,33 +246,14 @@ All Grid2d routing logic lives in `Grid2dToOsduKind` (v2.0.1) and `Grid2dToOsduK
 
 ## 5. Converter Architecture
 
-```
-┌─ AbstractCommonResources ─────────────────────────────┐
-│  ExistenceKind, ResourceLifecycleStatus, Source,      │
-│  TechnicalAssuranceID, ResourceSecurityClassification │
-└───────────────────────────────────────────────────────┘
-          ↓
-┌─ AbstractWPCGroupType ────────────────────────────────┐
-│  DDMSDatasets (ETP URI), IsDiscoverable, NameAliases  │
-└───────────────────────────────────────────────────────┘
-          ↓
-┌─ AbstractWorkProductComponent ────────────────────────┐
-│  Name (← Citation.Title), Description,               │
-│  CreationDateTime, SubmitterName, SpatialArea/Point   │
-└───────────────────────────────────────────────────────┘
-          ↓
-┌─ AbstractInterpretation (interpretations only) ───────┐
-│  DomainTypeID (← Domain), FeatureID (← DOR),         │
-│  OlderPossibleAge, YoungerPossibleAge                 │
-└───────────────────────────────────────────────────────┘
-          ↓
-┌─ Type-specific fields ────────────────────────────────┐
-│  (varies: NI/NJ/NK for IjkGrid, Curves for WellLog)  │
-└───────────────────────────────────────────────────────┘
-          ↓
-┌─ assignExtraMetaData() ───────────────────────────────┐
-│  All "osdu/" prefixed entries applied as overrides    │
-└───────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    A["<b>AbstractCommonResources</b><br/>ExistenceKind, ResourceLifecycleStatus, Source,<br/>TechnicalAssuranceID, ResourceSecurityClassification"]
+    --> B["<b>AbstractWPCGroupType</b><br/>DDMSDatasets (ETP URI), IsDiscoverable, NameAliases"]
+    --> C["<b>AbstractWorkProductComponent</b><br/>Name (← Citation.Title), Description,<br/>CreationDateTime, SubmitterName, SpatialArea/Point"]
+    --> D["<b>AbstractInterpretation</b> (interpretations only)<br/>DomainTypeID (← Domain), FeatureID (← DOR),<br/>OlderPossibleAge, YoungerPossibleAge"]
+    --> E["<b>Type-specific fields</b><br/>(varies: NI/NJ/NK for IjkGrid, Curves for WellLog)"]
+    --> F["<b>assignExtraMetaData()</b><br/>All 'osdu/' prefixed entries applied as overrides"]
 ```
 
 ---
