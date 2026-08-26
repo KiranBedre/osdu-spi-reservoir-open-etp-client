@@ -1,4 +1,4 @@
-# REST SDK — `RddmsClient`
+# REST SDK - `RddmsClient`
 
 Typed TypeScript SDK for the Reservoir DDMS REST API.
 
@@ -9,7 +9,7 @@ Typed TypeScript SDK for the Reservoir DDMS REST API.
 | **FESAPI** (C++) | ETP 1.2 binary | Compile toolchain, XML schemas, HDF5 linking | Manual |
 | **PyETP** (Python) | ETP 1.2 binary | Incomplete, raw protocol knowledge needed | Manual |
 | **ResqmlClient** (this repo) | ETP 1.2 WebSocket/Avro | Full-featured but requires ETP session management | Manual |
-| **RddmsClient** (this SDK) | **HTTP/JSON** | **Typed fetch calls — no protocol knowledge** | **Auto-maintained from OpenAPI spec** |
+| **RddmsClient** (this SDK) | **HTTP/JSON** | **Typed fetch calls - no protocol knowledge** | **Auto-maintained from OpenAPI spec** |
 
 The existing `ResqmlClient` talks raw ETP 1.2 (WebSocket + Avro binary frames)
 directly to the ETP server. It is powerful but requires understanding of the
@@ -70,7 +70,7 @@ new RddmsClient(options: RddmsClientOptions)
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `baseUrl` | `string` | — | Full REST API URL |
+| `baseUrl` | `string` | - | Full REST API URL |
 | `partitionId` | `string` | `'opendes'` | `data-partition-id` header |
 | `token` | `string` | auto-fetch | Bearer token (omit for dev) |
 | `headers` | `Record<string,string>` | `{}` | Extra headers |

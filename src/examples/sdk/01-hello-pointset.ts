@@ -1,5 +1,5 @@
 /**
- * SDK Example 1: Hello World — PointSet with coordinate arrays.
+ * SDK Example 1: Hello World - PointSet with coordinate arrays.
  *
  * Creates a dataspace, writes a RESQML 2.0.1 PointSet (3 points in 3D)
  * with its CRS and HDF proxy, uploads the coordinate array, then reads
@@ -96,7 +96,7 @@ async function main() {
     console.log("   Array data:", arr.data.data);
     console.log("   Dimensions:", arr.data.dimensions);
 
-    console.log("4. Graph traversal — PointSet targets");
+    console.log("4. Graph traversal - PointSet targets");
     const graph = await rddms.graph.targets(DS, "resqml20.obj_PointSetRepresentation", PTS_UUID, { depth: 2 });
     console.log("   Nodes:", graph.resources.length, "Links:", graph.links.length);
     for (const r of graph.resources) console.log(`     → ${r.name}`);

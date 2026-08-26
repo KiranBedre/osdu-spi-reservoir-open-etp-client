@@ -2,10 +2,10 @@
  * GraphQL resolvers for Reservoir DMS.
  *
  * Performance design:
- *  - ETP Resource objects are passed by reference as parent — no copying.
+ *  - ETP Resource objects are passed by reference as parent - no copying.
  *  - BigInt timestamps are converted to ISO strings only at serialization.
  *  - DataLoader batches all same-tick requests into single ETP sessions.
- *  - `content` and `arrays` fields are lazy — no ETP Store/DataArray calls
+ *  - `content` and `arrays` fields are lazy - no ETP Store/DataArray calls
  *    unless the client explicitly selects those fields.
  *  - Graph traversals use cached ResourceGraph with lazy target/source maps.
  */
@@ -26,7 +26,7 @@ import { Resource, Dataspace, IDataArrayMetadata } from "../../common/EtpTypes";
 import { EtpUri } from "../../common/EtpUri";
 
 // ---------------------------------------------------------------------------
-// Helpers — zero-copy conversions (return references, not new objects)
+// Helpers - zero-copy conversions (return references, not new objects)
 // ---------------------------------------------------------------------------
 
 /** Convert ETP BigInt timestamp (microseconds since epoch) to ISO string */
@@ -46,7 +46,7 @@ const typeFromUri = (uri: string): string | undefined => {
     return paren > 0 ? afterSlash.substring(0, paren) : afterSlash;
 };
 
-/** Map an ETP Resource to our GqlResource shape — by reference where possible */
+/** Map an ETP Resource to our GqlResource shape - by reference where possible */
 const mapResource = (r: Resource): GqlResource => ({
     uri: r.uri,
     name: r.name,
@@ -105,7 +105,7 @@ export class RootQueryResolver {
         // Load graphs for all URIs (DataLoader deduplicates)
         const graphs = await Promise.all(uris.map(uri => ctx.loaders.graphLoader.load(uri)));
 
-        // Merge — deduplicate by URI key
+        // Merge - deduplicate by URI key
         const allNodes = new Map<string, Resource>();
         const seenEdges = new Set<string>();
         const allEdges: GqlEdge[] = [];
@@ -131,7 +131,7 @@ export class RootQueryResolver {
 }
 
 // ---------------------------------------------------------------------------
-// Resource field resolvers (lazy — only called when client selects the field)
+// Resource field resolvers (lazy - only called when client selects the field)
 // ---------------------------------------------------------------------------
 
 @Resolver(() => GqlResource)
@@ -144,7 +144,7 @@ export class ResourceFieldResolver {
     ): Promise<GqlResource[]> {
         const graph = await ctx.loaders.graphLoader.load(parent.uri);
         const targetUris = graph.getTargetMap().get(parent.uri) ?? [];
-        // Return resources already in the graph — no additional ETP calls
+        // Return resources already in the graph - no additional ETP calls
         return targetUris
             .map(uri => graph.get(uri))
             .filter((r): r is Resource => r !== undefined)
@@ -164,7 +164,7 @@ export class ResourceFieldResolver {
             .map(mapResource);
     }
 
-    @ResolveField(() => GqlObjectContent, { nullable: true, description: "Full object content (expensive — only fetched when selected)" })
+    @ResolveField(() => GqlObjectContent, { nullable: true, description: "Full object content (expensive - only fetched when selected)" })
     async content(
         @Parent() parent: GqlResource,
         @Context() ctx: GqlContext
@@ -174,7 +174,7 @@ export class ResourceFieldResolver {
         return {
             uri: parent.uri,
             dataObjectType: parent.dataObjectType,
-            data: obj  // Pass by reference — no serialization
+            data: obj  // Pass by reference - no serialization
         };
     }
 

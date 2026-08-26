@@ -231,8 +231,7 @@ export class ETPCore extends EventEmitter {
       ? currentDateTime - message.currentDateTime
       : undefined;
     this.logTrace(
-      `Received Ping message for session ${this.sessionId} sent ${
-        deltaTime ?? "unknown"
+      `Received Ping message for session ${this.sessionId} sent ${deltaTime ?? "unknown"
       } microseconds ago`
     );
     const responseHeader = this.createFinalMessageHeader(
@@ -337,7 +336,7 @@ export class ETPCore extends EventEmitter {
     // Guard against a previously-open WebSocket that has been closed (or is
     // closing) by the peer. Without this check, `this.connection.send(data)`
     // would throw a raw "cannot call send() while not connected" transport
-    // error from W3CWebSocket — which the REST layer used to wrap as an
+    // error from W3CWebSocket - which the REST layer used to wrap as an
     // opaque HTTP 500 (see WI 70414 cascade). Surface a typed error instead
     // so callers learn the session is gone (mapped to HTTP 410 Gone by
     // httpErrorFromEtpError). The `connection == null` case retains its

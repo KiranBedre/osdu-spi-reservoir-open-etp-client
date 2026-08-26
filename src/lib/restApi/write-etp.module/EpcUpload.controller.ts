@@ -154,7 +154,7 @@ const STORAGE_BATCH_SIZE = 500;
 type IngestMode = "records" | "workflow";
 
 // ---------------------------------------------------------------------------
-// Multer disk storage — files go to OS temp dir, cleaned up after ingest
+// Multer disk storage - files go to OS temp dir, cleaned up after ingest
 // ---------------------------------------------------------------------------
 
 const uploadStorage = diskStorage({
@@ -163,7 +163,7 @@ const uploadStorage = diskStorage({
         cb(null, dir);
     },
     filename: (_req, file, cb) => {
-        // Sanitise — keep only alphanumerics, dashes, underscores, dots
+        // Sanitise - keep only alphanumerics, dashes, underscores, dots
         const safe = file.originalname.replace(/[^a-zA-Z0-9._-]/g, "_");
         cb(null, safe);
     }
@@ -208,7 +208,7 @@ function parseContentTypes(
         const partName: string = ov["@_PartName"] ?? "";
         const ct: string = ov["@_ContentType"] ?? "";
         if (partName && ct) {
-            // PartName starts with "/" — normalise
+            // PartName starts with "/" - normalise
             result.set(partName.replace(/^\//, ""), ct);
         }
     }
@@ -286,7 +286,7 @@ function cleanupFiles(files: { epc?: Express.Multer.File[]; h5?: Express.Multer.
         // Also try to remove the temp directory
         try {
             fs.rmdirSync(path.dirname(f.path));
-        } catch { /* best effort — may not be empty */ }
+        } catch { /* best effort - may not be empty */ }
     }
 }
 
@@ -490,9 +490,9 @@ export default class EpcUploadAPI {
             "9. Commit transaction\n" +
             "10. Auto-ingest to OSDU catalog (if `autoIngest` is set)\n\n" +
             "**Auto-ingest modes**:\n" +
-            "- `false` (default) — no catalog registration\n" +
-            "- `true` / `records` — builds manifest → pushes records via Storage Service (data immediately searchable)\n" +
-            "- `workflow` — builds manifest → submits to OSDU ingestion workflow DAG\n\n" +
+            "- `false` (default) - no catalog registration\n" +
+            "- `true` / `records` - builds manifest → pushes records via Storage Service (data immediately searchable)\n" +
+            "- `workflow` - builds manifest → submits to OSDU ingestion workflow DAG\n\n" +
             "**Note**: `autoIngest` requires an internal transaction (omit `transactionId`). When using an external transaction, auto-ingest is skipped because the data may not be committed yet.\n\n" +
             "**Performance**: H5 file is written to disk (not buffered in memory). Arrays are read and sent one at a time. Duplicate H5 dataset references are deduplicated.",
         servers: swaggerServers
@@ -636,9 +636,9 @@ export default class EpcUploadAPI {
                     const firstEntry = seenUuids.get(uuid)!;
                     warnings.push({
                         phase: "extract",
-                        message: `Duplicate UUID ${uuid} in '${partName}' (first seen in '${firstEntry}') — skipping duplicate`
+                        message: `Duplicate UUID ${uuid} in '${partName}' (first seen in '${firstEntry}') - skipping duplicate`
                     });
-                    logger.warn(`Duplicate UUID ${uuid} in '${partName}' — already seen in '${firstEntry}'`);
+                    logger.warn(`Duplicate UUID ${uuid} in '${partName}' - already seen in '${firstEntry}'`);
                     continue;
                 }
                 seenUuids.set(uuid, partName);
@@ -658,7 +658,7 @@ export default class EpcUploadAPI {
                     entryName: partName
                 });
 
-                // Track EpcExternalPartReference UUIDs — these map to the H5 file
+                // Track EpcExternalPartReference UUIDs - these map to the H5 file
                 if (dataType === "obj_EpcExternalPartReference") {
                     epcExternalPartUuids.add(uuid);
                 }
@@ -723,14 +723,14 @@ export default class EpcUploadAPI {
 
             const h5Refs: H5Reference[] = [];
 
-            // Pre-compiled regexes — hoisted out of the per-object loop
+            // Pre-compiled regexes - hoisted out of the per-object loop
             const pathRegex =
                 /<(?:[\w]+:)?PathInHdfFile[^>]*>([^<]+)<\/(?:[\w]+:)?PathInHdfFile>/g;
             const hdfProxyRegex =
                 /<(?:[\w]+:)?HdfProxy[^>]*>[\s\S]*?<(?:[\w]+:)?UUID[^>]*>([0-9a-fA-F-]{36})<\/(?:[\w]+:)?UUID>/g;
 
             for (const obj of epcObjects) {
-                // Skip EpcExternalPartReference objects — they don't contain HDF references
+                // Skip EpcExternalPartReference objects - they don't contain HDF references
                 if (obj.dataType === "obj_EpcExternalPartReference") continue;
 
                 // Find all PathInHdfFile references in this object's XML
@@ -796,9 +796,9 @@ export default class EpcUploadAPI {
                 h5wasm = await import(h5NodeEntry);
                 await h5wasm.ready;
 
-                // h5wasm uses an emscripten virtual FS — we need to mount the file
+                // h5wasm uses an emscripten virtual FS - we need to mount the file
                 const h5FileName = path.basename(h5File.path);
-                // Buffer IS a Uint8Array — pass directly, avoid an extra copy
+                // Buffer IS a Uint8Array - pass directly, avoid an extra copy
                 const h5Data = fs.readFileSync(h5File.path);
                 h5wasm.FS.writeFile(h5FileName, h5Data);
                 h5FileHandle = new h5wasm.File(h5FileName, "r");
@@ -824,7 +824,7 @@ export default class EpcUploadAPI {
                             if (typedArrayName === "BigInt64Array" || typedArrayName === "BigUint64Array") {
                                 warnings.push({
                                     phase: "h5open",
-                                    message: `Dataset '${ref.pathInHdfFile}' uses 64-bit integer dtype — may require special handling`
+                                    message: `Dataset '${ref.pathInHdfFile}' uses 64-bit integer dtype - may require special handling`
                                 });
                             }
                         }
@@ -961,7 +961,7 @@ export default class EpcUploadAPI {
 
             if (h5FileHandle && h5Refs.length > 0) {
                 checkTimeout("putArrays");
-                // Deduplicate — multiple objects may reference the same H5 dataset path
+                // Deduplicate - multiple objects may reference the same H5 dataset path
                 const seen = new Set<string>();
 
                 // Build work items (deduplicated)
@@ -1037,7 +1037,7 @@ export default class EpcUploadAPI {
                         else skippedArrays++;
                     }
 
-                    // #3: Check failure threshold — rollback if too many arrays failed
+                    // #3: Check failure threshold - rollback if too many arrays failed
                     const totalProcessed = arraysStored + skippedArrays;
                     if (totalProcessed > 0 && skippedArrays / totalProcessed > ARRAY_FAILURE_THRESHOLD && totalProcessed >= 5) {
                         const msg = `Array failure threshold exceeded: ${skippedArrays}/${totalProcessed} failed (>${(ARRAY_FAILURE_THRESHOLD * 100).toFixed(0)}%)`;
@@ -1191,7 +1191,7 @@ export default class EpcUploadAPI {
             return {
                 status: "skipped",
                 mode,
-                error: "RDMS_OSDU_URL not configured — cannot push to catalog"
+                error: "RDMS_OSDU_URL not configured - cannot push to catalog"
             };
         }
 
@@ -1210,7 +1210,7 @@ export default class EpcUploadAPI {
                 jwt === null || typeof jwt === "string" ? undefined : jwt?.unique_name,
                 undefined, // tags
                 true,      // createMissingReferences
-                false      // includeArrayData — skip for speed
+                false      // includeArrayData - skip for speed
             );
             context.bearer = bearer;
 

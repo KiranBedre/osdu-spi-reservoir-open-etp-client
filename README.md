@@ -1,17 +1,17 @@
 # @osdu/open-etp-client
 
-REST and GraphQL gateway and SDK for [OpenETPServer](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-server). Bridges HTTP/JSON consumers to the binary Avro ETP 1.2 protocol — dataspace management, RESQML/WITSML/PRODML object access, data array streaming, OSDU manifest generation, EPC upload, and well search.
+REST and GraphQL gateway and SDK for [OpenETPServer](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-server). Bridges HTTP/JSON consumers to the binary Avro ETP 1.2 protocol - dataspace management, RESQML/WITSML/PRODML object access, data array streaming, OSDU manifest generation, EPC upload, and well search.
 
 ```mermaid
 graph LR
     A["Consumers<br/>(apps, CI, Swagger)"] <-->|"REST / GraphQL<br/>HTTP · JSON · GQL"| B["open-etp-client<br/>(this service)<br/>NestJS · :8003"]
     B <-->|"Binary Avro ETP 1.2<br/>WebSocket frames"| C["open-etp-server<br/>(C++ binary)<br/>:9004 → PG"]
-    B -.->|"OSDU APIs (optional)"| D["Schema Service — Kind version resolution<br/>Storage Service — Manifest ingestion<br/>CRS Service — Coordinate transforms"]
+    B -.->|"OSDU APIs (optional)"| D["Schema Service - Kind version resolution<br/>Storage Service - Manifest ingestion<br/>CRS Service - Coordinate transforms"]
 ```
 
 | Document | Description |
 |----------|-------------|
-| [REST SDK](./sdk/README.md) | **Typed TypeScript SDK** — API reference, examples, quick start |
+| [REST SDK](./sdk/README.md) | **Typed TypeScript SDK** - API reference, examples, quick start |
 | [CHANGELOG](./CHANGELOG.M27.md) | Features, interfaces, and behavioral changes per milestone |
 | [Swagger UI](http://localhost:8003/Reservoir/v2/) | Interactive endpoint reference (served by the running application) |
 | [RESQML → OSDU Guide](./ResqmlOsduGuide.md) | Populating RESQML metadata for lossless OSDU roundtrips |
@@ -29,7 +29,7 @@ npm install && npm run build
 
 # 2. Configure
 cp config.user.env.sample config.user.env
-# Edit config.user.env — set RDMS_ETP_HOST, RDMS_ETP_PORT, etc.
+# Edit config.user.env - set RDMS_ETP_HOST, RDMS_ETP_PORT, etc.
 
 # 3. Start ETP server (Docker) + REST API
 npm run docker:compose:start    # OpenETPServer + PostgreSQL on :9004
@@ -49,10 +49,10 @@ Set values in `config.user.env` (overrides `config.default.env`):
 | `RDMS_ETP_PROTOCOL` | `ws` | `ws` or `wss` |
 | `RDMS_REST_PORT` | `8003` | REST API listen port |
 | `RDMS_REST_ROOT_PATH` | `/Reservoir/v2` | REST API base path |
-| `RDMS_DATA_PARTITION_MODE` | `single` | `single` or `multipartition` — see [Partitioning](#partitioning) |
+| `RDMS_DATA_PARTITION_MODE` | `single` | `single` or `multipartition` - see [Partitioning](#partitioning) |
 | `RDMS_ETP_SSL_VERIFY` | `true` | Set `false` for self-signed certs |
-| `RDMS_OSDU_URL` | — | OSDU platform URL (enables Schema Service, CRS lookups) |
-| `OSDU_MILESTONE` | — | Schema milestone (`M26` or `M27`) for manifest kind versions |
+| `RDMS_OSDU_URL` | - | OSDU platform URL (enables Schema Service, CRS lookups) |
+| `OSDU_MILESTONE` | - | Schema milestone (`M26` or `M27`) for manifest kind versions |
 
 ---
 
@@ -83,9 +83,9 @@ Available at `/graphql` (with Playground in development mode). Same data as REST
 
 Query types: `dataspaces`, `resources`, `graph`, `objectContent`, `arrayMetadata`.
 
-### TypeScript REST SDK — `RddmsClient`
+### TypeScript REST SDK - `RddmsClient`
 
-The `RddmsClient` class provides a **typed HTTP/JSON SDK** for the REST API. No ETP protocol knowledge, no binary framing, no XML — just typed method calls.
+The `RddmsClient` class provides a **typed HTTP/JSON SDK** for the REST API. No ETP protocol knowledge, no binary framing, no XML - just typed method calls.
 
 ```typescript
 import { RddmsClient } from './sdk';
@@ -107,9 +107,9 @@ See [sdk/README.md](./sdk/README.md) for the full API reference and [src/example
 
 ### TypeScript Library (low-level)
 
-The `ResqmlClient` class talks raw ETP 1.2 binary protocol over WebSocket — you manage connections, Avro frame encoding, session negotiation, and multi-part message assembly. See [src/examples/](./src/examples/).
+The `ResqmlClient` class talks raw ETP 1.2 binary protocol over WebSocket - you manage connections, Avro frame encoding, session negotiation, and multi-part message assembly. See [src/examples/](./src/examples/).
 
-> **When to use which?** Use `RddmsClient` (REST SDK) for application integration, scripting, and CI — it covers ~95% of use cases. Use `ResqmlClient` only when you need direct binary protocol control: custom streaming subscriptions, holding WebSocket sessions open for real-time push, or bypassing the REST gateway for high-frequency calls.
+> **When to use which?** Use `RddmsClient` (REST SDK) for application integration, scripting, and CI - it covers ~95% of use cases. Use `ResqmlClient` only when you need direct binary protocol control: custom streaming subscriptions, holding WebSocket sessions open for real-time push, or bypassing the REST gateway for high-frequency calls.
 
 #### Performance: SDK vs Direct ETP vs fesapi/pyetp
 
@@ -122,11 +122,11 @@ The `ResqmlClient` class talks raw ETP 1.2 binary protocol over WebSocket — yo
 | 1M float array read | ~2 s | ~300 ms | ~150 ms | ~500 ms |
 | 1GB float array (125M floats) | **impractical**¹ | ~50 s² | ~25 s | ~80 s |
 
-¹ JSON text for 125M floats is ~2.5 GB — exceeds Node.js heap and HTTP chunking limits. Use EPC upload or direct ETP for arrays this size.
+¹ JSON text for 125M floats is ~2.5 GB - exceeds Node.js heap and HTTP chunking limits. Use EPC upload or direct ETP for arrays this size.
 ² ETP chunks at 4 MB (~250 chunks for 1 GB). Throughput is ~20 MB/s over WebSocket with Avro framing.
 ³ Object writes scale sub-linearly: the gateway batches 100 objects per ETP message, so 1000 objects = 10 ETP messages inside 1 HTTP call + fixed transaction overhead (~22 ms). Not 500× the 2-object time.
 
-For **metadata operations**, the SDK adds ~5–8 ms overhead per call — negligible for application use (ETP server + PG query time dominates). For **large array I/O** (>100k floats), JSON serialization becomes the bottleneck (~5–7× slower than binary Avro). For array-heavy workflows (seismic grids, simulation results), use the EPC upload endpoint or direct ETP.
+For **metadata operations**, the SDK adds ~5–8 ms overhead per call - negligible for application use (ETP server + PG query time dominates). For **large array I/O** (>100k floats), JSON serialization becomes the bottleneck (~5–7× slower than binary Avro). For array-heavy workflows (seismic grids, simulation results), use the EPC upload endpoint or direct ETP.
 
 ---
 
@@ -145,7 +145,7 @@ See [devops/azure/README.md](devops/azure/README.md) for Helm chart and Azure De
 
 ### Production notes
 
-- ETP server and client are **separate containers** — deploy with shared network
+- ETP server and client are **separate containers** - deploy with shared network
 - OpenETPServer requires **PostgreSQL** (stores XML metadata and HDF5 arrays)
 - Configure `RDMS_OSDU_URL` for Schema Service kind resolution; falls back to static M27 versions if unavailable
 - Health endpoints (`/health/liveness`, `/health/readiness`) are Kubernetes-ready
@@ -226,8 +226,8 @@ npm run docker:compose:start       # OpenETPServer on localhost:9004
 
 Two modes (same as [ETP server](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-server/-/blob/main/README.md#partition-modes)):
 
-- **Single-partition** — client handles one partition, does not transmit `data-partition-id` to server
-- **Multi-partition** — expects `data-partition-id` header in REST requests, forwards to server
+- **Single-partition** - client handles one partition, does not transmit `data-partition-id` to server
+- **Multi-partition** - expects `data-partition-id` header in REST requests, forwards to server
 
 Set `RDMS_DATA_PARTITION_MODE` in config.
 
@@ -235,10 +235,10 @@ Set `RDMS_DATA_PARTITION_MODE` in config.
 
 Manifest builder resolves OSDU kind versions at startup:
 
-1. **Schema Service query** — queries OSDU Schema Service for latest published versions
-2. **Static fallback** — built-in `FALLBACK_KINDS` map provides M27 versions if service unavailable
+1. **Schema Service query** - queries OSDU Schema Service for latest published versions
+2. **Static fallback** - built-in `FALLBACK_KINDS` map provides M27 versions if service unavailable
 
-No configuration needed — adapts automatically to the target platform.
+No configuration needed - adapts automatically to the target platform.
 
 ---
 

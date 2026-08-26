@@ -98,7 +98,7 @@ class CurveValidationResultEntry {
   mnemonicResolved!: boolean;
 
   @ApiPropertyOptional({
-    example: ["UOM 'gAPI' provided but QuantityClass is 'API gamma ray' — verify compatibility"],
+    example: ["UOM 'gAPI' provided but QuantityClass is 'API gamma ray' - verify compatibility"],
     description: "Validation warnings"
   })
   warnings?: string[];
@@ -306,7 +306,7 @@ export default class PwlsController {
       if (entry.uom && result.quantityClass) {
         const warnings: string[] = [];
         warnings.push(
-          `UOM '${entry.uom}' provided — QuantityClass is '${result.quantityClass}'. Verify compatibility.`
+          `UOM '${entry.uom}' provided - QuantityClass is '${result.quantityClass}'. Verify compatibility.`
         );
         result.warnings = warnings;
       } else if (!result.property) {

@@ -58,7 +58,7 @@ const testWitsmlDataspace = "test/witsml-" + Date.now().toString(36);
 // WITSML Store REST API Tests
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("WITSML Store — Input Validation", () => {
+describe("WITSML Store - Input Validation", () => {
   let nestAppServer: any;
 
   beforeAll(async () => {
@@ -66,7 +66,7 @@ describe("WITSML Store — Input Validation", () => {
     nestAppServer = (await nestApp.init()).getHttpServer();
   });
 
-  it("PUT /witsml/store — rejects missing Authorization header", async () => {
+  it("PUT /witsml/store - rejects missing Authorization header", async () => {
     const response = await request(nestAppServer)
       .put(`${restApiMainUrl}/witsml/store`)
       .set("data-partition-id", testDataPartitionId)
@@ -75,7 +75,7 @@ describe("WITSML Store — Input Validation", () => {
     expect(response.status).toBe(401);
   });
 
-  it("PUT /witsml/store — rejects missing data-partition-id header", async () => {
+  it("PUT /witsml/store - rejects missing data-partition-id header", async () => {
     const response = await request(nestAppServer)
       .put(`${restApiMainUrl}/witsml/store`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -85,7 +85,7 @@ describe("WITSML Store — Input Validation", () => {
     expect([200, 400]).toContain(response.status);
   });
 
-  it("PUT /witsml/store — rejects empty body", async () => {
+  it("PUT /witsml/store - rejects empty body", async () => {
     const response = await request(nestAppServer)
       .put(`${restApiMainUrl}/witsml/store`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -95,7 +95,7 @@ describe("WITSML Store — Input Validation", () => {
     expect(response.status).toBe(400);
   });
 
-  it("PUT /witsml/store — rejects missing xml field", async () => {
+  it("PUT /witsml/store - rejects missing xml field", async () => {
     const response = await request(nestAppServer)
       .put(`${restApiMainUrl}/witsml/store`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -105,7 +105,7 @@ describe("WITSML Store — Input Validation", () => {
     expect(response.status).toBe(400);
   });
 
-  it("PUT /witsml/store — rejects missing dataspace field", async () => {
+  it("PUT /witsml/store - rejects missing dataspace field", async () => {
     const response = await request(nestAppServer)
       .put(`${restApiMainUrl}/witsml/store`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -115,7 +115,7 @@ describe("WITSML Store — Input Validation", () => {
     expect(response.status).toBe(400);
   });
 
-  it("PUT /witsml/store — rejects invalid dataspace pattern", async () => {
+  it("PUT /witsml/store - rejects invalid dataspace pattern", async () => {
     const response = await request(nestAppServer)
       .put(`${restApiMainUrl}/witsml/store`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -125,7 +125,7 @@ describe("WITSML Store — Input Validation", () => {
     expect(response.status).toBe(400);
   });
 
-  it("POST /witsml/query — rejects missing dataspace", async () => {
+  it("POST /witsml/query - rejects missing dataspace", async () => {
     const response = await request(nestAppServer)
       .post(`${restApiMainUrl}/witsml/query`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -137,10 +137,10 @@ describe("WITSML Store — Input Validation", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// WITSML Store — Functional Tests (requires ETP server)
+// WITSML Store - Functional Tests (requires ETP server)
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("WITSML Store — Functional", () => {
+describe("WITSML Store - Functional", () => {
   let nestAppServer: any;
 
   beforeAll(async () => {
@@ -163,7 +163,7 @@ describe("WITSML Store — Functional", () => {
       <TimeZone>+01:00</TimeZone>
     </Well>`;
 
-  it("PUT /witsml/store — stores a valid WITSML 2.1 Well", async () => {
+  it("PUT /witsml/store - stores a valid WITSML 2.1 Well", async () => {
     const response = await request(nestAppServer)
       .put(`${restApiMainUrl}/witsml/store`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -177,7 +177,7 @@ describe("WITSML Store — Functional", () => {
     }
   });
 
-  it("POST /witsml/query — queries objects in a dataspace", async () => {
+  it("POST /witsml/query - queries objects in a dataspace", async () => {
     const response = await request(nestAppServer)
       .post(`${restApiMainUrl}/witsml/query`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -190,7 +190,7 @@ describe("WITSML Store — Functional", () => {
     }
   });
 
-  it("POST /witsml/query — filters by object type", async () => {
+  it("POST /witsml/query - filters by object type", async () => {
     const response = await request(nestAppServer)
       .post(`${restApiMainUrl}/witsml/query`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -203,7 +203,7 @@ describe("WITSML Store — Functional", () => {
     }
   });
 
-  it("GET /witsml/:dataspaceId/objects — lists objects", async () => {
+  it("GET /witsml/:dataspaceId/objects - lists objects", async () => {
     const encoded = encodeURIComponent(testDataspace);
     const response = await request(nestAppServer)
       .get(`${restApiMainUrl}/witsml/${encoded}/objects`)
@@ -216,7 +216,7 @@ describe("WITSML Store — Functional", () => {
     }
   });
 
-  it("GET /witsml/:dataspaceId/objects?type=Well — filters by type param", async () => {
+  it("GET /witsml/:dataspaceId/objects?type=Well - filters by type param", async () => {
     const encoded = encodeURIComponent(testDataspace);
     const response = await request(nestAppServer)
       .get(`${restApiMainUrl}/witsml/${encoded}/objects?type=Well`)
@@ -231,7 +231,7 @@ describe("WITSML Store — Functional", () => {
 // Query REST API Tests
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("Query REST API — Input Validation", () => {
+describe("Query REST API - Input Validation", () => {
   let nestAppServer: any;
 
   beforeAll(async () => {
@@ -239,7 +239,7 @@ describe("Query REST API — Input Validation", () => {
     nestAppServer = (await nestApp.init()).getHttpServer();
   });
 
-  it("POST /query/resources/find — rejects missing Authorization", async () => {
+  it("POST /query/resources/find - rejects missing Authorization", async () => {
     const response = await request(nestAppServer)
       .post(`${restApiMainUrl}/query/resources/find`)
       .set("data-partition-id", testDataPartitionId)
@@ -248,7 +248,7 @@ describe("Query REST API — Input Validation", () => {
     expect(response.status).toBe(401);
   });
 
-  it("POST /query/resources/find — rejects missing uri", async () => {
+  it("POST /query/resources/find - rejects missing uri", async () => {
     const response = await request(nestAppServer)
       .post(`${restApiMainUrl}/query/resources/find`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -258,7 +258,7 @@ describe("Query REST API — Input Validation", () => {
     expect(response.status).toBe(400);
   });
 
-  it("POST /query/resources/find — rejects invalid scope enum", async () => {
+  it("POST /query/resources/find - rejects invalid scope enum", async () => {
     const response = await request(nestAppServer)
       .post(`${restApiMainUrl}/query/resources/find`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -268,7 +268,7 @@ describe("Query REST API — Input Validation", () => {
     expect(response.status).toBe(400);
   });
 
-  it("POST /query/objects/find — rejects missing uri", async () => {
+  it("POST /query/objects/find - rejects missing uri", async () => {
     const response = await request(nestAppServer)
       .post(`${restApiMainUrl}/query/objects/find`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -278,7 +278,7 @@ describe("Query REST API — Input Validation", () => {
     expect(response.status).toBe(400);
   });
 
-  it("POST /query/growing/metadata — rejects missing uri", async () => {
+  it("POST /query/growing/metadata - rejects missing uri", async () => {
     const response = await request(nestAppServer)
       .post(`${restApiMainUrl}/query/growing/metadata`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -288,7 +288,7 @@ describe("Query REST API — Input Validation", () => {
     expect(response.status).toBe(400);
   });
 
-  it("POST /query/growing/range — rejects missing required fields", async () => {
+  it("POST /query/growing/range - rejects missing required fields", async () => {
     const response = await request(nestAppServer)
       .post(`${restApiMainUrl}/query/growing/range`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -298,7 +298,7 @@ describe("Query REST API — Input Validation", () => {
     expect(response.status).toBe(400);
   });
 
-  it("POST /query/channels/metadata — rejects missing uri", async () => {
+  it("POST /query/channels/metadata - rejects missing uri", async () => {
     const response = await request(nestAppServer)
       .post(`${restApiMainUrl}/query/channels/metadata`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -309,7 +309,7 @@ describe("Query REST API — Input Validation", () => {
   });
 });
 
-describe("Query REST API — Functional", () => {
+describe("Query REST API - Functional", () => {
   let nestAppServer: any;
   const testUri = `eml:///dataspace('${testDataspace}')`;
 
@@ -318,7 +318,7 @@ describe("Query REST API — Functional", () => {
     nestAppServer = (await nestApp.init()).getHttpServer();
   });
 
-  it("POST /query/resources/find — finds resources in dataspace", async () => {
+  it("POST /query/resources/find - finds resources in dataspace", async () => {
     const response = await request(nestAppServer)
       .post(`${restApiMainUrl}/query/resources/find`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -335,7 +335,7 @@ describe("Query REST API — Functional", () => {
     }
   });
 
-  it("POST /query/resources/find — filters by data object type", async () => {
+  it("POST /query/resources/find - filters by data object type", async () => {
     const response = await request(nestAppServer)
       .post(`${restApiMainUrl}/query/resources/find`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -353,7 +353,7 @@ describe("Query REST API — Functional", () => {
     }
   });
 
-  it("POST /query/objects/find — retrieves objects with content", async () => {
+  it("POST /query/objects/find - retrieves objects with content", async () => {
     const response = await request(nestAppServer)
       .post(`${restApiMainUrl}/query/objects/find`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -370,7 +370,7 @@ describe("Query REST API — Functional", () => {
     }
   });
 
-  it("POST /query/growing/metadata — handles gracefully", async () => {
+  it("POST /query/growing/metadata - handles gracefully", async () => {
     const response = await request(nestAppServer)
       .post(`${restApiMainUrl}/query/growing/metadata`)
       .set("Authorization", `Bearer ${jwt}`)
@@ -381,7 +381,7 @@ describe("Query REST API — Functional", () => {
     expect([200, 404, 502]).toContain(response.status);
   });
 
-  it("POST /query/channels/metadata — handles gracefully", async () => {
+  it("POST /query/channels/metadata - handles gracefully", async () => {
     const response = await request(nestAppServer)
       .post(`${restApiMainUrl}/query/channels/metadata`)
       .set("Authorization", `Bearer ${jwt}`)

@@ -289,7 +289,7 @@ export class ResqmlClient {
       Energistics.Etp.v12.Datatypes.Protocol.DataspaceOSDU,
       this.dataspaceOSDU
     );
-    // Extended protocols — always registered; the ETP session negotiation
+    // Extended protocols - always registered; the ETP session negotiation
     // determines which ones the server actually supports.  REST endpoints
     // check `isProtocolSupported()` and return 501 when unavailable.
     this.client.registerHandler(
@@ -1614,7 +1614,7 @@ export class ResqmlClient {
               (o, i) => o && objects.set(tUris[i], o)
             );
           } catch (refErr: any) {
-            // Some referenced objects may not exist — continue with what we have
+            // Some referenced objects may not exist - continue with what we have
             this.logger.warn(
               `Failed to fetch ${tUris.length} referenced object(s): ${refErr?.message ?? refErr}`
             );
@@ -3255,7 +3255,7 @@ export class ResqmlClient {
     // Track objects currently being resolved to detect circular refs
     if (!inProgress) inProgress = new Set<string>();
     if (inProgress.has(etpUri.uriPath)) {
-      // Circular reference detected — return obj as-is without further resolution
+      // Circular reference detected - return obj as-is without further resolution
       return obj;
     }
     inProgress.add(etpUri.uriPath);
@@ -3377,7 +3377,7 @@ export class ResqmlClient {
               // Skip if this reference is currently being resolved (cycle)
               const refPath = new EtpUri(nURI.uri).uriPath;
               if (inProgress!.has(refPath)) {
-                // Circular ref — leave DataObjectReference without _data
+                // Circular ref - leave DataObjectReference without _data
               } else {
                 const res = this.resolveReferences(
                   nURI.uri,

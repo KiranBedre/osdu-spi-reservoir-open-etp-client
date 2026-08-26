@@ -595,7 +595,7 @@ export const getGeometries = (
         ? points.NodePatchGeometry
         : [points.NodePatchGeometry];
     }
-    // v2.0.1-style NodePatch dropped by v2.2 parser — geometry unavailable
+    // v2.0.1-style NodePatch dropped by v2.2 parser - geometry unavailable
     return [];
   } else if (xml.$type === "resqml22.PolylineRepresentation") {
     const line = xml as any;

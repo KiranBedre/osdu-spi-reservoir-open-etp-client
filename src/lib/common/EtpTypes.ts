@@ -77,9 +77,9 @@ export interface IDataArray extends IDataArrayMetadata {
 export interface IDataSubarray {
   uid: IArrayId;
   data?:
-    | Energistics.Etp.v12.Datatypes.DataArrayTypes.DataArray
-    | ErrorInfo
-    | null;
+  | Energistics.Etp.v12.Datatypes.DataArrayTypes.DataArray
+  | ErrorInfo
+  | null;
   /**
    * @description index of first item in each dimension
    * @maxItems 10
@@ -230,7 +230,7 @@ export class EtpError extends Error {
  * Indicates that the ETP WebSocket session backing a transaction has been
  * terminated by the server (or the underlying socket is no longer open) and
  * cannot accept further messages. Mapped to HTTP 410 Gone by the REST layer
- * so callers learn the transaction is dead and must be re-created — instead
+ * so callers learn the transaction is dead and must be re-created - instead
  * of receiving an opaque 500 from a downstream `cannot call send() while not
  * connected` raw transport error.
  *

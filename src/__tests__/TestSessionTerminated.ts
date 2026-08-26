@@ -21,7 +21,7 @@
 // call `connection?.send(data)` on a closed socket and throw a raw
 // "cannot call send() while not connected" transport error. The REST layer's
 // generic `httpErrorFromEtpError` fell through to InternalServerErrorException
-// and returned an opaque HTTP 500 — making the entire transaction unusable
+// and returned an opaque HTTP 500 - making the entire transaction unusable
 // without telling the caller why.
 //
 // The fix: ETPCore.sendData now throws a typed EtpSessionTerminatedError
@@ -110,7 +110,7 @@ describe("httpErrorFromEtpError → 410 Gone for terminated sessions", () => {
   });
 
   it("does not collide with generic EINVALID_STATE EtpError mapping", () => {
-    // Plain EtpError with the same numeric code still maps to 412 — only the
+    // Plain EtpError with the same numeric code still maps to 412 - only the
     // typed subclass triggers the 410 branch.
     const err = new EtpError("invalid state", ErrorCode.EINVALID_STATE);
     const result = httpErrorFromEtpError(err);

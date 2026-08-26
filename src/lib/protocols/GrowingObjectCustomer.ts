@@ -29,7 +29,7 @@ type PartsMetadataInfo = Energistics.Etp.v12.Datatypes.Object.PartsMetadataInfo;
 /**
  * Implementation of client for GrowingObject protocol (Protocol 6).
  *
- * GrowingObject manages objects that grow over time — primarily well logs and
+ * GrowingObject manages objects that grow over time - primarily well logs and
  * mud logs in WITSML/EnergyML. Parts can be appended, retrieved by UID or
  * range, and change annotations tracked. This is critical for OSDU real-time
  * drilling data where logs grow as new measurements arrive.
@@ -215,12 +215,12 @@ export class GrowingObjectCustomer extends BaseHandler {
       BigInt(0)
     );
     const getPartsByRange: Energistics.Etp.v12.Protocol.GrowingObject.GetPartsByRange =
-      {
-        uri: encodeURI(uri),
-        indexInterval,
-        includeOverlappingIntervals,
-        format
-      };
+    {
+      uri: encodeURI(uri),
+      indexInterval,
+      includeOverlappingIntervals,
+      format
+    };
     return this.partsResults.waitForRequest(
       this.sessionManager.send(header, getPartsByRange)
     );
@@ -242,9 +242,9 @@ export class GrowingObjectCustomer extends BaseHandler {
     const uris = new Map<string, string>();
     uris.set("0", encodeURI(uri));
     const getPartsMetadata: Energistics.Etp.v12.Protocol.GrowingObject.GetPartsMetadata =
-      {
-        uris
-      };
+    {
+      uris
+    };
     return this.metadataResults.waitForRequest(
       this.sessionManager.send(header, getPartsMetadata)
     );
@@ -316,10 +316,10 @@ export class GrowingObjectCustomer extends BaseHandler {
     const uris = new Map<string, string>();
     uris.set("0", encodeURI(uri));
     const msg: Energistics.Etp.v12.Protocol.GrowingObject.GetGrowingDataObjectsHeader =
-      {
-        uris,
-        format: "xml"
-      };
+    {
+      uris,
+      format: "xml"
+    };
     return this.headerResults.waitForRequest(
       this.sessionManager.send(header, msg)
     );

@@ -13,7 +13,7 @@
  *                                     // → "osdu:wks:work-product-component--WellLog:1.3.0" (M27 fallback)
  *
  * Env vars:
- *   RDMS_OSDU_URL — base URL for Schema Service query (optional)
+ *   RDMS_OSDU_URL - base URL for Schema Service query (optional)
  */
 
 import logging from "../common/Logging";
@@ -36,7 +36,7 @@ export async function initSchemaVersions(
 ): Promise<void> {
   const baseUrl = osduBaseUrl || process.env.RDMS_OSDU_URL;
   if (!baseUrl) {
-    logger.info("No RDMS_OSDU_URL configured — using static M27 fallback");
+    logger.info("No RDMS_OSDU_URL configured - using static M27 fallback");
     return;
   }
 
@@ -54,7 +54,7 @@ export async function initSchemaVersions(
       const url = `${schemaUrl}?authority=osdu&source=wks&entityType=${entityPrefix}--*&status=PUBLISHED&limit=1000`;
       const resp = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
       if (!resp.ok) {
-        logger.warn(`Schema Service returned ${resp.status} for ${entityPrefix} — skipping`);
+        logger.warn(`Schema Service returned ${resp.status} for ${entityPrefix} - skipping`);
         continue;
       }
       const body = await resp.json() as { schemaInfos?: Array<{ schemaIdentity: { id: string } }> };
@@ -78,10 +78,10 @@ export async function initSchemaVersions(
       resolvedKinds = kinds;
       logger.info(`Schema Service: resolved ${kinds.size} entity types from ${baseUrl}`);
     } else {
-      logger.warn("Schema Service returned no schemas — using static M27 fallback");
+      logger.warn("Schema Service returned no schemas - using static M27 fallback");
     }
   } catch (err: any) {
-    logger.warn(`Schema Service unavailable (${err?.message ?? err}) — using static M27 fallback`);
+    logger.warn(`Schema Service unavailable (${err?.message ?? err}) - using static M27 fallback`);
   }
 }
 
@@ -114,12 +114,12 @@ const FALLBACK_KINDS = new Map<string, string>([
   ["Reservoir", `${PREFIX_MD}Reservoir:2.0.0`],
   ["ReservoirSegment", `${PREFIX_MD}ReservoirSegment:2.0.0`],
 
-  // ─── Work Product Components — Wells ───────────────────────────────────────
+  // ─── Work Product Components - Wells ───────────────────────────────────────
   ["WellLog", `${PREFIX_WPC}WellLog:1.3.0`],
   ["WellboreTrajectory", `${PREFIX_WPC}WellboreTrajectory:1.3.0`],
   ["WellboreInterpretation", `${PREFIX_WPC}WellboreInterpretation:1.2.0`],
 
-  // ─── Work Product Components — Interpretations ─────────────────────────────
+  // ─── Work Product Components - Interpretations ─────────────────────────────
   ["EarthModelInterpretation", `${PREFIX_WPC}EarthModelInterpretation:1.2.0`],
   ["FaultInterpretation", `${PREFIX_WPC}FaultInterpretation:1.3.0`],
   ["HorizonInterpretation", `${PREFIX_WPC}HorizonInterpretation:1.2.0`],
@@ -137,7 +137,7 @@ const FALLBACK_KINDS = new Map<string, string>([
   ["SealedSurfaceFramework", `${PREFIX_WPC}SealedSurfaceFramework:1.2.0`],
   ["ReservoirCompartmentInterpretation", `${PREFIX_WPC}ReservoirCompartmentInterpretation:1.2.0`],
 
-  // ─── Work Product Components — Representations / Properties ────────────────
+  // ─── Work Product Components - Representations / Properties ────────────────
   ["GenericRepresentation", `${PREFIX_WPC}GenericRepresentation:1.1.0`],
   ["GenericProperty", `${PREFIX_WPC}GenericProperty:1.2.0`],
   ["IjkGridRepresentation", `${PREFIX_WPC}IjkGridRepresentation:1.2.0`],
@@ -154,7 +154,7 @@ const FALLBACK_KINDS = new Map<string, string>([
   ["ColumnBasedTable", `${PREFIX_WPC}ColumnBasedTable:1.2.0`],
   ["Activity", `${PREFIX_WPC}Activity:1.2.0`],
 
-  // ─── Work Product Components — Seismic ─────────────────────────────────────
+  // ─── Work Product Components - Seismic ─────────────────────────────────────
   ["SeismicBinGrid", `${PREFIX_WPC}SeismicBinGrid:1.2.0`],
   ["SeismicHorizon", `${PREFIX_WPC}SeismicHorizon:2.0.0`],
   ["SeismicFault", `${PREFIX_WPC}SeismicFault:1.1.0`],
@@ -162,14 +162,14 @@ const FALLBACK_KINDS = new Map<string, string>([
   ["GenericBinGrid", `${PREFIX_WPC}GenericBinGrid:1.0.0`],
   ["HorizonControlPoints", `${PREFIX_WPC}HorizonControlPoints:1.0.0`],
 
-  // ─── Work Product Components — WITSML ──────────────────────────────────────
+  // ─── Work Product Components - WITSML ──────────────────────────────────────
   ["Rig", `${PREFIX_WPC}Rig:1.2.0`],
   ["FluidsReport", `${PREFIX_WPC}FluidsReport:1.2.0`],
   ["Tubular", `${PREFIX_WPC}Tubular:1.2.0`],
   ["BHARunReport", `${PREFIX_WPC}BHARunReport:1.2.0`],
   ["WellboreCompletion", `${PREFIX_WPC}WellboreCompletion:1.2.0`],
 
-  // ─── Work Product Components — Reservoir Management / Simulation ───────────
+  // ─── Work Product Components - Reservoir Management / Simulation ───────────
   ["FluidModel", `${PREFIX_WPC}FluidModel:1.0.0`],
   ["SaturationFunctionSet", `${PREFIX_WPC}SaturationFunctionSet:1.0.0`],
   ["ReservoirModelScenario", `${PREFIX_WPC}ReservoirModelScenario:1.0.0`],

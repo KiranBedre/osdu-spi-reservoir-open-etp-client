@@ -70,7 +70,7 @@ export interface ConverterRegistration {
 
 /**
  * Register a single converter with the global ResqmlOSDU registry.
- * Safe to call multiple times — last registration wins for a given sourceType.
+ * Safe to call multiple times - last registration wins for a given sourceType.
  *
  * @param etpType ETP qualified data object type (e.g., "resqml22.BoundaryFeature")
  * @param osduKind Function returning target OSDU kind string

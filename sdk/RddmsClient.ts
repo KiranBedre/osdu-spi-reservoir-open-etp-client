@@ -1,5 +1,5 @@
 /**
- * @osdu/rddms-client — Typed REST SDK for the Reservoir DDMS.
+ * @osdu/rddms-client - Typed REST SDK for the Reservoir DDMS.
  *
  * Thin typed wrapper over the open-etp-client REST API.
  * Auto-handles auth tokens, partition headers, transaction lifecycle,
@@ -7,7 +7,7 @@
  *
  * Unlike the low-level ResqmlClient (WebSocket/Avro, ETP protocol knowledge
  * required), this SDK talks plain HTTP/JSON to the already-running REST
- * gateway — no binary protocols, no XML, no HDF5 linking.
+ * gateway - no binary protocols, no XML, no HDF5 linking.
  *
  * @example
  *   import { RddmsClient } from '@osdu/rddms-client';

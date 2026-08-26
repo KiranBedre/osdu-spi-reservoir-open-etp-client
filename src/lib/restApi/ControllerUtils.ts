@@ -85,7 +85,7 @@ export const swaggerUIUrl = `${restApiMainUrl}:${restApiPort}${restApiRoutePath}
 
 export const serverUIUrl = `${restApiMainUrl}:${openApiPort}${restApiServerPath}`;
 
-// No per-operation server override — all operations inherit the global
+// No per-operation server override - all operations inherit the global
 // relative-path server declared via .addServer() in App.ts.
 export const swaggerServers: any = undefined;
 
@@ -843,7 +843,7 @@ export const createSession = async (
       .openSession(etpServerUrl, jwt, dataPartitionId, userInfo)
       .catch(err => {
         // EtpError comes from a ProtocolException sent back by the ETP
-        // server (errorFromProtocolException) — its message is an
+        // server (errorFromProtocolException) - its message is an
         // application-level, sanitized string (e.g. "Partition X not
         // found", "User has no permissions") that is safe and useful to
         // surface to the client. Pass it through unchanged.
@@ -953,7 +953,7 @@ export const createTransaction = async (
       return idString;
     })
     .catch(err => {
-      // EtpError carries a server-sent ProtocolException message — safe and
+      // EtpError carries a server-sent ProtocolException message - safe and
       // useful to surface (e.g. "Cannot start transaction, too many write
       // transactions", "Partition X not found"). Pass through unchanged.
       if (isEtpError(err)) {
@@ -963,7 +963,7 @@ export const createTransaction = async (
         });
         throw err;
       }
-      // Non-EtpError = raw transport / sync throw — sanitize log and return
+      // Non-EtpError = raw transport / sync throw - sanitize log and return
       // generic message to the client.
       logger.error("[ETP] Failed to create transaction session", {
         err: sanitizeErrorForLog(err)
@@ -1454,7 +1454,7 @@ export const httpErrorFromEtpError = (
 
   // Node.js system errors (ECONNREFUSED, ETIMEDOUT, etc.) raised by axios /
   // ws / http when a dependent service is unreachable or slow. These are not
-  // server bugs — they indicate an upstream/transport problem, so map them to
+  // server bugs - they indicate an upstream/transport problem, so map them to
   // 502 / 504 instead of 500 so monitoring distinguishes "my service broke"
   // from "a dependency broke".
   if (error && typeof error === "object" && "code" in error) {
@@ -1492,11 +1492,11 @@ export const httpErrorFromEtpError = (
     }
   }
   // Non-EtpError, non-HttpException: this is a genuine server fault
-  // (TypeError, RangeError, library bug, etc.) — return 500, not 400.
+  // (TypeError, RangeError, library bug, etc.) - return 500, not 400.
   // Log the full error (including stack) server-side for triage; only
   // surface the message to the client. Callers upstream (createSession,
   // extractToken, etc.) are responsible for not stuffing secrets into
-  // Error.message — they wrap raw errors before re-throwing.
+  // Error.message - they wrap raw errors before re-throwing.
   logger.error(
     context
       ? `Unhandled error while making request (${context}):`

@@ -125,7 +125,7 @@ export default class HealthAPI {
   @ApiInternalServerErrorResponse(errorMessageSchema("Unknown Error"))
   @ApiOperation({
     summary: "Check readiness (ETP backend connectivity).",
-    description: `Returns true if the underlying ETP WebSocket server is reachable and accepting connections. Returns 500 if the ETP server cannot be contacted.\n\n**Use case**: Kubernetes readiness probe — the pod is removed from service endpoints while the ETP backend is unreachable.`,
+    description: `Returns true if the underlying ETP WebSocket server is reachable and accepting connections. Returns 500 if the ETP server cannot be contacted.\n\n**Use case**: Kubernetes readiness probe - the pod is removed from service endpoints while the ETP backend is unreachable.`,
     security: [],
     servers: swaggerServers
   })
@@ -167,7 +167,7 @@ export default class HealthAPI {
   @ApiInternalServerErrorResponse(errorMessageSchema("Unknown Error"))
   @ApiOperation({
     summary: "Check liveness of the REST process.",
-    description: `Returns true immediately — confirms the NestJS process is alive. Does not verify ETP backend connectivity (use \`/health/readiness\` for that).\n\n**Use case**: Kubernetes liveness probe — the pod is restarted if this endpoint stops responding.`,
+    description: `Returns true immediately - confirms the NestJS process is alive. Does not verify ETP backend connectivity (use \`/health/readiness\` for that).\n\n**Use case**: Kubernetes liveness probe - the pod is restarted if this endpoint stops responding.`,
     security: [],
     servers: swaggerServers
   })

@@ -114,7 +114,7 @@ class FindResourcesDto {
   dataObjectTypes?: string[];
 
   @ApiPropertyOptional({
-    description: "Graph traversal depth (1 = immediate children, 2+ = recursive, 0 = unlimited — use with caution)",
+    description: "Graph traversal depth (1 = immediate children, 2+ = recursive, 0 = unlimited - use with caution)",
     default: 1
   })
   @IsOptional()
@@ -122,7 +122,7 @@ class FindResourcesDto {
   depth?: number;
 
   @ApiPropertyOptional({
-    description: "ISO 8601 timestamp — only return resources modified after this time. Useful for incremental sync."
+    description: "ISO 8601 timestamp - only return resources modified after this time. Useful for incremental sync."
   })
   @IsOptional()
   @IsString()
@@ -275,7 +275,7 @@ function scopeFromString(
   }
 }
 
-// Per-operation server override removed — inherits the global relative-path server.
+// Per-operation server override removed - inherits the global relative-path server.
 const swaggerServers: any = undefined;
 
 // ── Controller ───────────────────────────────────────────────────────────────
@@ -312,7 +312,7 @@ export default class QueryController {
 
 **uri format**: \`eml:///dataspace('path/to/ds')\` for dataspace root, or a full object URI to search below a specific object.
 
-**scope**: Controls graph traversal direction — 'targets' follows relationships forward (parent→child), 'sources' follows backwards.
+**scope**: Controls graph traversal direction - 'targets' follows relationships forward (parent→child), 'sources' follows backwards.
 
 **depth**: 1 = direct children only, 2+ = recursive. Use 0 for unlimited (caution: may return large results).`,
     servers: swaggerServers
@@ -399,9 +399,9 @@ export default class QueryController {
 
 **When to use**: Bulk data export, OSDU Storage ingestion, or when you need the actual XML content (not just metadata).
 
-**Performance**: More expensive than POST /query/resources/find — fetches full object bodies. For large result sets, prefer resource discovery first, then selective GetDataObjects via the /graph/{type}/{guid} endpoints.
+**Performance**: More expensive than POST /query/resources/find - fetches full object bodies. For large result sets, prefer resource discovery first, then selective GetDataObjects via the /graph/{type}/{guid} endpoints.
 
-**modifiedSince**: ISO timestamp filter — only returns objects written after this time. Useful for incremental sync.`,
+**modifiedSince**: ISO timestamp filter - only returns objects written after this time. Useful for incremental sync.`,
     servers: swaggerServers
   })
   @ApiOkResponse({
@@ -483,7 +483,7 @@ For each URI, traverses the relationship graph with the given scope and depth, t
 
 **Why use this**: Without batch search, deep search across N objects requires N+ individual REST calls. This endpoint does it in one call, reusing a single ETP session.
 
-**Performance**: For very large batches (>100 URIs), split into chunks — URIs are processed sequentially within the session. Depth values > 100 may timeout depending on server configuration.
+**Performance**: For very large batches (>100 URIs), split into chunks - URIs are processed sequentially within the session. Depth values > 100 may timeout depending on server configuration.
 
 **Best-effort**: If traversal fails for one URI, remaining URIs are still processed and partial results returned.`,
     servers: swaggerServers
@@ -583,7 +583,7 @@ For each URI, traverses the relationship graph with the given scope and depth, t
           logger.warn(
             `Graph search failed for URI ${uri}: ${err}`
           );
-          // Continue with remaining URIs — best effort
+          // Continue with remaining URIs - best effort
         }
       }
 
@@ -714,7 +714,7 @@ For each URI, traverses the relationship graph with the given scope and depth, t
 
 **Returns**: Channel names, units of measure (UOM), data kinds (float, int, string), index descriptions, and channel status.
 
-**When to use**: Before streaming channel data or calling growing object range queries — lets you know what mnemonics exist and their measurement units.
+**When to use**: Before streaming channel data or calling growing object range queries - lets you know what mnemonics exist and their measurement units.
 
 **Example flow**: Find WellLog URI → Get channel metadata here → Subscribe to specific channels via ETP streaming, or fetch ranges via POST /query/growing/range.`,
     servers: swaggerServers

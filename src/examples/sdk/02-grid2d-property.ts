@@ -47,7 +47,7 @@ async function main() {
         MimeType: "application/x-hdf5",
     };
 
-    // Interpretation (the "what") — generic feature interpretation
+    // Interpretation (the "what") - generic feature interpretation
     const interp: DataObject = {
         $type: "resqml20.obj_GenericFeatureInterpretation",
         Uuid: INTERP_UUID, SchemaVersion: "2.0.0.20140822",
@@ -55,7 +55,7 @@ async function main() {
         Domain: "depth",
     };
 
-    // Grid2D (the "where") — 4 columns × 3 rows, regular spacing
+    // Grid2D (the "where") - 4 columns × 3 rows, regular spacing
     const grid: DataObject = {
         $type: "resqml20.obj_Grid2dRepresentation",
         Uuid: GRID_UUID, SchemaVersion: "2.0.0.20140822",
@@ -94,7 +94,7 @@ async function main() {
         },
     };
 
-    // Continuous property — depth values on the grid
+    // Continuous property - depth values on the grid
     const prop: DataObject = {
         $type: "resqml20.obj_ContinuousProperty",
         Uuid: PROP_UUID, SchemaVersion: "2.0.0.20140822",
@@ -157,7 +157,7 @@ async function main() {
     console.log("   Z-values:", z.data.data);
     console.log("   Dims:", z.data.dimensions);
 
-    console.log("5. Graph — what references the grid?");
+    console.log("5. Graph - what references the grid?");
     const src = await rddms.graph.sources(DS, "resqml20.obj_Grid2dRepresentation", GRID_UUID, { depth: 1 });
     console.log("   Sources:", src.resources.map(r => `${r.name} (${r.contentType})`));
 

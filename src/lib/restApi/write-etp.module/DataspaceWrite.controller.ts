@@ -298,7 +298,7 @@ export default class DataspaceMutationsAPI {
   @Post(":dataspaceId/clone")
   @ApiOperation({
     summary: "Clone (duplicate) a dataspace",
-    description: `Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.\n\n**Note**: This is a server-side deep copy via ETP — no data is transferred through the REST layer.`,
+    description: `Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.\n\n**Note**: This is a server-side deep copy via ETP - no data is transferred through the REST layer.`,
     servers: swaggerServers
   })
   @ApiBody({
@@ -416,7 +416,7 @@ export default class DataspaceMutationsAPI {
   @HttpCode(204)
   @ApiOperation({
     summary: "Delete a dataspace",
-    description: `Delete a dataspace and all its contents. Returns 403 if the dataspace is locked — unlock it first.`,
+    description: `Delete a dataspace and all its contents. Returns 403 if the dataspace is locked - unlock it first.`,
     servers: swaggerServers
   })
   public async DeleteDataspace(

@@ -1,7 +1,7 @@
 /**
- * ValidatorClient — RESQML Validator with local (in-process) and remote modes.
+ * ValidatorClient - RESQML Validator with local (in-process) and remote modes.
  *
- * **Local mode** (default): Uses the built-in TypeScript validator — no external
+ * **Local mode** (default): Uses the built-in TypeScript validator - no external
  * service needed, no subprocess, no Python. Runs in the Node.js process.
  *
  * **Remote mode**: Falls back to HTTP calls to an external validator service
@@ -64,7 +64,7 @@ export class ValidatorClient {
     this.timeoutMs = timeoutMs;
   }
 
-  /** Health check — local mode always returns true. */
+  /** Health check - local mode always returns true. */
   async isHealthy(): Promise<boolean> {
     if (this.useLocal) return true;
     try {
@@ -161,7 +161,7 @@ export class ValidatorClient {
 
   /**
    * Validate in-memory XML objects (e.g. from ETP GetDataObjects).
-   * In local mode, runs the validator directly — no file I/O, no HTTP.
+   * In local mode, runs the validator directly - no file I/O, no HTTP.
    */
   async validateObjects(
     objects: ObjectPayload[],

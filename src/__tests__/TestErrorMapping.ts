@@ -78,152 +78,152 @@ describe("httpErrorFromEtpError", () => {
       type: new (...args: never[]) => HttpException;
       status: number;
     }> = [
-      {
-        code: ErrorCode.EAUTHORIZATION_REQUIRED,
-        type: UnauthorizedException,
-        status: HttpStatus.UNAUTHORIZED
-      },
-      {
-        code: ErrorCode.EAUTHORIZATION_EXPIRED,
-        type: UnauthorizedException,
-        status: HttpStatus.UNAUTHORIZED
-      },
-      {
-        code: ErrorCode.EAUTHORIZATION_EXPIRING,
-        type: UnauthorizedException,
-        status: HttpStatus.UNAUTHORIZED
-      },
-      {
-        code: ErrorCode.EREQUEST_DENIED,
-        type: ForbiddenException,
-        status: HttpStatus.FORBIDDEN
-      },
-      {
-        code: ErrorCode.ENOROLE,
-        type: ForbiddenException,
-        status: HttpStatus.FORBIDDEN
-      },
-      {
-        code: ErrorCode.EUPDATEGROWINGOBJECT_DENIED,
-        type: ForbiddenException,
-        status: HttpStatus.FORBIDDEN
-      },
-      {
-        code: ErrorCode.ENOT_FOUND,
-        type: NotFoundException,
-        status: HttpStatus.NOT_FOUND
-      },
-      {
-        code: ErrorCode.EINVALID_URI,
-        type: BadRequestException,
-        status: HttpStatus.BAD_REQUEST
-      },
-      {
-        code: ErrorCode.EINVALID_ARGUMENT,
-        type: BadRequestException,
-        status: HttpStatus.BAD_REQUEST
-      },
-      {
-        code: ErrorCode.EMAXSIZE_EXCEEDED,
-        type: BadRequestException,
-        status: HttpStatus.BAD_REQUEST
-      },
-      {
-        code: ErrorCode.EINVALID_OBJECT,
-        type: BadRequestException,
-        status: HttpStatus.BAD_REQUEST
-      },
-      {
-        code: ErrorCode.EINVALID_MESSAGE,
-        type: BadRequestException,
-        status: HttpStatus.BAD_REQUEST
-      },
-      {
-        code: ErrorCode.EINVALID_INDEXKIND,
-        type: BadRequestException,
-        status: HttpStatus.BAD_REQUEST
-      },
-      {
-        code: ErrorCode.EINVALID_CHANNELID,
-        type: BadRequestException,
-        status: HttpStatus.BAD_REQUEST
-      },
-      {
-        code: ErrorCode.ENOTGROWINGOBJECT,
-        type: BadRequestException,
-        status: HttpStatus.BAD_REQUEST
-      },
-      {
-        code: ErrorCode.EREQUESTUUID_REJECTED,
-        type: ConflictException,
-        status: HttpStatus.CONFLICT
-      },
-      {
-        code: ErrorCode.ENOCASCADE_DELETE,
-        type: ConflictException,
-        status: HttpStatus.CONFLICT
-      },
-      {
-        code: ErrorCode.EPLURAL_OBJECT,
-        type: ConflictException,
-        status: HttpStatus.CONFLICT
-      },
-      {
-        code: ErrorCode.ERETENTION_PERIOD_EXCEEDED,
-        type: GoneException,
-        status: HttpStatus.GONE
-      },
-      {
-        code: ErrorCode.ELIMIT_EXCEEDED,
-        type: HttpException,
-        status: HttpStatus.TOO_MANY_REQUESTS
-      },
-      {
-        code: ErrorCode.EBACKPRESSURE_LIMIT_EXCEEDED,
-        type: HttpException,
-        status: HttpStatus.TOO_MANY_REQUESTS
-      },
-      {
-        code: ErrorCode.ETIMED_OUT,
-        type: GatewayTimeoutException,
-        status: HttpStatus.GATEWAY_TIMEOUT
-      },
-      {
-        code: ErrorCode.EINVALID_STATE,
-        type: PreconditionFailedException,
-        status: HttpStatus.PRECONDITION_FAILED
-      },
-      {
-        code: ErrorCode.EMAX_TRANSACTIONS_EXCEEDED,
-        type: PreconditionFailedException,
-        status: HttpStatus.PRECONDITION_FAILED
-      },
-      {
-        code: ErrorCode.ENOSUPPORTEDPROTOCOLS,
-        type: NotImplementedException,
-        status: HttpStatus.NOT_IMPLEMENTED
-      },
-      {
-        code: ErrorCode.ENOTSUPPORTED,
-        type: NotImplementedException,
-        status: HttpStatus.NOT_IMPLEMENTED
-      },
-      {
-        code: ErrorCode.EUNSUPPORTED_PROTOCOL,
-        type: NotImplementedException,
-        status: HttpStatus.NOT_IMPLEMENTED
-      },
-      {
-        code: ErrorCode.ECOMPRESSION_NOTSUPPORTED,
-        type: NotImplementedException,
-        status: HttpStatus.NOT_IMPLEMENTED
-      },
-      {
-        code: ErrorCode.EDATAOBJECTTYPE_NOTSUPPORTED,
-        type: NotImplementedException,
-        status: HttpStatus.NOT_IMPLEMENTED
-      }
-    ];
+        {
+          code: ErrorCode.EAUTHORIZATION_REQUIRED,
+          type: UnauthorizedException,
+          status: HttpStatus.UNAUTHORIZED
+        },
+        {
+          code: ErrorCode.EAUTHORIZATION_EXPIRED,
+          type: UnauthorizedException,
+          status: HttpStatus.UNAUTHORIZED
+        },
+        {
+          code: ErrorCode.EAUTHORIZATION_EXPIRING,
+          type: UnauthorizedException,
+          status: HttpStatus.UNAUTHORIZED
+        },
+        {
+          code: ErrorCode.EREQUEST_DENIED,
+          type: ForbiddenException,
+          status: HttpStatus.FORBIDDEN
+        },
+        {
+          code: ErrorCode.ENOROLE,
+          type: ForbiddenException,
+          status: HttpStatus.FORBIDDEN
+        },
+        {
+          code: ErrorCode.EUPDATEGROWINGOBJECT_DENIED,
+          type: ForbiddenException,
+          status: HttpStatus.FORBIDDEN
+        },
+        {
+          code: ErrorCode.ENOT_FOUND,
+          type: NotFoundException,
+          status: HttpStatus.NOT_FOUND
+        },
+        {
+          code: ErrorCode.EINVALID_URI,
+          type: BadRequestException,
+          status: HttpStatus.BAD_REQUEST
+        },
+        {
+          code: ErrorCode.EINVALID_ARGUMENT,
+          type: BadRequestException,
+          status: HttpStatus.BAD_REQUEST
+        },
+        {
+          code: ErrorCode.EMAXSIZE_EXCEEDED,
+          type: BadRequestException,
+          status: HttpStatus.BAD_REQUEST
+        },
+        {
+          code: ErrorCode.EINVALID_OBJECT,
+          type: BadRequestException,
+          status: HttpStatus.BAD_REQUEST
+        },
+        {
+          code: ErrorCode.EINVALID_MESSAGE,
+          type: BadRequestException,
+          status: HttpStatus.BAD_REQUEST
+        },
+        {
+          code: ErrorCode.EINVALID_INDEXKIND,
+          type: BadRequestException,
+          status: HttpStatus.BAD_REQUEST
+        },
+        {
+          code: ErrorCode.EINVALID_CHANNELID,
+          type: BadRequestException,
+          status: HttpStatus.BAD_REQUEST
+        },
+        {
+          code: ErrorCode.ENOTGROWINGOBJECT,
+          type: BadRequestException,
+          status: HttpStatus.BAD_REQUEST
+        },
+        {
+          code: ErrorCode.EREQUESTUUID_REJECTED,
+          type: ConflictException,
+          status: HttpStatus.CONFLICT
+        },
+        {
+          code: ErrorCode.ENOCASCADE_DELETE,
+          type: ConflictException,
+          status: HttpStatus.CONFLICT
+        },
+        {
+          code: ErrorCode.EPLURAL_OBJECT,
+          type: ConflictException,
+          status: HttpStatus.CONFLICT
+        },
+        {
+          code: ErrorCode.ERETENTION_PERIOD_EXCEEDED,
+          type: GoneException,
+          status: HttpStatus.GONE
+        },
+        {
+          code: ErrorCode.ELIMIT_EXCEEDED,
+          type: HttpException,
+          status: HttpStatus.TOO_MANY_REQUESTS
+        },
+        {
+          code: ErrorCode.EBACKPRESSURE_LIMIT_EXCEEDED,
+          type: HttpException,
+          status: HttpStatus.TOO_MANY_REQUESTS
+        },
+        {
+          code: ErrorCode.ETIMED_OUT,
+          type: GatewayTimeoutException,
+          status: HttpStatus.GATEWAY_TIMEOUT
+        },
+        {
+          code: ErrorCode.EINVALID_STATE,
+          type: PreconditionFailedException,
+          status: HttpStatus.PRECONDITION_FAILED
+        },
+        {
+          code: ErrorCode.EMAX_TRANSACTIONS_EXCEEDED,
+          type: PreconditionFailedException,
+          status: HttpStatus.PRECONDITION_FAILED
+        },
+        {
+          code: ErrorCode.ENOSUPPORTEDPROTOCOLS,
+          type: NotImplementedException,
+          status: HttpStatus.NOT_IMPLEMENTED
+        },
+        {
+          code: ErrorCode.ENOTSUPPORTED,
+          type: NotImplementedException,
+          status: HttpStatus.NOT_IMPLEMENTED
+        },
+        {
+          code: ErrorCode.EUNSUPPORTED_PROTOCOL,
+          type: NotImplementedException,
+          status: HttpStatus.NOT_IMPLEMENTED
+        },
+        {
+          code: ErrorCode.ECOMPRESSION_NOTSUPPORTED,
+          type: NotImplementedException,
+          status: HttpStatus.NOT_IMPLEMENTED
+        },
+        {
+          code: ErrorCode.EDATAOBJECTTYPE_NOTSUPPORTED,
+          type: NotImplementedException,
+          status: HttpStatus.NOT_IMPLEMENTED
+        }
+      ];
     cases.forEach(({ code, type, status }) => {
       it(`maps EtpError(code=${code}) to ${type.name} (${status})`, () => {
         const result = httpErrorFromEtpError(new EtpError("oops", code));
@@ -268,7 +268,7 @@ describe("httpErrorFromEtpError", () => {
     });
   });
 
-  describe("Unknown error fallthrough — does not leak stack/object internals", () => {
+  describe("Unknown error fallthrough - does not leak stack/object internals", () => {
     it("returns the error message but NOT the stack trace", () => {
       const err = new Error("upstream timeout while fetching foo");
       const result = httpErrorFromEtpError(err);

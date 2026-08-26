@@ -163,7 +163,7 @@ export class StructureMap22OSDU
         const dir0 = dim0.Direction;
         const dir1 = dim1.Direction;
         // Spacing value: for DoubleConstantArray the step size is Spacing.Value;
-        // the direction vector may be a unit vector — actual step = spacing * |dir|.
+        // the direction vector may be a unit vector - actual step = spacing * |dir|.
         const sp0 = (dim0.Spacing as any)?.Value ?? 1;
         const sp1 = (dim1.Spacing as any)?.Value ?? 1;
         this.data.BinWidthOnIaxis = Math.sqrt(

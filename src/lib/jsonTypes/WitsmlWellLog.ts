@@ -18,8 +18,7 @@ import { Data, WellLog, Curves } from "./Generated/work-product-component/WellLo
  */
 export class WitsmlWellLogOSDU
   extends ResqmlWorkProductComponent<SimpleJson<witsml21.Log>>
-  implements WellLog
-{
+  implements WellLog {
   public data: Data = {};
 
   constructor(xml: SimpleJson<witsml21.Log>, context: OSDUContext) {
@@ -94,7 +93,7 @@ export class WitsmlWellLogOSDU
           LogCurveMainFamilyID: undefined
         };
 
-        // Resolve property kind — prefer ChannelPropertyKind.Title, then PWLS mnemonic lookup
+        // Resolve property kind - prefer ChannelPropertyKind.Title, then PWLS mnemonic lookup
         const pkTitle: string | undefined =
           ch.ChannelPropertyKind?.Title ?? ch.ChannelPropertyKind?.Uuid;
 

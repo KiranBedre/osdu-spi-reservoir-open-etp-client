@@ -21,7 +21,7 @@ import { BadRequestException } from "@nestjs/common";
 import { XMLBuilder } from "../lib/mlTypes/Json2Xml";
 
 // ---------------------------------------------------------------------------
-// XMLBuilder.buildTextValueNode — XSD dateTime / eml20:TimeStamp validation
+// XMLBuilder.buildTextValueNode - XSD dateTime / eml20:TimeStamp validation
 //
 // Regression coverage for WI 72324: PutDataObject returned HTTP 500
 // ("Unknown Error: Invalid time value") when a request body contained an
@@ -30,7 +30,7 @@ import { XMLBuilder } from "../lib/mlTypes/Json2Xml";
 // generic 5xx. The fix throws BadRequestException (400) in that case.
 // ---------------------------------------------------------------------------
 
-describe("XMLBuilder.buildTextValueNode — xsd:dateTime validation", () => {
+describe("XMLBuilder.buildTextValueNode - xsd:dateTime validation", () => {
   // Access the private method via `as any` (same pattern used elsewhere in
   // this test suite for cross-cutting validation of internal helpers).
   const invoke = (value: string, attrStr: string): string =>
@@ -48,7 +48,7 @@ describe("XMLBuilder.buildTextValueNode — xsd:dateTime validation", () => {
   });
 
   it("accepts a JS-parseable ISO value that falls outside the strict regex", () => {
-    // sub-second precision — accepted by Date, but typically rejected by the
+    // sub-second precision - accepted by Date, but typically rejected by the
     // strict XSD regex. The lenient fallback should kick in without error.
     expect(() => invoke("2024-01-01T00:00:00.123Z", xsdDateTime)).not.toThrow();
   });

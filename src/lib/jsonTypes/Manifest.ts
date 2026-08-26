@@ -216,7 +216,7 @@ export const createManifest = async (
     try {
       await registerDMS(context);
     } catch {
-      // Ignore registration errors — continue without DMS registration
+      // Ignore registration errors - continue without DMS registration
     }
     logger.info(`[perf] registerDMS: ${Date.now() - tManifestStart}ms`);
     const manifests: Manifest = {
@@ -358,7 +358,7 @@ export const createManifest = async (
           collabId
         ) as any;
 
-        // Check if CP already exists in OSDU — version bump for consistency
+        // Check if CP already exists in OSDU - version bump for consistency
         const existingVersion = await context
           .getOSDUResourceVersion(cpRecord.id)
           .catch(() => undefined);
@@ -421,7 +421,7 @@ export const createManifest = async (
           }
           resolvedObjects = resolvedObjects.concat(arr);
         } catch (e: any) {
-          logger.error(`getResolvedObjects failed for batch: ${batch.map(u => u.substring(u.lastIndexOf('/') + 1)).join(', ')} — ${e?.message ?? e}`);
+          logger.error(`getResolvedObjects failed for batch: ${batch.map(u => u.substring(u.lastIndexOf('/') + 1)).join(', ')} - ${e?.message ?? e}`);
         }
       }
 

@@ -69,7 +69,7 @@ export class SeismicBinGridOSDU
     if (!isSeismicLattice) {
       return false;
     }
-    // Require constant (regular) spacing — irregular grids cannot populate
+    // Require constant (regular) spacing - irregular grids cannot populate
     // P6 bin grid fields and should fall through to GenericRepresentation.
     const lArray = grid2d.Grid2dPatch?.Geometry
       ?.Points as SimpleJson<resqml20.Point3dLatticeArray>;
