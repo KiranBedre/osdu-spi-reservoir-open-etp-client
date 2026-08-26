@@ -14,7 +14,7 @@ import type { SimpleJson } from "../lib/mlTypes/XmlJsonUtil";
 import * as resqml20 from "../lib/mlTypes/xmlns/www.energistics.org/energyml/resqmlv201/resqmlv2";
 
 describe("Activity Converter – Parameter Extraction (RESQML 2.0.1)", () => {
-  // Minimal mock — no ETP server connection needed for unit tests
+  // Minimal mock - no ETP server connection needed for unit tests
   const mockClient = new ResqmlClient();
   const context = new OSDUContext("test", "opendes");
 
@@ -104,7 +104,7 @@ describe("Activity Converter – Parameter Extraction (RESQML 2.0.1)", () => {
     expect(params[0].ParameterKindID).toContain("Integer");
   });
 
-  it("extracts DataObjectParameter with DOR reference (requires ETP — validates structure only)", async () => {
+  it("extracts DataObjectParameter with DOR reference (requires ETP - validates structure only)", async () => {
     const xml = buildActivityXml([
       {
         $type: "resqml20.DataObjectParameter",

@@ -1,7 +1,7 @@
 import { GraphQLScalarType, Kind } from "graphql";
 
 /**
- * Opaque JSON scalar — passes through any JSON value without schema validation.
+ * Opaque JSON scalar - passes through any JSON value without schema validation.
  * Used for EML/RESQML/WITSML object bodies where the shape is domain-specific
  * and varies per object type. Avoids serialization overhead: the value is passed
  * by reference through the resolver chain (no deep copy).

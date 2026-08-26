@@ -778,7 +778,7 @@ export default class ResourcesReadAPI {
     description:
       "Fetches all data objects from the dataspace via ETP and runs RESQML strict validation " +
       "(XSD schema, DOR integrity, cross-object consistency, business rules). " +
-      "Read-only — does not modify any data.\n\n" +
+      "Read-only - does not modify any data.\n\n" +
       "**Performance**: Fetches full XML for every object in the dataspace. " +
       "For large dataspaces (>1000 objects), this may take several seconds.",
     servers: swaggerServers
@@ -1779,7 +1779,7 @@ export default class ResourcesReadAPI {
   })
   @ApiOperation({
     summary: "List deleted resources in a dataspace",
-    description: `Returns resources that have been deleted from a dataspace with deletion timestamps. Useful for cache invalidation and synchronization with external systems (e.g., OSDU catalog).\n\n**Note**: Deleted resource tracking depends on the ETP server version — not all servers track deletions.`,
+    description: `Returns resources that have been deleted from a dataspace with deletion timestamps. Useful for cache invalidation and synchronization with external systems (e.g., OSDU catalog).\n\n**Note**: Deleted resource tracking depends on the ETP server version - not all servers track deletions.`,
     servers: swaggerServers
   })
   public async ListDeletedResources(

@@ -447,9 +447,9 @@ export default class MutationsAPI {
     description: `Create new objects or replace existing ones by providing their content as a JSON array.
 
 Each object must conform to the Energistics JSON schema for its type and include:
-- \`$type\` — Energistics qualified type (e.g., \`resqml20.obj_IjkGridRepresentation\`)
-- \`Uuid\` — unique identifier
-- \`Citation\` — with at least \`Title\`, \`Originator\`, and \`Creation\`
+- \`$type\` - Energistics qualified type (e.g., \`resqml20.obj_IjkGridRepresentation\`)
+- \`Uuid\` - unique identifier
+- \`Citation\` - with at least \`Title\`, \`Originator\`, and \`Creation\`
 
 **Transaction**: Pass \`transactionId\` to write within a transaction (recommended). Without it, operates in auto-commit mode.
 
@@ -882,7 +882,7 @@ Each object must conform to the Energistics JSON schema for its type and include
   )
   @ApiOperation({
     summary: "Create or update a data array",
-    description: `Create or update a data array attached to an existing object (well log curves, grid properties, seismic traces, etc.).\n\n**Data formats**: Provide \`Data\` as a JSON number array or a base64-encoded string. For float arrays, JSON \`null\` values are converted to IEEE 754 NaN (standard missing-value representation).\n\n**Subarrays**: Include \`Starts\` and \`Counts\` to write a slice of an existing array. Both must be present together and match the \`Dimensions\` length.\n\n**Empty arrays**: Omit \`Data\` to create an empty array with the specified dimensions and type.\n\n**Chunking**: Large arrays (> ~10 MB) are automatically chunked by the ETP layer into multiple WebSocket messages.\n\n**Transaction**: Should be done within a transaction — pass \`transactionId\` from \`POST /dataspaces/{ds}/transactions\`.`,
+    description: `Create or update a data array attached to an existing object (well log curves, grid properties, seismic traces, etc.).\n\n**Data formats**: Provide \`Data\` as a JSON number array or a base64-encoded string. For float arrays, JSON \`null\` values are converted to IEEE 754 NaN (standard missing-value representation).\n\n**Subarrays**: Include \`Starts\` and \`Counts\` to write a slice of an existing array. Both must be present together and match the \`Dimensions\` length.\n\n**Empty arrays**: Omit \`Data\` to create an empty array with the specified dimensions and type.\n\n**Chunking**: Large arrays (> ~10 MB) are automatically chunked by the ETP layer into multiple WebSocket messages.\n\n**Transaction**: Should be done within a transaction - pass \`transactionId\` from \`POST /dataspaces/{ds}/transactions\`.`,
     servers: swaggerServers
   })
   public async PutDataArray(

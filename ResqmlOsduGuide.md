@@ -1,7 +1,7 @@
 # RESQML → OSDU Manifest: Mapping Guide
 
 > How to author RESQML/EML objects so the RDDMS manifest converter produces
-> rich, lossless OSDU records — minimising information loss on
+> rich, lossless OSDU records - minimising information loss on
 > application → ETP → OSDU round-trips.
 
 ---
@@ -14,7 +14,7 @@
 |---|---|---|
 | `Citation.Title` | `data.Name` | Human-meaningful display name, not UUID |
 | `Citation.Description` | `data.Description` | One-paragraph purpose. Appears in search. |
-| `Citation.Format` | `ExtensionProperties.AuthoringSoftware` | `"Vendor Product vX.Y"` — only provenance source |
+| `Citation.Format` | `ExtensionProperties.AuthoringSoftware` | `"Vendor Product vX.Y"` - only provenance source |
 | `Citation.Originator` | `createUser` | Person or service account |
 | `Citation.Creation` | `createTime` | ISO-8601 |
 | `Citation.LastUpdate` | `modifyTime` | ISO-8601 |
@@ -44,7 +44,7 @@ Every `DataObjectReference` becomes an OSDU SRN link. Ensure correct UUID, Conte
 
 ---
 
-## 2. ExtraMetadata Convention — `osdu/` Prefix
+## 2. ExtraMetadata Convention - `osdu/` Prefix
 
 ### Mechanism
 
@@ -160,7 +160,7 @@ EML 2.3:
 | OSDU Kind | Source | Routing |
 |---|---|---|
 | `LocalBoundaryFeature` | `obj_GeneticBoundaryFeature`, `obj_TectonicBoundaryFeature`, v2.2 `BoundaryFeature` | Direct |
-| `master-data--BoundaryFeature` | — | Auto-created by LocalBoundaryFeature converter |
+| `master-data--BoundaryFeature` | - | Auto-created by LocalBoundaryFeature converter |
 | `LocalModelFeature` | `obj_OrganizationFeature` | Direct |
 | `LocalRockVolumeFeature` | `obj_StratigraphicUnitFeature` / `RockVolumeFeature` | Direct |
 | `reference-data--PropertyType` | `obj_PropertyKind` / `eml23.PropertyKind` | Direct |

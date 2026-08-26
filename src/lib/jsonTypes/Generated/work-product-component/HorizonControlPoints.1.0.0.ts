@@ -1,5 +1,5 @@
 // HorizonControlPoints.1.0.0
-// OSDU M27 schema — Horizon control points representation.
+// OSDU M27 schema - Horizon control points representation.
 // A set of scattered points (PointSetRepresentation) associated with a HorizonInterpretation.
 // Used when the horizon surface is defined by control points rather than a regular grid.
 // Source kind: osdu:wks:work-product-component--HorizonControlPoints:1.0.0
@@ -63,7 +63,7 @@ export interface Data {
 
     // ─── HorizonControlPoints domain-specific fields ──────────────────────
 
-    /** Domain type — depth, time, or mixed. */
+    /** Domain type - depth, time, or mixed. */
     DomainTypeID?: string;
     /** Extension properties for additional metadata. */
     ExtensionProperties?: Record<string, any>;

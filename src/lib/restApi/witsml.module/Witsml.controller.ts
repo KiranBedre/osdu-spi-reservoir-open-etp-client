@@ -237,7 +237,7 @@ function parseWitsmlXml(xmlInput: string): ParsedWitsmlObject[] {
 
   if (!UUID_REGEX.test(uuid)) {
     throw new BadRequestException(
-      `Invalid UUID "${uuid}" — ETP requires standard UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)`
+      `Invalid UUID "${uuid}" - ETP requires standard UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)`
     );
   }
 
@@ -318,7 +318,7 @@ function wrapAs21(
   // Detect version from container namespace
   const isWitsml21 = containerXml.includes("energistics.org/energyml/data/witsmlv2");
   if (isWitsml21) {
-    // Already 2.1 format — just ensure uuid attribute
+    // Already 2.1 format - just ensure uuid attribute
     let xml = originalChildXml;
     if (!xml.match(/\buuid\s*=\s*"/)) {
       xml = xml.replace(/(<[\w:]+)/, `$1 uuid="${uuid}"`);
@@ -488,7 +488,7 @@ function extractChannelArrays(xml: string): ChannelArray[] {
             values[row * dim + d] = d < cell.length ? cell[d] : NaN;
           }
         } else {
-          // Missing row — fill with NaN
+          // Missing row - fill with NaN
           for (let d = 0; d < dim; d++) {
             values[row * dim + d] = NaN;
           }
@@ -617,7 +617,7 @@ export default class WitsmlController {
    * Store WITSML 2.1 XML objects via ETP PutDataObjects.
    *
    * If transactionId is provided, uses the existing transactional session
-   * (caller is responsible for commit/rollback — mirrors ObjectWrite pattern).
+   * (caller is responsible for commit/rollback - mirrors ObjectWrite pattern).
    * If transactionId is NOT provided, creates an internal transaction for
    * convenience (start → put → commit in a single request).
    */
@@ -745,7 +745,7 @@ export default class WitsmlController {
           await c.rollbackTransaction(txId).catch(() => { });
         }
         throw new BadRequestException(
-          "PutDataObjects failed — check UUID format (must be valid UUID) and dataspace existence"
+          "PutDataObjects failed - check UUID format (must be valid UUID) and dataspace existence"
         );
       }
 

@@ -1,19 +1,19 @@
 /**
- * ResqmlValidator — TypeScript RESQML strict validator.
+ * ResqmlValidator - TypeScript RESQML strict validator.
  *
  * Port of the Python resqml_converter.strict_validation module.
  * Runs entirely in-process (no subprocess, no HTTP, no Python).
  *
  * Validation layers:
- *   1. EPC structure       — OPC ZIP compliance
- *   2. XSD schema          — lxml-equivalent via libxmljs2
- *   3. DOR integrity       — referential completeness
- *   4. HDF5 references     — dataset path existence (h5wasm)
- *   5. Cross-object        — UUID uniqueness, CRS consistency
- *   6. Business rules      — RESQML spec rules S01–S18
- *   7. PWLS PropertyKind   — dictionary validation (P01–P04)
- *   8. fesapi compat       — xsi:type, element ordering, obj_ prefix
- *   9. RDDMS compat        — ContentType format, .rels integrity
+ *   1. EPC structure       - OPC ZIP compliance
+ *   2. XSD schema          - lxml-equivalent via libxmljs2
+ *   3. DOR integrity       - referential completeness
+ *   4. HDF5 references     - dataset path existence (h5wasm)
+ *   5. Cross-object        - UUID uniqueness, CRS consistency
+ *   6. Business rules      - RESQML spec rules S01–S18
+ *   7. PWLS PropertyKind   - dictionary validation (P01–P04)
+ *   8. fesapi compat       - xsi:type, element ordering, obj_ prefix
+ *   9. RDDMS compat        - ContentType format, .rels integrity
  *
  * Supported versions: RESQML 2.0.1 (EML 2.0) and RESQML 2.2 (EML 2.3).
  */
@@ -260,7 +260,7 @@ function loadLibxmljs(): typeof import("libxmljs2") {
             libxmljs = require("libxmljs2");
         } catch {
             throw new Error(
-                "libxmljs2 not available — XSD validation disabled. Install with: npm install libxmljs2"
+                "libxmljs2 not available - XSD validation disabled. Install with: npm install libxmljs2"
             );
         }
     }
@@ -456,7 +456,7 @@ export function validateDorIntegrity(objects: EpcObject[]): ValidationError[] {
     return errors;
 }
 
-// Standard Energistics PropertyKind UUIDs (a subset — these are defined in the spec, not in EPCs)
+// Standard Energistics PropertyKind UUIDs (a subset - these are defined in the spec, not in EPCs)
 const STANDARD_PK_UUIDS = new Set([
     "a48c9c25-1e3a-43c8-be6a-044224cc69cb", // length
     "f6ad8329-4a87-4a08-8f11-db9ccc7bddbc", // dimensionless
@@ -502,13 +502,13 @@ export function validateHdf5References(
         }
     }
 
-    // If H5 file is provided, verify datasets exist (metadata-only — no array reads)
+    // If H5 file is provided, verify datasets exist (metadata-only - no array reads)
     if (h5Path && fs.existsSync(h5Path) && allPaths.size > 0) {
         let h5wasm: any;
         try {
             h5wasm = require("h5wasm");
         } catch {
-            // h5wasm not installed — skip dataset existence checks silently
+            // h5wasm not installed - skip dataset existence checks silently
             return errors;
         }
         try {
@@ -532,7 +532,7 @@ export function validateHdf5References(
             f.close();
         } catch (e: any) {
             if (e.message?.includes("not found")) {
-                // h5wasm dataset-level error — already reported
+                // h5wasm dataset-level error - already reported
             } else {
                 errors.push(makeError(
                     `Error reading HDF5 file: ${e.message}`,
@@ -703,7 +703,7 @@ function validatePropertyRules(
     if (!obj.objectType.includes("Property")) return errors;
 
     // S07: Property Count > 0
-    // "Count" inside Property context (not KGaps.Count etc.) — look for Count as direct child
+    // "Count" inside Property context (not KGaps.Count etc.) - look for Count as direct child
     const countMatch = obj.xmlString.match(/<(?:[\w-]+:)?Count>(\d+)<\//);
     if (countMatch) {
         const c = parseInt(countMatch[1], 10);
@@ -1021,7 +1021,7 @@ export function parseEpcObjects(epcPath: string): EpcObject[] {
 
 /**
  * Validate an EPC file with all layers.
- * This is the main entry point — equivalent to Python's validate_epc_strict().
+ * This is the main entry point - equivalent to Python's validate_epc_strict().
  */
 export function validateEpc(
     epcPath: string,
@@ -1079,7 +1079,7 @@ export function validateEpc(
         }
 
         for (const obj of objects) {
-            // Skip EpcExternalPartReference — trivial metadata, not worth XSD cost
+            // Skip EpcExternalPartReference - trivial metadata, not worth XSD cost
             if (obj.objectType === "EpcExternalPartReference") {
                 report.validated_count++;
                 continue;
@@ -1145,7 +1145,7 @@ export function validateEpc(
 
 /**
  * Validate in-memory XML objects (e.g. from ETP GetDataObjects response).
- * No EPC file needed — builds a virtual EPC from the object list.
+ * No EPC file needed - builds a virtual EPC from the object list.
  */
 export function validateObjects(
     xmlObjects: Array<{ content_type: string; uuid: string; xml: string }>,
@@ -1226,7 +1226,7 @@ export function validateObjects(
         report.errors.push(...validateDorIntegrity(objects));
     }
 
-    // 4. HDF5 references (no file — just path format checks)
+    // 4. HDF5 references (no file - just path format checks)
     if (!options.skip_hdf5) {
         report.errors.push(...validateHdf5References(objects));
     }

@@ -14,7 +14,7 @@
 # limitations under the License.
 # ============================================================================
 """
-RDDMS Manifest Ingestion DAG — Osdu_ingest compatible.
+RDDMS Manifest Ingestion DAG - Osdu_ingest compatible.
 
 This DAG processes an OSDU manifest produced by the RDDMS manifest builder
 and ingests all records into the OSDU Storage Service. It follows the same
@@ -186,7 +186,7 @@ def ingest_records(**context: Any) -> dict:
 with DAG(
     dag_id=DAG_ID,
     default_args=default_args,
-    description="RDDMS manifest ingestion — pushes OSDU manifest records to Storage Service",
+    description="RDDMS manifest ingestion - pushes OSDU manifest records to Storage Service",
     schedule_interval=None,  # triggered externally only
     start_date=days_ago(1),
     catchup=False,

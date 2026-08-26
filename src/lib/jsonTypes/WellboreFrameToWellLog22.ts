@@ -203,7 +203,7 @@ export class WellboreFrameToWellLog22OSDU
           curve.CurveUnit = o.Uom;
         }
 
-        // Property kind info — resolve via PWLS v4 when possible
+        // Property kind info - resolve via PWLS v4 when possible
         if (o.PropertyKind) {
           const pk = o.PropertyKind;
           const kindName = pk.Title ?? pk.Kind;

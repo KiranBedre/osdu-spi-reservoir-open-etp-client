@@ -6,7 +6,7 @@ paths:
         Returns true if the underlying ETP WebSocket server is reachable and accepting connections. Returns 500 if the ETP server cannot be contacted.
 
 
-        **Use case**: Kubernetes readiness probe — the pod is removed from service endpoints while the ETP backend is unreachable.
+        **Use case**: Kubernetes readiness probe - the pod is removed from service endpoints while the ETP backend is unreachable.
       operationId: HealthAPI_IsReady
       parameters: []
       responses:
@@ -132,10 +132,10 @@ paths:
   /health/liveness:
     get:
       description: >-
-        Returns true immediately — confirms the NestJS process is alive. Does not verify ETP backend connectivity (use `/health/readiness` for that).
+        Returns true immediately - confirms the NestJS process is alive. Does not verify ETP backend connectivity (use `/health/readiness` for that).
 
 
-        **Use case**: Kubernetes liveness probe — the pod is restarted if this endpoint stops responding.
+        **Use case**: Kubernetes liveness probe - the pod is restarted if this endpoint stops responding.
       operationId: HealthAPI_IsLive
       parameters: []
       responses:
@@ -889,7 +889,7 @@ paths:
     post:
       description: >-
         Fetches all data objects from the dataspace via ETP and runs RESQML strict validation (XSD schema, DOR integrity, cross-object consistency, business rules).
-        Read-only — does not modify any data.
+        Read-only - does not modify any data.
 
 
         **Performance**: Fetches full XML for every object in the dataspace. For large dataspaces (>1000 objects), this may take several seconds.
@@ -4339,7 +4339,7 @@ paths:
         (e.g., OSDU catalog).
 
 
-        **Note**: Deleted resource tracking depends on the ETP server version — not all servers track deletions.
+        **Note**: Deleted resource tracking depends on the ETP server version - not all servers track deletions.
       operationId: ResourcesReadAPI_ListDeletedResources
       parameters:
       - name: data-partition-id
@@ -5995,7 +5995,7 @@ paths:
 
         **Key behaviors**:
 
-        - Best-effort mode — partial results returned on converter errors (check `errors[]` in response)
+        - Best-effort mode - partial results returned on converter errors (check `errors[]` in response)
 
         - Auto-generates deterministic collaboration UUID (v5 from dataspace name)
 
@@ -6245,7 +6245,7 @@ paths:
         **uri format**: `eml:///dataspace('path/to/ds')` for dataspace root, or a full object URI to search below a specific object.
 
 
-        **scope**: Controls graph traversal direction — 'targets' follows relationships forward (parent→child), 'sources' follows backwards.
+        **scope**: Controls graph traversal direction - 'targets' follows relationships forward (parent→child), 'sources' follows backwards.
 
 
         **depth**: 1 = direct children only, 2+ = recursive. Use 0 for unlimited (caution: may return large results).
@@ -6469,11 +6469,11 @@ paths:
         **When to use**: Bulk data export, OSDU Storage ingestion, or when you need the actual XML content (not just metadata).
 
 
-        **Performance**: More expensive than POST /query/resources/find — fetches full object bodies. For large result sets, prefer resource discovery first, then
+        **Performance**: More expensive than POST /query/resources/find - fetches full object bodies. For large result sets, prefer resource discovery first, then
         selective GetDataObjects via the /graph/{type}/{guid} endpoints.
 
 
-        **modifiedSince**: ISO timestamp filter — only returns objects written after this time. Useful for incremental sync.
+        **modifiedSince**: ISO timestamp filter - only returns objects written after this time. Useful for incremental sync.
       operationId: QueryController_findDataObjects
       parameters:
       - name: data-partition-id
@@ -6677,7 +6677,7 @@ paths:
         ETP session.
 
 
-        **Performance**: For very large batches (>100 URIs), split into chunks — URIs are processed sequentially within the session. Depth values > 100 may timeout
+        **Performance**: For very large batches (>100 URIs), split into chunks - URIs are processed sequentially within the session. Depth values > 100 may timeout
         depending on server configuration.
 
 
@@ -7320,7 +7320,7 @@ paths:
         **Returns**: Channel names, units of measure (UOM), data kinds (float, int, string), index descriptions, and channel status.
 
 
-        **When to use**: Before streaming channel data or calling growing object range queries — lets you know what mnemonics exist and their measurement units.
+        **When to use**: Before streaming channel data or calling growing object range queries - lets you know what mnemonics exist and their measurement units.
 
 
         **Example flow**: Find WellLog URI → Get channel metadata here → Subscribe to specific channels via ETP streaming, or fetch ranges via POST /query/growing/range.
@@ -8236,11 +8236,11 @@ paths:
 
         Each object must conform to the Energistics JSON schema for its type and include:
 
-        - `$type` — Energistics qualified type (e.g., `resqml20.obj_IjkGridRepresentation`)
+        - `$type` - Energistics qualified type (e.g., `resqml20.obj_IjkGridRepresentation`)
 
-        - `Uuid` — unique identifier
+        - `Uuid` - unique identifier
 
-        - `Citation` — with at least `Title`, `Originator`, and `Creation`
+        - `Citation` - with at least `Title`, `Originator`, and `Creation`
 
 
         **Transaction**: Pass `transactionId` to write within a transaction (recommended). Without it, operates in auto-commit mode.
@@ -9143,7 +9143,7 @@ paths:
         Retrieve the full content of a single data object by type and UUID. Returns Energistics XML by default, or JSON with `$format=json`.
 
 
-        **JSON mode**: Adds `$type` annotations and converts XML attributes to JSON properties — useful for client-side processing without an XML parser.
+        **JSON mode**: Adds `$type` annotations and converts XML attributes to JSON properties - useful for client-side processing without an XML parser.
 
 
         **arrayMetadata**: When `true`, includes inline metadata for all HDF5 arrays referenced by this object (dimensions, data type, path).
@@ -9513,7 +9513,7 @@ paths:
         **Chunking**: Large arrays (> ~10 MB) are automatically chunked by the ETP layer into multiple WebSocket messages.
 
 
-        **Transaction**: Should be done within a transaction — pass `transactionId` from `POST /dataspaces/{ds}/transactions`.
+        **Transaction**: Should be done within a transaction - pass `transactionId` from `POST /dataspaces/{ds}/transactions`.
       operationId: MutationsAPI_PutDataArray
       parameters:
       - name: data-partition-id
@@ -9898,11 +9898,11 @@ paths:
 
         **Auto-ingest modes**:
 
-        - `false` (default) — no catalog registration
+        - `false` (default) - no catalog registration
 
-        - `true` / `records` — builds manifest → pushes records via Storage Service (data immediately searchable)
+        - `true` / `records` - builds manifest → pushes records via Storage Service (data immediately searchable)
 
-        - `workflow` — builds manifest → submits to OSDU ingestion workflow DAG
+        - `workflow` - builds manifest → submits to OSDU ingestion workflow DAG
 
 
         **Note**: `autoIngest` requires an internal transaction (omit `transactionId`). When using an external transaction, auto-ingest is skipped because the data
@@ -10863,7 +10863,7 @@ paths:
         Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.
 
 
-        **Note**: This is a server-side deep copy via ETP — no data is transferred through the REST layer.
+        **Note**: This is a server-side deep copy via ETP - no data is transferred through the REST layer.
       operationId: DataspaceMutationsAPI_CloneDataspace
       parameters:
       - name: data-partition-id
@@ -11115,7 +11115,7 @@ paths:
       - Write
   /dataspaces/{dataspaceId}:
     delete:
-      description: Delete a dataspace and all its contents. Returns 403 if the dataspace is locked — unlock it first.
+      description: Delete a dataspace and all its contents. Returns 403 if the dataspace is locked - unlock it first.
       operationId: DataspaceMutationsAPI_DeleteDataspace
       parameters:
       - name: data-partition-id
@@ -12520,12 +12520,12 @@ tags:
   description: Read-only access to ETP dataspaces, objects, relationships, and data arrays. Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`).
     Graph endpoints (`/graph/…`) return edges between resources; flat endpoints (`/resources/…`) return lists without edges. No transaction required.
 - name: Manifest
-  description: 'OSDU manifest generation from ETP dataspaces — read-only, no transaction required. Common use case: browse resources, then generate a manifest in
+  description: 'OSDU manifest generation from ETP dataspaces - read-only, no transaction required. Common use case: browse resources, then generate a manifest in
     a single call. Supported source domains: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. Use `GET /health/converters` to list all registered source types
     and their target OSDU kinds.'
 - name: Query & Growing Objects
   description: >-
-    Advanced search — read-only, no transaction required.
+    Advanced search - read-only, no transaction required.
 
 
     **Graph scope**: `self` (direct), `targets` (referenced by), `sources` (referencing), `targetsOrSelf`, `sourcesOrSelf`. **Depth**: 1 = immediate, N = recursive,
@@ -12537,14 +12537,14 @@ tags:
   description: Start, commit, or rollback a transaction. Required before any write operation. Auto-rollback after timeout (default 300 s). One active transaction
     per dataspace.
 - name: Write
-  description: 'Create, update, and delete objects, manage dataspaces, upload EPC+H5 files. **Requires a transaction** — start one first via Transactions, then pass
+  description: 'Create, update, and delete objects, manage dataspaces, upload EPC+H5 files. **Requires a transaction** - start one first via Transactions, then pass
     `transactionId`. Typical flow: create dataspace → start transaction → put objects → put arrays → commit.'
 - name: Wells
-  description: Well-centric search with hierarchy resolution across dataspaces. Domain-specific — not part of core ETP data management.
+  description: Well-centric search with hierarchy resolution across dataspaces. Domain-specific - not part of core ETP data management.
 - name: WITSML
-  description: Query and store WITSML/EnergyML objects in ETP dataspaces. Domain-specific — supports WITSML 2.1 and 1.4.1 container formats.
+  description: Query and store WITSML/EnergyML objects in ETP dataspaces. Domain-specific - supports WITSML 2.1 and 1.4.1 container formats.
 - name: PWLS
-  description: PWLS v4.0 curve mnemonic resolution and validation. Domain-specific — maps vendor mnemonics to standard property names.
+  description: PWLS v4.0 curve mnemonic resolution and validation. Domain-specific - maps vendor mnemonics to standard property names.
 - name: Metrics
   description: Prometheus metrics endpoint
 servers:
@@ -12716,7 +12716,7 @@ components:
           description: Whether the mnemonic resolved via vendor catalog
         warnings:
           example:
-          - UOM 'gAPI' provided but QuantityClass is 'API gamma ray' — verify compatibility
+          - UOM 'gAPI' provided but QuantityClass is 'API gamma ray' - verify compatibility
           description: Validation warnings
           type: array
           items:
@@ -13022,11 +13022,11 @@ components:
             type: string
         depth:
           type: number
-          description: Graph traversal depth (1 = immediate children, 2+ = recursive, 0 = unlimited — use with caution)
+          description: Graph traversal depth (1 = immediate children, 2+ = recursive, 0 = unlimited - use with caution)
           default: 1
         modifiedSince:
           type: string
-          description: ISO 8601 timestamp — only return resources modified after this time. Useful for incremental sync.
+          description: ISO 8601 timestamp - only return resources modified after this time. Useful for incremental sync.
       required:
       - uri
     FindDataObjectsDto:
@@ -13053,11 +13053,11 @@ components:
             type: string
         depth:
           type: number
-          description: Graph traversal depth (1 = immediate children, 2+ = recursive, 0 = unlimited — use with caution)
+          description: Graph traversal depth (1 = immediate children, 2+ = recursive, 0 = unlimited - use with caution)
           default: 1
         modifiedSince:
           type: string
-          description: ISO 8601 timestamp — only return resources modified after this time. Useful for incremental sync.
+          description: ISO 8601 timestamp - only return resources modified after this time. Useful for incremental sync.
         format:
           type: string
           description: 'Return format: xml or json'

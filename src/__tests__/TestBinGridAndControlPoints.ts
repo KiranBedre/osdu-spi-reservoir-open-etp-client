@@ -133,7 +133,7 @@ describe("GenericBinGrid routing", () => {
         context.uriToObject.set("eml:///dataspace('test')/resqml20.obj_Grid2dRepresentation(grid-uuid-20)", xml as any);
 
         const osdu = new GenericBinGridOSDU(xml as any, context);
-        // Skip initData (requires client) — verify constructor kind
+        // Skip initData (requires client) - verify constructor kind
         expect((osdu as any).kind).toContain("GenericBinGrid");
     });
 });

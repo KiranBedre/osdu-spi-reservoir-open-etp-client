@@ -99,7 +99,7 @@ function validateEndpoint(curves: CurveEntry[]) {
 
     if (entry.uom && result.quantityClass) {
       result.warnings = [
-        `UOM '${entry.uom}' provided — QuantityClass is '${result.quantityClass}'. Verify compatibility.`
+        `UOM '${entry.uom}' provided - QuantityClass is '${result.quantityClass}'. Verify compatibility.`
       ];
     } else if (!result.property) {
       result.warnings = [

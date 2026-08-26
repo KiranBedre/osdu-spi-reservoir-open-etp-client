@@ -2,7 +2,7 @@
  * GraphQL object types for the Reservoir DMS API.
  *
  * Design: types are thin wrappers that hold references to the underlying
- * ETP Resource / IResqmlDataObject data — no deep copies. Fields that
+ * ETP Resource / IResqmlDataObject data - no deep copies. Fields that
  * require additional ETP calls (content, arrays, targets, sources) are
  * resolved lazily by the resolver layer.
  */
@@ -29,7 +29,7 @@ export class GqlDataspace {
 }
 
 // ---------------------------------------------------------------------------
-// Resource (lightweight metadata — no content fetch)
+// Resource (lightweight metadata - no content fetch)
 // ---------------------------------------------------------------------------
 
 @ObjectType({ description: "A resource node in the ETP graph" })
@@ -120,7 +120,7 @@ export class GqlArrayMeta {
 }
 
 // ---------------------------------------------------------------------------
-// Object content (resolved JSON — returned as opaque JSON scalar)
+// Object content (resolved JSON - returned as opaque JSON scalar)
 // ---------------------------------------------------------------------------
 
 @ObjectType({ description: "Full resolved object content" })

@@ -449,7 +449,7 @@ export const xml2typescript = async (
 
     // Fallback: if v2.2 parse returned an object but dropped geometry fields
     // (e.g. NodePatch in PointSet), the converters handle missing geometry gracefully.
-    // Do NOT fallback to resqml20 for partial results — it corrupts v2.2 DOR fields.
+    // Do NOT fallback to resqml20 for partial results - it corrupts v2.2 DOR fields.
 
     // Extract CustomData content
     if (

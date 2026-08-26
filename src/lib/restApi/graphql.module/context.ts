@@ -44,10 +44,10 @@ export class EtpLoaders {
     private jwt: string;
     private dataPartitionId?: string;
 
-    /** Shared object cache — avoids re-fetching the same URI twice in a request */
+    /** Shared object cache - avoids re-fetching the same URI twice in a request */
     readonly objectCache = new Map<URI, IResqmlDataObject>();
 
-    /** Graph cache — stores pre-fetched ResourceGraph per dataspace URI */
+    /** Graph cache - stores pre-fetched ResourceGraph per dataspace URI */
     private graphCache = new Map<string, ResourceGraph>();
 
     constructor(jwt: string, dataPartitionId?: string) {
@@ -103,8 +103,8 @@ export class EtpLoaders {
     );
 
     // -------------------------------------------------------------------------
-    // DataLoader: object content (Store protocol — heavy, only when selected)
-    // Returns parsed JS object by reference — no serialization overhead.
+    // DataLoader: object content (Store protocol - heavy, only when selected)
+    // Returns parsed JS object by reference - no serialization overhead.
     // -------------------------------------------------------------------------
     readonly contentLoader = new DataLoader<string, IResqmlDataObject | null>(
         async (uris) => {
@@ -188,7 +188,7 @@ export class EtpLoaders {
     );
 
     // -------------------------------------------------------------------------
-    // DataLoader: array metadata (DataArray protocol — lightweight)
+    // DataLoader: array metadata (DataArray protocol - lightweight)
     // -------------------------------------------------------------------------
     readonly arrayMetaLoader = new DataLoader<string, IDataArrayMetadata[]>(
         async (uris) => {

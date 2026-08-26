@@ -149,13 +149,13 @@ export default async function app(): Promise<NestExpressApplication> {
       "No transaction required."
     )
     .addTag("Manifest",
-      "OSDU manifest generation from ETP dataspaces — read-only, no transaction required. " +
+      "OSDU manifest generation from ETP dataspaces - read-only, no transaction required. " +
       "Common use case: browse resources, then generate a manifest in a single call. " +
       "Supported source domains: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. " +
       "Use `GET /health/converters` to list all registered source types and their target OSDU kinds."
     )
     .addTag("Query & Growing Objects",
-      "Advanced search — read-only, no transaction required.\n\n" +
+      "Advanced search - read-only, no transaction required.\n\n" +
       "**Graph scope**: `self` (direct), `targets` (referenced by), `sources` (referencing), `targetsOrSelf`, `sourcesOrSelf`. " +
       "**Depth**: 1 = immediate, N = recursive, 0 = unlimited (may timeout).\n\n" +
       "**Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP has no server-side pagination)."
@@ -166,12 +166,12 @@ export default async function app(): Promise<NestExpressApplication> {
     )
     .addTag("Write",
       "Create, update, and delete objects, manage dataspaces, upload EPC+H5 files. " +
-      "**Requires a transaction** — start one first via Transactions, then pass `transactionId`. " +
+      "**Requires a transaction** - start one first via Transactions, then pass `transactionId`. " +
       "Typical flow: create dataspace → start transaction → put objects → put arrays → commit."
     )
-    .addTag("Wells", "Well-centric search with hierarchy resolution across dataspaces. Domain-specific — not part of core ETP data management.")
-    .addTag("WITSML", "Query and store WITSML/EnergyML objects in ETP dataspaces. Domain-specific — supports WITSML 2.1 and 1.4.1 container formats.")
-    .addTag("PWLS", "PWLS v4.0 curve mnemonic resolution and validation. Domain-specific — maps vendor mnemonics to standard property names.")
+    .addTag("Wells", "Well-centric search with hierarchy resolution across dataspaces. Domain-specific - not part of core ETP data management.")
+    .addTag("WITSML", "Query and store WITSML/EnergyML objects in ETP dataspaces. Domain-specific - supports WITSML 2.1 and 1.4.1 container formats.")
+    .addTag("PWLS", "PWLS v4.0 curve mnemonic resolution and validation. Domain-specific - maps vendor mnemonics to standard property names.")
     .addTag("Metrics", "Prometheus metrics endpoint")
     .build();
 

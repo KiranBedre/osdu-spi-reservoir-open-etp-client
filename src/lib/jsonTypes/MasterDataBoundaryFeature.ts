@@ -22,8 +22,7 @@ import {
  */
 export class MasterDataBoundaryFeatureOSDU
   extends ResqmlResource<SimpleJson<resqml20.obj_BoundaryFeature>>
-  implements MasterDataBoundaryFeature
-{
+  implements MasterDataBoundaryFeature {
   public data: MasterDataBoundaryFeatureData = {};
 
   constructor(
@@ -85,7 +84,7 @@ export const MasterDataBoundaryFeatureManifest = async (
   if (instance.id && context.bearer) {
     const existingVersion = await context.getOSDUResourceVersion(instance.id);
     if (existingVersion) {
-      // Record already exists — do not duplicate
+      // Record already exists - do not duplicate
       return undefined;
     }
   }

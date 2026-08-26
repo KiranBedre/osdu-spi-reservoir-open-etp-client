@@ -191,7 +191,7 @@ interface HandlerInstance {
   _before?(): void;
   _after?(): void;
 }
-interface BaseType extends eml20.BaseType {}
+interface BaseType extends eml20.BaseType { }
 /** General parameter value used in one instance of activity */
 export interface AbstractActivityParameter extends BaseType {
   /** @integer When parameter is an array, used to indicate the index in the array */
@@ -204,7 +204,7 @@ export interface AbstractActivityParameter extends BaseType {
 }
 
 /** Generic representation of an array of Boolean values. Each derived element provides a specialized implementation to allow specific optimization of the representation. */
-export interface AbstractBooleanArray extends AbstractValueArray {}
+export interface AbstractBooleanArray extends AbstractValueArray { }
 
 /** Description of the geometry of a column layer grid, e.g., parity and pinch, together with its supporting topology.
  *
@@ -276,11 +276,11 @@ export interface AbstractContactRepresentationPart extends BaseType {
 }
 
 /** Generic representation of an array of double values. Each derived element provides specialized implementation to allow specific optimization of the representation. */
-export interface AbstractDoubleArray extends AbstractValueArray {}
+export interface AbstractDoubleArray extends AbstractValueArray { }
 
 /** Something that has physical existence at some point during the exploration, development, production or abandonment of a reservoir. For example: It can be a boundary, a rock volume, a basin area, but also extends to a drilled well, a drilling rig, an injected or produced fluid, or a 2D, 3D, or 4D seismic survey.
  * Features are divided into these categories: geologic or technical. */
-export interface AbstractFeature extends AbstractResqmlDataObject {}
+export interface AbstractFeature extends AbstractResqmlDataObject { }
 
 /** The main class that contains all of the other feature interpretations included in this interpreted model. */
 export interface AbstractFeatureInterpretation
@@ -290,9 +290,9 @@ export interface AbstractFeatureInterpretation
   InterpretedFeature: eml20.DataObjectReference;
 }
 
-/** Objects that exist a priori, in the natural world, for example: the rock formations and how they are positioned with regard to each other; the fluids that are present before production; or the position of the geological intervals with respect to each. Some of these objects are static—such as geologic intervals---while others are dynamic—such as fluids; their properties, geometries, and quantities may change over time during the course of field production.
+/** Objects that exist a priori, in the natural world, for example: the rock formations and how they are positioned with regard to each other; the fluids that are present before production; or the position of the geological intervals with respect to each. Some of these objects are static-such as geologic intervals---while others are dynamic-such as fluids; their properties, geometries, and quantities may change over time during the course of field production.
  * RESQML has these types of features: geologic and technical. */
-export interface AbstractGeologicFeature extends AbstractFeature {}
+export interface AbstractGeologicFeature extends AbstractFeature { }
 
 /** The base class for all geometric values, which is always associated with a representation. */
 export interface AbstractGeometry extends BaseType {
@@ -313,7 +313,7 @@ export interface AbstractGridRepresentation extends AbstractRepresentation {
 }
 
 /** Generic representation of an array of integer values. Each derived element provides specialized implementation to allow specific optimization of the representation. */
-export interface AbstractIntegerArray extends AbstractValueArray {}
+export interface AbstractIntegerArray extends AbstractValueArray { }
 
 /** Defines a local 2D+1D coordinate reference system, by translation and rotation, whose origin is located at the (X,Y,Z) Offset from the Projected and Vertical 2D+1D CRS.
  *
@@ -386,15 +386,15 @@ export interface AbstractOrganizationInterpretation
 }
 
 /** Abstract class describing a key used to identify a parameter value. When multiple values are provided for a given parameter, provides a way to identify the parameter through its association with an object, a time index... */
-export interface AbstractParameterKey extends BaseType {}
+export interface AbstractParameterKey extends BaseType { }
 
 /** Defines an array of parametric lines.
  *
  * The array size is obtained from context. In the current schema, this may be as simple as a 1D array (#Lines=count) or a 2D array #Lines = NIL x NJL for an IJK grid representation. */
-export interface AbstractParametricLineArray extends BaseType {}
+export interface AbstractParametricLineArray extends BaseType { }
 
 /** The abstract class for defining a single parametric line. */
-export interface AbstractParametricLineGeometry extends AbstractGeometry {}
+export interface AbstractParametricLineGeometry extends AbstractGeometry { }
 
 /** Parent window specification, organized according to the topology of the parent grid. In addition to a window specification, for grids with I, J, and/or K coordinates, the parentage construction includes a regridding description that covers grid refinement, coarsening, or any combination of the two. */
 export interface AbstractParentWindow extends BaseType {
@@ -402,12 +402,12 @@ export interface AbstractParentWindow extends BaseType {
 }
 
 /** The abstract class for all geometric values defined by planes. */
-export interface AbstractPlaneGeometry extends AbstractGeometry {}
+export interface AbstractPlaneGeometry extends AbstractGeometry { }
 
 /** The abstract class of 3D points implemented in a single fashion for the schema. Abstraction allows a variety of instantiations for efficiency or to implicitly provide additional geometric information about a data-object. For example, parametric points can be used to implicitly define a wellbore trajectory using an underlying parametric line, by the specification of the control points along the parametric line.
  *
  * The dimensionality of the array of 3D points is based on context within an instance. */
-export interface AbstractPoint3dArray extends BaseType {}
+export interface AbstractPoint3dArray extends BaseType { }
 
 /** Base class for storing all property values on representations, except current geometry location.
  * Values attached to a given element can be either a scalar or a vector. The size of the vector is constant on all elements, and it is assumed that all elements of the vector have identical property types and share the same unit of measure. */
@@ -425,10 +425,10 @@ export interface AbstractProperty extends AbstractResqmlDataObject {
   TimeStep?: number;
 }
 
-export interface AbstractPropertyKind extends BaseType {}
+export interface AbstractPropertyKind extends BaseType { }
 
 /** Generic representation of a property lookup table. Each derived element provides specific lookup methods for different data types. */
-export interface AbstractPropertyLookup extends AbstractResqmlDataObject {}
+export interface AbstractPropertyLookup extends AbstractResqmlDataObject { }
 
 /** The parent class of all specialized digital descriptions, which may provide a representation of a feature interpretation or a technical feature. It may be either of these:
  *
@@ -462,7 +462,7 @@ export interface AbstractSeismicCoordinates extends BaseType {
  *
  * Additionally, these seismic lattices and seismic lines can be aggregated into sets. */
 export interface AbstractSeismicSurveyFeature
-  extends AbstractTechnicalFeature {}
+  extends AbstractTechnicalFeature { }
 
 /** The main class that defines the relationships between the stratigraphic units and provides the stratigraphic hierarchy of the Earth.
  *
@@ -488,7 +488,7 @@ export interface AbstractSurfaceRepresentation extends AbstractRepresentation {
 
 /** Objects that exist by the action of humans. Examples include: wells and all they may contain, seismic surveys (surface, permanent water bottom), or injected fluid volumes. Because the decision to deploy such equipment is the result of studies or decisions by humans, technical features are usually not subject to the same kind of large changes in interpretation as geologic features. However, they are still subject to measurement error and other sources of uncertainty, and so still can be considered as subject to “interpretation”.
  * RESQML has these types of features: geologic and technical. */
-export interface AbstractTechnicalFeature extends AbstractFeature {}
+export interface AbstractTechnicalFeature extends AbstractFeature { }
 
 /** Abstract class for truncated IJK grids and truncated unstructured column layer grids. Each column layer grid class must have a defined geometry in which cells are truncated and additional split cells are defined. */
 export interface AbstractTruncatedColumnLayerGridRepresentation
@@ -499,7 +499,7 @@ export interface AbstractTruncatedColumnLayerGridRepresentation
 }
 
 /** Generic representation of an array of numeric, Boolean, and string values. Each derived element provides specialized implementation for specific content types or for optimization of the representation. */
-export interface AbstractValueArray extends BaseType {}
+export interface AbstractValueArray extends BaseType { }
 
 /** Base class for property values. Each derived element provides specific property values, including point property in support of geometries. */
 export interface AbstractValuesProperty extends AbstractProperty {
@@ -541,7 +541,7 @@ export interface AdditionalGridTopology extends BaseType {
 /** The main class for data describing an opinion of the contact between two geologic feature interpretations. A contact interpretation between two surface geological boundaries is usually a line.
  * A contact interpretation between two volumes (rock feature interpretation) is usually a surface.
  *
- * This class allows you to build a formal sentence—in the pattern of subject-verb-direct object—which is used to describe the construction of a node, line, or surface contact. It is also possible to attach a primary and a secondary qualifier to the subject and to the direct object.
+ * This class allows you to build a formal sentence-in the pattern of subject-verb-direct object-which is used to describe the construction of a node, line, or surface contact. It is also possible to attach a primary and a secondary qualifier to the subject and to the direct object.
  *
  * For example, one contact interpretation can be described by a sentence such as:
  * The interpreted fault named F1 interp on its hanging wall side splits the interpreted horizon named H1 Interp on both its sides.
@@ -1133,7 +1133,7 @@ export interface IjkParentWindow extends AbstractParentWindow {
   KRegrid: Regrid;
   /** List of parent cells that are to be retained at their original resolution and are not to be included within a local grid. The "omit" allows non-rectangular local grids to be specified.
    *
-   * 0-based indexing follows NI x NJ x NK relative to the parent window cell count—not to the parent grid. */
+   * 0-based indexing follows NI x NJ x NK relative to the parent window cell count-not to the parent grid. */
   OmitParentCells?: AbstractIntegerArray;
   ParentGrid: eml20.DataObjectReference;
 }
@@ -1431,10 +1431,10 @@ export interface obj_BlockedWellboreRepresentation
 /** An interface between two geological objects, such as horizons and faults. It is a surface object. */
 export interface obj_BoundaryFeature extends AbstractGeologicFeature {
   $type:
-    | "resqml20.obj_BoundaryFeature"
-    | "resqml20.obj_FluidBoundaryFeature"
-    | "resqml20.obj_GeneticBoundaryFeature"
-    | "resqml20.obj_TectonicBoundaryFeature";
+  | "resqml20.obj_BoundaryFeature"
+  | "resqml20.obj_FluidBoundaryFeature"
+  | "resqml20.obj_GeneticBoundaryFeature"
+  | "resqml20.obj_TectonicBoundaryFeature";
 }
 
 /** The main class for data describing an opinion of a surface feature between two volumes.
@@ -1443,10 +1443,10 @@ export interface obj_BoundaryFeature extends AbstractGeologicFeature {
 export interface obj_BoundaryFeatureInterpretation
   extends AbstractFeatureInterpretation {
   $type:
-    | "resqml20.obj_BoundaryFeatureInterpretation"
-    | "resqml20.obj_FaultInterpretation"
-    | "resqml20.obj_HorizonInterpretation"
-    | "resqml20.obj_GeobodyBoundaryInterpretation";
+  | "resqml20.obj_BoundaryFeatureInterpretation"
+  | "resqml20.obj_FaultInterpretation"
+  | "resqml20.obj_HorizonInterpretation"
+  | "resqml20.obj_GeobodyBoundaryInterpretation";
 }
 
 /** Information specific to one categorical property. Contains discrete integer.
@@ -1457,8 +1457,8 @@ export interface obj_BoundaryFeatureInterpretation
 export interface obj_CategoricalProperty extends AbstractValuesProperty {
   Lookup: eml20.DataObjectReference;
   $type:
-    | "resqml20.obj_CategoricalProperty"
-    | "resqml20.obj_CategoricalPropertySeries";
+  | "resqml20.obj_CategoricalProperty"
+  | "resqml20.obj_CategoricalPropertySeries";
 }
 
 /** Information specific to one comment property.
@@ -1502,8 +1502,8 @@ export interface obj_ContinuousProperty extends AbstractValuesProperty {
   /** Unit of measure for the property. */
   UOM: ResqmlUom;
   $type:
-    | "resqml20.obj_ContinuousProperty"
-    | "resqml20.obj_ContinuousPropertySeries";
+  | "resqml20.obj_ContinuousProperty"
+  | "resqml20.obj_ContinuousPropertySeries";
 }
 
 /** Information specific to one comment property.
@@ -1567,8 +1567,8 @@ export interface obj_DiscreteProperty extends AbstractValuesProperty {
    * BUSINESS RULE: There can only be one value per number of elements. */
   MinimumValue?: number[];
   $type:
-    | "resqml20.obj_DiscreteProperty"
-    | "resqml20.obj_DiscretePropertySeries";
+  | "resqml20.obj_DiscreteProperty"
+  | "resqml20.obj_DiscretePropertySeries";
 }
 
 /** Information specific to one comment property.
@@ -1644,7 +1644,7 @@ export interface obj_GeobodyBoundaryInterpretation
 }
 
 /** A volume of rock that is identified based on some specific attribute, like its mineral content or other physical characteristic. Unlike stratigraphic or phase units, there is no associated time or fluid content semantic. For types, see GeobodyKind. */
-export interface obj_GeobodyFeature extends obj_GeologicUnitFeature {}
+export interface obj_GeobodyFeature extends obj_GeologicUnitFeature { }
 
 /** A type of rock feature, this class identifies if a rock feature is a geobody with any qualifications on the interpretation of the geobody. */
 export interface obj_GeobodyInterpretation
@@ -1656,9 +1656,9 @@ export interface obj_GeobodyInterpretation
 /** A volume of rock located between one or more boundary features.  The limiting boundary features should be genetic boundary features (i.e. should not be faults). */
 export interface obj_GeologicUnitFeature extends AbstractGeologicFeature {
   $type:
-    | "resqml20.obj_GeologicUnitFeature"
-    | "resqml20.obj_RockFluidUnitFeature"
-    | "resqml20.obj_StratigraphicUnitFeature";
+  | "resqml20.obj_GeologicUnitFeature"
+  | "resqml20.obj_RockFluidUnitFeature"
+  | "resqml20.obj_StratigraphicUnitFeature";
 }
 
 /** The main class for data describing an opinion of a volume-based geologic feature or unit. */
@@ -1667,10 +1667,10 @@ export interface obj_GeologicUnitInterpretation
   GeologicUnitComposition?: GeologicUnitComposition;
   GeologicUnitMaterialImplacement?: GeologicUnitMaterialImplacement;
   $type:
-    | "resqml20.obj_GeologicUnitInterpretation"
-    | "resqml20.obj_StratigraphicUnitInterpretation"
-    | "resqml20.obj_RockFluidUnitInterpretation"
-    | "resqml20.obj_GeobodyInterpretation";
+  | "resqml20.obj_GeologicUnitInterpretation"
+  | "resqml20.obj_StratigraphicUnitInterpretation"
+  | "resqml20.obj_RockFluidUnitInterpretation"
+  | "resqml20.obj_GeobodyInterpretation";
 }
 
 /** Chronological successions of some chronostratigraphic units organized into 1 to n chronological ranks. */
@@ -1925,10 +1925,10 @@ export interface obj_RepresentationSetRepresentation
   IsHomogeneous: boolean;
   Representation: eml20.DataObjectReference[];
   $type:
-    | "resqml20.obj_RepresentationSetRepresentation"
-    | "resqml20.obj_SealedVolumeFrameworkRepresentation"
-    | "resqml20.obj_SealedSurfaceFrameworkRepresentation"
-    | "resqml20.obj_NonSealedSurfaceFrameworkRepresentation";
+  | "resqml20.obj_RepresentationSetRepresentation"
+  | "resqml20.obj_SealedVolumeFrameworkRepresentation"
+  | "resqml20.obj_SealedSurfaceFrameworkRepresentation"
+  | "resqml20.obj_NonSealedSurfaceFrameworkRepresentation";
 }
 
 /** Interpretation of the fluid organization units. */
@@ -2029,7 +2029,7 @@ export interface obj_StratigraphicColumnRankInterpretation
   $type: "resqml20.obj_StratigraphicColumnRankInterpretation";
 }
 
-/** A local Interpretation—it could be along a well, on a 2D map, or on a 2D section or on a part of the global volume of an earth model—of a succession of rock feature elements.
+/** A local Interpretation-it could be along a well, on a 2D map, or on a 2D section or on a part of the global volume of an earth model-of a succession of rock feature elements.
  *
  * The stratigraphic column rank interpretation composing a stratigraphic occurrence can be ordered by the criteria listed in OrderingCriteria.
  *
@@ -2208,9 +2208,9 @@ export interface obj_WellboreFrameRepresentation
   /** The reference to the equivalent WITSML well log. */
   WitsmlLogReference?: eml20.DataObjectReference;
   $type:
-    | "resqml20.obj_WellboreFrameRepresentation"
-    | "resqml20.obj_WellboreMarkerFrameRepresentation"
-    | "resqml20.obj_BlockedWellboreRepresentation";
+  | "resqml20.obj_WellboreFrameRepresentation"
+  | "resqml20.obj_WellboreMarkerFrameRepresentation"
+  | "resqml20.obj_BlockedWellboreRepresentation";
 }
 
 /** This class contains the data describing an opinion of a borehole. This interpretation is relative to one particular well trajectory. */
@@ -4431,7 +4431,7 @@ export interface Seismic3dCoordinates extends AbstractSeismicCoordinates {
 
 /** An unordered set of several seismic lattices. Generally, it has no direct interpretation or representation. */
 export interface SeismicLatticeSetFeature
-  extends AbstractSeismicSurveyFeature {}
+  extends AbstractSeismicSurveyFeature { }
 
 /** The enumerated attributes of a horizon. */
 export type SequenceStratigraphySurface =

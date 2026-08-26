@@ -509,7 +509,7 @@ export default class ObjectsManifestAPI {
 **Type filtering**: Default includes common representation/interpretation types. Pass \`typePatterns: ["*"]\` for all types. Properties with canonical OSDU/PWLS names (porosity, permeability, saturation, etc.) are auto-included even without an explicit \`*Property\` pattern.
 
 **Key behaviors**:
-- Best-effort mode — partial results returned on converter errors (check \`errors[]\` in response)
+- Best-effort mode - partial results returned on converter errors (check \`errors[]\` in response)
 - Auto-generates deterministic collaboration UUID (v5 from dataspace name)
 - Uses \`OSDU_MILESTONE\` env var (default M27) for OSDU schema versions
 - GridConnectionSet records report \`HasTransmissibilityMultipliers\` when attached transmissibility properties are found
