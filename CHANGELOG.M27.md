@@ -4,6 +4,33 @@ All changes vs upstream `@osdu/open-etp-client` (base commit: `cfffaa2`).
 
 ---
 
+## TypeScript REST SDK — `RddmsClient`
+
+New typed HTTP/JSON SDK in [`sdk/`](./sdk/) wrapping the REST API. Unlike the low-level `ResqmlClient` (WebSocket/Avro, ETP protocol knowledge required), `RddmsClient` talks plain HTTP/JSON — no binary protocols, no XML, no HDF5 linking.
+
+### What it provides
+
+- **Typed namespaces** — `rddms.dataspaces`, `rddms.resources`, `rddms.arrays`, `rddms.transactions`, `rddms.query`, `rddms.graph`, `rddms.health`, `rddms.manifest`
+- **`atomicWrite()` helper** — wraps start transaction → put objects → put arrays → commit, with auto-rollback on error
+- **Auto-auth** — fetches dev token from `GET /auth/token` when no static token is provided
+- **Zero dependencies** — uses native `fetch` only
+
+### Example suite
+
+Five runnable examples in [`src/examples/sdk/`](./src/examples/sdk/):
+
+| Example | Demonstrates |
+|---------|-------------|
+| `01-hello-pointset.ts` | PointSet + CRS + HdfProxy + coordinate array, full lifecycle |
+| `02-grid2d-property.ts` | Grid2D with continuous property and multi-array write |
+| `03-transactions.ts` | Commit vs rollback, atomicWrite helper |
+| `04-query-graph.ts` | FindResources, batch graph search, list all |
+| `05-dataspaces.ts` | Create, list, info, lock/unlock, clone, delete |
+
+See [sdk/README.md](./sdk/README.md) for full API reference.
+
+---
+
 ## New Interfaces
 
 ### REST Endpoints (8 new)
