@@ -107,9 +107,9 @@ See [sdk/README.md](./sdk/README.md) for the full API reference and [src/example
 
 ### TypeScript Library (low-level)
 
-The `ResqmlClient` class can be used directly for programmatic ETP access (WebSocket/Avro binary protocol). See [src/examples/](./src/examples/).
+The `ResqmlClient` class talks raw ETP 1.2 binary protocol over WebSocket — you manage connections, Avro frame encoding, session negotiation, and multi-part message assembly. See [src/examples/](./src/examples/).
 
-> **When to use which?** Use `RddmsClient` (REST SDK) for application integration, scripting, and CI pipelines. Use `ResqmlClient` only when you need raw ETP protocol control.
+> **When to use which?** Use `RddmsClient` (REST SDK) for application integration, scripting, and CI — it covers ~95% of use cases. Use `ResqmlClient` only when you need direct binary protocol control: custom streaming subscriptions, holding WebSocket sessions open for real-time push, or bypassing the REST gateway for high-frequency calls.
 
 #### Performance: SDK vs Direct ETP vs fesapi/pyetp
 
