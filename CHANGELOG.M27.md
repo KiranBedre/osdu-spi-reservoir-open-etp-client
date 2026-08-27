@@ -19,13 +19,13 @@ New typed HTTP/JSON SDK in [`sdk/`](./sdk/) wrapping the REST API. Unlike the lo
 
 Five runnable examples in [`src/examples/sdk/`](./src/examples/sdk/):
 
-| Example | Demonstrates |
-|---------|-------------|
-| `01-hello-pointset.ts` | PointSet + CRS + HdfProxy + coordinate array, full lifecycle |
-| `02-grid2d-property.ts` | Grid2D with continuous property and multi-array write |
-| `03-transactions.ts` | Commit vs rollback, atomicWrite helper |
-| `04-query-graph.ts` | FindResources, batch graph search, list all |
-| `05-dataspaces.ts` | Create, list, info, lock/unlock, clone, delete |
+| Example                 | Demonstrates                                                 |
+| ----------------------- | ------------------------------------------------------------ |
+| `01-hello-pointset.ts`  | PointSet + CRS + HdfProxy + coordinate array, full lifecycle |
+| `02-grid2d-property.ts` | Grid2D with continuous property and multi-array write        |
+| `03-transactions.ts`    | Commit vs rollback, atomicWrite helper                       |
+| `04-query-graph.ts`     | FindResources, batch graph search, list all                  |
+| `05-dataspaces.ts`      | Create, list, info, lock/unlock, clone, delete               |
 
 See [sdk/README.md](./sdk/README.md) for full API reference.
 
@@ -35,17 +35,17 @@ See [sdk/README.md](./sdk/README.md) for full API reference.
 
 ### REST Endpoints (8 new)
 
-| Method | Path | Purpose |
-|--------|------|---------|
-| POST | `/query/resources/find` | FindResources by URI + scope/depth/type filter (ETP Protocol 13) |
-| POST | `/query/objects/find` | FindDataObjects with full XML content (ETP Protocol 14) |
-| POST | `/query/graph/search` | Batch graph search - merged subgraph for multiple URIs |
-| POST | `/query/growing/metadata` | Growing-object part metadata (ETP Protocol 6) |
-| POST | `/query/growing/range` | Growing-object parts by index range (ETP Protocol 6) |
-| POST | `/query/channels/metadata` | Channel metadata for streaming (ETP Protocol 21) |
-| PUT | `/witsml/store` | Ingest WITSML 2.1/1.4.1 XML with auto-transaction and channel extraction |
-| POST | `/dataspaces/{id}/epc/upload` | Upload EPC + H5 file pair, unzip, parse, and ingest with transaction |
-| GET | `/wells?name=&dataspace=&include=` | Cross-dataspace well search with hierarchy resolution |
+| Method | Path                               | Purpose                                                                  |
+| ------ | ---------------------------------- | ------------------------------------------------------------------------ |
+| POST   | `/query/resources/find`            | FindResources by URI + scope/depth/type filter (ETP Protocol 13)         |
+| POST   | `/query/objects/find`              | FindDataObjects with full XML content (ETP Protocol 14)                  |
+| POST   | `/query/graph/search`              | Batch graph search - merged subgraph for multiple URIs                   |
+| POST   | `/query/growing/metadata`          | Growing-object part metadata (ETP Protocol 6)                            |
+| POST   | `/query/growing/range`             | Growing-object parts by index range (ETP Protocol 6)                     |
+| POST   | `/query/channels/metadata`         | Channel metadata for streaming (ETP Protocol 21)                         |
+| PUT    | `/witsml/store`                    | Ingest WITSML 2.1/1.4.1 XML with auto-transaction and channel extraction |
+| POST   | `/dataspaces/{id}/epc/upload`      | Upload EPC + H5 file pair, unzip, parse, and ingest with transaction     |
+| GET    | `/wells?name=&dataspace=&include=` | Cross-dataspace well search with hierarchy resolution                    |
 
 ### GraphQL API
 
@@ -53,13 +53,13 @@ New `/graphql` endpoint with field-level selection and DataLoader batching. Quer
 
 ### ETP Protocol Handlers (5 new)
 
-| Protocol | ID | Handler | Purpose |
-|----------|---|---------|---------|
-| DiscoveryQuery | 13 | `DiscoveryQueryCustomer` | URI-pattern resource search with scope/depth |
-| StoreQuery | 14 | `StoreQueryCustomer` | Bulk data object retrieval |
-| GrowingObject | 6 | `GrowingObjectCustomer` | Log curve / trajectory station parts by range |
-| GrowingObjectNotification | 7 | `GrowingObjectNotificationCustomer` | Push notifications for part changes |
-| ChannelSubscribe | 21 | `ChannelSubscribeCustomer` | Real-time channel metadata and streaming |
+| Protocol                  | ID  | Handler                             | Purpose                                       |
+| ------------------------- | --- | ----------------------------------- | --------------------------------------------- |
+| DiscoveryQuery            | 13  | `DiscoveryQueryCustomer`            | URI-pattern resource search with scope/depth  |
+| StoreQuery                | 14  | `StoreQueryCustomer`                | Bulk data object retrieval                    |
+| GrowingObject             | 6   | `GrowingObjectCustomer`             | Log curve / trajectory station parts by range |
+| GrowingObjectNotification | 7   | `GrowingObjectNotificationCustomer` | Push notifications for part changes           |
+| ChannelSubscribe          | 21  | `ChannelSubscribeCustomer`          | Real-time channel metadata and streaming      |
 
 All protocols are auto-negotiated at ETP session open - no configuration needed. The `RDMS_ETP_EXTENDED_PROTOCOLS` env var has been removed.
 
@@ -80,15 +80,15 @@ All protocols are auto-negotiated at ETP session open - no configuration needed.
 
 ### OSDU Converters (20+ new)
 
-| Category | Types |
-|----------|-------|
+| Category                | Types                                                                                                                                                                                                |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Reservoir modelling** | IjkGrid enrichments (RealizationIndex, ParentGrid, HasTruncations, RockFluidOrganization), GenericBinGrid, HorizonControlPoints, ReservoirCompartmentInterpretation, GridConnectionSetRepresentation |
-| **Structural** | StructuralOrganizationInterpretation, SeismicLineGeometry |
-| **PRODML** | FluidModel (FluidCharacterization), ProductionValues (TimeSeriesData) |
-| **WITSML** | Rig, Tubular, FluidsReport, BHARun, WellCompletion |
-| **WellLog flattening** | WellboreFrame with N properties → single WellLog record |
-| **Master data dedup** | BoundaryFeature de-duplication on re-ingest |
-| **Lineage** | Activity parameter extraction with typed values |
+| **Structural**          | StructuralOrganizationInterpretation, SeismicLineGeometry                                                                                                                                            |
+| **PRODML**              | FluidModel (FluidCharacterization), ProductionValues (TimeSeriesData)                                                                                                                                |
+| **WITSML**              | Rig, Tubular, FluidsReport, BHARun, WellCompletion                                                                                                                                                   |
+| **WellLog flattening**  | WellboreFrame with N properties → single WellLog record                                                                                                                                              |
+| **Master data dedup**   | BoundaryFeature de-duplication on re-ingest                                                                                                                                                          |
+| **Lineage**             | Activity parameter extraction with typed values                                                                                                                                                      |
 
 ### CRS Enrichment
 
@@ -115,11 +115,24 @@ All protocols are auto-negotiated at ETP session open - no configuration needed.
 
 ### EPC Upload
 
-- **Upload endpoint** (`POST /dataspaces/{id}/epc/upload`) - accepts `multipart/form-data` with an EPC file (ZIP) and optional H5 file. Unzips the EPC, parses `[Content_Types].xml`, extracts all XML objects, reads referenced HDF5 datasets, and ingests everything into the target dataspace.
-- **Auto-transaction** - wraps the entire ingest in a transaction (start → put objects → put arrays → commit). Rolls back on failure. Supports caller-managed transactions via `?transactionId`.
-- **Batched object writes** - objects are sent in batches of 100 to stay within ETP message size limits.
-- **Bounded memory** - H5 file stored on disk (multer disk storage), arrays read and sent one at a time.
-- **Configurable limits** - `RDMS_EPC_MAX_SIZE_MB` (200), `RDMS_H5_MAX_SIZE_MB` (2048), `RDMS_EPC_MAX_OBJECTS` (10000).
+```mermaid
+flowchart TD
+    UP["POST /epc/upload<br/>multipart: .epc + .h5"] --> UNZIP["Unzip EPC"]
+    UNZIP --> PARSE["Parse Content_Types.xml<br/>+ extract XML objects"]
+    PARSE --> H5["Read HDF5 datasets"]
+    H5 --> TX["Start transaction"]
+    TX --> OBJ["Put objects<br/>(batches of 100)"]
+    OBJ --> ARR["Put arrays<br/>(one at a time, 4MB chunks)"]
+    ARR --> CHK{"Array failures<br/>> 50%?"}
+    CHK -->|No| COMMIT["Commit"]
+    CHK -->|Yes| ROLLBACK["Rollback"]
+    COMMIT --> RESP["Response<br/>warnings[], timings{}"]
+    ROLLBACK --> RESP
+```
+
+- **Batched object writes** - 100 per ETP message to stay within size limits
+- **Bounded memory** - H5 on disk (multer), arrays sent one at a time
+- **Configurable limits** - `RDMS_EPC_MAX_SIZE_MB` (200), `RDMS_H5_MAX_SIZE_MB` (2048), `RDMS_EPC_MAX_OBJECTS` (10000)
 
 ### Operational
 
@@ -134,42 +147,42 @@ All protocols are auto-negotiated at ETP session open - no configuration needed.
 
 These changes may affect existing consumers:
 
-| Change | Old behavior | New behavior | Workaround |
-|--------|-------------|--------------|------------|
-| **Default manifest filter** | All RESQML types included | Only Interpretations, Representations, WITSML | Pass `typePatterns: ["*"]` |
-| **Grid2d routing** | Depth-domain Grid2d with HorizonInterpretation → GenericRepresentation | → StructureMap | - |
-| **DELETE locked dataspace** | Returned 204 (silent success) | Returns 403 | Unlock before delete |
-| **Protocol negotiation** | `RDMS_ETP_EXTENDED_PROTOCOLS` env var | Auto-negotiated, env var removed | - |
-| **Dataspace ACL override** | ETP customData always overrode pre-configured ACLs | Pre-configured ACLs take priority | - |
+| Change                      | Old behavior                                                           | New behavior                                  | Workaround                 |
+| --------------------------- | ---------------------------------------------------------------------- | --------------------------------------------- | -------------------------- |
+| **Default manifest filter** | All RESQML types included                                              | Only Interpretations, Representations, WITSML | Pass `typePatterns: ["*"]` |
+| **Grid2d routing**          | Depth-domain Grid2d with HorizonInterpretation → GenericRepresentation | → StructureMap                                | -                          |
+| **DELETE locked dataspace** | Returned 204 (silent success)                                          | Returns 403                                   | Unlock before delete       |
+| **Protocol negotiation**    | `RDMS_ETP_EXTENDED_PROTOCOLS` env var                                  | Auto-negotiated, env var removed              | -                          |
+| **Dataspace ACL override**  | ETP customData always overrode pre-configured ACLs                     | Pre-configured ACLs take priority             | -                          |
 
 ---
 
 ## Bug Fixes
 
-| # | Summary | Impact |
-|---|---------|--------|
-| - | Circular reference resolution in `resolveReferences()` | Objects with mutual DORs now fully resolved |
-| - | TriangulatedSurface node count 3× overcount | `IndexableElementCount` was counting x,y,z separately |
-| #126 | Invalid dateTime → HTTP 500 | Now returns 400 with descriptive message |
-| #130 | DELETE locked dataspace → 204 | Now propagates 403 |
-| CRS-2 | ArealRotation wrong for rotated local CRS | Correct affine transform applied |
+| #     | Summary                                                | Impact                                                |
+| ----- | ------------------------------------------------------ | ----------------------------------------------------- |
+| -     | Circular reference resolution in `resolveReferences()` | Objects with mutual DORs now fully resolved           |
+| -     | TriangulatedSurface node count 3× overcount            | `IndexableElementCount` was counting x,y,z separately |
+| #126  | Invalid dateTime → HTTP 500                            | Now returns 400 with descriptive message              |
+| #130  | DELETE locked dataspace → 204                          | Now propagates 403                                    |
+| CRS-2 | ArealRotation wrong for rotated local CRS              | Correct affine transform applied                      |
 
 ---
 
 ## Test Coverage
 
-| Suite | Count | Scope |
-|-------|-------|-------|
-| CRS and bugfixes | 41 | Bug fixes, rotation, routing, chunking, SIGTERM |
-| Manifest | 12 | Converter registry, collaboration UUID, dedup, lineage |
-| Seismic line geometry | 7 | Coordinate extraction and kind mapping |
-| Reservoir converters | 40 | IjkGrid, FacetIDs, MilestoneKinds, PRODML |
-| BinGrid + ControlPoints | 18 | GenericBinGrid, HorizonControlPoints routing |
-| Activity converter | 9 | Parameter extraction (all typed variants) |
-| Reservoir layer 1 | 146 | Smart property filter, transmissibility, ColumnBasedTable |
-| Other (unchanged) | 148 | ETP protocol, client, error mapping, validation |
-| RESQML Validator | 50 | 9 layers, real datasets (pyetp, Volve, DGI, fesapi), ValidatorClient local mode |
-| **Total** | **437** | `npm test` (+ 44 validator/dataset tests via `--testPathIgnorePatterns=/node_modules/`) |
+| Suite                   | Count   | Scope                                                                                   |
+| ----------------------- | ------- | --------------------------------------------------------------------------------------- |
+| CRS and bugfixes        | 41      | Bug fixes, rotation, routing, chunking, SIGTERM                                         |
+| Manifest                | 12      | Converter registry, collaboration UUID, dedup, lineage                                  |
+| Seismic line geometry   | 7       | Coordinate extraction and kind mapping                                                  |
+| Reservoir converters    | 40      | IjkGrid, FacetIDs, MilestoneKinds, PRODML                                               |
+| BinGrid + ControlPoints | 18      | GenericBinGrid, HorizonControlPoints routing                                            |
+| Activity converter      | 9       | Parameter extraction (all typed variants)                                               |
+| Reservoir layer 1       | 146     | Smart property filter, transmissibility, ColumnBasedTable                               |
+| Other (unchanged)       | 148     | ETP protocol, client, error mapping, validation                                         |
+| RESQML Validator        | 50      | 9 layers, real datasets (pyetp, Volve, DGI, fesapi), ValidatorClient local mode         |
+| **Total**               | **437** | `npm test` (+ 44 validator/dataset tests via `--testPathIgnorePatterns=/node_modules/`) |
 
 Integration tests (require ETP server): `npm run test:integration`
 
@@ -201,16 +214,16 @@ Integration tests (require ETP server): `npm run test:integration`
 - **38 unit tests + 12 dataset integration tests (50 total)** - covers all 9 layers, end-to-end EPC validation, in-memory validation, `ValidatorClient` local mode, roundtrip diff detection, and real-world EPCs from 4 authoring tools.
 - **6 real-dataset integration tests** - validated against EPCs from 4 different authoring tools:
 
-| Dataset | Source | Objects | Errors | Warnings | XSD time | Fast-path |
-|---------|--------|---------|--------|----------|----------|-----------|
-| demo_seismic | pyetp | 6 | 0 | 2 | 656 ms | 3 ms |
-| pyetp_demo | pyetp | 9 | 0 | 4 | 210 ms | 2 ms |
-| Volve | ETP Client | 30 | 0 | 4 | 1.0 s | 7 ms |
-| Olympus | DGI cv_etpexport + fesapi | 395 | 0 | 251 | 12.8 s | 95 ms |
-| Teapot | DGI cv_etpexport + fesapi | 108 | 0 | 28 | 3.1 s | 23 ms |
-| Drogon | Aspen RMS + ores (fesapi roundtrip) | 276 | 0* | 46 | 8.3 s | 101 ms |
+| Dataset      | Source                              | Objects | Errors | Warnings | XSD time | Fast-path |
+| ------------ | ----------------------------------- | ------- | ------ | -------- | -------- | --------- |
+| demo_seismic | pyetp                               | 6       | 0      | 2        | 656 ms   | 3 ms      |
+| pyetp_demo   | pyetp                               | 9       | 0      | 4        | 210 ms   | 2 ms      |
+| Volve        | ETP Client                          | 30      | 0      | 4        | 1.0 s    | 7 ms      |
+| Olympus      | DGI cv_etpexport + fesapi           | 395     | 0      | 251      | 12.8 s   | 95 ms     |
+| Teapot       | DGI cv_etpexport + fesapi           | 108     | 0      | 28       | 3.1 s    | 23 ms     |
+| Drogon       | Aspen RMS + ores (fesapi roundtrip) | 276     | 0\*    | 46       | 8.3 s    | 101 ms    |
 
-  \* Drogon has 1 RDDMS-compat info (missing `.rels` for EpcExternalPartReference) - not a validity error.
+\* Drogon has 1 RDDMS-compat info (missing `.rels` for EpcExternalPartReference) - not a validity error.
 
 - **Performance** - without XSD (fast-path), even the 395-object Olympus model validates in under 100 ms. XSD validation is ~30 ms/object (libxml2 parse + validate per object).
 
@@ -218,32 +231,32 @@ Integration tests (require ETP server): `npm run test:integration`
 
 ## Performance Optimizations
 
-| # | Change | File(s) | Impact |
-|---|--------|---------|--------|
-| 1 | Chunked Buffer accumulation - collect in array, single `concat` at end (was O(n²) per chunk) | `StoreCustomer.ts` | Eliminates ~5 GB intermediate allocations for 50 MB chunked objects |
-| 2 | Direct recursive BigInt converter replaces `JSON.parse(JSON.stringify(...))` roundtrip | `XmlJsonUtil.ts`, `ControllerUtils.ts` | Avoids double allocation + string parsing for custom data fields |
-| 3 | `Set` for key filtering in `simpleJson` (was `Array.includes` - O(n) per key) | `XmlJsonUtil.ts` | O(1) lookup per property for large RESQML objects |
-| 4 | XML builder uses `string[]` + `.join("")` instead of `val +=` concatenation in recursion | `Json2Xml.ts` | Reduces GC pressure for 100KB+ XML generation |
-| 5 | Index-based `slice` replaces mutating `splice`; loop-push replaces spread (stack overflow risk) | `Array.controller.ts` | Prevents stack overflow for 1000+ arrays, removes O(n²) splice |
-| 6 | EPC validation passes file paths directly (avoids re-reading multi-GB files into memory) | `EpcUpload.controller.ts`, `ValidatorClient.ts` | Saves up to 4 GB redundant memory allocation during validation |
-| 7 | EPC HDF proxy regex uses `lastIndex` positioning instead of `slice` per match | `EpcUpload.controller.ts` | Eliminates O(n×m) string allocations during path rewriting |
-| 8 | Hoist regex constants out of per-object XML scanning loop | `EpcUpload.controller.ts` | Avoids regex recompilation per RESQML object |
-| 9 | Remove `new Uint8Array(h5Data)` copy - pass Buffer directly to emscripten FS | `EpcUpload.controller.ts` | Saves 1× H5 file size in peak memory (~14 MB–2 GB) |
-| 10 | Eliminate `Array.prototype.slice.call(array)` - pass TypedArray directly | `ResqmlClient.ts` | Saves 1 full array copy for small array uploads |
-| 11 | `Array.from({length})` → `new Array(n)` pre-allocation for chunked slices | `ResqmlClient.ts` | Faster allocation for sub-array slicing in large transfers |
-| 12 | Parallel array uploads with bounded concurrency (default 5) | `EpcUpload.controller.ts` | 3-5× faster for many small arrays |
-| 13 | Zero-copy TypedArray chunking + Avro memcpy for float/double serialization | `ResqmlClient.ts`, `EtpAvro.ts`, `ArrayCustomer.ts` | 15% faster putArrays; eliminates ~1 GB heap allocation for large datasets |
+| #   | Change                                                                                          | File(s)                                             | Impact                                                                    |
+| --- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------- |
+| 1   | Chunked Buffer accumulation - collect in array, single `concat` at end (was O(n²) per chunk)    | `StoreCustomer.ts`                                  | Eliminates ~5 GB intermediate allocations for 50 MB chunked objects       |
+| 2   | Direct recursive BigInt converter replaces `JSON.parse(JSON.stringify(...))` roundtrip          | `XmlJsonUtil.ts`, `ControllerUtils.ts`              | Avoids double allocation + string parsing for custom data fields          |
+| 3   | `Set` for key filtering in `simpleJson` (was `Array.includes` - O(n) per key)                   | `XmlJsonUtil.ts`                                    | O(1) lookup per property for large RESQML objects                         |
+| 4   | XML builder uses `string[]` + `.join("")` instead of `val +=` concatenation in recursion        | `Json2Xml.ts`                                       | Reduces GC pressure for 100KB+ XML generation                             |
+| 5   | Index-based `slice` replaces mutating `splice`; loop-push replaces spread (stack overflow risk) | `Array.controller.ts`                               | Prevents stack overflow for 1000+ arrays, removes O(n²) splice            |
+| 6   | EPC validation passes file paths directly (avoids re-reading multi-GB files into memory)        | `EpcUpload.controller.ts`, `ValidatorClient.ts`     | Saves up to 4 GB redundant memory allocation during validation            |
+| 7   | EPC HDF proxy regex uses `lastIndex` positioning instead of `slice` per match                   | `EpcUpload.controller.ts`                           | Eliminates O(n×m) string allocations during path rewriting                |
+| 8   | Hoist regex constants out of per-object XML scanning loop                                       | `EpcUpload.controller.ts`                           | Avoids regex recompilation per RESQML object                              |
+| 9   | Remove `new Uint8Array(h5Data)` copy - pass Buffer directly to emscripten FS                    | `EpcUpload.controller.ts`                           | Saves 1× H5 file size in peak memory (~14 MB–2 GB)                        |
+| 10  | Eliminate `Array.prototype.slice.call(array)` - pass TypedArray directly                        | `ResqmlClient.ts`                                   | Saves 1 full array copy for small array uploads                           |
+| 11  | `Array.from({length})` → `new Array(n)` pre-allocation for chunked slices                       | `ResqmlClient.ts`                                   | Faster allocation for sub-array slicing in large transfers                |
+| 12  | Parallel array uploads with bounded concurrency (default 5)                                     | `EpcUpload.controller.ts`                           | 3-5× faster for many small arrays                                         |
+| 13  | Zero-copy TypedArray chunking + Avro memcpy for float/double serialization                      | `ResqmlClient.ts`, `EtpAvro.ts`, `ArrayCustomer.ts` | 15% faster putArrays; eliminates ~1 GB heap allocation for large datasets |
 
 ## EPC Upload Robustness & Diagnostics
 
-| # | Feature | Impact |
-|---|---------|--------|
-| 1 | `warnings[]` in response - structured actionable feedback | No more log-scraping for issues |
-| 2 | `timings` breakdown per phase (ms) | Performance visibility for large uploads |
-| 3 | Rollback on array failure threshold (>50%) | Prevents half-ingested corrupt dataspaces |
-| 4 | Validate EpcExternalPartReference UUID refs exist in ZIP | Catches dangling HDF proxy refs early |
-| 5 | H5 dataset size totals in response (`elements`, `bytes`) | Transfer size estimation |
-| 6 | Upload timeout (configurable, default 10 min) | Prevents hung requests on large H5 files |
-| 7 | Retry `putDataArray` once on transient failure | Handles intermittent ETP errors |
-| 8 | Dtype compatibility warning (64-bit int datasets) | Catches potential data-type issues |
-| 9 | Duplicate UUID detection in EPC | Handles malformed EPCs from broken exporters |
+| #   | Feature                                                   | Impact                                       |
+| --- | --------------------------------------------------------- | -------------------------------------------- |
+| 1   | `warnings[]` in response - structured actionable feedback | No more log-scraping for issues              |
+| 2   | `timings` breakdown per phase (ms)                        | Performance visibility for large uploads     |
+| 3   | Rollback on array failure threshold (>50%)                | Prevents half-ingested corrupt dataspaces    |
+| 4   | Validate EpcExternalPartReference UUID refs exist in ZIP  | Catches dangling HDF proxy refs early        |
+| 5   | H5 dataset size totals in response (`elements`, `bytes`)  | Transfer size estimation                     |
+| 6   | Upload timeout (configurable, default 10 min)             | Prevents hung requests on large H5 files     |
+| 7   | Retry `putDataArray` once on transient failure            | Handles intermittent ETP errors              |
+| 8   | Dtype compatibility warning (64-bit int datasets)         | Catches potential data-type issues           |
+| 9   | Duplicate UUID detection in EPC                           | Handles malformed EPCs from broken exporters |
