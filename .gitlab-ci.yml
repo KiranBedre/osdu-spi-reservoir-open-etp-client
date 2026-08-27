@@ -1,10 +1,6 @@
 variables:
   #azure
   AZURE_SWAGGER_PATH: api/reservoir-ddms/v2/
-  AWS_SERVICE: rest-to-etp-proxy-server
-  AWS_DEPLOY_TARGET: TF
-  AWS_SERVICE_NAMESPACE_SUFFIX: reservoir-ddms
-  AWS_EKS_DEPLOYMENT_NAME: os-rest-to-etp-proxy-server
 
 # Stub: upstream cimpl-global.yml defines jobs that `extends: .maven`, which is
 # only available for Java services. Define a minimal hidden template so YAML
@@ -48,9 +44,6 @@ include:
   # azure
   # Comment at first to only run build image.
   - local: "devops/azure/azure.gitlab-ci.yml"
-
-  # aws
-  - local: "devops/aws/pipeline/override-stages.yml"
 
   # cimpl
   - project: "osdu/platform/ci-cd-pipelines"
