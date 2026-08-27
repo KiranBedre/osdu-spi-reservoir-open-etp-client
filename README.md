@@ -12,7 +12,7 @@ graph LR
 | Document                                                                                                                                 | Description                                                        |
 | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | [REST SDK](./sdk/README.md)                                                                                                              | **Typed TypeScript SDK** - API reference, examples, quick start    |
-| [CHANGELOG](./CHANGELOG.M27.md)                                                                                                          | Features, interfaces, and behavioral changes per milestone         |
+| [CHANGELOG](./CHANGELOG.M28.md)                                                                                                          | Features, interfaces, and behavioral changes per milestone         |
 | [Swagger UI](http://localhost:8003/Reservoir/v2/)                                                                                        | Interactive endpoint reference (served by the running application) |
 | [RESQML → OSDU Guide](./ResqmlOsduGuide.md)                                                                                              | Populating RESQML metadata for lossless OSDU roundtrips            |
 | [OpenETPServer](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-server/-/blob/main/README.md) | C++ ETP server: build, deploy, telemetry                           |
