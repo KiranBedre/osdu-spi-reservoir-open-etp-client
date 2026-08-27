@@ -819,59 +819,76 @@ export function validateFesapiCompat(
     const C = ValidationCategory.FESAPI_COMPAT;
 
     for (const obj of objects) {
-        // Only check 2.0.1 objects (fesapi checks are version-specific)
-        if (obj.version !== "2.0.1") continue;
+        const isV201 = obj.version === "2.0.1";
+        const isV22 = obj.version === "2.2" || obj.version === "2.2.0" || obj.version === "2.2.1";
+        if (!isV201 && !isV22) continue;
 
         // Skip non-RESQML objects (e.g. EpcExternalPartReference)
-        if (!obj.qualifiedType.startsWith("resqml")) continue;
+        if (!obj.qualifiedType.startsWith("resqml") && !obj.qualifiedType.startsWith("eml")) continue;
 
-        // Check 1: xsi:type on root element
-        const hasXsiType = obj.xmlString.includes("xsi:type") ||
-            obj.xmlString.includes(`${XSI_NS}}type`);
-        if (!hasXsiType) {
-            errors.push(makeError(
-                `Missing xsi:type on root element. fesapi can read this locally, but RDDMS ETP import requires xsi:type for server-side deserialization. Expected xsi:type containing 'obj_${obj.objectType}'`,
-                Severity.WARNING, C,
-                { uuid: obj.uuid, type: obj.objectType }
-            ));
-        }
-
-        // Check 2: Root element should NOT have obj_ prefix in tag name
-        // Skip XML declaration and processing instructions (<?...?>)
-        const rootTagMatch = obj.xmlString.match(/<(?!\?|!)([^\s>/]+)/);
-        if (rootTagMatch) {
-            const rootLocal = rootTagMatch[1].replace(/^[\w-]+:/, "");
-            if (rootLocal.startsWith("obj_")) {
+        // Check 1: xsi:type on root element (v2.0.1 only — v2.2 doesn't require it)
+        if (isV201) {
+            const hasXsiType = obj.xmlString.includes("xsi:type") ||
+                obj.xmlString.includes(`${XSI_NS}}type`);
+            if (!hasXsiType) {
                 errors.push(makeError(
-                    `Root element uses obj_ prefix in tag name (<${rootLocal}>). fesapi expects the tag without obj_ prefix.`,
+                    `Missing xsi:type on root element. fesapi can read this locally, but RDDMS ETP import requires xsi:type for server-side deserialization. Expected xsi:type containing 'obj_${obj.objectType}'`,
                     Severity.WARNING, C,
                     { uuid: obj.uuid, type: obj.objectType }
                 ));
             }
         }
 
-        // Check 3: ExtraMetadata must be last among siblings
-        if (obj.objectType.includes("StringTableLookup")) continue; // XSD exception
-
-        const children = obj.xmlString.match(/<(?:[\w-]+:)?(\w+)[^>]*>/g);
-        if (children) {
-            let firstEmIdx = -1;
-            let lastNonEmIdx = -1;
-            for (let i = 0; i < children.length; i++) {
-                if (i === 0) continue; // Skip root element
-                const local = children[i].replace(/<\/?(?:[\w-]+:)?/, "").replace(/[^a-zA-Z0-9]/g, "");
-                if (local === "ExtraMetadata") {
-                    if (firstEmIdx === -1) firstEmIdx = i;
-                } else {
-                    lastNonEmIdx = i;
-                }
-            }
-            if (firstEmIdx !== -1 && lastNonEmIdx > firstEmIdx) {
+        // Check 2: Root element should NOT have obj_ prefix in tag name (both versions)
+        const rootTagMatch = obj.xmlString.match(/<(?!\?|!)([^\s>/]+)/);
+        if (rootTagMatch) {
+            const rootLocal = rootTagMatch[1].replace(/^[\w-]+:/, "");
+            if (rootLocal.startsWith("obj_")) {
+                const sev = isV22 ? Severity.ERROR : Severity.WARNING;
                 errors.push(makeError(
-                    "ExtraMetadata appears before other elements. fesapi requires ExtraMetadata to be the last child elements.",
+                    `Root element uses obj_ prefix in tag name (<${rootLocal}>). ${isV22 ? "v2.2 must not use obj_ prefix." : "fesapi expects the tag without obj_ prefix."}`,
+                    sev, C,
+                    { uuid: obj.uuid, type: obj.objectType }
+                ));
+            }
+        }
+
+        // Check 3: v2.2 filename should not use obj_ prefix
+        if (isV22 && obj.entryName) {
+            const fileName = obj.entryName.replace(/^.*\//, "");
+            if (fileName.startsWith("obj_")) {
+                errors.push(makeError(
+                    `v2.2 EPC entry filename uses obj_ prefix: '${obj.entryName}'. RESQML 2.2 filenames should not use obj_ prefix.`,
                     Severity.ERROR, C,
                     { uuid: obj.uuid, type: obj.objectType }
                 ));
+            }
+        }
+
+        // Check 4: ExtraMetadata position (v2.0.1 only)
+        if (obj.objectType.includes("StringTableLookup")) continue; // XSD exception
+
+        if (isV201) {
+            const children = obj.xmlString.match(/<(?:[\w-]+:)?(\w+)[^>]*>/g);
+            if (children) {
+                let firstEmIdx = -1;
+                let lastNonEmIdx = -1;
+                for (let i = 0; i < children.length; i++) {
+                    if (i === 0) continue; // Skip root element
+                    const local = children[i].replace(/<\/?(?:[\w-]+:)?/, "").replace(/[^a-zA-Z0-9]/g, "");
+                    if (local === "ExtraMetadata") {
+                        if (firstEmIdx === -1) firstEmIdx = i;
+                    } else {
+                        lastNonEmIdx = i;
+                    }
+                }
+                if (firstEmIdx !== -1 && lastNonEmIdx > firstEmIdx) {
+                    errors.push(makeError(
+                        "ExtraMetadata appears before other elements. fesapi requires ExtraMetadata to be the last child elements.",
+                        Severity.ERROR, C,
+                        { uuid: obj.uuid, type: obj.objectType }
+                    ));
+                }
             }
         }
     }
@@ -888,9 +905,9 @@ export function validateRddmsCompat(
     const errors: ValidationError[] = [];
     const C = ValidationCategory.RDDMS_COMPAT;
 
-    // Only check 2.0.1 (RDDMS compat checks focus on 2.0.1)
     const has201 = objects.some(o => o.version === "2.0.1");
-    if (!has201) return errors;
+    const has22 = objects.some(o => o.version === "2.2" || o.version === "2.2.0" || o.version === "2.2.1");
+    if (!has201 && !has22) return errors;
 
     let zip: AdmZip;
     try {
@@ -912,15 +929,92 @@ export function validateRddmsCompat(
             const ct = om[1] || om[4];
             const pn = om[2] || om[3];
             if (ct && ct.includes("x-resqml+xml")) {
-                if (!ct.includes("version=2.0")) {
+                if (has201) {
+                    if (!ct.includes("version=2.0")) {
+                        errors.push(makeError(
+                            `ContentType missing version=2.0: '${ct}' for ${pn}`,
+                            Severity.WARNING, C
+                        ));
+                    }
+                    if (!ct.includes("type=obj_")) {
+                        errors.push(makeError(
+                            `ContentType missing type=obj_ prefix: '${ct}' for ${pn}`,
+                            Severity.WARNING, C
+                        ));
+                    }
+                }
+                if (has22) {
+                    if (!ct.includes("version=2.2")) {
+                        errors.push(makeError(
+                            `ContentType version should be 2.2 for RESQML 2.2: '${ct}' for ${pn}`,
+                            Severity.WARNING, C
+                        ));
+                    }
+                    if (ct.includes("type=obj_")) {
+                        errors.push(makeError(
+                            `ContentType should NOT use obj_ prefix for RESQML 2.2: '${ct}' for ${pn}`,
+                            Severity.ERROR, C
+                        ));
+                    }
+                }
+            }
+            if (ct && ct.includes("x-eml+xml") && has22) {
+                if (ct.includes("type=obj_")) {
                     errors.push(makeError(
-                        `ContentType missing version=2.0: '${ct}' for ${pn}`,
-                        Severity.WARNING, C
+                        `EML 2.3 ContentType should NOT use obj_ prefix: '${ct}' for ${pn}`,
+                        Severity.ERROR, C
                     ));
                 }
-                if (!ct.includes("type=obj_")) {
+            }
+        }
+
+        // v2.2: should NOT have <Default Extension="xml">
+        if (has22 && ctXml.includes('Extension="xml"')) {
+            errors.push(makeError(
+                `[Content_Types].xml has <Default Extension="xml"> which can conflict with per-part Override entries in v2.2 EPCs`,
+                Severity.WARNING, C
+            ));
+        }
+    }
+
+    // v2.2: Validate DOR format in XML objects
+    if (has22) {
+        for (const obj of objects) {
+            if (obj.version !== "2.2" && obj.version !== "2.2.0" && obj.version !== "2.2.1") continue;
+            const v201DorRe = /<(?:[\w-]+:)?ContentType[^>]*>[^<]*(?:version=2\.0|obj_)[^<]*<\/(?:[\w-]+:)?ContentType>/g;
+            let dorMatch;
+            while ((dorMatch = v201DorRe.exec(obj.xmlString)) !== null) {
+                errors.push(makeError(
+                    `v2.2 object contains v2.0.1-style DOR ContentType: ${dorMatch[0].substring(0, 80)}... — server will fail to resolve these references`,
+                    Severity.ERROR, C,
+                    { uuid: obj.uuid, type: obj.objectType }
+                ));
+            }
+        }
+    }
+
+    // v2.0.1: Check EpcExternalPartReference .rels has HDF5 link
+    if (has201) {
+        const eprEntries = entries.filter(
+            e => e.entryName.includes("EpcExternalPartReference") &&
+                e.entryName.endsWith(".xml") &&
+                !e.entryName.startsWith("_rels/")
+        );
+        for (const epr of eprEntries) {
+            const relsPath = `_rels/${epr.entryName}.rels`;
+            if (!names.has(relsPath)) {
+                errors.push(makeError(
+                    `Missing .rels for EpcExternalPartReference: ${relsPath}`,
+                    Severity.ERROR, C
+                ));
+                continue;
+            }
+
+            const relsXml = zip.getEntry(relsPath)?.getData().toString("utf-8") ?? "";
+            if (relsXml.includes(EXT_RESOURCE_TYPE)) {
+                if (!relsXml.includes('TargetMode="External"')) {
                     errors.push(makeError(
-                        `ContentType missing type=obj_ prefix: '${ct}' for ${pn}`,
+                        `EPR .rels externalResource should have TargetMode="External"`,
                         Severity.WARNING, C
                     ));
                 }
@@ -928,28 +1022,31 @@ export function validateRddmsCompat(
         }
     }
 
-    // Check EpcExternalPartReference .rels has HDF5 link
-    const eprEntries = entries.filter(
-        e => e.entryName.includes("EpcExternalPartReference") &&
-            e.entryName.endsWith(".xml") &&
-            !e.entryName.startsWith("_rels/")
-    );
-    for (const epr of eprEntries) {
-        const relsPath = `_rels/${epr.entryName}.rels`;
-        if (!names.has(relsPath)) {
+    // v2.2: Should NOT have EpcExternalPartReference objects
+    if (has22) {
+        const eprObjects = objects.filter(o =>
+            o.objectType === "EpcExternalPartReference" || o.objectType === "obj_EpcExternalPartReference"
+        );
+        if (eprObjects.length > 0) {
             errors.push(makeError(
-                `Missing .rels for EpcExternalPartReference: ${relsPath}`,
-                Severity.ERROR, C
+                `v2.2 EPC contains ${eprObjects.length} EpcExternalPartReference object(s) — v2.2 uses ExternalDataArrayPart with URI instead`,
+                Severity.WARNING, C
             ));
-            continue;
         }
+    }
 
-        const relsXml = zip.getEntry(relsPath)?.getData().toString("utf-8") ?? "";
-        if (relsXml.includes(EXT_RESOURCE_TYPE)) {
-            if (!relsXml.includes('TargetMode="External"')) {
+    // Validate .rels relationship graph (both versions)
+    for (const obj of objects) {
+        if (obj.objectType === "EpcExternalPartReference" || obj.objectType === "obj_EpcExternalPartReference") continue;
+        const objRelsPath = `_rels/${obj.entryName ?? ""}.rels`;
+        const objRelsAlt = `_rels/${(obj.entryName ?? "").replace(/^\//, "")}.rels`;
+        if (obj.entryName && !names.has(objRelsPath) && !names.has(objRelsAlt)) {
+            const hasDorRef = /<(?:[\w-]+:)?(?:Uuid|UUID)[^>]*>[0-9a-fA-F-]{36}<\//.test(obj.xmlString);
+            if (hasDorRef) {
                 errors.push(makeError(
-                    `EPR .rels externalResource should have TargetMode="External"`,
-                    Severity.WARNING, C
+                    `Object references other objects via DOR but has no .rels file: ${obj.entryName}`,
+                    Severity.WARNING, C,
+                    { uuid: obj.uuid, type: obj.objectType }
                 ));
             }
         }
