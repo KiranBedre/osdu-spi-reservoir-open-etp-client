@@ -232,7 +232,6 @@
       "<rootDir>/src/__tests__/TestClient.ts",
       "<rootDir>/src/__tests__/TestProtocols.ts",
       "<rootDir>/src/__tests__/TestWitsmlQuery.ts",
-      "<rootDir>/src/__tests__/TestResqmlValidator.ts",
       "<rootDir>/src/__tests__/TestResqmlValidatorDatasets.ts"
     ],
     "testEnvironmentOptions": {

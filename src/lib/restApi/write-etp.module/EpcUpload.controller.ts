@@ -724,30 +724,27 @@ export default class EpcUploadAPI {
             const h5Refs: H5Reference[] = [];
 
             // Pre-compiled regexes - hoisted out of the per-object loop
+            // v2.0.1 pattern: <PathInHdfFile>path</PathInHdfFile> + <HdfProxy><UUID>uuid</UUID></HdfProxy>
             const pathRegex =
                 /<(?:[\w]+:)?PathInHdfFile[^>]*>([^<]+)<\/(?:[\w]+:)?PathInHdfFile>/g;
             const hdfProxyRegex =
                 /<(?:[\w]+:)?HdfProxy[^>]*>[\s\S]*?<(?:[\w]+:)?UUID[^>]*>([0-9a-fA-F-]{36})<\/(?:[\w]+:)?UUID>/g;
 
+            // v2.2 pattern: <ExternalDataArrayPart>...<PathInExternalFile>path</PathInExternalFile>...<URI>file.h5</URI>...</ExternalDataArrayPart>
+            const pathInExternalFileRegex =
+                /<(?:[\w]+:)?PathInExternalFile[^>]*>([^<]+)<\/(?:[\w]+:)?PathInExternalFile>/g;
+
             for (const obj of epcObjects) {
                 // Skip EpcExternalPartReference objects - they don't contain HDF references
                 if (obj.dataType === "obj_EpcExternalPartReference") continue;
 
-                // Find all PathInHdfFile references in this object's XML
                 const xmlStr = obj.xml;
 
-                // RESQML 2.0/2.2: PathInHdfFile + HdfProxy/UUID appear as
-                // siblings under various container elements (Values,
-                // Coordinates, Hdf5Dataset, etc.). We scan for every
-                // PathInHdfFile and then look for the nearest HdfProxy UUID.
+                // ── v2.0.1: PathInHdfFile + HdfProxy/UUID ──
                 pathRegex.lastIndex = 0;
                 let pathMatch;
                 while ((pathMatch = pathRegex.exec(xmlStr)) !== null) {
                     const pathValue = pathMatch[1];
-                    // Search forward from the PathInHdfFile match for the
-                    // sibling HdfProxy > UUID.  In both v2.0 and v2.2 the
-                    // UUID element lives inside <eml:HdfProxy> or a similar
-                    // parent within the same container element.
                     hdfProxyRegex.lastIndex = pathMatch.index;
                     const uuidMatch = hdfProxyRegex.exec(xmlStr);
                     if (uuidMatch?.[1]) {
@@ -758,13 +755,29 @@ export default class EpcUploadAPI {
                         });
                     }
                 }
+
+                // ── v2.2: PathInExternalFile (ExternalDataArrayPart) ──
+                // In RESQML 2.2 / EML 2.3, arrays use ExternalDataArrayPart
+                // with PathInExternalFile and URI. No EpcExternalPartReference;
+                // the array container URI is the parent object's own URI.
+                pathInExternalFileRegex.lastIndex = 0;
+                while ((pathMatch = pathInExternalFileRegex.exec(xmlStr)) !== null) {
+                    const pathValue = pathMatch[1];
+                    h5Refs.push({
+                        pathInHdfFile: pathValue,
+                        objectUuid: obj.uuid,
+                        externalPartUuid: obj.uuid // v2.2: object is its own container
+                    });
+                }
             }
 
             logger.info(`Found ${h5Refs.length} HDF5 dataset reference(s) in XML`);
 
             // #4: Validate that all referenced EpcExternalPartReference UUIDs exist in the EPC
+            // (skip v2.2 refs where externalPartUuid === objectUuid — no EPR in v2.2)
             const danglingRefs = new Set<string>();
             for (const ref of h5Refs) {
+                if (ref.externalPartUuid === ref.objectUuid) continue; // v2.2: no EPR
                 if (!epcExternalPartUuids.has(ref.externalPartUuid)) {
                     danglingRefs.add(ref.externalPartUuid);
                 }
@@ -995,13 +1008,38 @@ export default class EpcUploadAPI {
                     }
 
                     const values = ds.value;
-                    const containerUri = EtpUri.createObjectUri(
-                        params.dataspaceId,
-                        "eml",
-                        "20",
-                        "obj_EpcExternalPartReference",
-                        ref.externalPartUuid
-                    ).uri;
+
+                    // v2.0.1: container is the EpcExternalPartReference object
+                    // v2.2:   container is the parent RESQML object itself
+                    let containerUri: string;
+                    if (ref.externalPartUuid === ref.objectUuid) {
+                        // v2.2 — use the parent object's URI
+                        const parentObj = epcObjects.find(o => o.uuid === ref.objectUuid);
+                        containerUri = parentObj
+                            ? EtpUri.createObjectUri(
+                                params.dataspaceId,
+                                parentObj.domainFamily,
+                                parentObj.domainVersion,
+                                parentObj.dataType,
+                                parentObj.uuid
+                            ).uri
+                            : EtpUri.createObjectUri(
+                                params.dataspaceId,
+                                "eml",
+                                "20",
+                                "obj_EpcExternalPartReference",
+                                ref.externalPartUuid
+                            ).uri;
+                    } else {
+                        // v2.0.1 — container is the EpcExternalPartReference
+                        containerUri = EtpUri.createObjectUri(
+                            params.dataspaceId,
+                            "eml",
+                            "20",
+                            "obj_EpcExternalPartReference",
+                            ref.externalPartUuid
+                        ).uri;
+                    }
 
                     const arrayId: IArrayId = {
                         uri: containerUri,
