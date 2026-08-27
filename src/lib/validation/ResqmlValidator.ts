@@ -810,6 +810,124 @@ export function validatePwlsPropertyKinds(objects: EpcObject[]): ValidationError
     return errors;
 }
 
+// ─── Layer 7b: PropertyKind Hierarchy Validation ─────────────────────────────
+
+/** Abstract property kinds (isAbstract=true in enumValuesResqml.xml). */
+const ABSTRACT_PROPERTY_KINDS = new Set([
+    "resqml root property", "continuous", "discrete", "categorical",
+    "quantity", "unitless", "dimensionless",
+    "angle per length", "angle per time", "angle per volume",
+    "area per area", "area per volume",
+    "energy length per area", "energy length per time area temperature",
+    "energy per length",
+    "force area", "force length per length", "force per force", "force per volume",
+    "length per length", "length per temperature", "length per volume",
+    "mass length", "mass per length",
+    "mass per time per area", "mass per time per length", "mass per volume per length",
+    "per area", "per electric potential", "per force", "per length", "per mass", "per volume",
+    "permeability rock",
+    "power per volume",
+    "pressure per time", "pressure squared",
+    "pressure squared per force time per area", "pressure time per volume",
+    "resistivity per length",
+    "time per length", "time per volume",
+    "volume length per time", "volume per area", "volume per length",
+    "volume per time per area", "volume per time per length",
+    "volume per time per time", "volume per time per volume",
+    "volume per volume",
+]);
+
+/** Concrete kinds in the discrete/categorical hierarchy. */
+const DISCRETE_HIERARCHY_KINDS = new Set(["index", "code"]);
+
+/** Well-known continuous-hierarchy kinds that are invalid for DiscreteProperty. */
+const CONTINUOUS_HIERARCHY_KINDS = new Set([
+    "length", "depth", "cell length", "thickness", "velocity",
+    "pressure", "density", "temperature", "thermodynamic temperature",
+    "porosity", "saturation", "permeability rock", "rock permeability",
+    "amplitude", "volume", "area", "angle", "time", "mass",
+    "net to gross ratio", "formation volume factor",
+    "property multiplier", "relative permeability",
+    "absorbed dose", "acceleration linear", "azimuth", "dip",
+    "dynamic viscosity", "electric current", "force", "frequency",
+    "heat capacity", "luminous intensity", "momentum", "power",
+    "solution gas-oil ratio", "vapor oil-gas ratio",
+]);
+
+/**
+ * Validate property kind assignments against the Energistics hierarchy.
+ *
+ * P02: Abstract property kinds must not be directly assigned.
+ * P03: DiscreteProperty must not use a kind from the continuous hierarchy.
+ * P04: ContinuousProperty must not use a kind from the discrete hierarchy.
+ */
+export function validatePropertyKindHierarchy(objects: EpcObject[]): ValidationError[] {
+    const errors: ValidationError[] = [];
+    const C = ValidationCategory.PWLS;
+
+    for (const obj of objects) {
+        if (!obj.objectType.includes("Property") || obj.objectType === "PropertyKind") continue;
+
+        const isDiscrete = obj.objectType.includes("Discrete") || obj.objectType.includes("Categorical");
+        const isContinuous = obj.objectType.includes("Continuous");
+
+        // Extract property kind name — try StandardPropertyKind/Kind first (v2.0.1),
+        // then DOR Title (v2.2)
+        let kindName: string | null = null;
+
+        // v2.0.1: <PropertyKind xsi:type="...StandardPropertyKind"><Kind>name</Kind>
+        const stdKindMatch = obj.xmlString.match(
+            /<(?:[\w-]+:)?Kind[^>]*>([^<]+)<\/(?:[\w-]+:)?Kind>/i
+        );
+        if (stdKindMatch) {
+            kindName = stdKindMatch[1].trim();
+        }
+
+        // v2.2: PropertyKind DOR with Title
+        if (!kindName) {
+            const dorTitleMatch = obj.xmlString.match(
+                /<(?:[\w-]+:)?PropertyKind[\s\S]*?<(?:[\w-]+:)?Title[^>]*>([^<]+)<\//i
+            );
+            if (dorTitleMatch) {
+                kindName = dorTitleMatch[1].trim();
+            }
+        }
+
+        if (!kindName) continue;
+
+        const kindLower = kindName.toLowerCase();
+
+        // P02: Abstract kind check
+        if (ABSTRACT_PROPERTY_KINDS.has(kindLower)) {
+            errors.push(makeError(
+                `P02: PropertyKind "${kindName}" is abstract and must not be directly assigned to a property. Use a concrete descendant.`,
+                Severity.ERROR, C,
+                { uuid: obj.uuid, type: obj.objectType }
+            ));
+        }
+
+        // P03: Discrete property using continuous-hierarchy kind
+        if (isDiscrete && CONTINUOUS_HIERARCHY_KINDS.has(kindLower)) {
+            errors.push(makeError(
+                `P03: DiscreteProperty uses PropertyKind "${kindName}" which belongs to the continuous hierarchy. Use "index" or "code" instead.`,
+                Severity.ERROR, C,
+                { uuid: obj.uuid, type: obj.objectType }
+            ));
+        }
+
+        // P04: Continuous property using discrete-hierarchy kind
+        if (isContinuous && DISCRETE_HIERARCHY_KINDS.has(kindLower)) {
+            errors.push(makeError(
+                `P04: ContinuousProperty uses PropertyKind "${kindName}" which belongs to the discrete hierarchy.`,
+                Severity.ERROR, C,
+                { uuid: obj.uuid, type: obj.objectType }
+            ));
+        }
+    }
+
+    return errors;
+}
+
 // ─── Layer 8: fesapi Compatibility ───────────────────────────────────────────
 
 export function validateFesapiCompat(
@@ -1225,6 +1343,7 @@ export function validateEpc(
     // 7. PWLS PropertyKind
     if (!options.skip_pwls) {
         report.errors.push(...validatePwlsPropertyKinds(objects));
+        report.errors.push(...validatePropertyKindHierarchy(objects));
     }
 
     // 8. fesapi compatibility
@@ -1341,6 +1460,7 @@ export function validateObjects(
     // 7. PWLS
     if (!options.skip_pwls) {
         report.errors.push(...validatePwlsPropertyKinds(objects));
+        report.errors.push(...validatePropertyKindHierarchy(objects));
     }
 
     // 8. fesapi compat
