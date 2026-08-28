@@ -1,4 +1,4 @@
-# CHANGELOG: M27 (2026) - Reservoir DDMS Client
+# CHANGELOG: M28 prerelease - Reservoir DDMS Client
 
 All changes vs upstream `@osdu/open-etp-client` (base commit: `cfffaa2`).
 
