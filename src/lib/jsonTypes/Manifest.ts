@@ -465,6 +465,31 @@ export const createManifest = async (
           if (convertMs > 200) {
             logger.warn(`[perf] Slow converter: ${etpUri.dataObjectType} took ${convertMs}ms`);
           }
+          // Override record.kind with the dynamically resolved version.
+          // The converter constructor hardcodes a compile-time version, but the
+          // platform may have a different version registered. The resolved kind
+          // from the registry ensures the record references a schema version
+          // that actually exists on the target platform.
+          // Also fix record.id prefix when the converter uses a different
+          // resource type than the schema (e.g. WPC base class for master-data schemas).
+          if (res !== undefined) {
+            const resolvedKind = c.osduKind(resolvedObjects[i]!);
+            if (resolvedKind) {
+              res.kind = resolvedKind;
+              // Ensure record.id uses the correct resource-type--Entity prefix
+              const kindParts = resolvedKind.split(":");
+              // kindParts = ["osdu", "wks", "resource-type--Entity", "X.Y.Z"]
+              const typeEntity = kindParts[2]; // e.g. "master-data--BHARun"
+              if (typeEntity && res.id) {
+                const idParts = res.id.split(":");
+                // idParts = ["partition", "old-type--Entity", "uuid"]
+                if (idParts.length >= 3) {
+                  idParts[1] = typeEntity;
+                  res.id = idParts.join(":");
+                }
+              }
+            }
+          }
           const dataspaceUri = EtpUri.createDataSpaceUri(etpUri.dataSpace).uri;
           const aclLegal = context.dataspaceACLs.get(dataspaceUri);
           if (aclLegal !== undefined && res !== undefined) {
@@ -645,6 +670,22 @@ export const createManifest = async (
 
           try {
             const res = await c.convert(objUri, obj, context, client);
+            // Override record.kind with resolved version (same as primary loop)
+            if (res !== undefined) {
+              const resolvedKind = c.osduKind(obj);
+              if (resolvedKind) {
+                res.kind = resolvedKind;
+                const kindParts = resolvedKind.split(":");
+                const typeEntity = kindParts[2];
+                if (typeEntity && res.id) {
+                  const idParts = res.id.split(":");
+                  if (idParts.length >= 3) {
+                    idParts[1] = typeEntity;
+                    res.id = idParts.join(":");
+                  }
+                }
+              }
+            }
             const srn = context.uriToSrn(objUri, obj);
             if (srn === undefined || res === undefined || res.id === undefined) {
               unknownSrn.add(k);

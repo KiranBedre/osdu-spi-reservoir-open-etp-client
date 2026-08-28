@@ -121,13 +121,13 @@ ResqmlOSDU.add(
 
 ResqmlOSDU.add(
   "resqml22.WellboreTrajectoryRepresentation",
-  () => "osdu:wks:work-product-component--WellboreTrajectory:1.3.0",
+  () => getKindOrFallback("WellboreTrajectory"),
   WellboreTrajectoryRepresentation22Manifest
 );
 
 ResqmlOSDU.add(
   "resqml20.obj_WellboreTrajectoryRepresentation",
-  () => "osdu:wks:work-product-component--WellboreTrajectory:1.3.0",
+  () => getKindOrFallback("WellboreTrajectory"),
   WellboreTrajectoryRepresentationManifest
 );
 
@@ -544,12 +544,12 @@ ResqmlOSDU.add(
 );
 ResqmlOSDU.add(
   "resqml20.obj_BlockedWellboreRepresentation",
-  () => "osdu:wks:work-product-component--GenericRepresentation:1.2.0",
+  () => getKindOrFallback("GenericRepresentation"),
   GenericRepresentationManifest
 );
 ResqmlOSDU.add(
   "resqml22.BlockedWellboreRepresentation",
-  () => "osdu:wks:work-product-component--GenericRepresentation:1.2.0",
+  () => getKindOrFallback("GenericRepresentation"),
   GenericRepresentation22Manifest
 );
 
@@ -600,22 +600,22 @@ ResqmlOSDU.add(
 
 ResqmlOSDU.add(
   "witsml21.Well",
-  () => "osdu:wks:master-data--Well:1.3.0",
+  () => getKindOrFallback("Well"),
   WitsmlWellManifest
 );
 ResqmlOSDU.add(
   "witsml21.Wellbore",
-  () => "osdu:wks:master-data--Wellbore:1.3.0",
+  () => getKindOrFallback("Wellbore"),
   WitsmlWellboreManifest
 );
 ResqmlOSDU.add(
   "witsml21.Log",
-  () => "osdu:wks:work-product-component--WellLog:1.3.0",
+  () => getKindOrFallback("WellLog"),
   WitsmlWellLogManifest
 );
 ResqmlOSDU.add(
   "witsml21.Trajectory",
-  () => "osdu:wks:work-product-component--WellboreTrajectory:1.3.0",
+  () => getKindOrFallback("WellboreTrajectory"),
   WitsmlTrajectoryManifest
 );
 ResqmlOSDU.add(
@@ -648,12 +648,12 @@ ResqmlOSDU.add(
 
 ResqmlOSDU.add(
   "resqml20.obj_WellboreFrameRepresentation",
-  () => "osdu:wks:work-product-component--WellLog:1.3.0",
+  () => getKindOrFallback("WellLog"),
   WellboreFrameToWellLogManifest
 );
 ResqmlOSDU.add(
   "resqml22.WellboreFrameRepresentation",
-  () => "osdu:wks:work-product-component--WellLog:1.3.0",
+  () => getKindOrFallback("WellLog"),
   WellboreFrameToWellLog22Manifest
 );
 
