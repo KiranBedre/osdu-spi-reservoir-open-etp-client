@@ -142,6 +142,7 @@ export default async function app(): Promise<NestExpressApplication> {
     .addServer(restApiRoutePath.replace(/\/$/, ""))
     .addTag("Health", "Liveness, readiness probes, and server metadata. Use `GET /health/converters` to list all registered RESQML/WITSML → OSDU converter mappings.")
     .addTag("Authentication", "Token info and session management")
+    .addTag("Metrics", "Prometheus metrics endpoint")
     .addTag("Resources",
       "Read-only access to ETP dataspaces, objects, relationships, and data arrays. " +
       "Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`). " +
@@ -172,7 +173,6 @@ export default async function app(): Promise<NestExpressApplication> {
     .addTag("Wells", "Well-centric search with hierarchy resolution across dataspaces. Domain-specific - not part of core ETP data management.")
     .addTag("WITSML", "Query and store WITSML/EnergyML objects in ETP dataspaces. Domain-specific - supports WITSML 2.1 and 1.4.1 container formats.")
     .addTag("PWLS", "PWLS v4.0 curve mnemonic resolution and validation. Domain-specific - maps vendor mnemonics to standard property names.")
-    .addTag("Metrics", "Prometheus metrics endpoint")
     .build();
 
   const document = SwaggerModule.createDocument(nestApp, config);

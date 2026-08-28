@@ -12459,6 +12459,8 @@ tags:
     → OSDU converter mappings.
 - name: Authentication
   description: Token info and session management
+- name: Metrics
+  description: Prometheus metrics endpoint
 - name: Resources
   description: Read-only access to ETP dataspaces, objects, relationships, and data arrays. Use `dataspaceId` as a URL-encoded
     path (e.g., `foo%2Fdrogon` for `foo/drogon`). Graph endpoints (`/graph/…`) return edges between resources; flat endpoints
@@ -12492,8 +12494,6 @@ tags:
 - name: PWLS
   description: PWLS v4.0 curve mnemonic resolution and validation. Domain-specific - maps vendor mnemonics to standard property
     names.
-- name: Metrics
-  description: Prometheus metrics endpoint
 servers:
 - url: /api/reservoir-ddms/v2
 components:
