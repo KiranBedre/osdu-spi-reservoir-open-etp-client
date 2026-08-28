@@ -354,7 +354,7 @@ describe("RESQML 2.2 Converter Registration", () => {
     },
     {
       type: "resqml22.GeobodyBoundaryInterpretation",
-      kind: "osdu:wks:work-product-component--GeobodyBoundaryInterpretation:1.1.0"
+      kind: "osdu:wks:work-product-component--GeobodyBoundaryInterpretation:1.2.0"
     },
     {
       type: "resqml22.GeobodyInterpretation",
