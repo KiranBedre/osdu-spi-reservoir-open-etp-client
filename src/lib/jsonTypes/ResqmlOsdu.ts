@@ -1,6 +1,6 @@
 import { ResqmlOSDUMap } from "./OsduContext";
 
-import { getKindOrFallback } from "./MilestoneKinds";
+import { getKind, getKindOrFallback } from "./MilestoneKinds";
 import { ActivityManifest } from "./Activity";
 import { Activity23Manifest } from "./Activity23";
 import { ActivityTemplateManifest } from "./ActivityTemplate";
@@ -109,13 +109,13 @@ const ResqmlOSDU = ResqmlOSDUMap.getInstance();
 
 ResqmlOSDU.add(
   "resqml22.WellboreInterpretation",
-  () => "osdu:wks:work-product-component--WellboreInterpretation:1.2.0",
+  () => getKind("WellboreInterpretation") ?? "osdu:wks:work-product-component--GenericRepresentation:1.1.0",
   WellboreInterpretation22Manifest
 );
 
 ResqmlOSDU.add(
   "resqml20.obj_WellboreInterpretation",
-  () => "osdu:wks:work-product-component--WellboreInterpretation:1.2.0",
+  () => getKind("WellboreInterpretation") ?? "osdu:wks:work-product-component--GenericRepresentation:1.1.0",
   WellboreInterpretationManifest
 );
 
@@ -620,27 +620,27 @@ ResqmlOSDU.add(
 );
 ResqmlOSDU.add(
   "witsml21.Rig",
-  () => "osdu:wks:work-product-component--Rig:1.3.0",
+  () => getKind("Rig") ?? "osdu:wks:master-data--Rig:1.2.0",
   WitsmlRigManifest
 );
 ResqmlOSDU.add(
   "witsml21.FluidsReport",
-  () => "osdu:wks:work-product-component--FluidsReport:1.3.0",
+  () => getKind("FluidsReport") ?? "osdu:wks:master-data--FluidsReport:1.2.0",
   WitsmlFluidsReportManifest
 );
 ResqmlOSDU.add(
   "witsml21.Tubular",
-  () => "osdu:wks:work-product-component--Tubular:1.3.0",
+  () => getKind("Tubular") ?? "osdu:wks:work-product-component--GenericRepresentation:1.1.0",
   WitsmlTubularManifest
 );
 ResqmlOSDU.add(
   "witsml21.BhaRun",
-  () => "osdu:wks:work-product-component--BHARunReport:1.3.0",
+  () => getKind("BHARun") ?? "osdu:wks:master-data--BHARun:1.2.0",
   WitsmlBhaRunManifest
 );
 ResqmlOSDU.add(
   "witsml21.WellCompletion",
-  () => "osdu:wks:work-product-component--WellboreCompletion:1.3.0",
+  () => getKind("WellboreCompletion") ?? "osdu:wks:work-product-component--GenericRepresentation:1.1.0",
   WitsmlWellCompletionManifest
 );
 

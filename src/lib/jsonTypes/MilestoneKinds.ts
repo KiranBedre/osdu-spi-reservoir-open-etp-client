@@ -3,14 +3,14 @@
  *
  * At startup, queries the OSDU Schema Service to discover the latest registered
  * schema version for each entity type (forward-compatible with M28, M29, ...).
- * Falls back to a static M27 (production baseline) table when the Schema Service
+ * Falls back to a static table (aligned with data-definitions master) when the Schema Service
  * is unavailable (standalone/local mode).
  *
  * Usage:
  *   import { getKind, initSchemaVersions } from "./MilestoneKinds";
  *   await initSchemaVersions();       // call once at startup
  *   const kind = getKind("WellLog");  // → "osdu:wks:work-product-component--WellLog:1.3.0" (from Schema Service)
- *                                     // → "osdu:wks:work-product-component--WellLog:1.3.0" (M27 fallback)
+ *                                     // → "osdu:wks:work-product-component--WellLog:1.3.0" (static fallback)
  *
  * Env vars:
  *   RDMS_OSDU_URL - base URL for Schema Service query (optional)
@@ -27,7 +27,7 @@ let resolvedKinds: Map<string, string> | undefined;
  * work-product-component, master-data, and dataset schema.
  *
  * Call once at server startup. If the service is unreachable, logs a warning
- * and falls back to the static M27 table.
+ * and falls back to the static table.
  */
 export async function initSchemaVersions(
   osduBaseUrl?: string,
@@ -36,7 +36,7 @@ export async function initSchemaVersions(
 ): Promise<void> {
   const baseUrl = osduBaseUrl || process.env.RDMS_OSDU_URL;
   if (!baseUrl) {
-    logger.info("No RDMS_OSDU_URL configured - using static M27 fallback");
+    logger.info("No RDMS_OSDU_URL configured - using static fallback");
     return;
   }
 
@@ -78,10 +78,10 @@ export async function initSchemaVersions(
       resolvedKinds = kinds;
       logger.info(`Schema Service: resolved ${kinds.size} entity types from ${baseUrl}`);
     } else {
-      logger.warn("Schema Service returned no schemas - using static M27 fallback");
+      logger.warn("Schema Service returned no schemas - using static fallback");
     }
   } catch (err: any) {
-    logger.warn(`Schema Service unavailable (${err?.message ?? err}) - using static M27 fallback`);
+    logger.warn(`Schema Service unavailable (${err?.message ?? err}) - using static fallback`);
   }
 }
 
@@ -97,7 +97,7 @@ function compareVersions(a: string, b: string): number {
   return 0;
 }
 
-// ─── Static fallback table (M27 baseline) ────────────────────────────────────
+// ─── Static fallback table (aligned with data-definitions master) ────────────
 
 const PREFIX_WPC = "osdu:wks:work-product-component--";
 const PREFIX_MD = "osdu:wks:master-data--";
@@ -117,7 +117,6 @@ const FALLBACK_KINDS = new Map<string, string>([
   // ─── Work Product Components - Wells ───────────────────────────────────────
   ["WellLog", `${PREFIX_WPC}WellLog:1.3.0`],
   ["WellboreTrajectory", `${PREFIX_WPC}WellboreTrajectory:1.3.0`],
-  ["WellboreInterpretation", `${PREFIX_WPC}WellboreInterpretation:1.2.0`],
 
   // ─── Work Product Components - Interpretations ─────────────────────────────
   ["EarthModelInterpretation", `${PREFIX_WPC}EarthModelInterpretation:1.2.0`],
@@ -144,7 +143,7 @@ const FALLBACK_KINDS = new Map<string, string>([
   ["UnstructuredGridRepresentation", `${PREFIX_WPC}UnstructuredGridRepresentation:1.2.0`],
   ["GridConnectionSetRepresentation", `${PREFIX_WPC}GridConnectionSetRepresentation:1.2.0`],
   ["SubRepresentation", `${PREFIX_WPC}SubRepresentation:1.2.0`],
-  ["StructureMap", `${PREFIX_WPC}StructureMap:1.2.0`],
+  ["StructureMap", `${PREFIX_WPC}StructureMap:1.0.0`],
   ["LocalModelCompoundCrs", `${PREFIX_WPC}LocalModelCompoundCrs:1.1.0`],
   ["LocalBoundaryFeature", `${PREFIX_WPC}LocalBoundaryFeature:1.2.0`],
   ["LocalModelFeature", `${PREFIX_WPC}LocalModelFeature:1.1.0`],
@@ -162,12 +161,10 @@ const FALLBACK_KINDS = new Map<string, string>([
   ["GenericBinGrid", `${PREFIX_WPC}GenericBinGrid:1.0.0`],
   ["HorizonControlPoints", `${PREFIX_WPC}HorizonControlPoints:1.0.0`],
 
-  // ─── Work Product Components - WITSML ──────────────────────────────────────
-  ["Rig", `${PREFIX_WPC}Rig:1.2.0`],
-  ["FluidsReport", `${PREFIX_WPC}FluidsReport:1.2.0`],
-  ["Tubular", `${PREFIX_WPC}Tubular:1.2.0`],
-  ["BHARunReport", `${PREFIX_WPC}BHARunReport:1.2.0`],
-  ["WellboreCompletion", `${PREFIX_WPC}WellboreCompletion:1.2.0`],
+  // ─── Master Data - WITSML ──────────────────────────────────────────────────
+  ["Rig", `${PREFIX_MD}Rig:1.2.0`],
+  ["FluidsReport", `${PREFIX_MD}FluidsReport:1.2.0`],
+  ["BHARun", `${PREFIX_MD}BHARun:1.2.0`],
 
   // ─── Work Product Components - Reservoir Management / Simulation ───────────
   ["FluidModel", `${PREFIX_WPC}FluidModel:1.0.0`],
@@ -193,8 +190,8 @@ const FALLBACK_KINDS = new Map<string, string>([
 /**
  * Get the full OSDU kind string for a given entity type.
  *
- * Returns the Schema Service resolved version if available (M27+),
- * otherwise the M27 static fallback.
+ * Returns the Schema Service resolved version if available,
+ * otherwise the static fallback.
  */
 export function getKind(entityType: string): string | undefined {
   if (resolvedKinds) {
