@@ -296,7 +296,7 @@ function cleanupFiles(files: { epc?: Express.Multer.File[]; h5?: Express.Multer.
 
 const partitionId = process.env.DATA_PARTITION_ID ?? "data-partition-id";
 
-@ApiBearerAuth("access-token")
+@ApiBearerAuth("HTTPBearer")
 @UseGuards(HasBearerGuard("jwt"))
 @ApiHeader({
     name: "data-partition-id",

@@ -67,7 +67,7 @@ function parseResource(res: Energistics.Etp.v12.Datatypes.Object.Resource) {
 
 @Controller("wells")
 @ApiTags("Wells")
-@ApiBearerAuth("access-token")
+@ApiBearerAuth("HTTPBearer")
 @UseGuards(HasBearerGuard("jwt"))
 @UseGuards(HasDataPartitionGuard())
 @ApiGoneResponse(webSocketSessionTerminatedSchema())

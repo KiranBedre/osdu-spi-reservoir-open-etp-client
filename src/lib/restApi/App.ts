@@ -128,16 +128,16 @@ export default async function app(): Promise<NestExpressApplication> {
   const config = new DocumentBuilder()
     .setTitle("Reservoir DMS")
     .setDescription(
-      `REST API for OSDU Reservoir DMS.`
+      `REST API for OSDU Reservoir DMS. M28 pre-release \u2014 not yet submitted to the OSDU forum.`
     )
-    .setVersion("1.2")
+    .setVersion("1.3.0-M28-pre")
     .setLicense(
       "Apache 2.0",
       "https://www.apache.org/licenses/LICENSE-2.0.html"
     )
     .addBearerAuth(
-      { type: "http", scheme: "bearer", bearerFormat: "JWT" },
-      "access-token"
+      { type: "http", scheme: "bearer" },
+      "HTTPBearer"
     )
     .addServer(restApiRoutePath.replace(/\/$/, ""))
     .addTag("Health", "Liveness, readiness probes, and server metadata. Use `GET /health/converters` to list all registered RESQML/WITSML → OSDU converter mappings.")
