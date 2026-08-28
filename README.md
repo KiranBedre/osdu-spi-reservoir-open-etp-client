@@ -52,7 +52,7 @@ Set values in `config.user.env` (overrides `config.default.env`):
 | `RDMS_DATA_PARTITION_MODE` | `single`        | `single` or `multipartition` - see [Partitioning](#partitioning) |
 | `RDMS_ETP_SSL_VERIFY`      | `true`          | Set `false` for self-signed certs                                |
 | `RDMS_OSDU_URL`            | -               | OSDU platform URL (enables Schema Service, CRS lookups)          |
-| `OSDU_MILESTONE`           | -               | Schema milestone (`M26` or `M27`) for manifest kind versions     |
+| `OSDU_MILESTONE`           | -               | Schema milestone hint (`M26`, `M27`, `M28`) - auto-resolved via Schema Service |
 
 ---
 
@@ -163,7 +163,7 @@ See [devops/azure/README.md](devops/azure/README.md) for Helm chart and Azure De
 
 - ETP server and client are **separate containers** - deploy with shared network
 - OpenETPServer requires **PostgreSQL** (stores XML metadata and HDF5 arrays)
-- Configure `RDMS_OSDU_URL` for Schema Service kind resolution; falls back to static M27 versions if unavailable
+- Configure `RDMS_OSDU_URL` for Schema Service kind resolution; falls back to static versions (data-definitions aligned) if unavailable
 - Health endpoints (`/health/liveness`, `/health/readiness`) are Kubernetes-ready
 - SIGTERM triggers graceful shutdown: stops accepting requests, rolls back open transactions, exits within 30s
 
@@ -244,8 +244,8 @@ Set `RDMS_DATA_PARTITION_MODE` in config.
 
 Manifest builder resolves OSDU kind versions at startup:
 
-1. **Schema Service query** - queries OSDU Schema Service for latest published versions
-2. **Static fallback** - built-in `FALLBACK_KINDS` map provides M27 versions if service unavailable
+1. **Schema Service query** - queries OSDU Schema Service for latest published versions (auto-adapts to M26/M27/M28+)
+2. **Static fallback** - built-in `FALLBACK_KINDS` map (aligned with [data-definitions master](https://community.opengroup.org/osdu/data/data-definitions/-/tree/master/E-R)) if service unavailable
 
 No configuration needed - adapts automatically to the target platform.
 
