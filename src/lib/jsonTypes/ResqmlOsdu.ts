@@ -323,12 +323,12 @@ ResqmlOSDU.add(
 );
 ResqmlOSDU.add(
   "resqml20.obj_PointSetRepresentation",
-  () => getKindOrFallback("GenericRepresentation"),
+  GenericRepresentationToOsduKind,
   GenericRepresentationManifest
 );
 ResqmlOSDU.add(
   "resqml22.PointSetRepresentation",
-  () => getKindOrFallback("GenericRepresentation"),
+  GenericRepresentation22ToOsduKind,
   GenericRepresentation22Manifest
 );
 ResqmlOSDU.add(
@@ -468,12 +468,12 @@ ResqmlOSDU.add(
 );
 ResqmlOSDU.add(
   "resqml20.obj_TriangulatedSetRepresentation",
-  () => getKindOrFallback("GenericRepresentation"),
+  GenericRepresentationToOsduKind,
   GenericRepresentationManifest
 );
 ResqmlOSDU.add(
   "resqml22.TriangulatedSetRepresentation",
-  () => getKindOrFallback("GenericRepresentation"),
+  GenericRepresentation22ToOsduKind,
   GenericRepresentation22Manifest
 );
 ResqmlOSDU.add(
