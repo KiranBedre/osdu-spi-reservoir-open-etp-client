@@ -250,6 +250,7 @@ The path `/api/reservoir-ddms-etp/v2/` is the correct external URL — the issue
 
 ## Available Dataspaces (preship)
 
-| Dataspace | Size | Notes |
+| Dataspace | Objects | Notes |
 |---|---|---|
-| `maap/drogon220` | 45 MB | RESQML 2.2 dataset, used by Bruno read-only tests |
+| `maap/drogon201b` | 404+ | Primary stable dataset, used by Postman read-only tests |
+| `maap/drogon220b` | ~45 MB | RESQML 2.2 dataset, used by Bruno read-only tests (`{{dataspaceId}}`) |
