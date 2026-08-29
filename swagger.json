@@ -13351,7 +13351,7 @@
     },
     "/dataspaces/{dataspaceId}/clone": {
       "post": {
-        "description": "Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.\n\n**Note**: This is a server-side deep copy via ETP - no data is transferred through the REST layer.",
+        "description": "Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.\n\n**Prerequisites**:\n- The source dataspace is automatically locked during the clone and unlocked afterwards.\n- The target dataspace (DataspaceId) must not already exist.\n\n**Note**: This is a server-side deep copy via ETP — no data is transferred through the REST layer.",
         "operationId": "DataspaceMutationsAPI_CloneDataspace",
         "parameters": [
           {
