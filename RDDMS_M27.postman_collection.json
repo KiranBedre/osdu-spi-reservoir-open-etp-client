@@ -524,7 +524,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "[\n  {\n    \"DataspaceId\": \"{{testDataspaceId}}\",\n    \"Path\": \"{{testDataspaceId}}\"\n  }\n]",
+              "raw": "[\n  {\n    \"DataspaceId\": \"{{testDataspaceId}}\",\n    \"Path\": \"{{testDataspaceId}}\",\n    \"CustomData\": {\n      \"viewers\": [\n        \"{{defaultViewers}}\"\n      ],\n      \"owners\": [\n        \"{{defaultOwners}}\"\n      ],\n      \"legaltags\": [\n        \"{{defaultLegalTag}}\"\n      ],\n      \"otherRelevantDataCountries\": [\n        \"US\"\n      ]\n    }\n  }\n]",
               "options": {
                 "raw": {
                   "language": "json"
@@ -578,7 +578,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"path\": \"maap/m27_clone_tmp\"\n}",
+              "raw": "{\n  \"DataspaceId\": \"maap/m27_clone_tmp\",\n  \"Path\": \"maap/m27_clone_tmp\",\n  \"CustomData\": {\n    \"viewers\": [\n      \"{{defaultViewers}}\"\n    ],\n    \"owners\": [\n      \"{{defaultOwners}}\"\n    ],\n    \"legaltags\": [\n      \"{{defaultLegalTag}}\"\n    ],\n    \"otherRelevantDataCountries\": [\n      \"US\"\n    ]\n  }\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -2373,7 +2373,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"dataspaces\": [\n    \"eml:///dataspace('{{dataspaceIdRaw}}')\"\n  ]\n}",
+              "raw": "{\n  \"uris\": [\n    \"eml:///dataspace('{{dataspaceIdRaw}}')\"\n  ],\n  \"typePatterns\": [\n    \"*\"\n  ],\n  \"createMissingReferences\": true,\n  \"tags\": {}\n}",
               "options": {
                 "raw": {
                   "language": "json"

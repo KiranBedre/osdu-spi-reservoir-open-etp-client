@@ -18,7 +18,13 @@ headers {
 body:json {
   {
     "DataspaceId": "test/bruno-clone",
-    "Path": "test/bruno-clone"
+    "Path": "test/bruno-clone",
+    "CustomData": {
+      "viewers": ["{{defaultViewers}}"],
+      "owners": ["{{defaultOwners}}"],
+      "legaltags": ["{{defaultLegalTag}}"],
+      "otherRelevantDataCountries": ["US"]
+    }
   }
 }
 

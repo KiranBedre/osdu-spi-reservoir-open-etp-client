@@ -19,7 +19,13 @@ body:json {
   [
     {
       "DataspaceId": "test/bruno-collection",
-      "Path": "test/bruno-collection"
+      "Path": "test/bruno-collection",
+      "CustomData": {
+        "viewers": ["{{defaultViewers}}"],
+        "owners": ["{{defaultOwners}}"],
+        "legaltags": ["{{defaultLegalTag}}"],
+        "otherRelevantDataCountries": ["US"]
+      }
     }
   ]
 }
