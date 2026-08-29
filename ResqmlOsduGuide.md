@@ -193,7 +193,7 @@ flowchart TD
 | OSDU Kind               | Source                                                                                 | Routing                       |
 | ----------------------- | -------------------------------------------------------------------------------------- | ----------------------------- |
 | `GenericRepresentation` | TriangulatedSet, PointSet, BlockedWellbore, Polyline/Set                               | Fallback                      |
-| `GenericBinGrid`        | `obj_Grid2dRepresentation`                                                             | Grid2d with no interpretation |
+| `GenericBinGrid`        | `obj_Grid2dRepresentation`                                                             | All remaining Grid2d (with or without interpretation) |
 | `GenericProperty`       | Continuous/Discrete/CategoricalProperty                                                | NOT on WellboreFrame          |
 | `ColumnBasedTable`      | `obj_StringTableLookup`, `obj_DoubleTableLookup`, `eml23.ColumnBasedTable`             | Direct                        |
 | `PersistedCollection`   | `obj_PropertySet`, `obj_RepresentationSetRepresentation`, `eml23.DataobjectCollection` | Direct                        |
@@ -241,9 +241,7 @@ flowchart TD
     Q2 -->|Yes| K2["SeismicHorizon:2.0.0"]
     Q2 -->|No| Q3{"HorizonInterpretation<br/>AND NOT on lattice?"}
     Q3 -->|Yes| K3["StructureMap:1.0.0"]
-    Q3 -->|No| Q4{"No interpretation<br/>at all?"}
-    Q4 -->|Yes| K4["GenericBinGrid:1.0.0"]
-    Q4 -->|No| K5["GenericRepresentation:1.2.0<br/>(fallback)"]
+    Q3 -->|No| K4["GenericBinGrid:1.0.0<br/>(all remaining Grid2d)"]
 
     K1 & K2 & K3 & K4 --> CRS{"Linked CRS type?"}
     CRS -->|"LocalDepth3dCrs"| Depth["DomainTypeID = Depth"]
@@ -251,6 +249,13 @@ flowchart TD
 ```
 
 > DomainTypeID is derived dynamically from the linked CRS for all Grid2d WPCs.
+
+**GenericBinGrid covers all remaining Grid2d cases** — both uninterpreted grids
+(isochore, DEM, attribute maps) and grids with non-horizon interpretations
+(StratigraphicUnitInterpretation, GeobodyInterpretation, FaultInterpretation, etc.).
+This preserves grid geometry metadata (origin, bin widths, node counts, bearing)
+that would be lost if falling to GenericRepresentation. When an interpretation
+is present, it is stored in `ExtensionProperties.InterpretationID/.InterpretationName/.InterpretationType`.
 
 **v2.0.1 vs v2.2 differences:**
 
