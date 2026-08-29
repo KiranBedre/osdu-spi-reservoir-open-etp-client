@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: {{host}}/dataspaces/{{testDataspaceId}}/transactions
+  url: {{host}}/dataspaces/{{dataspaceId}}/transactions
   body: none
   auth: none
 }
@@ -34,14 +34,12 @@ script:post-response {
 }
 
 tests {
-  test("status is 200 or 201 (404/412 if test DS not created)", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 201, 404, 412]);
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
   });
 
   test("returns transactionId", function () {
-    if (res.getStatus() === 200 || res.getStatus() === 201) {
-      const transactionId = bru.getVar("transactionId");
-      expect(transactionId, "transactionId captured from response").to.be.a("string").and.to.not.be.empty;
-    }
+    const transactionId = bru.getVar("transactionId");
+    expect(transactionId, "transactionId captured from response").to.be.a("string").and.to.not.be.empty;
   });
 }
