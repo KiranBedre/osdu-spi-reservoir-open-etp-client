@@ -10,9 +10,9 @@ Integration test results and deployment notes for the OSDU Reservoir DDMS **M27 
 
 The Reservoir DDMS Postman collection needs to be included in the official OSDU QA preship CI/CD suite alongside the other DDMS collections (Wellbore, Seismic, etc.).
 
-**Collection files** (in the `validate` branch):
-- Collection: [`RDDMS_M27.postman_collection.json`](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/blob/validate/RDDMS_M27.postman_collection.json)
-- Environment: [`RDDMS_M27_CIMPL_Preship.postman_environment.json`](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/blob/validate/RDDMS_M27_CIMPL_Preship.postman_environment.json)
+**Collection files** (on `main`):
+- Collection: [`RDDMS_M27.postman_collection.json`](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/blob/main/RDDMS_M27.postman_collection.json)
+- Environment: [`RDDMS_M27_CIMPL_Preship.postman_environment.json`](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/blob/main/RDDMS_M27_CIMPL_Preship.postman_environment.json)
 
 **Target location** in the QA repo: `osdu/qa/Postman Collection/45_CICD_Reservoir_DDMS`
 
