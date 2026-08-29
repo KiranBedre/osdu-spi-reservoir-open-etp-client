@@ -30,6 +30,7 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiDefaultResponse,
+  ApiExcludeEndpoint,
   ApiForbiddenResponse,
   ApiGoneResponse,
   ApiHeader,
@@ -304,6 +305,7 @@ export default class QueryController {
    */
   @Post("resources/find")
   @HttpCode(200)
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: "Find resources by context and scope (ETP Discovery Protocol 3)",
     description: `Search for resources within a dataspace or below a specific object URI. Returns resource metadata (URI, name, timestamps, relationship counts) without loading full XML content.
@@ -616,6 +618,7 @@ For each URI, traverses the relationship graph with the given scope and depth, t
    */
   @Post("growing/metadata")
   @HttpCode(200)
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: "Get parts metadata for a growing object (ETP GrowingObject Protocol 6)",
     description: `Retrieve metadata about the parts/segments of a growing object (WellLog, MudLog, Trajectory).
@@ -651,6 +654,7 @@ For each URI, traverses the relationship graph with the given scope and depth, t
    */
   @Post("growing/range")
   @HttpCode(200)
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: "Get parts by index range (ETP GrowingObject Protocol 6)",
     description: `Retrieve data from a growing object (WellLog, MudLog, Trajectory) within a specified index range.
@@ -708,6 +712,7 @@ For each URI, traverses the relationship graph with the given scope and depth, t
    */
   @Post("channels/metadata")
   @HttpCode(200)
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: "Get channel metadata (ETP ChannelSubscribe Protocol 21)",
     description: `Discover available channels (curves/mnemonics) for a WellLog, ChannelSet, or similar object.

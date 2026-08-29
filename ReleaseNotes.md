@@ -1,6 +1,8 @@
-# CHANGELOG: M28 prerelease - Reservoir DDMS Client
+# Release Notes: Reservoir DDMS Client v1.3.0
 
-All changes vs upstream `@osdu/open-etp-client` (base commit: `cfffaa2`).
+Changes in the `open-etp-client` REST gateway since the M27 baseline (`cfffaa2`).
+
+> **Note**: Features requiring ETP protocols not yet implemented in `open-etp-server` (DiscoveryQuery 13, GrowingObject 6, ChannelSubscribe 21) are excluded from the deployed API but available in code for future enablement. See `README.m28.md` for the full feature preview.
 
 ---
 
@@ -35,17 +37,19 @@ See [sdk/README.md](./sdk/README.md) for full API reference.
 
 ### REST Endpoints (8 new)
 
-| Method | Path                               | Purpose                                                                  |
-| ------ | ---------------------------------- | ------------------------------------------------------------------------ |
-| POST   | `/query/resources/find`            | FindResources by URI + scope/depth/type filter (ETP Protocol 13)         |
-| POST   | `/query/objects/find`              | FindDataObjects with full XML content (ETP Protocol 14)                  |
-| POST   | `/query/graph/search`              | Batch graph search - merged subgraph for multiple URIs                   |
-| POST   | `/query/growing/metadata`          | Growing-object part metadata (ETP Protocol 6)                            |
-| POST   | `/query/growing/range`             | Growing-object parts by index range (ETP Protocol 6)                     |
-| POST   | `/query/channels/metadata`         | Channel metadata for streaming (ETP Protocol 21)                         |
-| PUT    | `/witsml/store`                    | Ingest WITSML 2.1/1.4.1 XML with auto-transaction and channel extraction |
-| POST   | `/dataspaces/{id}/epc/upload`      | Upload EPC + H5 file pair, unzip, parse, and ingest with transaction     |
-| GET    | `/wells?name=&dataspace=&include=` | Cross-dataspace well search with hierarchy resolution                    |
+| Method | Path                               | Purpose                                                                  | Status |
+| ------ | ---------------------------------- | ------------------------------------------------------------------------ | ------ |
+| POST   | `/query/objects/find`              | FindDataObjects with full XML content (ETP Protocol 14)                  | Live |
+| POST   | `/query/graph/search`              | Batch graph search - merged subgraph for multiple URIs                   | Live |
+| PUT    | `/witsml/store`                    | Ingest WITSML 2.1/1.4.1 XML with auto-transaction and channel extraction | Live |
+| POST   | `/dataspaces/{id}/epc/upload`      | Upload EPC + H5 file pair, unzip, parse, and ingest with transaction     | Live |
+| GET    | `/wells?name=&dataspace=&include=` | Cross-dataspace well search with hierarchy resolution                    | Live |
+| POST   | `/query/resources/find`            | FindResources by URI + scope/depth/type filter (ETP Protocol 13)         | Pending¹ |
+| POST   | `/query/growing/metadata`          | Growing-object part metadata (ETP Protocol 6)                            | Pending¹ |
+| POST   | `/query/growing/range`             | Growing-object parts by index range (ETP Protocol 6)                     | Pending¹ |
+| POST   | `/query/channels/metadata`         | Channel metadata for streaming (ETP Protocol 21)                         | Pending¹ |
+
+¹ Requires ETP server protocol support not yet implemented in `open-etp-server`. Hidden from Swagger/OpenAPI.
 
 ### GraphQL API
 
@@ -53,15 +57,15 @@ New `/graphql` endpoint with field-level selection and DataLoader batching. Quer
 
 ### ETP Protocol Handlers (5 new)
 
-| Protocol                  | ID  | Handler                             | Purpose                                       |
-| ------------------------- | --- | ----------------------------------- | --------------------------------------------- |
-| DiscoveryQuery            | 13  | `DiscoveryQueryCustomer`            | URI-pattern resource search with scope/depth  |
-| StoreQuery                | 14  | `StoreQueryCustomer`                | Bulk data object retrieval                    |
-| GrowingObject             | 6   | `GrowingObjectCustomer`             | Log curve / trajectory station parts by range |
-| GrowingObjectNotification | 7   | `GrowingObjectNotificationCustomer` | Push notifications for part changes           |
-| ChannelSubscribe          | 21  | `ChannelSubscribeCustomer`          | Real-time channel metadata and streaming      |
+| Protocol                  | ID  | Handler                             | Purpose                                       | Status |
+| ------------------------- | --- | ----------------------------------- | --------------------------------------------- | ------ |
+| StoreQuery                | 14  | `StoreQueryCustomer`                | Bulk data object retrieval                    | Live |
+| DiscoveryQuery            | 13  | `DiscoveryQueryCustomer`            | URI-pattern resource search with scope/depth  | Pending¹ |
+| GrowingObject             | 6   | `GrowingObjectCustomer`             | Log curve / trajectory station parts by range | Pending¹ |
+| GrowingObjectNotification | 7   | `GrowingObjectNotificationCustomer` | Push notifications for part changes           | Pending¹ |
+| ChannelSubscribe          | 21  | `ChannelSubscribeCustomer`          | Real-time channel metadata and streaming      | Pending¹ |
 
-All protocols are auto-negotiated at ETP session open - no configuration needed. The `RDMS_ETP_EXTENDED_PROTOCOLS` env var has been removed.
+¹ Client-side handler implemented, awaiting `open-etp-server` protocol support.
 
 ---
 

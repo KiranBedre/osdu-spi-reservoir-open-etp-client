@@ -738,8 +738,22 @@ export const createManifest = async (
       }
     });
 
+    // Deduplicate records by .id before assembling manifest arrays.
+    // The generatedSrn Map is keyed by SRN, but the kind override in the
+    // primary and reference loops can produce entries with different SRN keys
+    // that share the same record .id — the Storage API rejects duplicate IDs
+    // within a single PUT batch.
+    const seenRecordIds = new Set<string>();
+
     for (const res of generatedSrn) {
       const id: string = res[0];
+      const recordId: string | undefined = res[1]?.id;
+      if (recordId && seenRecordIds.has(recordId)) {
+        continue; // skip duplicate record
+      }
+      if (recordId) {
+        seenRecordIds.add(recordId);
+      }
       if (id.includes("master-data")) {
         manifests.MasterData.push(res[1] as GenericMasterData);
       } else if (id.includes("reference-data")) {

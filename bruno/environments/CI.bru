@@ -4,11 +4,22 @@ vars {
   data-partition-id: {{DATA_PARTITION_ID}}
   domain: {{ENTITLEMENTS_DOMAIN}}
   dataspaceId: test-ci-bruno
+  dataspaceIdRaw: test-ci-bruno
   dataObjectType: resqml20.obj_PointSetRepresentation
   crs_guid:
   ext_guid:
   psr_guid:
   array_path_encoded:
   guid:
+  pathInResource:
+  testDataspaceId:
   transactionId:
+  defaultLegalTag: {{DATA_PARTITION_ID}}-RDDMS-Legal-Tag
+  defaultOwners: data.default.owners@{{DATA_PARTITION_ID}}.{{ENTITLEMENTS_DOMAIN}}
+  defaultViewers: data.default.viewers@{{DATA_PARTITION_ID}}.{{ENTITLEMENTS_DOMAIN}}
 }
+vars:secret [
+  token_url:,
+  client_id:,
+  refresh_token:
+]

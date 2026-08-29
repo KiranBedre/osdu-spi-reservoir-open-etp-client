@@ -78,7 +78,7 @@ describe("PWLS REST API", () => {
         .post(`${restApiServerPath}/pwls/catalog`)
         .send(mockHalliburtonCatalog)
         .set("Content-Type", "application/json")
-        .expect(201);
+        .expect(200);
 
       expect(response.body).toHaveProperty("added");
       expect(response.body).toHaveProperty("totalMnemonics");
@@ -103,7 +103,7 @@ describe("PWLS REST API", () => {
         .post(`${restApiServerPath}/pwls/catalog`)
         .send(mockHalliburtonCatalog)
         .set("Content-Type", "application/json")
-        .expect(201);
+        .expect(200);
 
       // All 3 mnemonics already exist from previous test
       expect(response.body.added).toBe(0);
@@ -122,7 +122,7 @@ describe("PWLS REST API", () => {
         .post(`${restApiServerPath}/pwls/catalog`)
         .send(emptyCatalog)
         .set("Content-Type", "application/json")
-        .expect(201);
+        .expect(200);
 
       expect(response.body.added).toBe(0);
       expect(response.body.vendors).toContain("EmptyVendor");
@@ -147,7 +147,7 @@ describe("PWLS REST API", () => {
         .post(`${restApiServerPath}/pwls/catalog`)
         .send(largeCatalog)
         .set("Content-Type", "application/json")
-        .expect(201);
+        .expect(200);
 
       expect(response.body.added).toBe(1000);
       expect(response.body.vendors).toContain("LargeTestVendor");

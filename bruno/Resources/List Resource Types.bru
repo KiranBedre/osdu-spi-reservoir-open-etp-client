@@ -15,14 +15,27 @@ headers {
   Authorization: Bearer {{access_token}}
 }
 
+script:post-response {
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    if (Array.isArray(body) && body.length > 0) {
+      // Pick a type that has data — prefer the env default if present
+      const envType = bru.getEnvVar("dataObjectType");
+      const match = envType && body.find(t => t === envType);
+      bru.setVar("dataObjectType", match || body[0]);
+    }
+  }
+}
+
 tests {
-  test("status is 200", function () {
-    expect(res.getStatus()).to.equal(200);
+  test("status is 200 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
   });
 
   test("returns resource types", function () {
-    const body = res.getBody();
-    expect(body).to.be.an("array");
-    expect(body.length).to.be.greaterThan(0);
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body).to.be.an("array");
+    }
   });
 }

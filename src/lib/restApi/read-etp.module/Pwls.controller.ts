@@ -22,7 +22,8 @@ import {
   ApiTooManyRequestsResponse
 } from "@nestjs/swagger";
 
-import { Allow, IsOptional } from "class-validator";
+import { Allow, IsOptional, ValidateNested } from "class-validator";
+import { Type } from "class-transformer";
 
 import { errorMessageSchema, swaggerServers } from "../ControllerUtils";
 
@@ -71,9 +72,11 @@ class PwlsResolveResultDto {
 }
 
 class CurveValidationEntry {
+  @Allow()
   @ApiProperty({ example: "GR", description: "Curve mnemonic or property name" })
   mnemonic!: string;
 
+  @Allow()
   @ApiPropertyOptional({ example: "gAPI", description: "Unit of measurement (optional)" })
   uom?: string;
 }
@@ -105,6 +108,8 @@ class CurveValidationResultEntry {
 }
 
 class CurveValidationRequestDto {
+  @ValidateNested({ each: true })
+  @Type(() => CurveValidationEntry)
   @ApiProperty({
     type: [CurveValidationEntry],
     description: "Array of curves to validate",
@@ -332,6 +337,7 @@ export default class PwlsController {
    * Load an additional vendor curve catalog (PWLS v4 format).
    */
   @Post("catalog")
+  @HttpCode(200)
   @ApiOkResponse({
     description: "Catalog loaded",
     schema: {

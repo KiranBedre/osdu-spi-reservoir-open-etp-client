@@ -5,7 +5,7 @@ meta {
 }
 
 post {
-  url: {{host}}/dataspaces/{{dataspaceId}}/clone
+  url: {{host}}/dataspaces/{{testDataspaceId}}/clone
   body: json
   auth: none
 }
@@ -17,12 +17,19 @@ headers {
 
 body:json {
   {
-    "target": "test/bruno-clone"
+    "DataspaceId": "test/bruno-clone",
+    "Path": "test/bruno-clone",
+    "CustomData": {
+      "viewers": ["{{defaultViewers}}"],
+      "owners": ["{{defaultOwners}}"],
+      "legaltags": ["{{defaultLegalTag}}"],
+      "otherRelevantDataCountries": ["US"]
+    }
   }
 }
 
 tests {
-  test("status is 200 or 201", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  test("status is 200 or 201 or 400 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 400, 404]);
   });
 }

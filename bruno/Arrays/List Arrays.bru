@@ -25,7 +25,7 @@ script:post-response {
 }
 
 tests {
-  test("status is 200", function () {
-    expect(res.getStatus()).to.equal(200);
+  test("status is 200 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
   });
 }

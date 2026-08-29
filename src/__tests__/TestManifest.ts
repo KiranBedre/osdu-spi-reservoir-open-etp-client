@@ -97,12 +97,12 @@ describe("Manifest Conversion", () => {
     expect(osdu.data.ValueCount).toEqual(7);
     expect(
       osdu.data.ExtensionProperties &&
-        osdu.data.ExtensionProperties["test1/test2"]
+      osdu.data.ExtensionProperties["test1/test2"]
     ).toEqual("test1");
     expect(osdu.tags && osdu.tags.tag1).toEqual("tag1");
     expect(
       osdu.data.ExtensionProperties &&
-        osdu.data.ExtensionProperties["tags/tag1/tag2"]
+      osdu.data.ExtensionProperties["tags/tag1/tag2"]
     ).toEqual("tag2");
   });
 });

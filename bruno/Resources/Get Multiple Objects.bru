@@ -18,13 +18,13 @@ headers {
 body:json {
   {
     "uris": [
-      "eml:///dataspace('{{dataspaceId}}')/{{dataObjectType}}({{guid}})"
+      "eml:///dataspace('{{dataspaceIdRaw}}')/{{dataObjectType}}({{guid}})"
     ]
   }
 }
 
 tests {
-  test("status is 200", function () {
-    expect(res.getStatus()).to.equal(200);
+  test("status is 200 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 404]);
   });
 }

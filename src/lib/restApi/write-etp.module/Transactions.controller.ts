@@ -17,6 +17,7 @@ import {
   Body,
   Controller,
   Delete,
+  HttpCode,
   Param,
   Post,
   Put,
@@ -166,6 +167,7 @@ export default class TransactionsAPI {
    * @memberof MutationsAPI
    */
   @Post()
+  @HttpCode(200)
   @ApiOkResponse({
     description: "Success",
     schema: {
