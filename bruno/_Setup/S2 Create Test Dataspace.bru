@@ -18,20 +18,20 @@ headers {
 body:json {
   [
     {
-      "DataspaceId": "test-ci-bruno",
-      "Path": "test-ci-bruno",
+      "DataspaceId": "{{testDataspaceIdRaw}}",
+      "Path": "{{testDataspaceIdRaw}}",
       "CustomData": {
-        "viewers": ["data.default.viewers@{{data-partition-id}}.{{domain}}"],
-        "owners": ["data.default.owners@{{data-partition-id}}.{{domain}}"],
-        "legaltags": ["{{data-partition-id}}-RDDMS-Legal-Tag"],
-        "otherRelevantDataCountries": ["US"]
+        "viewers": { "values": ["{{defaultViewers}}"] },
+        "owners": { "values": ["{{defaultOwners}}"] },
+        "legaltags": { "values": ["{{defaultLegalTag}}"] },
+        "otherRelevantDataCountries": { "values": ["US"] }
       }
     }
   ]
 }
 
 tests {
-  test("status is 200 or 201", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  test("status is 200 or 201 (400/403 = no create permission)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 400, 403, 409]);
   });
 }

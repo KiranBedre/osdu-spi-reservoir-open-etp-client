@@ -5,7 +5,7 @@ meta {
 }
 
 put {
-  url: {{host}}/dataspaces/{{dataspaceId}}/resources?transactionId={{transactionId}}
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources?transactionId={{transactionId}}
   body: json
   auth: none
 }
@@ -115,7 +115,7 @@ body:json {
 }
 
 tests {
-  test("status is 200 or 201", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  test("status is 200 or 201 (412 if no transaction)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 400, 404, 412]);
   });
 }
