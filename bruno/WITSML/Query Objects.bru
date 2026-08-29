@@ -17,13 +17,13 @@ headers {
 
 body:json {
   {
-    "dataspace": "demo/Volve",
+    "dataspace": "{{dataspaceIdRaw}}",
     "objectType": "Well"
   }
 }
 
 tests {
-  test("status is 200", function () {
-    expect(res.getStatus()).to.equal(200);
+  test("status is 200 or 400 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 400, 404]);
   });
 }

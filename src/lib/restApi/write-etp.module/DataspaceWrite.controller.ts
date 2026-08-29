@@ -171,6 +171,7 @@ export default class DataspaceMutationsAPI {
    * @memberof DataspaceMutationsAPI
    */
   @Post("")
+  @HttpCode(200)
   @ApiOperation({
     summary: "Create new dataspaces",
     description: `Create one or more new dataspaces. Use path-style names (e.g., \`projectA/Scenario1\`) for organization.\n\n**CustomData**: Attach OSDU-relevant metadata (viewers, owners, legal tags) as key-value pairs. These are stored as ETP resource custom data and used during manifest generation.`,
@@ -296,6 +297,7 @@ export default class DataspaceMutationsAPI {
    * @memberof DataspaceMutationsAPI
    */
   @Post(":dataspaceId/clone")
+  @HttpCode(200)
   @ApiOperation({
     summary: "Clone (duplicate) a dataspace",
     description: `Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.\n\n**Note**: This is a server-side deep copy via ETP - no data is transferred through the REST layer.`,

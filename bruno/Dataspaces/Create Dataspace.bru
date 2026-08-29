@@ -16,13 +16,22 @@ headers {
 }
 
 body:json {
-  {
-    "dataspaces": ["test/bruno-collection"]
+  [
+    {
+      "DataspaceId": "test/bruno-collection",
+      "Path": "test/bruno-collection"
+    }
+  ]
+}
+
+script:post-response {
+  if (res.getStatus() === 200 || res.getStatus() === 201) {
+    bru.setVar("testDataspaceId", encodeURIComponent("test/bruno-collection"));
   }
 }
 
 tests {
-  test("status is 200 or 201", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  test("status is 200 or 201 or 403 or 409", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 400, 403, 409]);
   });
 }

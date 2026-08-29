@@ -12,7 +12,7 @@ graph LR
 | Document                                                                                                                                 | Description                                                        |
 | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | [REST SDK](./sdk/README.md)                                                                                                              | **Typed TypeScript SDK** - API reference, examples, quick start    |
-| [CHANGELOG](./CHANGELOG.M28.md)                                                                                                          | Features, interfaces, and behavioral changes per milestone         |
+| [Release Notes](./ReleaseNotes.md)                                                                                                       | Features, interfaces, and behavioral changes per milestone         |
 | [Swagger UI](http://localhost:8003/Reservoir/v2/)                                                                                        | Interactive endpoint reference (served by the running application) |
 | [RESQML → OSDU Guide](./ResqmlOsduGuide.md)                                                                                              | Populating RESQML metadata for lossless OSDU roundtrips            |
 | [OpenETPServer](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-server/-/blob/main/README.md) | C++ ETP server: build, deploy, telemetry                           |
@@ -68,7 +68,7 @@ Interactive Swagger UI at the configured root path. Includes full endpoint descr
 | **Dataspaces**   | CRUD, clone, lock/unlock                                                  |
 | **Resources**    | List, get, validate, graph traversal (sources/targets)                    |
 | **Data Arrays**  | Array metadata, content, upload with chunking                             |
-| **Query**        | FindResources, batch graph search, growing object parts, channel metadata |
+| **Query**        | FindObjects, batch graph search                                           |
 | **Write**        | PutDataObjects, DeleteDataObjects (requires transaction)                  |
 | **Transactions** | Start, commit, rollback                                                   |
 | **EPC Upload**   | Upload EPC + H5 file pair with auto-transaction and diagnostics           |
@@ -184,10 +184,7 @@ All protocols are **auto-negotiated** at session open. Unsupported endpoints ret
 | Transaction      | 18  | Start/commit/rollback                                        |
 | Dataspace        | 24  | Create/delete/lock dataspaces                                |
 | SupportedTypes   | 25  | Type enumeration                                             |
-| DiscoveryQuery   | 13  | FindResources by URI pattern → `POST /query/resources/find`  |
 | StoreQuery       | 14  | FindDataObjects with content → `POST /query/objects/find`    |
-| GrowingObject    | 6   | Log curves, trajectory stations → `POST /query/growing/*`    |
-| ChannelSubscribe | 21  | Real-time channel metadata → `POST /query/channels/metadata` |
 
 ---
 

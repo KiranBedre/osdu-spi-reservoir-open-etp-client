@@ -19,6 +19,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Param,
   Post,
   Query,
@@ -882,6 +883,7 @@ export default class ResourcesReadAPI {
    * @memberof ResourcesReadAPI
    */
   @Post(":dataspaceId/lock")
+  @HttpCode(200)
   @ApiOkResponse({
     description: "Success",
     type: Boolean

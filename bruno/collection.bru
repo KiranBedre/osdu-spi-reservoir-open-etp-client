@@ -3,6 +3,38 @@ headers {
   data-partition-id: {{data-partition-id}}
 }
 
+script:pre-request {
+  // Auto-refresh Keycloak token if expired or missing
+  const tokenUrl = bru.getEnvVar("token_url");
+  const refreshToken = bru.getEnvVar("refresh_token");
+  const clientId = bru.getEnvVar("client_id");
+  const currentToken = bru.getVar("access_token");
+
+  // Refresh if no token or if we haven't refreshed in the last 55 minutes
+  const lastRefresh = bru.getVar("_token_ts") || 0;
+  const now = Date.now();
+  if (!currentToken || (now - lastRefresh) > 55 * 60 * 1000) {
+    if (tokenUrl && refreshToken && clientId) {
+      try {
+        const resp = await require("axios").post(tokenUrl,
+          `grant_type=refresh_token&client_id=${clientId}&refresh_token=${refreshToken}&scope=email openid profile`,
+          { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+        );
+        if (resp.data && resp.data.access_token) {
+          bru.setVar("access_token", resp.data.access_token);
+          bru.setVar("_token_ts", now);
+          // Update refresh token if rotated
+          if (resp.data.refresh_token) {
+            bru.setEnvVar("refresh_token", resp.data.refresh_token);
+          }
+        }
+      } catch (e) {
+        console.log("[TOKEN REFRESH FAILED] " + (e.message || e));
+      }
+    }
+  }
+}
+
 script:post-response {
   // CI diagnostics: on any error status, log the method/URL and response body so
   // failures in the pipeline trace are actionable (e.g. 403 vs 404 vs 400 cause).

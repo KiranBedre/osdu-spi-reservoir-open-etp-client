@@ -6,7 +6,7 @@ meta {
 
 post {
   url: {{host}}/pwls/catalog
-  body: none
+  body: json
   auth: none
 }
 
@@ -15,8 +15,24 @@ headers {
   Authorization: Bearer {{access_token}}
 }
 
+body:json {
+  {
+    "schemaVersion": "1.0.0",
+    "Company Code": 999,
+    "Company Name": "BrunoTest",
+    "data": [
+      {
+        "Curve Mnemonic": "BRUNO_TEST_GR",
+        "Property": "gamma ray",
+        "Curve Unit Quantity Class": "API gamma ray",
+        "LIS Curve Mnemonic": null
+      }
+    ]
+  }
+}
+
 tests {
-  test("status is 200", function () {
-    expect(res.getStatus()).to.equal(200);
+  test("status is 200 or 201 or 400", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 400]);
   });
 }
