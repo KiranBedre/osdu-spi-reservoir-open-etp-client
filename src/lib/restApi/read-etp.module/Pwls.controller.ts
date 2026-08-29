@@ -22,7 +22,8 @@ import {
   ApiTooManyRequestsResponse
 } from "@nestjs/swagger";
 
-import { Allow, IsOptional } from "class-validator";
+import { Allow, IsOptional, ValidateNested } from "class-validator";
+import { Type } from "class-transformer";
 
 import { errorMessageSchema, swaggerServers } from "../ControllerUtils";
 
@@ -107,7 +108,8 @@ class CurveValidationResultEntry {
 }
 
 class CurveValidationRequestDto {
-  @Allow()
+  @ValidateNested({ each: true })
+  @Type(() => CurveValidationEntry)
   @ApiProperty({
     type: [CurveValidationEntry],
     description: "Array of curves to validate",

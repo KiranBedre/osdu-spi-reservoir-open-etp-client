@@ -1303,8 +1303,20 @@ export default class EpcUploadAPI {
         const partitionStr = typeof partition === "string" ? partition : "osdu";
         let totalPushed = 0;
 
-        for (let i = 0; i < records.length; i += STORAGE_BATCH_SIZE) {
-            const batch = records.slice(i, i + STORAGE_BATCH_SIZE);
+        // Deduplicate records by id — Storage API rejects batches with duplicate IDs
+        const seenIds = new Set<string>();
+        const uniqueRecords = records.filter((r: any) => {
+            const id = r?.id;
+            if (!id || seenIds.has(id)) return false;
+            seenIds.add(id);
+            return true;
+        });
+        if (uniqueRecords.length < records.length) {
+            logger.info(`[autoIngest] Deduplicated ${records.length - uniqueRecords.length} duplicate record(s)`);
+        }
+
+        for (let i = 0; i < uniqueRecords.length; i += STORAGE_BATCH_SIZE) {
+            const batch = uniqueRecords.slice(i, i + STORAGE_BATCH_SIZE);
             const body = JSON.stringify(batch, bigIntToString);
             const res = await fetch(`${osduUrl}/api/storage/v2/records`, {
                 method: "PUT",
@@ -1327,7 +1339,7 @@ export default class EpcUploadAPI {
             }
         }
 
-        logger.info(`[autoIngest] Pushed ${totalPushed}/${records.length} records via Storage Service`);
+        logger.info(`[autoIngest] Pushed ${totalPushed}/${uniqueRecords.length} records via Storage Service`);
         return { status: "completed", mode: "records", recordCount: totalPushed };
     }
 
