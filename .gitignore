@@ -18,9 +18,7 @@ m27test/
 # Local setup and heavy testing artifacts
 data/
 probe-etp.ts
-preship-openapi.json
 TestResults.md
-RDDMS_M27.postman_collection.json
 RDDMS_M27_Preship.postman_environment.json
 devops/scripts/seed-drogon.sh
 bruno/_Seed/
