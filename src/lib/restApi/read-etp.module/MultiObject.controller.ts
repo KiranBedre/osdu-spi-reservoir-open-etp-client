@@ -82,7 +82,7 @@ export class UrisDto {
   uris!: string[];
 }
 
-@ApiBearerAuth("access-token")
+@ApiBearerAuth("HTTPBearer")
 @UseGuards(HasBearerGuard("jwt"))
 @UseGuards(HasDataPartitionGuard())
 @ApiTags("Resources")

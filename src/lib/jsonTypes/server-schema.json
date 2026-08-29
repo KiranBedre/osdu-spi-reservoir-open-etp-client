@@ -221,7 +221,7 @@
         ],
         "components": {
           "securitySchemes": {
-            "access-token": {
+            "HTTPBearer": {
               "scheme": "bearer",
               "bearerFormat": "JWT",
               "type": "http"

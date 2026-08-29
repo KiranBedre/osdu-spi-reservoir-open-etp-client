@@ -464,7 +464,7 @@ export class ManifestDto {
   ReferenceData?: object[];
 }
 
-@ApiBearerAuth("access-token")
+@ApiBearerAuth("HTTPBearer")
 @UseGuards(HasBearerGuard("jwt"))
 @ApiHeader({
   name: "data-partition-id",

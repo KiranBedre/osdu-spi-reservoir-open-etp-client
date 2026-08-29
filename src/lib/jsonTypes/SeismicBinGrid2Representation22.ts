@@ -344,9 +344,9 @@ export const Grid2dRepresentation22Manifest = async (
   GenericRepresentation22OSDU | SeismicBinGrid22OSDU | SeismicHorizon22OSDU | StructureMap22OSDU | GenericBinGrid22OSDU
 > => {
   const kind = Grid2dToOsduKind22(xml);
-  if (kind === getKindOrFallback("SeismicBinGrid")) {
+  if (kind === getKind("SeismicBinGrid")) {
     return new SeismicBinGrid22OSDU(xml, context).initData(uri, xml, client);
-  } else if (kind === getKindOrFallback("SeismicHorizon")) {
+  } else if (kind === getKind("SeismicHorizon")) {
     return new SeismicHorizon22OSDU(xml, context).initData(uri, xml, client);
   } else if (kind === getKind("StructureMap")) {
     return new StructureMap22OSDU(xml, context).initData(uri, xml, client);

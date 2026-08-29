@@ -282,7 +282,7 @@ const swaggerServers: any = undefined;
 
 @Controller("query")
 @ApiTags("Query & Growing Objects")
-@ApiBearerAuth("access-token")
+@ApiBearerAuth("HTTPBearer")
 @UseGuards(HasBearerGuard("jwt"))
 @ApiHeader({
   name: "data-partition-id",

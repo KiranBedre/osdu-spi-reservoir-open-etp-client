@@ -597,7 +597,7 @@ function injectExternalArrayRefs(
 
 @ApiTags("WITSML")
 @Controller("witsml")
-@ApiBearerAuth("access-token")
+@ApiBearerAuth("HTTPBearer")
 @UseGuards(HasBearerGuard("jwt"))
 @ApiHeader({
   name: "data-partition-id",

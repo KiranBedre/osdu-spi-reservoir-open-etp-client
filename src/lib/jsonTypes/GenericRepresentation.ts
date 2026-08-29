@@ -354,7 +354,7 @@ export const GenericRepresentationManifest = async (
   client: ResqmlClient
 ): Promise<GenericRepresentationOSDU | SeismicFaultOSDU | StructureMapOSDU | HorizonControlPointsOSDU> => {
   const kind = GenericRepresentationToOsduKind(xml);
-  if (kind === getKindOrFallback("SeismicFault")) {
+  if (kind === getKind("SeismicFault")) {
     return new SeismicFaultOSDU(xml, context).initData(uri, xml, client);
   }
   if (kind === getKind("HorizonControlPoints")) {

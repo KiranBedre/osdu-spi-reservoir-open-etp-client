@@ -128,20 +128,21 @@ export default async function app(): Promise<NestExpressApplication> {
   const config = new DocumentBuilder()
     .setTitle("Reservoir DMS")
     .setDescription(
-      `REST API for OSDU Reservoir DMS.`
+      `REST API for OSDU Reservoir DMS. M28 pre-release \u2014 not yet submitted to the OSDU forum.`
     )
-    .setVersion("1.2")
+    .setVersion("1.3.0-M28-pre")
     .setLicense(
       "Apache 2.0",
       "https://www.apache.org/licenses/LICENSE-2.0.html"
     )
     .addBearerAuth(
-      { type: "http", scheme: "bearer", bearerFormat: "JWT" },
-      "access-token"
+      { type: "http", scheme: "bearer" },
+      "HTTPBearer"
     )
     .addServer(restApiRoutePath.replace(/\/$/, ""))
     .addTag("Health", "Liveness, readiness probes, and server metadata. Use `GET /health/converters` to list all registered RESQML/WITSML → OSDU converter mappings.")
     .addTag("Authentication", "Token info and session management")
+    .addTag("Metrics", "Prometheus metrics endpoint")
     .addTag("Resources",
       "Read-only access to ETP dataspaces, objects, relationships, and data arrays. " +
       "Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`). " +
@@ -172,7 +173,6 @@ export default async function app(): Promise<NestExpressApplication> {
     .addTag("Wells", "Well-centric search with hierarchy resolution across dataspaces. Domain-specific - not part of core ETP data management.")
     .addTag("WITSML", "Query and store WITSML/EnergyML objects in ETP dataspaces. Domain-specific - supports WITSML 2.1 and 1.4.1 container formats.")
     .addTag("PWLS", "PWLS v4.0 curve mnemonic resolution and validation. Domain-specific - maps vendor mnemonics to standard property names.")
-    .addTag("Metrics", "Prometheus metrics endpoint")
     .build();
 
   const document = SwaggerModule.createDocument(nestApp, config);

@@ -260,7 +260,7 @@ const partitionId = process.env.DATA_PARTITION_ID ?? "data-partition-id";
  * @export
  * @class MutationsAPI
  */
-@ApiBearerAuth("access-token")
+@ApiBearerAuth("HTTPBearer")
 @UseGuards(HasBearerGuard("jwt"))
 @ApiHeader({
   name: "data-partition-id",

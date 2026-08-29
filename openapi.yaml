@@ -2,11 +2,11 @@ openapi: 3.0.0
 paths:
   /health/readiness:
     get:
-      description: >-
-        Returns true if the underlying ETP WebSocket server is reachable and accepting connections. Returns 500 if the ETP server cannot be contacted.
+      description: 'Returns true if the underlying ETP WebSocket server is reachable and accepting connections. Returns 500
+        if the ETP server cannot be contacted.
 
 
-        **Use case**: Kubernetes readiness probe - the pod is removed from service endpoints while the ETP backend is unreachable.
+        **Use case**: Kubernetes readiness probe - the pod is removed from service endpoints while the ETP backend is unreachable.'
       operationId: HealthAPI_IsReady
       parameters: []
       responses:
@@ -131,11 +131,11 @@ paths:
       - Health
   /health/liveness:
     get:
-      description: >-
-        Returns true immediately - confirms the NestJS process is alive. Does not verify ETP backend connectivity (use `/health/readiness` for that).
+      description: 'Returns true immediately - confirms the NestJS process is alive. Does not verify ETP backend connectivity
+        (use `/health/readiness` for that).
 
 
-        **Use case**: Kubernetes liveness probe - the pod is restarted if this endpoint stops responding.
+        **Use case**: Kubernetes liveness probe - the pod is restarted if this endpoint stops responding.'
       operationId: HealthAPI_IsLive
       parameters: []
       responses:
@@ -260,8 +260,8 @@ paths:
       - Health
   /health/info:
     get:
-      description: Returns package name, version, git commit hash, commit time, and build time from package.json and git. Use for deployment verification, client
-        compatibility checks, and diagnostics.
+      description: Returns package name, version, git commit hash, commit time, and build time from package.json and git.
+        Use for deployment verification, client compatibility checks, and diagnostics.
       operationId: HealthAPI_Info
       parameters: []
       responses:
@@ -541,17 +541,16 @@ paths:
       - Health
   /auth/token:
     get:
-      description: Returns a pre-built JWT token for local development and testing. In production, obtain a bearer token from your identity provider (Azure AD, Google
-        IAM, etc.) instead.
+      description: Returns a pre-built JWT token for local development and testing. In production, obtain a bearer token from
+        your identity provider (Azure AD, Google IAM, etc.) instead.
       operationId: Authentication_GetToken
       parameters: []
       responses:
         '200':
-          description: >-
-            Success
+          description: 'Success
 
 
-            Success
+            Success'
           content:
             application/json:
               schema:
@@ -659,11 +658,10 @@ paths:
       - Authentication
   /dataspaces/{dataspaceId}/info:
     get:
-      description: >-
-        Get metadata for a specific dataspace including path, custom data, and timestamps.
+      description: 'Get metadata for a specific dataspace including path, custom data, and timestamps.
 
 
-        **dataspaceId format**: URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`).
+        **dataspaceId format**: URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`).'
       operationId: ResourcesReadAPI_GetDataspaceInfo
       parameters:
       - name: data-partition-id
@@ -779,8 +777,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -880,19 +878,17 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Get dataspace info
       tags:
       - Resources
   /dataspaces/{dataspaceId}/validate:
     post:
-      description: >-
-        Fetches all data objects from the dataspace via ETP and runs RESQML strict validation (XSD schema, DOR integrity, cross-object consistency, business rules).
-        Read-only - does not modify any data.
+      description: 'Fetches all data objects from the dataspace via ETP and runs RESQML strict validation (XSD schema, DOR
+        integrity, cross-object consistency, business rules). Read-only - does not modify any data.
 
 
-        **Performance**: Fetches full XML for every object in the dataspace. For large dataspaces (>1000 objects), this may take several seconds.
+        **Performance**: Fetches full XML for every object in the dataspace. For large dataspaces (>1000 objects), this may
+        take several seconds.'
       operationId: ResourcesReadAPI_ValidateDataspace
       parameters:
       - name: data-partition-id
@@ -1026,8 +1022,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -1127,14 +1123,13 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Validate RESQML objects in a dataspace
       tags:
       - Resources
   /dataspaces/{dataspaceId}/lock:
     post:
-      description: Set a dataspace to read-only. Write operations and delete will be rejected (403) while locked. Use `DELETE /dataspaces/{dataspaceId}/lock` to unlock.
+      description: Set a dataspace to read-only. Write operations and delete will be rejected (403) while locked. Use `DELETE
+        /dataspaces/{dataspaceId}/lock` to unlock.
       operationId: ResourcesReadAPI_LockDataspace
       parameters:
       - name: data-partition-id
@@ -1250,8 +1245,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -1351,8 +1346,6 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Lock a dataspace
       tags:
       - Resources
@@ -1473,8 +1466,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -1574,26 +1567,23 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Unlock a dataspace
       tags:
       - Resources
   /dataspaces/{dataspaceId}/resources/all:
     get:
-      description: >-
-        List all resources (data objects) in a dataspace. Returns URI, name, type, and timestamps for each.
+      description: 'List all resources (data objects) in a dataspace. Returns URI, name, type, and timestamps for each.
 
 
-        **Filtering**: Use `dataObjectTypes` to restrict by type (e.g., `resqml20.obj_IjkGridRepresentation`), `storeLastWriteFilter` for incremental sync, and `$filter`
-        for XPath content queries.
+        **Filtering**: Use `dataObjectTypes` to restrict by type (e.g., `resqml20.obj_IjkGridRepresentation`), `storeLastWriteFilter`
+        for incremental sync, and `$filter` for XPath content queries.
 
 
-        **Graph traversal**: Set `depth` > 1 to recursively discover related resources. Combined with `dataObjectTypes`, this enables server-side deep search without
-        N+1 client calls.
+        **Graph traversal**: Set `depth` > 1 to recursively discover related resources. Combined with `dataObjectTypes`, this
+        enables server-side deep search without N+1 client calls.
 
 
-        **Pagination**: `$skip` and `$top` are applied client-side after fetching all results from ETP.
+        **Pagination**: `$skip` and `$top` are applied client-side after fetching all results from ETP.'
       operationId: ResourcesReadAPI_ListResources
       parameters:
       - name: data-partition-id
@@ -1854,8 +1844,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -1955,22 +1945,20 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: List all resources in a dataspace
       tags:
       - Resources
   /dataspaces/{dataspaceId}/graph/all:
     get:
-      description: >-
-        Build a complete relationship graph for all resources in a dataspace. Returns nodes and edges (relationships between objects).
+      description: 'Build a complete relationship graph for all resources in a dataspace. Returns nodes and edges (relationships
+        between objects).
 
 
-        **Difference from List All**: This endpoint returns edges/relationships in addition to the resource list. Use it when you need to understand how objects reference
-        each other.
+        **Difference from List All**: This endpoint returns edges/relationships in addition to the resource list. Use it when
+        you need to understand how objects reference each other.
 
 
-        **depth**: 1 = direct relationships only, N = recursive traversal. Higher values may be slow for large dataspaces.
+        **depth**: 1 = direct relationships only, N = recursive traversal. Higher values may be slow for large dataspaces.'
       operationId: ResourcesReadAPI_GraphResources
       parameters:
       - name: data-partition-id
@@ -2231,8 +2219,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -2332,16 +2320,13 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Full relationship graph for a dataspace
       tags:
       - Resources
   /dataspaces/{dataspaceId}/resources/{dataObjectType}:
     get:
-      description: >-
-        List all resources of a given type inside a dataspace.
-            Output can be paginated and filtered by content, last update time.
+      description: "List all resources of a given type inside a dataspace.\n    Output can be paginated and filtered by content,\
+        \ last update time."
       operationId: ResourcesReadAPI_ListResourcesByTypes
       parameters:
       - name: data-partition-id
@@ -2594,8 +2579,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -2695,22 +2680,19 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Get the resources of a given type.
       tags:
       - Resources
   /dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/targets:
     get:
-      description: >-
-        Flat list of resources that this object references (e.g., a Property's supporting Representation, or a Representation's CRS). Follows relationships forward
-        (parent → child).
+      description: 'Flat list of resources that this object references (e.g., a Property''s supporting Representation, or
+        a Representation''s CRS). Follows relationships forward (parent → child).
 
 
         **depth**: 1 = immediate targets only, N = recursive (e.g., depth=2 gets targets of targets).
 
 
-        **For graph with edges**: Use `GET /graph/{type}/{guid}/targets` instead.
+        **For graph with edges**: Use `GET /graph/{type}/{guid}/targets` instead.'
       operationId: ResourcesReadAPI_ListTargets
       parameters:
       - name: data-partition-id
@@ -3004,8 +2986,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -3105,18 +3087,16 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: List targets (resources referenced by this object)
       tags:
       - Resources
   /dataspaces/{dataspaceId}/graph/{dataObjectType}/{guid}/targets:
     get:
-      description: >-
-        Graph of resources referenced by this object, including the relationship edges between them. Same traversal as List Targets but returns edge information.
+      description: 'Graph of resources referenced by this object, including the relationship edges between them. Same traversal
+        as List Targets but returns edge information.
 
 
-        **When to use**: When you need to visualize or process the relationship structure, not just the flat list.
+        **When to use**: When you need to visualize or process the relationship structure, not just the flat list.'
       operationId: ResourcesReadAPI_GraphTargets
       parameters:
       - name: data-partition-id
@@ -3410,8 +3390,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -3511,21 +3491,19 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Graph targets (with edges)
       tags:
       - Resources
   /dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/sources:
     get:
-      description: >-
-        Flat list of resources that reference this object (e.g., Properties attached to a Representation). Follows relationships backward (child → parent).
+      description: 'Flat list of resources that reference this object (e.g., Properties attached to a Representation). Follows
+        relationships backward (child → parent).
 
 
         **depth**: 1 = immediate sources only, N = recursive.
 
 
-        **For graph with edges**: Use `GET /graph/{type}/{guid}/sources` instead.
+        **For graph with edges**: Use `GET /graph/{type}/{guid}/sources` instead.'
       operationId: ResourcesReadAPI_ListSources
       parameters:
       - name: data-partition-id
@@ -3819,8 +3797,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -3920,19 +3898,17 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: List sources (resources that reference this object)
       tags:
       - Resources
   /dataspaces/{dataspaceId}/graph/{dataObjectType}/{guid}/sources:
     get:
-      description: >-
-        Graph of resources that reference this object, including the relationship edges. Same traversal as List Sources but returns edge information.
+      description: 'Graph of resources that reference this object, including the relationship edges. Same traversal as List
+        Sources but returns edge information.
 
 
-        **When to use**: When you need to visualize or process the relationship structure, not just the flat list. For example, understanding which Properties are
-        attached to a Representation and how.
+        **When to use**: When you need to visualize or process the relationship structure, not just the flat list. For example,
+        understanding which Properties are attached to a Representation and how.'
       operationId: ResourcesReadAPI_GraphSources
       parameters:
       - name: data-partition-id
@@ -4226,8 +4202,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -4327,19 +4303,16 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Graph sources (with edges).
       tags:
       - Resources
   /dataspaces/{dataspaceId}/deleted:
     get:
-      description: >-
-        Returns resources that have been deleted from a dataspace with deletion timestamps. Useful for cache invalidation and synchronization with external systems
-        (e.g., OSDU catalog).
+      description: 'Returns resources that have been deleted from a dataspace with deletion timestamps. Useful for cache invalidation
+        and synchronization with external systems (e.g., OSDU catalog).
 
 
-        **Note**: Deleted resource tracking depends on the ETP server version - not all servers track deletions.
+        **Note**: Deleted resource tracking depends on the ETP server version - not all servers track deletions.'
       operationId: ResourcesReadAPI_ListDeletedResources
       parameters:
       - name: data-partition-id
@@ -4490,8 +4463,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -4591,18 +4564,17 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: List deleted resources in a dataspace
       tags:
       - Resources
   /dataspaces/multi-resources/get-content:
     post:
-      description: >-
-        Retrieve the full content of multiple data objects by URI in a single call. More efficient than individual GET requests when fetching several objects.
+      description: 'Retrieve the full content of multiple data objects by URI in a single call. More efficient than individual
+        GET requests when fetching several objects.
 
 
-        Returns results in the same format as single-object GET (`$format=json` or `$format=xml`). Pass an array of ETP URIs in the request body.
+        Returns results in the same format as single-object GET (`$format=json` or `$format=xml`). Pass an array of ETP URIs
+        in the request body.'
       operationId: MultiObjectsReadAPI_GetDataObjects
       parameters:
       - name: $format
@@ -4618,7 +4590,8 @@ paths:
       - name: arrayMetadata
         required: false
         in: query
-        description: If true, includes the content of referenced objects and includes the metadata of arrays such as size and type
+        description: If true, includes the content of referenced objects and includes the metadata of arrays such as size
+          and type
         schema:
           type: boolean
           default: false
@@ -4813,8 +4786,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -4914,18 +4887,16 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Batch-fetch content of multiple objects.
       tags:
       - Resources
   /dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/arrays:
     get:
-      description: >-
-        List all data arrays (type, dimensions, path) referenced by a data object. Use this to discover what numeric data is attached before fetching content.
+      description: 'List all data arrays (type, dimensions, path) referenced by a data object. Use this to discover what numeric
+        data is attached before fetching content.
 
 
-        **Common array types**: Well log curves, grid cell properties (porosity, permeability), seismic traces, point coordinates.
+        **Common array types**: Well log curves, grid cell properties (porosity, permeability), seismic traces, point coordinates.'
       operationId: DataArrayReadAPI_GetObjectArrays
       parameters:
       - name: data-partition-id
@@ -5143,8 +5114,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -5244,14 +5215,13 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: List all arrays for an object
       tags:
       - Resources
   /dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/arrays/{pathInResource}/metadata:
     get:
-      description: Returns data type (Float64Array, Int32Array, etc.) and dimensions for a specific array. Use to check size before fetching content.
+      description: Returns data type (Float64Array, Int32Array, etc.) and dimensions for a specific array. Use to check size
+        before fetching content.
       operationId: DataArrayReadAPI_GetArrayMetaData
       parameters:
       - name: data-partition-id
@@ -5483,8 +5453,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -5584,25 +5554,25 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Get array metadata (type, dimensions)
       tags:
       - Resources
   /dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/arrays/{pathInResource}:
     get:
-      description: >-
-        Retrieve the numeric data of an array. For large arrays, use `starts` and `counts` to fetch slices (subarrays) instead of the full dataset.
+      description: 'Retrieve the numeric data of an array. For large arrays, use `starts` and `counts` to fetch slices (subarrays)
+        instead of the full dataset.
 
 
-        **starts/counts**: Must be used together. Each is a comma-separated list matching the array dimensions (e.g., `starts=0,0&counts=100,3` for first 100 rows
-        × 3 columns).
+        **starts/counts**: Must be used together. Each is a comma-separated list matching the array dimensions (e.g., `starts=0,0&counts=100,3`
+        for first 100 rows × 3 columns).
 
 
-        **format**: `json` (default) returns a number array; `base64` returns a base64-encoded binary string (more efficient for large transfers).
+        **format**: `json` (default) returns a number array; `base64` returns a base64-encoded binary string (more efficient
+        for large transfers).
 
 
-        **Chunking**: The ETP layer automatically chunks large arrays (~10 MB per WebSocket message) and reassembles on the server side.
+        **Chunking**: The ETP layer automatically chunks large arrays (~10 MB per WebSocket message) and reassembles on the
+        server side.'
       operationId: DataArrayReadAPI_GetArray
       parameters:
       - name: data-partition-id
@@ -5874,8 +5844,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -5975,22 +5945,22 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Get array content
       tags:
       - Resources
   /manifests/build:
     post:
-      description: >-
-        Generate an OSDU-compatible manifest from ETP dataspace resources. Converts RESQML, WITSML, PRODML, and EML objects to OSDU record format.
+      description: 'Generate an OSDU-compatible manifest from ETP dataspace resources. Converts RESQML, WITSML, PRODML, and
+        EML objects to OSDU record format.
 
 
-        **Supported source domains**: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. Use `GET /health/converters` to list all registered mappings.
+        **Supported source domains**: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. Use `GET /health/converters` to
+        list all registered mappings.
 
 
-        **Type filtering**: Default includes common representation/interpretation types. Pass `typePatterns: ["*"]` for all types. Properties with canonical OSDU/PWLS
-        names (porosity, permeability, saturation, etc.) are auto-included even without an explicit `*Property` pattern.
+        **Type filtering**: Default includes common representation/interpretation types. Pass `typePatterns: ["*"]` for all
+        types. Properties with canonical OSDU/PWLS names (porosity, permeability, saturation, etc.) are auto-included even
+        without an explicit `*Property` pattern.
 
 
         **Key behaviors**:
@@ -6001,13 +5971,14 @@ paths:
 
         - Uses `OSDU_MILESTONE` env var (default M27) for OSDU schema versions
 
-        - GridConnectionSet records report `HasTransmissibilityMultipliers` when attached transmissibility properties are found
+        - GridConnectionSet records report `HasTransmissibilityMultipliers` when attached transmissibility properties are
+        found
 
         - WellLog records populate TopMeasuredDepth/BottomMeasuredDepth from frame index arrays
 
 
-        **createMissingReferences**: When true, creates placeholder records for unresolved data object references (DORs). When false, missing references appear in
-        the error list.
+        **createMissingReferences**: When true, creates placeholder records for unresolved data object references (DORs).
+        When false, missing references appear in the error list.'
       operationId: ObjectsManifestAPI_GetManifest
       parameters:
       - name: x-collaboration
@@ -6126,8 +6097,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -6227,28 +6198,27 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Build OSDU manifest from ETP resources
       tags:
       - Manifest
   /query/resources/find:
     post:
-      description: >-
-        Search for resources within a dataspace or below a specific object URI. Returns resource metadata (URI, name, timestamps, relationship counts) without loading
-        full XML content.
+      description: 'Search for resources within a dataspace or below a specific object URI. Returns resource metadata (URI,
+        name, timestamps, relationship counts) without loading full XML content.
 
 
         **When to use**: Resource enumeration, OSDU search integration, checking what exists before fetching content.
 
 
-        **uri format**: `eml:///dataspace('path/to/ds')` for dataspace root, or a full object URI to search below a specific object.
+        **uri format**: `eml:///dataspace(''path/to/ds'')` for dataspace root, or a full object URI to search below a specific
+        object.
 
 
-        **scope**: Controls graph traversal direction - 'targets' follows relationships forward (parent→child), 'sources' follows backwards.
+        **scope**: Controls graph traversal direction - ''targets'' follows relationships forward (parent→child), ''sources''
+        follows backwards.
 
 
-        **depth**: 1 = direct children only, 2+ = recursive. Use 0 for unlimited (caution: may return large results).
+        **depth**: 1 = direct children only, 2+ = recursive. Use 0 for unlimited (caution: may return large results).'
       operationId: QueryController_findResources
       parameters:
       - name: data-partition-id
@@ -6354,8 +6324,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -6455,25 +6425,23 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Find resources by context and scope (ETP Discovery Protocol 3)
       tags:
       - Query & Growing Objects
   /query/objects/find:
     post:
-      description: >-
-        Search for data objects and retrieve their full XML/JSON content in a single call. Combines Discovery (find URIs) with GetDataObjects (fetch bodies).
+      description: 'Search for data objects and retrieve their full XML/JSON content in a single call. Combines Discovery
+        (find URIs) with GetDataObjects (fetch bodies).
 
 
         **When to use**: Bulk data export, OSDU Storage ingestion, or when you need the actual XML content (not just metadata).
 
 
-        **Performance**: More expensive than POST /query/resources/find - fetches full object bodies. For large result sets, prefer resource discovery first, then
-        selective GetDataObjects via the /graph/{type}/{guid} endpoints.
+        **Performance**: More expensive than POST /query/resources/find - fetches full object bodies. For large result sets,
+        prefer resource discovery first, then selective GetDataObjects via the /graph/{type}/{guid} endpoints.
 
 
-        **modifiedSince**: ISO timestamp filter - only returns objects written after this time. Useful for incremental sync.
+        **modifiedSince**: ISO timestamp filter - only returns objects written after this time. Useful for incremental sync.'
       operationId: QueryController_findDataObjects
       parameters:
       - name: data-partition-id
@@ -6558,8 +6526,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -6659,29 +6627,27 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Find data objects with full content (ETP Discovery + Store)
       tags:
       - Query & Growing Objects
   /query/graph/search:
     post:
-      description: >-
-        Build a merged, deduplicated subgraph for multiple resource URIs in a single ETP session.
+      description: 'Build a merged, deduplicated subgraph for multiple resource URIs in a single ETP session.
 
 
-        For each URI, traverses the relationship graph with the given scope and depth, then merges all discovered nodes and edges into a single result.
+        For each URI, traverses the relationship graph with the given scope and depth, then merges all discovered nodes and
+        edges into a single result.
 
 
-        **Why use this**: Without batch search, deep search across N objects requires N+ individual REST calls. This endpoint does it in one call, reusing a single
-        ETP session.
+        **Why use this**: Without batch search, deep search across N objects requires N+ individual REST calls. This endpoint
+        does it in one call, reusing a single ETP session.
 
 
-        **Performance**: For very large batches (>100 URIs), split into chunks - URIs are processed sequentially within the session. Depth values > 100 may timeout
-        depending on server configuration.
+        **Performance**: For very large batches (>100 URIs), split into chunks - URIs are processed sequentially within the
+        session. Depth values > 100 may timeout depending on server configuration.
 
 
-        **Best-effort**: If traversal fails for one URI, remaining URIs are still processed and partial results returned.
+        **Best-effort**: If traversal fails for one URI, remaining URIs are still processed and partial results returned.'
       operationId: QueryController_graphSearch
       parameters:
       - name: data-partition-id
@@ -6801,8 +6767,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -6902,21 +6868,20 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Batch graph search across multiple URIs (Discovery Protocol 3)
       tags:
       - Query & Growing Objects
   /query/growing/metadata:
     post:
-      description: >-
-        Retrieve metadata about the parts/segments of a growing object (WellLog, MudLog, Trajectory).
+      description: 'Retrieve metadata about the parts/segments of a growing object (WellLog, MudLog, Trajectory).
 
 
-        **Returns**: Available index ranges, part UIDs, and part metadata. Use this to discover what depth/time intervals exist before calling POST /query/growing/range.
+        **Returns**: Available index ranges, part UIDs, and part metadata. Use this to discover what depth/time intervals
+        exist before calling POST /query/growing/range.
 
 
-        **Typical workflow**: 1) Find object URI via /query/resources/find → 2) Get parts metadata here → 3) Fetch specific range via /query/growing/range.
+        **Typical workflow**: 1) Find object URI via /query/resources/find → 2) Get parts metadata here → 3) Fetch specific
+        range via /query/growing/range.'
       operationId: QueryController_getPartsMetadata
       parameters:
       - name: data-partition-id
@@ -7001,8 +6966,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -7102,25 +7067,24 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Get parts metadata for a growing object (ETP GrowingObject Protocol 6)
       tags:
       - Query & Growing Objects
   /query/growing/range:
     post:
-      description: >-
-        Retrieve data from a growing object (WellLog, MudLog, Trajectory) within a specified index range.
+      description: 'Retrieve data from a growing object (WellLog, MudLog, Trajectory) within a specified index range.
 
 
-        **Index values**: Provide start and end as numeric values. For depth-indexed objects, values are in meters. For time-indexed objects, values are in microseconds
-        since epoch.
+        **Index values**: Provide start and end as numeric values. For depth-indexed objects, values are in meters. For time-indexed
+        objects, values are in microseconds since epoch.
 
 
-        **includeOverlapping**: When true, includes parts that partially overlap the requested range boundaries (useful for continuous curves).
+        **includeOverlapping**: When true, includes parts that partially overlap the requested range boundaries (useful for
+        continuous curves).
 
 
-        **Note**: The unit of measure is currently fixed to meters (`m`). Time-indexed growing objects should use microsecond epoch values.
+        **Note**: The unit of measure is currently fixed to meters (`m`). Time-indexed growing objects should use microsecond
+        epoch values.'
       operationId: QueryController_getPartsByRange
       parameters:
       - name: data-partition-id
@@ -7205,8 +7169,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -7306,24 +7270,24 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Get parts by index range (ETP GrowingObject Protocol 6)
       tags:
       - Query & Growing Objects
   /query/channels/metadata:
     post:
-      description: >-
-        Discover available channels (curves/mnemonics) for a WellLog, ChannelSet, or similar object.
+      description: 'Discover available channels (curves/mnemonics) for a WellLog, ChannelSet, or similar object.
 
 
-        **Returns**: Channel names, units of measure (UOM), data kinds (float, int, string), index descriptions, and channel status.
+        **Returns**: Channel names, units of measure (UOM), data kinds (float, int, string), index descriptions, and channel
+        status.
 
 
-        **When to use**: Before streaming channel data or calling growing object range queries - lets you know what mnemonics exist and their measurement units.
+        **When to use**: Before streaming channel data or calling growing object range queries - lets you know what mnemonics
+        exist and their measurement units.
 
 
-        **Example flow**: Find WellLog URI → Get channel metadata here → Subscribe to specific channels via ETP streaming, or fetch ranges via POST /query/growing/range.
+        **Example flow**: Find WellLog URI → Get channel metadata here → Subscribe to specific channels via ETP streaming,
+        or fetch ranges via POST /query/growing/range.'
       operationId: QueryController_getChannelMetadata
       parameters:
       - name: data-partition-id
@@ -7408,8 +7372,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -7509,15 +7473,12 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Get channel metadata (ETP ChannelSubscribe Protocol 21)
       tags:
       - Query & Growing Objects
   /dataspaces/{dataspaceId}/transactions:
     post:
-      description: >-
-        Start a new transaction for atomic write operations in this dataspace.
+      description: 'Start a new transaction for atomic write operations in this dataspace.
 
 
         Returns a `transactionId` UUID. Pass it to write/array endpoints as a query parameter.
@@ -7544,7 +7505,7 @@ paths:
 
         PUT   /dataspaces/{ds}/transactions/{txId}        → commit
 
-        ```
+        ```'
       operationId: TransactionsAPI_PostTransaction
       parameters:
       - name: data-partition-id
@@ -7657,8 +7618,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -7780,14 +7741,13 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Start a new transaction
       tags:
       - Transactions
   /dataspaces/{dataspaceId}/transactions/{transactionId}:
     put:
-      description: Commit a transaction, making all writes within it permanent. Returns `true` on success. The `transactionId` is no longer valid after commit.
+      description: Commit a transaction, making all writes within it permanent. Returns `true` on success. The `transactionId`
+        is no longer valid after commit.
       operationId: TransactionsAPI_CommitTransaction
       parameters:
       - name: data-partition-id
@@ -7890,8 +7850,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -8013,13 +7973,12 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Commit transaction
       tags:
       - Transactions
     delete:
-      description: Rollback a transaction, discarding all writes within it. Returns `true` on success. Use this to cleanly abort a failed write sequence.
+      description: Rollback a transaction, discarding all writes within it. Returns `true` on success. Use this to cleanly
+        abort a failed write sequence.
       operationId: TransactionsAPI_RollbackTransaction
       parameters:
       - name: data-partition-id
@@ -8122,8 +8081,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -8223,15 +8182,12 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Rollback transaction
       tags:
       - Transactions
   /dataspaces/{dataspaceId}/resources:
     put:
-      description: >-
-        Create new objects or replace existing ones by providing their content as a JSON array.
+      description: 'Create new objects or replace existing ones by providing their content as a JSON array.
 
 
         Each object must conform to the Energistics JSON schema for its type and include:
@@ -8243,14 +8199,16 @@ paths:
         - `Citation` - with at least `Title`, `Originator`, and `Creation`
 
 
-        **Transaction**: Pass `transactionId` to write within a transaction (recommended). Without it, operates in auto-commit mode.
+        **Transaction**: Pass `transactionId` to write within a transaction (recommended). Without it, operates in auto-commit
+        mode.
 
 
-        **Custom metadata**: Include a `_ResourceCustomData` field (JSON key-value object) to attach extra metadata to the ETP resource.
+        **Custom metadata**: Include a `_ResourceCustomData` field (JSON key-value object) to attach extra metadata to the
+        ETP resource.
 
 
-        **Batch size**: Objects are sent to the ETP server in batches. For very large payloads (>100 objects), consider splitting across multiple calls within the
-        same transaction.
+        **Batch size**: Objects are sent to the ETP server in batches. For very large payloads (>100 objects), consider splitting
+        across multiple calls within the same transaction.'
       operationId: MutationsAPI_PutDataObject
       parameters:
       - name: data-partition-id
@@ -8281,8 +8239,9 @@ paths:
       - name: validate
         required: false
         in: query
-        description: When 'true', runs RESQML validation (XSD, DOR integrity, business rules) on the objects before writing. The write still proceeds but the response
-          includes a `validation` report. Set to 'strict' to reject the write on validation errors (returns 400).
+        description: When 'true', runs RESQML validation (XSD, DOR integrity, business rules) on the objects before writing.
+          The write still proceeds but the response includes a `validation` report. Set to 'strict' to reject the write on
+          validation errors (returns 400).
         schema:
           type: string
           enum:
@@ -8526,8 +8485,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -8627,14 +8586,12 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Create or update data objects
       tags:
       - Write
     get:
-      description: 'Returns each Energistics type present in the dataspace with its object count (e.g., `resqml20.obj_IjkGridRepresentation: 12`). Use this to discover
-        what data exists before listing individual resources.'
+      description: 'Returns each Energistics type present in the dataspace with its object count (e.g., `resqml20.obj_IjkGridRepresentation:
+        12`). Use this to discover what data exists before listing individual resources.'
       operationId: ResourcesReadAPI_ListTypes
       parameters:
       - name: data-partition-id
@@ -8796,8 +8753,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -8897,18 +8854,17 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: List resource types in a dataspace.
       tags:
       - Resources
   /dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}:
     delete:
-      description: >-
-        Delete a data object by type and UUID. Requires an active transaction (pass `transactionId`) or operates in auto-commit mode.
+      description: 'Delete a data object by type and UUID. Requires an active transaction (pass `transactionId`) or operates
+        in auto-commit mode.
 
 
-        **Note**: Deleting an object does not cascade-delete its arrays or referenced objects. Clean up related resources explicitly if needed.
+        **Note**: Deleting an object does not cascade-delete its arrays or referenced objects. Clean up related resources
+        explicitly if needed.'
       operationId: MutationsAPI_DeleteDataObject
       parameters:
       - name: data-partition-id
@@ -9032,8 +8988,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -9133,20 +9089,20 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Delete a data object
       tags:
       - Write
     get:
-      description: >-
-        Retrieve the full content of a single data object by type and UUID. Returns Energistics XML by default, or JSON with `$format=json`.
+      description: 'Retrieve the full content of a single data object by type and UUID. Returns Energistics XML by default,
+        or JSON with `$format=json`.
 
 
-        **JSON mode**: Adds `$type` annotations and converts XML attributes to JSON properties - useful for client-side processing without an XML parser.
+        **JSON mode**: Adds `$type` annotations and converts XML attributes to JSON properties - useful for client-side processing
+        without an XML parser.
 
 
-        **arrayMetadata**: When `true`, includes inline metadata for all HDF5 arrays referenced by this object (dimensions, data type, path).
+        **arrayMetadata**: When `true`, includes inline metadata for all HDF5 arrays referenced by this object (dimensions,
+        data type, path).'
       operationId: ObjectsReadAPI_GetDataObject
       parameters:
       - name: data-partition-id
@@ -9213,7 +9169,8 @@ paths:
       - name: arrayMetadata
         required: false
         in: query
-        description: If true, includes the content of referenced objects and includes the metadata of arrays such as size and type
+        description: If true, includes the content of referenced objects and includes the metadata of arrays such as size
+          and type
         schema:
           type: boolean
           default: false
@@ -9388,8 +9345,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -9489,22 +9446,21 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Get object content.
       tags:
       - Resources
   /dataspaces/{dataspaceId}/resources/arrays:
     put:
-      description: >-
-        Create or update a data array attached to an existing object (well log curves, grid properties, seismic traces, etc.).
+      description: 'Create or update a data array attached to an existing object (well log curves, grid properties, seismic
+        traces, etc.).
 
 
-        **Data formats**: Provide `Data` as a JSON number array or a base64-encoded string. For float arrays, JSON `null` values are converted to IEEE 754 NaN (standard
-        missing-value representation).
+        **Data formats**: Provide `Data` as a JSON number array or a base64-encoded string. For float arrays, JSON `null`
+        values are converted to IEEE 754 NaN (standard missing-value representation).
 
 
-        **Subarrays**: Include `Starts` and `Counts` to write a slice of an existing array. Both must be present together and match the `Dimensions` length.
+        **Subarrays**: Include `Starts` and `Counts` to write a slice of an existing array. Both must be present together
+        and match the `Dimensions` length.
 
 
         **Empty arrays**: Omit `Data` to create an empty array with the specified dimensions and type.
@@ -9513,7 +9469,7 @@ paths:
         **Chunking**: Large arrays (> ~10 MB) are automatically chunked by the ETP layer into multiple WebSocket messages.
 
 
-        **Transaction**: Should be done within a transaction - pass `transactionId` from `POST /dataspaces/{ds}/transactions`.
+        **Transaction**: Should be done within a transaction - pass `transactionId` from `POST /dataspaces/{ds}/transactions`.'
       operationId: MutationsAPI_PutDataArray
       parameters:
       - name: data-partition-id
@@ -9587,7 +9543,8 @@ paths:
                       maximum: 1000000
                       minimum: 1
                   Data:
-                    description: Numerical values (as a JSON array of number or a base64 encoded string) or the subarray if starts and counts are present
+                    description: Numerical values (as a JSON array of number or a base64 encoded string) or the subarray if
+                      starts and counts are present
                     oneOf:
                     - type: array
                       maxItems: 1000
@@ -9761,8 +9718,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -9862,15 +9819,12 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Create or update a data array
       tags:
       - Write
   /dataspaces/{dataspaceId}/epc/upload:
     post:
-      description: >-
-        Upload a RESQML EPC file (ZIP with XML objects) and an optional HDF5 companion file.
+      description: 'Upload a RESQML EPC file (ZIP with XML objects) and an optional HDF5 companion file.
 
 
         **Processing flow**:
@@ -9885,7 +9839,7 @@ paths:
 
         5. Open H5 file, pre-scan dataset metadata
 
-        6. Start transaction (or reuse caller's)
+        6. Start transaction (or reuse caller''s)
 
         7. PUT objects in batches of 100 (avoids ETP message size limits)
 
@@ -9905,11 +9859,12 @@ paths:
         - `workflow` - builds manifest → submits to OSDU ingestion workflow DAG
 
 
-        **Note**: `autoIngest` requires an internal transaction (omit `transactionId`). When using an external transaction, auto-ingest is skipped because the data
-        may not be committed yet.
+        **Note**: `autoIngest` requires an internal transaction (omit `transactionId`). When using an external transaction,
+        auto-ingest is skipped because the data may not be committed yet.
 
 
-        **Performance**: H5 file is written to disk (not buffered in memory). Arrays are read and sent one at a time. Duplicate H5 dataset references are deduplicated.
+        **Performance**: H5 file is written to disk (not buffered in memory). Arrays are read and sent one at a time. Duplicate
+        H5 dataset references are deduplicated.'
       operationId: EpcUploadAPI_uploadEpc
       parameters:
       - name: data-partition-id
@@ -9940,9 +9895,10 @@ paths:
       - name: autoIngest
         required: false
         in: query
-        description: 'When set, automatically builds an OSDU manifest after EPC ingest and pushes it to the OSDU catalog. Values: ''records'' (default if set to ''true'')
-          pushes records directly via Storage Service; ''workflow'' submits the manifest to the OSDU ingestion workflow (Airflow DAG) for processing. Omit or set
-          to ''false'' to skip catalog registration (current default behavior).'
+        description: 'When set, automatically builds an OSDU manifest after EPC ingest and pushes it to the OSDU catalog.
+          Values: ''records'' (default if set to ''true'') pushes records directly via Storage Service; ''workflow'' submits
+          the manifest to the OSDU ingestion workflow (Airflow DAG) for processing. Omit or set to ''false'' to skip catalog
+          registration (current default behavior).'
         schema:
           type: string
           enum:
@@ -9954,8 +9910,9 @@ paths:
       - name: validate
         required: false
         in: query
-        description: When 'true', runs RESQML strict validation (XSD, DOR integrity, business rules) on the EPC before ingesting. If validation finds errors, the
-          upload still proceeds but the response includes a `validation` report. Set to 'strict' to reject the upload on validation errors (returns 400).
+        description: When 'true', runs RESQML strict validation (XSD, DOR integrity, business rules) on the EPC before ingesting.
+          If validation finds errors, the upload still proceeds but the response includes a `validation` report. Set to 'strict'
+          to reject the upload on validation errors (returns 400).
         schema:
           type: string
           enum:
@@ -9965,8 +9922,8 @@ paths:
           default: 'false'
       requestBody:
         required: true
-        description: EPC file (.epc) and optional HDF5 file (.h5). The EPC file is a ZIP archive containing RESQML/EML XML objects and a [Content_Types].xml manifest.
-          The H5 file contains associated array data.
+        description: EPC file (.epc) and optional HDF5 file (.h5). The EPC file is a ZIP archive containing RESQML/EML XML
+          objects and a [Content_Types].xml manifest. The H5 file contains associated array data.
         content:
           multipart/form-data:
             schema:
@@ -10190,8 +10147,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -10312,19 +10269,16 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Upload EPC + H5 and ingest into dataspace
       tags:
       - Write
   /dataspaces:
     post:
-      description: >-
-        Create one or more new dataspaces. Use path-style names (e.g., `projectA/Scenario1`) for organization.
+      description: 'Create one or more new dataspaces. Use path-style names (e.g., `projectA/Scenario1`) for organization.
 
 
-        **CustomData**: Attach OSDU-relevant metadata (viewers, owners, legal tags) as key-value pairs. These are stored as ETP resource custom data and used during
-        manifest generation.
+        **CustomData**: Attach OSDU-relevant metadata (viewers, owners, legal tags) as key-value pairs. These are stored as
+        ETP resource custom data and used during manifest generation.'
       operationId: DataspaceMutationsAPI_PostDataspace
       parameters:
       - name: data-partition-id
@@ -10465,8 +10419,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -10566,17 +10520,16 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Create new dataspaces
       tags:
       - Write
     get:
-      description: >-
-        List all dataspaces available on the connected ETP server. Returns path, custom data, and timestamps for each.
+      description: 'List all dataspaces available on the connected ETP server. Returns path, custom data, and timestamps for
+        each.
 
 
-        **Pagination**: Use `$skip` and `$top` for client-side pagination. `storeLastWriteFilter` returns only dataspaces modified after the given ISO timestamp.
+        **Pagination**: Use `$skip` and `$top` for client-side pagination. `storeLastWriteFilter` returns only dataspaces
+        modified after the given ISO timestamp.'
       operationId: ResourcesReadAPI_ListDataspaces
       parameters:
       - name: data-partition-id
@@ -10751,8 +10704,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -10852,18 +10805,16 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: List dataspaces.
       tags:
       - Resources
   /dataspaces/{dataspaceId}/clone:
     post:
-      description: >-
-        Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.
+      description: 'Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches
+        or snapshots.
 
 
-        **Note**: This is a server-side deep copy via ETP - no data is transferred through the REST layer.
+        **Note**: This is a server-side deep copy via ETP - no data is transferred through the REST layer.'
       operationId: DataspaceMutationsAPI_CloneDataspace
       parameters:
       - name: data-partition-id
@@ -11007,8 +10958,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -11108,8 +11059,6 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Clone (duplicate) a dataspace
       tags:
       - Write
@@ -11205,8 +11154,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -11306,22 +11255,22 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Delete a dataspace
       tags:
       - Write
   /wells:
     get:
-      description: >-
-        Searches for wells (WITSML 2.1 Well or RESQML WellboreFeature) matching a name pattern across all accessible dataspaces (or a single specified dataspace).
-        For each matching well, resolves child objects (wellbores, logs, trajectories, channelSets) via ETP relationship graph traversal.
+      description: 'Searches for wells (WITSML 2.1 Well or RESQML WellboreFeature) matching a name pattern across all accessible
+        dataspaces (or a single specified dataspace). For each matching well, resolves child objects (wellbores, logs, trajectories,
+        channelSets) via ETP relationship graph traversal.
 
 
-        **Name pattern**: Use `*` as wildcard (e.g., `DROGON*` matches all wells starting with DROGON). Pattern matching is case-insensitive.
+        **Name pattern**: Use `*` as wildcard (e.g., `DROGON*` matches all wells starting with DROGON). Pattern matching is
+        case-insensitive.
 
 
-        **Performance note**: Searching all dataspaces iterates each one sequentially. Specify `dataspace` when you know where the wells reside.
+        **Performance note**: Searching all dataspaces iterates each one sequentially. Specify `dataspace` when you know where
+        the wells reside.'
       operationId: WellsController_findWells
       parameters:
       - name: name
@@ -11349,8 +11298,8 @@ paths:
         '200':
           description: Array of wells, each with resolved child objects (wellbores always included)
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -11384,28 +11333,27 @@ paths:
                     type: boolean
                     example: false
                     description: Always false. The transaction cannot be reused; open a new one.
-      security:
-      - access-token: []
       summary: Search wells across dataspaces with hierarchy resolution
       tags:
       - Wells
   /witsml/store:
     put:
-      description: >-
-        Parse WITSML 2.1 (or 1.4.1 container) XML and store as ETP data objects. If no transactionId is provided, automatically wraps the write in a transaction (start
-        → put → commit).
+      description: 'Parse WITSML 2.1 (or 1.4.1 container) XML and store as ETP data objects. If no transactionId is provided,
+        automatically wraps the write in a transaction (start → put → commit).
 
 
         **Key features**:
 
-        - **WITSML 1.4.1 support**: Detects plural container wrappers (`<wells>`, `<logs>`, etc.) and splits into individual WITSML 2.1 objects with deterministic
-        UUID v5 from uid
+        - **WITSML 1.4.1 support**: Detects plural container wrappers (`<wells>`, `<logs>`, etc.) and splits into individual
+        WITSML 2.1 objects with deterministic UUID v5 from uid
 
-        - **Channel data extraction**: Automatically extracts `<logData><data>` rows (1.4.1) or ChannelSet data (2.1) as separate ETP data arrays
+        - **Channel data extraction**: Automatically extracts `<logData><data>` rows (1.4.1) or ChannelSet data (2.1) as separate
+        ETP data arrays
 
         - **Trajectory support**: Extracts MD/Inclination/Azimuth from `<trajectoryStation>` elements as arrays
 
-        - **Auto-transaction**: If no `transactionId` is provided, the write is wrapped in an internal transaction. If provided, the caller manages commit/rollback.
+        - **Auto-transaction**: If no `transactionId` is provided, the write is wrapped in an internal transaction. If provided,
+        the caller manages commit/rollback.'
       operationId: WitsmlController_putWitsmlObjects
       parameters:
       - name: data-partition-id
@@ -11498,8 +11446,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -11599,23 +11547,20 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Store WITSML 2.1 objects
       tags:
       - WITSML
   /witsml/query:
     post:
-      description: >-
-        Retrieves all WITSML 2.1 / EnergyML objects from a dataspace, returning the full XML body for each. Optionally filter by object type (Well, Wellbore, WellLog,
-        Trajectory, etc.).
+      description: 'Retrieves all WITSML 2.1 / EnergyML objects from a dataspace, returning the full XML body for each. Optionally
+        filter by object type (Well, Wellbore, WellLog, Trajectory, etc.).
 
 
         **Use case**: Fetch raw WITSML XML for external processing, validation, or conversion.
 
 
-        **Note**: For large dataspaces this may return significant data. Use `objectType` filter to limit results. For metadata-only listing, use `GET /witsml/{dataspaceId}/objects`
-        instead.
+        **Note**: For large dataspaces this may return significant data. Use `objectType` filter to limit results. For metadata-only
+        listing, use `GET /witsml/{dataspaceId}/objects` instead.'
       operationId: WitsmlController_queryWitsmlObjects
       parameters:
       - name: data-partition-id
@@ -11702,8 +11647,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -11803,22 +11748,20 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: Query WITSML objects with full XML content
       tags:
       - WITSML
   /witsml/{dataspaceId}/objects:
     get:
-      description: >-
-        Returns a lightweight listing of all objects in a dataspace without fetching XML content. Use `type` query parameter to filter by WITSML object type.
+      description: 'Returns a lightweight listing of all objects in a dataspace without fetching XML content. Use `type` query
+        parameter to filter by WITSML object type.
 
 
         **dataspaceId format**: URL-encoded dataspace path, e.g., `test%2Fwitsml` for `test/witsml`.
 
 
-        **Difference from POST /witsml/query**: This endpoint returns only metadata (uri, name, type, timestamp) and is much faster for large dataspaces. Use POST
-        /witsml/query when you need the full XML body.
+        **Difference from POST /witsml/query**: This endpoint returns only metadata (uri, name, type, timestamp) and is much
+        faster for large dataspaces. Use POST /witsml/query when you need the full XML body.'
       operationId: WitsmlController_listWitsmlObjects
       parameters:
       - name: data-partition-id
@@ -11908,8 +11851,8 @@ paths:
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
         '410':
-          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients
-            should open a new transaction.
+          description: The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer
+            usable and must not be retried; clients should open a new transaction.
           content:
             application/json:
               schema:
@@ -12009,8 +11952,6 @@ paths:
                     type: string
                     pattern: ^[a-zA-Z0-9 ]*$
                     maxLength: 2048
-      security:
-      - access-token: []
       summary: List WITSML objects in a dataspace (metadata only)
       tags:
       - WITSML
@@ -12120,7 +12061,8 @@ paths:
       - PWLS
   /pwls/resolve:
     get:
-      description: Resolves a vendor curve mnemonic to its PWLS standard property name, QuantityClass, and OSDU PropertyType UUID.
+      description: Resolves a vendor curve mnemonic to its PWLS standard property name, QuantityClass, and OSDU PropertyType
+        UUID.
       operationId: PwlsController_resolve
       parameters:
       - name: mnemonic
@@ -12230,8 +12172,8 @@ paths:
       - PWLS
   /pwls/validate:
     post:
-      description: Checks each curve mnemonic against the PWLS catalog. Returns whether each mnemonic is recognized, its standard property, QuantityClass, and any
-        UOM warnings.
+      description: Checks each curve mnemonic against the PWLS catalog. Returns whether each mnemonic is recognized, its standard
+        property, QuantityClass, and any UOM warnings.
       operationId: PwlsController_validate
       parameters: []
       requestBody:
@@ -12341,8 +12283,8 @@ paths:
       - PWLS
   /pwls/catalog:
     post:
-      description: Loads an additional PWLS v4 vendor curve catalog JSON. Mnemonics accumulate; first-loaded entry wins on collision. SLB catalog is auto-loaded at
-        startup.
+      description: Loads an additional PWLS v4 vendor curve catalog JSON. Mnemonics accumulate; first-loaded entry wins on
+        collision. SLB catalog is auto-loaded at startup.
       operationId: PwlsController_loadCatalog
       parameters: []
       requestBody:
@@ -12466,8 +12408,9 @@ paths:
       - PWLS
   /metrics:
     get:
-      description: Returns all collected metrics in Prometheus text exposition format. Includes HTTP request counts, response latencies, ETP session statistics, and
-        error rates. Scrape this endpoint with a Prometheus server or use `curl` for ad-hoc inspection.
+      description: Returns all collected metrics in Prometheus text exposition format. Includes HTTP request counts, response
+        latencies, ETP session statistics, and error rates. Scrape this endpoint with a Prometheus server or use `curl` for
+        ad-hoc inspection.
       operationId: MetricsController_metrics
       parameters: []
       responses:
@@ -12505,55 +12448,58 @@ paths:
       - Metrics
 info:
   title: Reservoir DMS
-  description: REST API for OSDU Reservoir DMS.
-  version: '1.2'
-  contact: {}
+  description: REST API for OSDU Reservoir DMS. M28 pre-release — not yet submitted to the OSDU forum.
+  version: 1.3.0-M28-pre
   license:
     name: Apache 2.0
     url: https://www.apache.org/licenses/LICENSE-2.0.html
 tags:
 - name: Health
-  description: Liveness, readiness probes, and server metadata. Use `GET /health/converters` to list all registered RESQML/WITSML → OSDU converter mappings.
+  description: Liveness, readiness probes, and server metadata. Use `GET /health/converters` to list all registered RESQML/WITSML
+    → OSDU converter mappings.
 - name: Authentication
   description: Token info and session management
-- name: Resources
-  description: Read-only access to ETP dataspaces, objects, relationships, and data arrays. Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`).
-    Graph endpoints (`/graph/…`) return edges between resources; flat endpoints (`/resources/…`) return lists without edges. No transaction required.
-- name: Manifest
-  description: 'OSDU manifest generation from ETP dataspaces - read-only, no transaction required. Common use case: browse resources, then generate a manifest in
-    a single call. Supported source domains: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. Use `GET /health/converters` to list all registered source types
-    and their target OSDU kinds.'
-- name: Query & Growing Objects
-  description: >-
-    Advanced search - read-only, no transaction required.
-
-
-    **Graph scope**: `self` (direct), `targets` (referenced by), `sources` (referencing), `targetsOrSelf`, `sourcesOrSelf`. **Depth**: 1 = immediate, N = recursive,
-    0 = unlimited (may timeout).
-
-
-    **Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP has no server-side pagination).
-- name: Transactions
-  description: Start, commit, or rollback a transaction. Required before any write operation. Auto-rollback after timeout (default 300 s). One active transaction
-    per dataspace.
-- name: Write
-  description: 'Create, update, and delete objects, manage dataspaces, upload EPC+H5 files. **Requires a transaction** - start one first via Transactions, then pass
-    `transactionId`. Typical flow: create dataspace → start transaction → put objects → put arrays → commit.'
-- name: Wells
-  description: Well-centric search with hierarchy resolution across dataspaces. Domain-specific - not part of core ETP data management.
-- name: WITSML
-  description: Query and store WITSML/EnergyML objects in ETP dataspaces. Domain-specific - supports WITSML 2.1 and 1.4.1 container formats.
-- name: PWLS
-  description: PWLS v4.0 curve mnemonic resolution and validation. Domain-specific - maps vendor mnemonics to standard property names.
 - name: Metrics
   description: Prometheus metrics endpoint
+- name: Resources
+  description: Read-only access to ETP dataspaces, objects, relationships, and data arrays. Use `dataspaceId` as a URL-encoded
+    path (e.g., `foo%2Fdrogon` for `foo/drogon`). Graph endpoints (`/graph/…`) return edges between resources; flat endpoints
+    (`/resources/…`) return lists without edges. No transaction required.
+- name: Manifest
+  description: 'OSDU manifest generation from ETP dataspaces - read-only, no transaction required. Common use case: browse
+    resources, then generate a manifest in a single call. Supported source domains: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML
+    2.1, EML 2.3. Use `GET /health/converters` to list all registered source types and their target OSDU kinds.'
+- name: Query & Growing Objects
+  description: 'Advanced search - read-only, no transaction required.
+
+
+    **Graph scope**: `self` (direct), `targets` (referenced by), `sources` (referencing), `targetsOrSelf`, `sourcesOrSelf`.
+    **Depth**: 1 = immediate, N = recursive, 0 = unlimited (may timeout).
+
+
+    **Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP has no server-side pagination).'
+- name: Transactions
+  description: Start, commit, or rollback a transaction. Required before any write operation. Auto-rollback after timeout
+    (default 300 s). One active transaction per dataspace.
+- name: Write
+  description: 'Create, update, and delete objects, manage dataspaces, upload EPC+H5 files. **Requires a transaction** - start
+    one first via Transactions, then pass `transactionId`. Typical flow: create dataspace → start transaction → put objects
+    → put arrays → commit.'
+- name: Wells
+  description: Well-centric search with hierarchy resolution across dataspaces. Domain-specific - not part of core ETP data
+    management.
+- name: WITSML
+  description: Query and store WITSML/EnergyML objects in ETP dataspaces. Domain-specific - supports WITSML 2.1 and 1.4.1
+    container formats.
+- name: PWLS
+  description: PWLS v4.0 curve mnemonic resolution and validation. Domain-specific - maps vendor mnemonics to standard property
+    names.
 servers:
 - url: /api/reservoir-ddms/v2
 components:
   securitySchemes:
-    access-token:
+    HTTPBearer:
       scheme: bearer
-      bearerFormat: JWT
       type: http
   schemas:
     WitsmlStoreDto:
@@ -12576,12 +12522,13 @@ components:
       properties:
         dataspace:
           type: string
-          description: Target dataspace path (e.g., 'test/witsml', 'demo/drogon'). Must be an existing dataspace on the ETP server.
+          description: Target dataspace path (e.g., 'test/witsml', 'demo/drogon'). Must be an existing dataspace on the ETP
+            server.
           example: test/witsml
         objectType:
           type: string
-          description: 'Filter by ETP object type name (case-insensitive). Omit to return all objects. Common values: Well, Wellbore, WellLog, Trajectory, ChannelSet,
-            WellboreGeology'
+          description: 'Filter by ETP object type name (case-insensitive). Omit to return all objects. Common values: Well,
+            Wellbore, WellLog, Trajectory, ChannelSet, WellboreGeology'
           example: Well
       required:
       - dataspace
@@ -12793,7 +12740,8 @@ components:
       properties:
         WorkflowUsage:
           type: string
-          description: Name of the business activities, processes, and/or workflows that the record is technical assurance value is valid for.
+          description: Name of the business activities, processes, and/or workflows that the record is technical assurance
+            value is valid for.
           example: 'data-partition-id:reference-data--WorkflowUsageType:SeismicProcessing:'
           pattern: ^[\\w\\-\\.]+:reference-data\\-\\-WorkflowUsageType:[\\w\\-\\.\\:\\%]+:[0-9]*$
         WorkflowPersona:
@@ -12807,27 +12755,30 @@ components:
         EmailAddress:
           type: string
           maxLength: 2048
-          description: Contact email address. Property may be left empty where it is inappropriate to provide personally identifiable information.
+          description: Contact email address. Property may be left empty where it is inappropriate to provide personally identifiable
+            information.
           example: user@mycompany.com
           pattern: ^[a-zA-Z0-9_+&*-]+(?:\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,7}$
         PhoneNumber:
           type: string
           maxLength: 2048
-          description: Contact phone number. Property may be left empty where it is inappropriate to provide personally identifiable information.
+          description: Contact phone number. Property may be left empty where it is inappropriate to provide personally identifiable
+            information.
           example: 1-555-281-5555
           pattern: '[0-9-]+'
         RoleTypeID:
           type: string
           maxLength: 2048
-          description: The identifier of a reference value for the role of the contact within the associated organization, such as Account owner, Sales Representative,
-            Technical Support, Project Manager, Party Chief, Client Representative, Senior Observer.
+          description: The identifier of a reference value for the role of the contact within the associated organization,
+            such as Account owner, Sales Representative, Technical Support, Project Manager, Party Chief, Client Representative,
+            Senior Observer.
           example: 'data-partition-id:reference-data--ContactRoleType:Geologist:'
           pattern: ^[\\w\\-\\.]+:reference-data\\-\\-ContactRoleType:[\\w\\-\\.\\:\\%]+:[0-9]*$
         DataGovernanceRoleTypeID:
           type: string
           maxLength: 2048
-          description: The data governance role assigned to this contact if and only if the context has a data governance role (in context of TechnicalAssurance).
-            The value is kept absent in all other cases.
+          description: The data governance role assigned to this contact if and only if the context has a data governance
+            role (in context of TechnicalAssurance). The value is kept absent in all other cases.
           example: 'data-partition-id:reference-data--DataGovernanceRoleType:Reviewer:'
           pattern: ^[\\w\\-\\.]+:reference-data\\-\\-DataGovernanceRoleType:[\\w\\-\\.\\:\\%]+:[0-9]*$
         WorkflowPersonaTypeID:
@@ -12845,7 +12796,8 @@ components:
         Name:
           type: string
           maxLength: 2048
-          description: Name of the individual contact. Property may be left empty where it is inappropriate to provide personally identifiable information.
+          description: Name of the individual contact. Property may be left empty where it is inappropriate to provide personally
+            identifiable information.
           example: Evergreen
           pattern: ^[a-zA-Z ]*$
     TechnicalAssuranceDto:
@@ -12853,8 +12805,8 @@ components:
       properties:
         AcceptableUsage:
           maxItems: 99999
-          description: Describes the workflows and/or personas that the technical assurance value is valid for (e.g., This data has a technical assurance property
-            of "trusted" and it is suitable for Seismic Interpretation).
+          description: Describes the workflows and/or personas that the technical assurance value is valid for (e.g., This
+            data has a technical assurance property of "trusted" and it is suitable for Seismic Interpretation).
           type: array
           items:
             $ref: '#/components/schemas/AcceptableUsageDto'
@@ -12879,17 +12831,19 @@ components:
             $ref: '#/components/schemas/ContactDto'
         TechnicalAssuranceTypeID:
           type: string
-          description: 'Describes a master-data record''s overall suitability for general business consumption based on data quality. Clarifications: Since Certified
-            is the highest classification of suitable quality, any further change or versioning of a Certified record should be carefully considered and justified.
-            If a Technical Assurance value is not populated then one can assume the data has not been evaluated or its quality is unknown (=Unevaluated). Technical
-            Assurance values are not intended to be used for the identification of a single "preferred" or "definitive" record by comparison with other records.'
+          description: 'Describes a master-data record''s overall suitability for general business consumption based on data
+            quality. Clarifications: Since Certified is the highest classification of suitable quality, any further change
+            or versioning of a Certified record should be carefully considered and justified. If a Technical Assurance value
+            is not populated then one can assume the data has not been evaluated or its quality is unknown (=Unevaluated).
+            Technical Assurance values are not intended to be used for the identification of a single "preferred" or "definitive"
+            record by comparison with other records.'
           example: 'data-partition-id:reference-data--TechnicalAssuranceType:Certified:'
           pattern: ^[0-9a-zA-Z /(),.]+$
           maxLength: 2048
         UnacceptableUsage:
           maxItems: 99999
-          description: Describes the workflows and/or personas that the technical assurance value is not valid for (e.g., This data has a technical assurance property
-            of "trusted", but it is not suitable for Seismic Interpretation).
+          description: Describes the workflows and/or personas that the technical assurance value is not valid for (e.g.,
+            This data has a technical assurance property of "trusted", but it is not suitable for Seismic Interpretation).
           type: array
           items:
             $ref: '#/components/schemas/AcceptableUsageDto'
@@ -12924,8 +12878,9 @@ components:
           - canonical
           - none
           - all
-          description: 'Controls property inclusion when using default type patterns. "canonical" (default): include properties with standard names (PWLS, OSDU, simulator
-            abbreviations like PORO, PERMX, SW). "none": exclude all properties. "all": include all properties regardless of name.'
+          description: 'Controls property inclusion when using default type patterns. "canonical" (default): include properties
+            with standard names (PWLS, OSDU, simulator abbreviations like PORO, PERMX, SW). "none": exclude all properties.
+            "all": include all properties regardless of name.'
           example: canonical
         technicalAssurances:
           maxItems: 1028
@@ -12935,8 +12890,8 @@ components:
             $ref: '#/components/schemas/TechnicalAssuranceDto'
         createMissingReferences:
           type: boolean
-          description: If true, an entry corresponding to all references not currently present in OSDU storage will be added, else missing references will be added
-            to an error list.
+          description: If true, an entry corresponding to all references not currently present in OSDU storage will be added,
+            else missing references will be added to an error list.
           example: true
         tags:
           type: object
@@ -12950,8 +12905,9 @@ components:
             pattern: ^[a-zA-Z0-9_]+$
         includeArrayData:
           type: boolean
-          description: When true, read bulk data arrays during manifest generation to compute spatial bounding boxes and active cell counts. When false (default),
-            skip array reads for faster performance at the cost of missing SpatialArea and ActiveCellCount fields.
+          description: When true, read bulk data arrays during manifest generation to compute spatial bounding boxes and active
+            cell counts. When false (default), skip array reads for faster performance at the cost of missing SpatialArea
+            and ActiveCellCount fields.
           example: false
       required:
       - uris
@@ -12980,7 +12936,8 @@ components:
           type: string
           pattern: osdu:wks:Manifest:1.0.0
           example: osdu:wks:Manifest:1.0.0
-          description: The schema identification for the manifest record. It is constrained to be version 1.0.0 in the context of this endpoint.
+          description: The schema identification for the manifest record. It is constrained to be version 1.0.0 in the context
+            of this endpoint.
           maxLength: 23
         Data:
           description: Container for Datasets, WorkProduct, and WorkProductComponents.
@@ -13003,7 +12960,8 @@ components:
       properties:
         uri:
           type: string
-          description: ETP URI of the dataspace or object to search from. Use dataspace root to search all objects, or a specific object URI to traverse its relationships.
+          description: ETP URI of the dataspace or object to search from. Use dataspace root to search all objects, or a specific
+            object URI to traverse its relationships.
           example: eml:///dataspace('demo/drogon')
         scope:
           type: string
@@ -13016,7 +12974,8 @@ components:
           - targetsOrSelf
           default: targets
         dataObjectTypes:
-          description: 'ETP data object type filter (qualified with domain prefix). Examples: resqml20.obj_IjkGridRepresentation, witsml21.Well, eml23.Activity'
+          description: 'ETP data object type filter (qualified with domain prefix). Examples: resqml20.obj_IjkGridRepresentation,
+            witsml21.Well, eml23.Activity'
           type: array
           items:
             type: string
@@ -13034,7 +12993,8 @@ components:
       properties:
         uri:
           type: string
-          description: ETP URI of the dataspace or object to search from. Use dataspace root to search all objects, or a specific object URI to traverse its relationships.
+          description: ETP URI of the dataspace or object to search from. Use dataspace root to search all objects, or a specific
+            object URI to traverse its relationships.
           example: eml:///dataspace('demo/drogon')
         scope:
           type: string
@@ -13047,7 +13007,8 @@ components:
           - targetsOrSelf
           default: targets
         dataObjectTypes:
-          description: 'ETP data object type filter (qualified with domain prefix). Examples: resqml20.obj_IjkGridRepresentation, witsml21.Well, eml23.Activity'
+          description: 'ETP data object type filter (qualified with domain prefix). Examples: resqml20.obj_IjkGridRepresentation,
+            witsml21.Well, eml23.Activity'
           type: array
           items:
             type: string
@@ -13125,7 +13086,8 @@ components:
           description: URI of the growing object
         startIndex:
           type: number
-          description: 'Start index value. For depth-indexed objects: meters (e.g., 2500.0). For time-indexed: microseconds since epoch.'
+          description: 'Start index value. For depth-indexed objects: meters (e.g., 2500.0). For time-indexed: microseconds
+            since epoch.'
         endIndex:
           type: number
           description: End index value. Same unit as startIndex (meters for depth, microseconds for time).
@@ -13146,3 +13108,5 @@ components:
           example: eml:///dataspace('test/drogon')/witsml21.WellLog(uuid)
       required:
       - uri
+security:
+- HTTPBearer: []
