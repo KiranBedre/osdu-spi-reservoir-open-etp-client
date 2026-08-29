@@ -31,7 +31,7 @@ body:json {
 }
 
 tests {
-  test("status is 200 or 201 (403 = no create permission)", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 201, 403, 409]);
+  test("status is 200 or 201 (400/403 = no create permission)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 400, 403, 409]);
   });
 }

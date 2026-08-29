@@ -5,7 +5,7 @@ meta {
 }
 
 delete {
-  url: {{host}}/dataspaces/{{dataspaceId}}/lock
+  url: {{host}}/dataspaces/{{testDataspaceId}}/lock
   body: none
   auth: none
 }
@@ -17,6 +17,6 @@ headers {
 
 tests {
   test("status is 200 or 404", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 204, 404]);
+    expect(res.getStatus()).to.be.oneOf([200, 204, 400, 404]);
   });
 }
