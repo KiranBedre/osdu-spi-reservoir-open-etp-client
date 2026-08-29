@@ -588,10 +588,10 @@ describe("A2: Grid2d routing logic", () => {
     expect(Grid2dToOsduKind(xml as any)).toContain("SeismicHorizon");
   });
 
-  it("Grid2d with FaultInterpretation → NOT StructureMap (property map scenario)", () => {
+  it("Grid2d with FaultInterpretation → GenericBinGrid (preserves grid geometry)", () => {
     const xml = makeGrid2d20({ interpType: "obj_FaultInterpretation" });
     expect(StructureMapOSDU.matchType(xml as any)).toBe(false);
-    expect(Grid2dToOsduKind(xml as any)).toContain("GenericRepresentation");
+    expect(Grid2dToOsduKind(xml as any)).toContain("GenericBinGrid");
   });
 
   it("Grid2d with no interpretation → GenericBinGrid", () => {
@@ -600,10 +600,10 @@ describe("A2: Grid2d routing logic", () => {
     expect(Grid2dToOsduKind(xml as any)).toContain("GenericBinGrid");
   });
 
-  it("Grid2d with GenericFeatureInterpretation → NOT StructureMap (property/DEM)", () => {
+  it("Grid2d with GenericFeatureInterpretation → GenericBinGrid (preserves grid geometry)", () => {
     const xml = makeGrid2d20({ interpType: "obj_GenericFeatureInterpretation" });
     expect(StructureMapOSDU.matchType(xml as any)).toBe(false);
-    expect(Grid2dToOsduKind(xml as any)).toContain("GenericRepresentation");
+    expect(Grid2dToOsduKind(xml as any)).toContain("GenericBinGrid");
   });
 
   // v2.2 equivalents
@@ -613,10 +613,10 @@ describe("A2: Grid2d routing logic", () => {
     expect(Grid2dToOsduKind22(xml as any)).toContain("StructureMap");
   });
 
-  it("v2.2: Grid2d with GeobodyInterpretation → NOT StructureMap", () => {
+  it("v2.2: Grid2d with GeobodyInterpretation → GenericBinGrid (not GenericRepresentation)", () => {
     const xml = makeGrid2d22({ qualifiedType: "resqml22.GeobodyInterpretation" });
     expect(StructureMap22OSDU.matchType(xml as any)).toBe(false);
-    expect(Grid2dToOsduKind22(xml as any)).toContain("GenericRepresentation");
+    expect(Grid2dToOsduKind22(xml as any)).toContain("GenericBinGrid");
   });
 
   it("v2.2: Grid2d with no interpretation → GenericBinGrid", () => {

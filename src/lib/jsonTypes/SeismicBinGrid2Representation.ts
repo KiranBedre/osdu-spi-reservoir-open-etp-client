@@ -253,7 +253,14 @@ export class SeismicBinGridOSDU
 
 /**
  * Identify OSDU kind for all 2D Grids, can create either a SeismicBinGrid,
- * SeismicHorizon, StructureMap or GenericRepresentation.
+ * SeismicHorizon, StructureMap, GenericBinGrid or GenericRepresentation.
+ *
+ * Priority order (first match wins):
+ * 1. SeismicBinGrid — SeismicLatticeFeature + constant spacing
+ * 2. SeismicHorizon — HorizonInterpretation + Z on seismic lattice
+ * 3. StructureMap — HorizonInterpretation + NOT on seismic lattice
+ * 4. GenericBinGrid — all remaining Grid2d (with or without interpretation)
+ * 5. GenericRepresentation — fallback (non-Grid2d type guard)
  *
  * @param {IResqmlDataObject} xml
  * @returns {string}

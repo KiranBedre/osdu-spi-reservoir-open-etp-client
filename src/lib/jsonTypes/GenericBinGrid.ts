@@ -1,7 +1,7 @@
 import * as resqml20 from "../mlTypes/xmlns/www.energistics.org/energyml/resqmlv201/resqmlv2";
 import * as resqml22 from "../mlTypes/xmlns/www.energistics.org/energyml/resqmlv22/resqmlv2";
 import type { SimpleJson } from "../mlTypes/XmlJsonUtil";
-import { EtpUri, ResqmlClient } from "../client/ResqmlClient";
+import { EtpContentType, EtpUri, ResqmlClient } from "../client/ResqmlClient";
 import { OSDUContext } from "./OsduContext";
 import { ResqmlWorkProductComponent } from "./WorkProductComponent";
 import {
@@ -30,11 +30,15 @@ export class GenericBinGridOSDU
     }
 
     /**
-     * Match: Grid2d with NO interpretation (no RepresentedInterpretation).
-     * Grid2d objects WITH interpretations route to StructureMap/SeismicHorizon/SeismicBinGrid.
+     * Match: any Grid2d that was not already claimed by SeismicBinGrid,
+     * SeismicHorizon, or StructureMap.  This includes grids with no
+     * interpretation AND grids with non-horizon interpretations
+     * (StratigraphicUnitInterpretation, GeobodyInterpretation, FaultInterpretation,
+     * etc.) where preserving grid geometry is more valuable than falling
+     * through to the unstructured GenericRepresentation catch-all.
      */
-    static matchType(xml: SimpleJson<resqml20.obj_Grid2dRepresentation>): boolean {
-        return xml.RepresentedInterpretation?.ContentType === undefined;
+    static matchType(_xml: SimpleJson<resqml20.obj_Grid2dRepresentation>): boolean {
+        return true;
     }
 
     public getGeometries(
@@ -73,6 +77,25 @@ export class GenericBinGridOSDU
             NodeCountOnJAxis: xml.Grid2dPatch.SlowestAxisCount,
             ExtensionProperties: undefined
         };
+
+        // Preserve interpretation link in ExtensionProperties when present.
+        // GenericBinGrid has no typed InterpretationID field, but the
+        // association is still geologically meaningful (e.g. isochore tied
+        // to a StratigraphicUnitInterpretation).
+        if (xml.RepresentedInterpretation?.ContentType) {
+            const interpSrn = await GenericBinGridOSDU.dorToSrn(
+                ReservoirDMSUrl,
+                xml.RepresentedInterpretation,
+                client,
+                context
+            );
+            this.data.ExtensionProperties = {
+                ...this.data.ExtensionProperties,
+                InterpretationID: interpSrn,
+                InterpretationName: xml.RepresentedInterpretation.Title,
+                InterpretationType: new EtpContentType(xml.RepresentedInterpretation.ContentType).dataType
+            };
+        }
 
         // Extract grid geometry from lattice
         const geo = xml.Grid2dPatch.Geometry;
@@ -204,10 +227,12 @@ export class GenericBinGrid22OSDU
     }
 
     /**
-     * Match: Grid2d with NO interpretation (v2.2: no RepresentedObject).
+     * Match: any v2.2 Grid2d not already claimed by SeismicBinGrid,
+     * SeismicHorizon, or StructureMap.  Covers both uninterpreted grids
+     * and grids with non-horizon interpretations.
      */
-    static matchType(xml: SimpleJson<resqml22.Grid2dRepresentation>): boolean {
-        return xml.RepresentedObject?.QualifiedType === undefined;
+    static matchType(_xml: SimpleJson<resqml22.Grid2dRepresentation>): boolean {
+        return true;
     }
 
     public async initData(
@@ -244,6 +269,23 @@ export class GenericBinGrid22OSDU
             NodeCountOnJAxis: xml.SlowestAxisCount,
             ExtensionProperties: undefined
         };
+
+        // Preserve interpretation link in ExtensionProperties when present.
+        if (xml.RepresentedObject?.QualifiedType) {
+            const interpSrn = await GenericBinGrid22OSDU.dorToSrn(
+                ReservoirDMSUrl,
+                xml.RepresentedObject,
+                client,
+                context
+            );
+            const qt = xml.RepresentedObject.QualifiedType;
+            this.data.ExtensionProperties = {
+                ...this.data.ExtensionProperties,
+                InterpretationID: interpSrn,
+                InterpretationName: xml.RepresentedObject.Title,
+                InterpretationType: qt.substring(qt.lastIndexOf(".") + 1)
+            };
+        }
 
         // Extract grid geometry from lattice
         let lattice: any;

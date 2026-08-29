@@ -10,9 +10,9 @@ Integration test results and deployment notes for the OSDU Reservoir DDMS **M27 
 
 The Reservoir DDMS Postman collection needs to be included in the official OSDU QA preship CI/CD suite alongside the other DDMS collections (Wellbore, Seismic, etc.).
 
-**Collection files** (in the `validate` branch):
-- Collection: [`RDDMS_M27.postman_collection.json`](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/blob/validate/RDDMS_M27.postman_collection.json)
-- Environment: [`RDDMS_M27_CIMPL_Preship.postman_environment.json`](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/blob/validate/RDDMS_M27_CIMPL_Preship.postman_environment.json)
+**Collection files** (on `main`):
+- Collection: [`RDDMS_M27.postman_collection.json`](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/blob/main/RDDMS_M27.postman_collection.json)
+- Environment: [`RDDMS_M27_CIMPL_Preship.postman_environment.json`](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/blob/main/RDDMS_M27_CIMPL_Preship.postman_environment.json)
 
 **Target location** in the QA repo: `osdu/qa/Postman Collection/45_CICD_Reservoir_DDMS`
 
@@ -28,7 +28,22 @@ The ETP WebSocket server at `/api/reservoir-ddms-etp/v2/` is deployed and the RE
 
 See [detailed diagnosis](#etp-server-well-known-endpoint-unreachable) below.
 
-### 3. Entitlements for test dataspace creation
+### 3. Add OpenAPI spec path to Istio AuthorizationPolicy
+
+The OpenAPI/Swagger JSON spec at `/api/reservoir-ddms/v2-json` returns **404** from the Istio gateway — the request never reaches the application. This is the same class of issue Rene fixed for the Secret service by adding explicit paths to the `AuthorizationPolicy`:
+
+```yaml
+# Needed in the RDDMS AuthorizationPolicy (similar to secret-jwt-authz fix):
+- to:
+  - operation:
+      paths:
+      - /api/reservoir-ddms/v2-json
+      - /api/reservoir-ddms/v2          # Swagger UI
+```
+
+The app serves the spec correctly when reached directly — only the Istio layer blocks it.
+
+### 4. Entitlements for test dataspace creation
 
 The `cimpl-users` token lacks entitlements to create dataspaces (`POST /dataspaces` returns 403). The Postman and Bruno collections create a dedicated test dataspace during setup and delete it during cleanup. Without create permissions, setup/cleanup tests pass with tolerance assertions but cannot fully exercise the write path.
 
@@ -235,6 +250,7 @@ The path `/api/reservoir-ddms-etp/v2/` is the correct external URL — the issue
 
 ## Available Dataspaces (preship)
 
-| Dataspace | Size | Notes |
-|---|---|---|
-| `maap/drogon220` | 45 MB | RESQML 2.2 dataset, used by Bruno read-only tests |
+| Dataspace | Resources | Size | Locked | Notes |
+|---|---|---|---|---|
+| `maap/drogon201b` | 28 | 73 MB | Yes | Primary dataset — used by Postman and Bruno read-only tests (`{{dataspaceId}}`) |
+| `maap/drogon220b` | — | 45 MB | No | RESQML 2.2 dataset |
