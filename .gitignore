@@ -18,6 +18,7 @@ devops/scripts/seed-drogon.sh
 bruno/_Seed/
 config.user.env
 TestResults.md
+test-preship-integration.sh
 OSDUQAM27GettingStarted.pdf
 CoreSmokeTestCollection.postman_collection.json
 
