@@ -5,7 +5,7 @@ meta {
 }
 
 delete {
-  url: {{host}}/dataspaces/test-ci-bruno
+  url: {{host}}/dataspaces/{{testDataspaceId}}
   body: none
   auth: none
 }
@@ -16,7 +16,7 @@ headers {
 }
 
 tests {
-  test("status is 200 or 204", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 204]);
+  test("status is 200 or 204 (404 = already gone or never created)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 204, 404]);
   });
 }

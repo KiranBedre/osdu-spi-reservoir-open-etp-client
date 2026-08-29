@@ -569,7 +569,7 @@
     },
     "/health/converters": {
       "get": {
-        "description": "Returns all registered RESQML/WITSML \u2192 OSDU type converters for diagnostics and validation.",
+        "description": "Returns all registered RESQML/WITSML → OSDU type converters for diagnostics and validation.",
         "operationId": "HealthAPI_Converters",
         "parameters": [],
         "responses": {
@@ -3674,7 +3674,7 @@
     },
     "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/targets": {
       "get": {
-        "description": "Flat list of resources that this object references (e.g., a Property's supporting Representation, or a Representation's CRS). Follows relationships forward (parent \u2192 child).\n\n**depth**: 1 = immediate targets only, N = recursive (e.g., depth=2 gets targets of targets).\n\n**For graph with edges**: Use `GET /graph/{type}/{guid}/targets` instead.",
+        "description": "Flat list of resources that this object references (e.g., a Property's supporting Representation, or a Representation's CRS). Follows relationships forward (parent → child).\n\n**depth**: 1 = immediate targets only, N = recursive (e.g., depth=2 gets targets of targets).\n\n**For graph with edges**: Use `GET /graph/{type}/{guid}/targets` instead.",
         "operationId": "ResourcesReadAPI_ListTargets",
         "parameters": [
           {
@@ -4752,7 +4752,7 @@
     },
     "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/sources": {
       "get": {
-        "description": "Flat list of resources that reference this object (e.g., Properties attached to a Representation). Follows relationships backward (child \u2192 parent).\n\n**depth**: 1 = immediate sources only, N = recursive.\n\n**For graph with edges**: Use `GET /graph/{type}/{guid}/sources` instead.",
+        "description": "Flat list of resources that reference this object (e.g., Properties attached to a Representation). Follows relationships backward (child → parent).\n\n**depth**: 1 = immediate sources only, N = recursive.\n\n**For graph with edges**: Use `GET /graph/{type}/{guid}/sources` instead.",
         "operationId": "ResourcesReadAPI_ListSources",
         "parameters": [
           {
@@ -7517,7 +7517,7 @@
     },
     "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/arrays/{pathInResource}": {
       "get": {
-        "description": "Retrieve the numeric data of an array. For large arrays, use `starts` and `counts` to fetch slices (subarrays) instead of the full dataset.\n\n**starts/counts**: Must be used together. Each is a comma-separated list matching the array dimensions (e.g., `starts=0,0&counts=100,3` for first 100 rows \u00d7 3 columns).\n\n**format**: `json` (default) returns a number array; `base64` returns a base64-encoded binary string (more efficient for large transfers).\n\n**Chunking**: The ETP layer automatically chunks large arrays (~10 MB per WebSocket message) and reassembles on the server side.",
+        "description": "Retrieve the numeric data of an array. For large arrays, use `starts` and `counts` to fetch slices (subarrays) instead of the full dataset.\n\n**starts/counts**: Must be used together. Each is a comma-separated list matching the array dimensions (e.g., `starts=0,0&counts=100,3` for first 100 rows × 3 columns).\n\n**format**: `json` (default) returns a number array; `base64` returns a base64-encoded binary string (more efficient for large transfers).\n\n**Chunking**: The ETP layer automatically chunks large arrays (~10 MB per WebSocket message) and reassembles on the server side.",
         "operationId": "DataArrayReadAPI_GetArray",
         "parameters": [
           {
@@ -8947,7 +8947,7 @@
     },
     "/dataspaces/{dataspaceId}/transactions": {
       "post": {
-        "description": "Start a new transaction for atomic write operations in this dataspace.\n\nReturns a `transactionId` UUID. Pass it to write/array endpoints as a query parameter.\n\n**Lifecycle**: commit with `PUT \u2026/transactions/{txId}`, rollback with `DELETE \u2026/transactions/{txId}`.\n\n**Timeout**: Auto-rollback after `TimeoutPeriod` seconds (default 300) if no new transaction messages occur.\n\n**Constraint**: Only one transaction can be active per dataspace at a time.\n\n**Typical write workflow**:\n```\nPOST  /dataspaces/{ds}/transactions              \u2192 transactionId\nPUT   /dataspaces/{ds}/resources?transactionId=\u2026  \u2192 put objects (JSON array)\nPUT   /dataspaces/{ds}/resources/arrays?transactionId=\u2026 \u2192 put arrays (one per channel)\nPUT   /dataspaces/{ds}/transactions/{txId}        \u2192 commit\n```",
+        "description": "Start a new transaction for atomic write operations in this dataspace.\n\nReturns a `transactionId` UUID. Pass it to write/array endpoints as a query parameter.\n\n**Lifecycle**: commit with `PUT …/transactions/{txId}`, rollback with `DELETE …/transactions/{txId}`.\n\n**Timeout**: Auto-rollback after `TimeoutPeriod` seconds (default 300) if no new transaction messages occur.\n\n**Constraint**: Only one transaction can be active per dataspace at a time.\n\n**Typical write workflow**:\n```\nPOST  /dataspaces/{ds}/transactions              → transactionId\nPUT   /dataspaces/{ds}/resources?transactionId=…  → put objects (JSON array)\nPUT   /dataspaces/{ds}/resources/arrays?transactionId=… → put arrays (one per channel)\nPUT   /dataspaces/{ds}/transactions/{txId}        → commit\n```",
         "operationId": "TransactionsAPI_PostTransaction",
         "parameters": [
           {
@@ -12054,7 +12054,7 @@
     },
     "/dataspaces/{dataspaceId}/epc/upload": {
       "post": {
-        "description": "Upload a RESQML EPC file (ZIP with XML objects) and an optional HDF5 companion file.\n\n**Processing flow**:\n1. Validate file sizes against configured limits\n2. Unzip EPC \u2192 parse `[Content_Types].xml` manifest\n3. Extract XML objects, identify `EpcExternalPartReference` entries\n4. Scan XML for `<Hdf5Dataset>` blocks \u2192 collect H5 dataset paths\n5. Open H5 file, pre-scan dataset metadata\n6. Start transaction (or reuse caller's)\n7. PUT objects in batches of 100 (avoids ETP message size limits)\n8. PUT arrays one-by-one from H5 file (bounded memory)\n9. Commit transaction\n10. Auto-ingest to OSDU catalog (if `autoIngest` is set)\n\n**Auto-ingest modes**:\n- `false` (default) - no catalog registration\n- `true` / `records` - builds manifest \u2192 pushes records via Storage Service (data immediately searchable)\n- `workflow` - builds manifest \u2192 submits to OSDU ingestion workflow DAG\n\n**Note**: `autoIngest` requires an internal transaction (omit `transactionId`). When using an external transaction, auto-ingest is skipped because the data may not be committed yet.\n\n**Performance**: H5 file is written to disk (not buffered in memory). Arrays are read and sent one at a time. Duplicate H5 dataset references are deduplicated.",
+        "description": "Upload a RESQML EPC file (ZIP with XML objects) and an optional HDF5 companion file.\n\n**Processing flow**:\n1. Validate file sizes against configured limits\n2. Unzip EPC → parse `[Content_Types].xml` manifest\n3. Extract XML objects, identify `EpcExternalPartReference` entries\n4. Scan XML for `<Hdf5Dataset>` blocks → collect H5 dataset paths\n5. Open H5 file, pre-scan dataset metadata\n6. Start transaction (or reuse caller's)\n7. PUT objects in batches of 100 (avoids ETP message size limits)\n8. PUT arrays one-by-one from H5 file (bounded memory)\n9. Commit transaction\n10. Auto-ingest to OSDU catalog (if `autoIngest` is set)\n\n**Auto-ingest modes**:\n- `false` (default) - no catalog registration\n- `true` / `records` - builds manifest → pushes records via Storage Service (data immediately searchable)\n- `workflow` - builds manifest → submits to OSDU ingestion workflow DAG\n\n**Note**: `autoIngest` requires an internal transaction (omit `transactionId`). When using an external transaction, auto-ingest is skipped because the data may not be committed yet.\n\n**Performance**: H5 file is written to disk (not buffered in memory). Arrays are read and sent one at a time. Duplicate H5 dataset references are deduplicated.",
         "operationId": "EpcUploadAPI_uploadEpc",
         "parameters": [
           {
@@ -14070,7 +14070,7 @@
     },
     "/witsml/store": {
       "put": {
-        "description": "Parse WITSML 2.1 (or 1.4.1 container) XML and store as ETP data objects. If no transactionId is provided, automatically wraps the write in a transaction (start \u2192 put \u2192 commit).\n\n**Key features**:\n- **WITSML 1.4.1 support**: Detects plural container wrappers (`<wells>`, `<logs>`, etc.) and splits into individual WITSML 2.1 objects with deterministic UUID v5 from uid\n- **Channel data extraction**: Automatically extracts `<logData><data>` rows (1.4.1) or ChannelSet data (2.1) as separate ETP data arrays\n- **Trajectory support**: Extracts MD/Inclination/Azimuth from `<trajectoryStation>` elements as arrays\n- **Auto-transaction**: If no `transactionId` is provided, the write is wrapped in an internal transaction. If provided, the caller manages commit/rollback.",
+        "description": "Parse WITSML 2.1 (or 1.4.1 container) XML and store as ETP data objects. If no transactionId is provided, automatically wraps the write in a transaction (start → put → commit).\n\n**Key features**:\n- **WITSML 1.4.1 support**: Detects plural container wrappers (`<wells>`, `<logs>`, etc.) and splits into individual WITSML 2.1 objects with deterministic UUID v5 from uid\n- **Channel data extraction**: Automatically extracts `<logData><data>` rows (1.4.1) or ChannelSet data (2.1) as separate ETP data arrays\n- **Trajectory support**: Extracts MD/Inclination/Azimuth from `<trajectoryStation>` elements as arrays\n- **Auto-transaction**: If no `transactionId` is provided, the write is wrapped in an internal transaction. If provided, the caller manages commit/rollback.",
         "operationId": "WitsmlController_putWitsmlObjects",
         "parameters": [
           {
@@ -15522,7 +15522,7 @@
   },
   "info": {
     "title": "Reservoir DMS",
-    "description": "REST API for OSDU Reservoir DMS. M28 pre-release \u2014 not yet submitted to the OSDU forum.",
+    "description": "REST API for OSDU Reservoir DMS. M28 pre-release — not yet submitted to the OSDU forum.",
     "version": "1.3.0-M28-pre",
     "contact": {},
     "license": {
@@ -15533,7 +15533,7 @@
   "tags": [
     {
       "name": "Health",
-      "description": "Liveness, readiness probes, and server metadata. Use `GET /health/converters` to list all registered RESQML/WITSML \u2192 OSDU converter mappings."
+      "description": "Liveness, readiness probes, and server metadata. Use `GET /health/converters` to list all registered RESQML/WITSML → OSDU converter mappings."
     },
     {
       "name": "Authentication",
@@ -15545,7 +15545,7 @@
     },
     {
       "name": "Resources",
-      "description": "Read-only access to ETP dataspaces, objects, relationships, and data arrays. Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`). Graph endpoints (`/graph/\u2026`) return edges between resources; flat endpoints (`/resources/\u2026`) return lists without edges. No transaction required."
+      "description": "Read-only access to ETP dataspaces, objects, relationships, and data arrays. Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`). Graph endpoints (`/graph/…`) return edges between resources; flat endpoints (`/resources/…`) return lists without edges. No transaction required."
     },
     {
       "name": "Manifest",
@@ -15561,7 +15561,7 @@
     },
     {
       "name": "Write",
-      "description": "Create, update, and delete objects, manage dataspaces, upload EPC+H5 files. **Requires a transaction** - start one first via Transactions, then pass `transactionId`. Typical flow: create dataspace \u2192 start transaction \u2192 put objects \u2192 put arrays \u2192 commit."
+      "description": "Create, update, and delete objects, manage dataspaces, upload EPC+H5 files. **Requires a transaction** - start one first via Transactions, then pass `transactionId`. Typical flow: create dataspace → start transaction → put objects → put arrays → commit."
     },
     {
       "name": "Wells",
