@@ -300,7 +300,7 @@ export default class DataspaceMutationsAPI {
   @HttpCode(200)
   @ApiOperation({
     summary: "Clone (duplicate) a dataspace",
-    description: `Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.\n\n**Note**: This is a server-side deep copy via ETP - no data is transferred through the REST layer.`,
+    description: `Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.\n\n**Prerequisites**:\n- The source dataspace is automatically locked during the clone and unlocked afterwards.\n- The target dataspace (DataspaceId) must not already exist.\n\n**Note**: This is a server-side deep copy via ETP — no data is transferred through the REST layer.`,
     servers: swaggerServers
   })
   @ApiBody({
@@ -378,25 +378,36 @@ export default class DataspaceMutationsAPI {
         extractDataPartitionId(request)
       );
       const uri = EtpUri.createDataSpaceUri(params.dataspaceId).uri;
-      const dataspaces = await c.cloneDataspace(
-        requestBody.DataspaceId,
-        requestBody.Path ?? requestBody.DataspaceId,
-        uri,
-        customData
-      );
-      await c.closeSession();
-      // Null out the client so the catch block doesn't try to close it a
-      // second time if we throw NotFoundException below.
-      c = undefined;
-      if (!dataspaces) {
-        // cloneDataspace returns falsy when the source dataspace cannot be
-        // resolved or copied. Surface this as a 404 with the source identifier
-        // instead of a generic 500 so the client can react appropriately.
-        throw new NotFoundException({
-          description: `Source dataspace ${params.dataspaceId} not found or not clonable`
-        });
+
+      // Lock the source dataspace before cloning (ETP requires it read-only)
+      await c.lockDataspaces([uri]);
+      try {
+        const dataspaces = await c.cloneDataspace(
+          requestBody.DataspaceId,
+          requestBody.Path ?? requestBody.DataspaceId,
+          uri,
+          customData
+        );
+        if (!dataspaces) {
+          throw new NotFoundException({
+            description: `Source dataspace ${params.dataspaceId} not found or not clonable`
+          });
+        }
+        return EtpUri.createDataSpaceUri(requestBody.DataspaceId).uri;
+      } finally {
+        // Always unlock the source dataspace, even if clone fails
+        try {
+          await c.unlockDataspaces([uri]);
+        } catch (unlockErr) {
+          logger.error("Failed to unlock source dataspace after clone:", unlockErr);
+        }
+        try {
+          await c.closeSession();
+        } catch {
+          // ignore close errors
+        }
+        c = undefined;
       }
-      return EtpUri.createDataSpaceUri(requestBody.DataspaceId).uri;
     } catch (err) {
       try {
         await c?.closeSession();

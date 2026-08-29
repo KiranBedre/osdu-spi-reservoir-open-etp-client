@@ -252,7 +252,5 @@ The path `/api/reservoir-ddms-etp/v2/` is the correct external URL — the issue
 
 | Dataspace | Resources | Size | Locked | Notes |
 |---|---|---|---|---|
-| `maap/drogon201` | 0 | 232 kB | No | Empty, stuck transaction prevents deletion |
-| `maap/drogon201b` | 28 | 73 MB | **Yes (stuck)** | Primary dataset — used by Postman and Bruno read-only tests (`{{dataspaceId}}`) |
-| `maap/drogon201c` | 28 | 648 kB | No | Fresh clone of 201b (objects only, arrays not yet copied) |
+| `maap/drogon201b` | 28 | 73 MB | Yes | Primary dataset — used by Postman and Bruno read-only tests (`{{dataspaceId}}`) |
 | `maap/drogon220b` | — | 45 MB | No | RESQML 2.2 dataset |
