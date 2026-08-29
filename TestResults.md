@@ -55,10 +55,10 @@ Missing routes (merged to `og/main` after M27 build):
 ### Bruno collection (`bruno/`)
 
 ```bash
-cd ~/rddms/bruno
+cd bruno/
 
-REFRESH_TOKEN=$(grep 'INSTANCE_PRESHIP_REFRESH_TOKEN' ~/ores/k8s/secret.yaml \
-  | sed 's/.*: *"//' | sed 's/"$//')
+# Set your refresh token (obtain from Keycloak)
+REFRESH_TOKEN="<your-refresh-token>"
 
 TOKEN=$(curl -s -X POST \
   "https://keycloak-qa.osdu-m27.osdu-cimpl.opengroup.org/realms/osdu/protocol/openid-connect/token" \
