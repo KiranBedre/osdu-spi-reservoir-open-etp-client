@@ -31,9 +31,6 @@ config.user.env
 *.h5
 test-local-integration.sh
 
-# generated swagger
-swagger.json
-
 # generated json
 resqml_json
 witsml_json
