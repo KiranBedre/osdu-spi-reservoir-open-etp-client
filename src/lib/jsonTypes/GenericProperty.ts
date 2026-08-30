@@ -301,6 +301,11 @@ export class GenericPropertyOSDU
 
     await this.initGeometry(ReservoirDMSUrl, xml, client);
 
+    // Add PropertyUoM convenience string (not in Generated type but used in OSDU records)
+    (this.data as any).PropertyUoM = continuous
+      ? normalizeUom(continuous.UOM)
+      : "Euc";
+
     this.assignExtraMetaData(xml.ExtraMetadata);
 
     delete this.__context;

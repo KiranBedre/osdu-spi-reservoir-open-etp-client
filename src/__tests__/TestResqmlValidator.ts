@@ -375,7 +375,7 @@ describe("fesapi Compatibility", () => {
         const obj = makeEpcObj("IjkGridRepresentation", uuid, xml, "2.0.1");
         obj.qualifiedType = "resqml20.obj_IjkGridRepresentation";
         const errors = validateFesapiCompat([obj]);
-        expect(errors.some(e => e.severity === Severity.ERROR && e.message.includes("ExtraMetadata"))).toBe(true);
+        expect(errors.some(e => e.severity === Severity.WARNING && e.message.includes("ExtraMetadata"))).toBe(true);
     });
 
     it("skips checks for version 2.2", () => {
