@@ -15552,7 +15552,7 @@
       "description": "OSDU manifest generation from ETP dataspaces - read-only, no transaction required. Common use case: browse resources, then generate a manifest in a single call. Supported source domains: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. Use `GET /health/converters` to list all registered source types and their target OSDU kinds."
     },
     {
-      "name": "Query",
+      "name": "Query & Growing Objects",
       "description": "Advanced search - read-only, no transaction required.\n\n**Graph scope**: `self` (direct), `targets` (referenced by), `sources` (referencing), `targetsOrSelf`, `sourcesOrSelf`. **Depth**: 1 = immediate, N = recursive, 0 = unlimited (may timeout).\n\n**Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP has no server-side pagination)."
     },
     {
