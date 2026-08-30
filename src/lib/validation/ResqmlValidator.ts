@@ -400,7 +400,11 @@ export function validateXmlAgainstXsd(
     const validationErrors = (doc.validationErrors || []).slice(0, 5);
     for (const err of validationErrors) {
         const errStr = typeof err === "string" ? err : err.message || String(err);
-        errors.push(makeError(errStr, Severity.ERROR, C, {
+        // Demote ExtraMetadata position errors to warnings — moving ExtraMetadata
+        // to the end is intentional (fesapi requirement) even though it violates
+        // the strict XSD element sequence for some types.
+        const severity = errStr.includes("ExtraMetadata") ? Severity.WARNING : Severity.ERROR;
+        errors.push(makeError(errStr, severity, C, {
             uuid: objectUuid,
             type: objectType,
             line: typeof err === "object" ? err.line : undefined,
@@ -781,9 +785,16 @@ export function validatePwlsPropertyKinds(objects: EpcObject[]): ValidationError
     for (const obj of objects) {
         if (!obj.objectType.includes("Property")) continue;
 
-        // Find PropertyKind references
-        const pkRefMatch = obj.xmlString.match(
-            /<(?:[\w-]+:)?PropertyKind[\s\S]*?<(?:[\w-]+:)?(?:UUID|Uuid)[^>]*>([^<]+)<\//i
+        // Extract the PropertyKind element content (bounded to avoid matching HdfProxy DORs)
+        const pkElementMatch = obj.xmlString.match(
+            /<(?:[\w-]+:)?PropertyKind\b[^>]*>([\s\S]*?)<\/(?:[\w-]+:)?PropertyKind>/i
+        );
+        if (!pkElementMatch) continue;
+        const pkContent = pkElementMatch[1];
+
+        // Find UUID within the PropertyKind element only
+        const pkRefMatch = pkContent.match(
+            /<(?:[\w-]+:)?(?:UUID|Uuid)[^>]*>([^<]+)<\//i
         );
         if (!pkRefMatch) continue;
 
@@ -794,8 +805,8 @@ export function validatePwlsPropertyKinds(objects: EpcObject[]): ValidationError
         if (isStandardPropertyKindUuid(refUuid)) continue;
 
         // P01: Check if UUID is a known PWLS entry (by title)
-        const titleMatch = obj.xmlString.match(
-            /<(?:[\w-]+:)?PropertyKind[\s\S]*?<(?:[\w-]+:)?Title[^>]*>([^<]+)<\//i
+        const titleMatch = pkContent.match(
+            /<(?:[\w-]+:)?Title[^>]*>([^<]+)<\//i
         );
         const refTitle = titleMatch ? titleMatch[1].trim() : null;
         if (refTitle && !isKnownPwls(refTitle)) {
@@ -987,26 +998,42 @@ export function validateFesapiCompat(
         if (obj.objectType.includes("StringTableLookup")) continue; // XSD exception
 
         if (isV201) {
-            const children = obj.xmlString.match(/<(?:[\w-]+:)?(\w+)[^>]*>/g);
-            if (children) {
-                let firstEmIdx = -1;
-                let lastNonEmIdx = -1;
-                for (let i = 0; i < children.length; i++) {
-                    if (i === 0) continue; // Skip root element
-                    const local = children[i].replace(/<\/?(?:[\w-]+:)?/, "").replace(/[^a-zA-Z0-9]/g, "");
-                    if (local === "ExtraMetadata") {
-                        if (firstEmIdx === -1) firstEmIdx = i;
-                    } else {
-                        lastNonEmIdx = i;
+            // Check ExtraMetadata position: must be last among top-level children.
+            // We extract only top-level child element names (depth 1) by tracking
+            // nesting depth, to avoid false positives from ExtraMetadata/Name and
+            // ExtraMetadata/Value child elements.
+            const topLevelChildren: string[] = [];
+            let depth = 0;
+            const tagRe = /<(\/?)(?:[\w-]+:)?(\w+)[^>]*\/?>/g;
+            let m: RegExpExecArray | null;
+            while ((m = tagRe.exec(obj.xmlString)) !== null) {
+                const isClose = m[1] === "/";
+                const isSelfClose = m[0].endsWith("/>");
+                const local = m[2];
+                if (isClose) {
+                    depth--;
+                } else {
+                    if (depth === 1) {
+                        topLevelChildren.push(local);
                     }
+                    if (!isSelfClose) depth++;
                 }
-                if (firstEmIdx !== -1 && lastNonEmIdx > firstEmIdx) {
-                    errors.push(makeError(
-                        "ExtraMetadata appears before other elements. fesapi requires ExtraMetadata to be the last child elements.",
-                        Severity.ERROR, C,
-                        { uuid: obj.uuid, type: obj.objectType }
-                    ));
+            }
+            let firstEmIdx = -1;
+            let lastNonEmIdx = -1;
+            for (let i = 0; i < topLevelChildren.length; i++) {
+                if (topLevelChildren[i] === "ExtraMetadata") {
+                    if (firstEmIdx === -1) firstEmIdx = i;
+                } else {
+                    lastNonEmIdx = i;
                 }
+            }
+            if (firstEmIdx !== -1 && lastNonEmIdx > firstEmIdx) {
+                errors.push(makeError(
+                    "ExtraMetadata appears before other elements. fesapi requires ExtraMetadata to be the last child elements.",
+                    Severity.WARNING, C,
+                    { uuid: obj.uuid, type: obj.objectType }
+                ));
             }
         }
     }
