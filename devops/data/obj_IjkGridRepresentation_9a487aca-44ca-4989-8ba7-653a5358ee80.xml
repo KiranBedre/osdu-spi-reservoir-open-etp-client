@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<resqml2:IjkGridRepresentation xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:SOAP-ENC="http://schemas.xmlsoap.org/soap/encoding/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:gts="http://www.isotc211.org/2005/gts" xmlns:gsr="http://www.isotc211.org/2005/gsr" xmlns:dc="http://purl.org/dc/terms/" xmlns:resqml1="http://www.resqml.org/schemas/1series" xmlns:resqml2="http://www.energistics.org/energyml/data/resqmlv2" xmlns:witsml1="http://www.witsml.org/schemas/1series" xmlns:eml="http://www.energistics.org/energyml/data/commonv2" xmlns:gml="http://www.opengis.net/gml/3.2" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:gmd="http://www.isotc211.org/2005/gmd" xmlns:gco="http://www.isotc211.org/2005/gco" xmlns:ptm="http://www.f2i-consulting.com/PropertyTypeMapping" xmlns:abstract="http://www.energistics.org/schemas/abstract" schemaVersion="2.0" uuid="9a487aca-44ca-4989-8ba7-653a5358ee80" xsi:type="resqml2:obj_IjkGridRepresentation">
+	<eml:Citation xsi:type="eml:Citation">
+		<eml:Title xsi:type="eml:DescriptionString">flow_simulation_grid</eml:Title>
+		<eml:Originator xsi:type="eml:NameString">tblaise</eml:Originator>
+		<eml:Creation xsi:type="xsd:dateTime">2013-11-14T13:06:13Z</eml:Creation>
+		<eml:Format xsi:type="eml:DescriptionString">RESQML Modeling Application v1.0 for Win_x64</eml:Format>
+		<eml:Editor xsi:type="eml:NameString">tblaise</eml:Editor>
+		<eml:LastUpdate xsi:type="xsd:dateTime">2013-11-14T13:06:19Z</eml:LastUpdate>
+	</eml:Citation>
+	<resqml2:ExtraMetadata xsi:type="resqml2:NameValuePair">
+		<resqml2:Name xsi:type="xsd:string">app/resqml/creatorGroup</resqml2:Name>
+		<resqml2:Value xsi:type="xsd:string">tblaise</resqml2:Value>
+	</resqml2:ExtraMetadata>
+	<resqml2:ExtraMetadata xsi:type="resqml2:NameValuePair">
+		<resqml2:Name xsi:type="xsd:string">app/resqml/project</resqml2:Name>
+		<resqml2:Value xsi:type="xsd:string">b5655db2-1114-4693-b889-9ce391c4b6e9</resqml2:Value>
+	</resqml2:ExtraMetadata>
+	<resqml2:Nk xsi:type="xsd:positiveInteger">11</resqml2:Nk>
+	<resqml2:IntervalStratigraphicUnits xsi:type="resqml2:IntervalStratigraphicUnits">
+		<resqml2:UnitIndices xsi:type="resqml2:IntegerHdf5Array">
+			<resqml2:NullValue xsi:type="xsd:integer">0</resqml2:NullValue>
+			<resqml2:Values xsi:type="eml:Hdf5Dataset">
+				<eml:PathInHdfFile xsi:type="xsd:string">/RESQML/9a487aca-44ca-4989-8ba7-653a5358ee80/unitIndices</eml:PathInHdfFile>
+				<eml:HdfProxy xsi:type="eml:DataObjectReference">
+					<eml:ContentType xsi:type="xsd:string">application/x-eml+xml;version=2.0;type=obj_EpcExternalPartReference</eml:ContentType>
+					<eml:Title xsi:type="eml:DescriptionString">data/model.h5</eml:Title>
+					<eml:UUID xsi:type="eml:UuidString">f1dc897a-e05e-4c57-944f-3501cb9cd71c</eml:UUID>
+					<eml:UuidAuthority xsi:type="xsd:string">app</eml:UuidAuthority>
+					<eml:VersionString xsi:type="eml:NameString">2020-09-08T10:56:58Z</eml:VersionString>
+				</eml:HdfProxy>
+			</resqml2:Values>
+		</resqml2:UnitIndices>
+		<resqml2:StratigraphicOrganization xsi:type="eml:DataObjectReference">
+			<eml:ContentType xsi:type="xsd:string">application/x-resqml+xml;version=2.0;type=obj_StratigraphicColumnRankInterpretation</eml:ContentType>
+			<eml:Title xsi:type="eml:DescriptionString">|UNNAMED|</eml:Title>
+			<eml:UUID xsi:type="eml:UuidString">f29c7636-7029-4e8e-9628-77870e8a2e84</eml:UUID>
+			<eml:UuidAuthority xsi:type="xsd:string">app</eml:UuidAuthority>
+			<eml:VersionString xsi:type="eml:NameString">2014-06-24T08:10:55Z</eml:VersionString>
+		</resqml2:StratigraphicOrganization>
+	</resqml2:IntervalStratigraphicUnits>
+	<resqml2:Ni xsi:type="xsd:positiveInteger">39</resqml2:Ni>
+	<resqml2:Nj xsi:type="xsd:positiveInteger">35</resqml2:Nj>
+	<resqml2:Geometry xsi:type="resqml2:IjkGridGeometry">
+		<resqml2:LocalCrs xsi:type="eml:DataObjectReference">
+			<eml:ContentType xsi:type="xsd:string">application/x-resqml+xml;version=2.0;type=obj_LocalDepth3dCrs</eml:ContentType>
+			<eml:Title xsi:type="eml:DescriptionString">Default</eml:Title>
+			<eml:UUID xsi:type="eml:UuidString">a05e8cb9-f948-4891-85c8-64eabde770e8</eml:UUID>
+			<eml:UuidAuthority xsi:type="xsd:string">app</eml:UuidAuthority>
+			<eml:VersionString xsi:type="eml:NameString">2020-09-08T08:56:56Z</eml:VersionString>
+		</resqml2:LocalCrs>
+		<resqml2:Points xsi:type="resqml2:Point3dHdf5Array">
+			<resqml2:Coordinates xsi:type="eml:Hdf5Dataset">
+				<eml:PathInHdfFile xsi:type="xsd:string">/RESQML/9a487aca-44ca-4989-8ba7-653a5358ee80/Points</eml:PathInHdfFile>
+				<eml:HdfProxy xsi:type="eml:DataObjectReference">
+					<eml:ContentType xsi:type="xsd:string">application/x-eml+xml;version=2.0;type=obj_EpcExternalPartReference</eml:ContentType>
+					<eml:Title xsi:type="eml:DescriptionString">data/model.h5</eml:Title>
+					<eml:UUID xsi:type="eml:UuidString">f1dc897a-e05e-4c57-944f-3501cb9cd71c</eml:UUID>
+					<eml:UuidAuthority xsi:type="xsd:string">app</eml:UuidAuthority>
+					<eml:VersionString xsi:type="eml:NameString">2020-09-08T10:56:58Z</eml:VersionString>
+				</eml:HdfProxy>
+			</resqml2:Coordinates>
+		</resqml2:Points>
+		<resqml2:KDirection xsi:type="resqml2:KDirection">down</resqml2:KDirection>
+		<resqml2:PillarGeometryIsDefined xsi:type="resqml2:BooleanConstantArray">
+			<resqml2:Value xsi:type="xsd:boolean">true</resqml2:Value>
+			<resqml2:Count xsi:type="xsd:positiveInteger">1440</resqml2:Count>
+		</resqml2:PillarGeometryIsDefined>
+		<resqml2:PillarShape xsi:type="resqml2:PillarShape">curved</resqml2:PillarShape>
+		<resqml2:CellGeometryIsDefined xsi:type="resqml2:BooleanHdf5Array">
+			<resqml2:Values xsi:type="eml:Hdf5Dataset">
+				<eml:PathInHdfFile xsi:type="xsd:string">/RESQML/9a487aca-44ca-4989-8ba7-653a5358ee80/cellGeometryIsDefined</eml:PathInHdfFile>
+				<eml:HdfProxy xsi:type="eml:DataObjectReference">
+					<eml:ContentType xsi:type="xsd:string">application/x-eml+xml;version=2.0;type=obj_EpcExternalPartReference</eml:ContentType>
+					<eml:Title xsi:type="eml:DescriptionString">data/model.h5</eml:Title>
+					<eml:UUID xsi:type="eml:UuidString">f1dc897a-e05e-4c57-944f-3501cb9cd71c</eml:UUID>
+					<eml:UuidAuthority xsi:type="xsd:string">app</eml:UuidAuthority>
+					<eml:VersionString xsi:type="eml:NameString">2020-09-08T10:56:58Z</eml:VersionString>
+				</eml:HdfProxy>
+			</resqml2:Values>
+		</resqml2:CellGeometryIsDefined>
+		<resqml2:SplitCoordinateLines xsi:type="resqml2:ColumnLayerSplitCoordinateLines">
+			<resqml2:Count xsi:type="xsd:positiveInteger">4020</resqml2:Count>
+			<resqml2:PillarIndices xsi:type="resqml2:IntegerHdf5Array">
+				<resqml2:NullValue xsi:type="xsd:integer">0</resqml2:NullValue>
+				<resqml2:Values xsi:type="eml:Hdf5Dataset">
+					<eml:PathInHdfFile xsi:type="xsd:string">/RESQML/9a487aca-44ca-4989-8ba7-653a5358ee80/PillarIndices</eml:PathInHdfFile>
+					<eml:HdfProxy xsi:type="eml:DataObjectReference">
+						<eml:ContentType xsi:type="xsd:string">application/x-eml+xml;version=2.0;type=obj_EpcExternalPartReference</eml:ContentType>
+						<eml:Title xsi:type="eml:DescriptionString">data/model.h5</eml:Title>
+						<eml:UUID xsi:type="eml:UuidString">f1dc897a-e05e-4c57-944f-3501cb9cd71c</eml:UUID>
+						<eml:UuidAuthority xsi:type="xsd:string">app</eml:UuidAuthority>
+						<eml:VersionString xsi:type="eml:NameString">2020-09-08T10:56:58Z</eml:VersionString>
+					</eml:HdfProxy>
+				</resqml2:Values>
+			</resqml2:PillarIndices>
+			<resqml2:ColumnsPerSplitCoordinateLine xsi:type="resqml2:ResqmlJaggedArray">
+				<resqml2:Elements xsi:type="resqml2:IntegerHdf5Array">
+					<resqml2:NullValue xsi:type="xsd:integer">-9999</resqml2:NullValue>
+					<resqml2:Values xsi:type="eml:Hdf5Dataset">
+						<eml:PathInHdfFile xsi:type="xsd:string">/RESQML/9a487aca-44ca-4989-8ba7-653a5358ee80/ColumnsPerSplitCoordinateLine/elements</eml:PathInHdfFile>
+						<eml:HdfProxy xsi:type="eml:DataObjectReference">
+							<eml:ContentType xsi:type="xsd:string">application/x-eml+xml;version=2.0;type=obj_EpcExternalPartReference</eml:ContentType>
+							<eml:Title xsi:type="eml:DescriptionString">data/model.h5</eml:Title>
+							<eml:UUID xsi:type="eml:UuidString">f1dc897a-e05e-4c57-944f-3501cb9cd71c</eml:UUID>
+							<eml:UuidAuthority xsi:type="xsd:string">app</eml:UuidAuthority>
+							<eml:VersionString xsi:type="eml:NameString">2020-09-08T10:56:58Z</eml:VersionString>
+						</eml:HdfProxy>
+					</resqml2:Values>
+				</resqml2:Elements>
+				<resqml2:CumulativeLength xsi:type="resqml2:IntegerHdf5Array">
+					<resqml2:NullValue xsi:type="xsd:integer">-9999</resqml2:NullValue>
+					<resqml2:Values xsi:type="eml:Hdf5Dataset">
+						<eml:PathInHdfFile xsi:type="xsd:string">/RESQML/9a487aca-44ca-4989-8ba7-653a5358ee80/ColumnsPerSplitCoordinateLine/cumulativeLength</eml:PathInHdfFile>
+						<eml:HdfProxy xsi:type="eml:DataObjectReference">
+							<eml:ContentType xsi:type="xsd:string">application/x-eml+xml;version=2.0;type=obj_EpcExternalPartReference</eml:ContentType>
+							<eml:Title xsi:type="eml:DescriptionString">data/model.h5</eml:Title>
+							<eml:UUID xsi:type="eml:UuidString">f1dc897a-e05e-4c57-944f-3501cb9cd71c</eml:UUID>
+							<eml:UuidAuthority xsi:type="xsd:string">app</eml:UuidAuthority>
+							<eml:VersionString xsi:type="eml:NameString">2020-09-08T10:56:58Z</eml:VersionString>
+						</eml:HdfProxy>
+					</resqml2:Values>
+				</resqml2:CumulativeLength>
+			</resqml2:ColumnsPerSplitCoordinateLine>
+		</resqml2:SplitCoordinateLines>
+		<resqml2:SplitNodes xsi:type="resqml2:SplitNodePatch">
+			<resqml2:PatchIndex xsi:type="xsd:nonNegativeInteger">0</resqml2:PatchIndex>
+			<resqml2:Count xsi:type="xsd:positiveInteger">33</resqml2:Count>
+			<resqml2:ParentNodeIndices xsi:type="resqml2:IntegerHdf5Array">
+				<resqml2:NullValue xsi:type="xsd:integer">0</resqml2:NullValue>
+				<resqml2:Values xsi:type="eml:Hdf5Dataset">
+					<eml:PathInHdfFile xsi:type="xsd:string">/RESQML/9a487aca-44ca-4989-8ba7-653a5358ee80/parentNodeIndices</eml:PathInHdfFile>
+					<eml:HdfProxy xsi:type="eml:DataObjectReference">
+						<eml:ContentType xsi:type="xsd:string">application/x-eml+xml;version=2.0;type=obj_EpcExternalPartReference</eml:ContentType>
+						<eml:Title xsi:type="eml:DescriptionString">data/model.h5</eml:Title>
+						<eml:UUID xsi:type="eml:UuidString">f1dc897a-e05e-4c57-944f-3501cb9cd71c</eml:UUID>
+						<eml:UuidAuthority xsi:type="xsd:string">app</eml:UuidAuthority>
+						<eml:VersionString xsi:type="eml:NameString">2020-09-08T10:56:58Z</eml:VersionString>
+					</eml:HdfProxy>
+				</resqml2:Values>
+			</resqml2:ParentNodeIndices>
+			<resqml2:CellsPerSplitNode xsi:type="resqml2:ResqmlJaggedArray">
+				<resqml2:Elements xsi:type="resqml2:IntegerHdf5Array">
+					<resqml2:NullValue xsi:type="xsd:integer">-9999</resqml2:NullValue>
+					<resqml2:Values xsi:type="eml:Hdf5Dataset">
+						<eml:PathInHdfFile xsi:type="xsd:string">/RESQML/9a487aca-44ca-4989-8ba7-653a5358ee80/cellsPerSplitNode/elements</eml:PathInHdfFile>
+						<eml:HdfProxy xsi:type="eml:DataObjectReference">
+							<eml:ContentType xsi:type="xsd:string">application/x-eml+xml;version=2.0;type=obj_EpcExternalPartReference</eml:ContentType>
+							<eml:Title xsi:type="eml:DescriptionString">data/model.h5</eml:Title>
+							<eml:UUID xsi:type="eml:UuidString">f1dc897a-e05e-4c57-944f-3501cb9cd71c</eml:UUID>
+							<eml:UuidAuthority xsi:type="xsd:string">app</eml:UuidAuthority>
+							<eml:VersionString xsi:type="eml:NameString">2020-09-08T10:56:58Z</eml:VersionString>
+						</eml:HdfProxy>
+					</resqml2:Values>
+				</resqml2:Elements>
+				<resqml2:CumulativeLength xsi:type="resqml2:IntegerHdf5Array">
+					<resqml2:NullValue xsi:type="xsd:integer">-9999</resqml2:NullValue>
+					<resqml2:Values xsi:type="eml:Hdf5Dataset">
+						<eml:PathInHdfFile xsi:type="xsd:string">/RESQML/9a487aca-44ca-4989-8ba7-653a5358ee80/cellsPerSplitNode/cumulativeLength</eml:PathInHdfFile>
+						<eml:HdfProxy xsi:type="eml:DataObjectReference">
+							<eml:ContentType xsi:type="xsd:string">application/x-eml+xml;version=2.0;type=obj_EpcExternalPartReference</eml:ContentType>
+							<eml:Title xsi:type="eml:DescriptionString">data/model.h5</eml:Title>
+							<eml:UUID xsi:type="eml:UuidString">f1dc897a-e05e-4c57-944f-3501cb9cd71c</eml:UUID>
+							<eml:UuidAuthority xsi:type="xsd:string">app</eml:UuidAuthority>
+							<eml:VersionString xsi:type="eml:NameString">2020-09-08T10:56:58Z</eml:VersionString>
+						</eml:HdfProxy>
+					</resqml2:Values>
+				</resqml2:CumulativeLength>
+			</resqml2:CellsPerSplitNode>
+			<resqml2:SplitFaces xsi:type="resqml2:SplitFaces">
+				<resqml2:Count xsi:type="xsd:positiveInteger">12</resqml2:Count>
+				<resqml2:ParentFaceIndices xsi:type="resqml2:IntegerHdf5Array">
+					<resqml2:NullValue xsi:type="xsd:integer">0</resqml2:NullValue>
+					<resqml2:Values xsi:type="eml:Hdf5Dataset">
+						<eml:PathInHdfFile xsi:type="xsd:string">/RESQML/9a487aca-44ca-4989-8ba7-653a5358ee80/parentFaceIndices</eml:PathInHdfFile>
+						<eml:HdfProxy xsi:type="eml:DataObjectReference">
+							<eml:ContentType xsi:type="xsd:string">application/x-eml+xml;version=2.0;type=obj_EpcExternalPartReference</eml:ContentType>
+							<eml:Title xsi:type="eml:DescriptionString">data/model.h5</eml:Title>
+							<eml:UUID xsi:type="eml:UuidString">f1dc897a-e05e-4c57-944f-3501cb9cd71c</eml:UUID>
+							<eml:UuidAuthority xsi:type="xsd:string">app</eml:UuidAuthority>
+							<eml:VersionString xsi:type="eml:NameString">2020-09-08T10:56:58Z</eml:VersionString>
+						</eml:HdfProxy>
+					</resqml2:Values>
+				</resqml2:ParentFaceIndices>
+				<resqml2:CellIndices xsi:type="resqml2:IntegerHdf5Array">
+					<resqml2:NullValue xsi:type="xsd:integer">0</resqml2:NullValue>
+					<resqml2:Values xsi:type="eml:Hdf5Dataset">
+						<eml:PathInHdfFile xsi:type="xsd:string">/RESQML/9a487aca-44ca-4989-8ba7-653a5358ee80/cellsPerSplitFace</eml:PathInHdfFile>
+						<eml:HdfProxy xsi:type="eml:DataObjectReference">
+							<eml:ContentType xsi:type="xsd:string">application/x-eml+xml;version=2.0;type=obj_EpcExternalPartReference</eml:ContentType>
+							<eml:Title xsi:type="eml:DescriptionString">data/model.h5</eml:Title>
+							<eml:UUID xsi:type="eml:UuidString">f1dc897a-e05e-4c57-944f-3501cb9cd71c</eml:UUID>
+							<eml:UuidAuthority xsi:type="xsd:string">app</eml:UuidAuthority>
+							<eml:VersionString xsi:type="eml:NameString">2020-09-08T10:56:58Z</eml:VersionString>
+						</eml:HdfProxy>
+					</resqml2:Values>
+				</resqml2:CellIndices>
+			</resqml2:SplitFaces>
+		</resqml2:SplitNodes>
+		<resqml2:GridIsRighthanded xsi:type="xsd:boolean">true</resqml2:GridIsRighthanded>
+	</resqml2:Geometry>
+</resqml2:IjkGridRepresentation>
