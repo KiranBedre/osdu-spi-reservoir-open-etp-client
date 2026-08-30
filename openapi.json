@@ -8356,7 +8356,7 @@
     },
     "/query/objects/find": {
       "post": {
-        "description": "Search for data objects and retrieve their full XML/JSON content in a single call. Combines Discovery (find URIs) with GetDataObjects (fetch bodies).\n\n**When to use**: Bulk data export, OSDU Storage ingestion, or when you need the actual XML content (not just metadata).\n\n**Performance**: More expensive than POST /query/resources/find - fetches full object bodies. For large result sets, prefer resource discovery first, then selective GetDataObjects via the /graph/{type}/{guid} endpoints.\n\n**modifiedSince**: ISO timestamp filter - only returns objects written after this time. Useful for incremental sync.",
+        "description": "Search for data objects and retrieve their full XML/JSON content in a single call. Combines Discovery (find URIs) with GetDataObjects (fetch bodies).\n\n**When to use**: Bulk data export, OSDU Storage ingestion, or when you need the actual XML content (not just metadata).\n\n**Performance**: Fetches full object bodies. For large result sets, consider selective GetDataObjects via the /graph/{type}/{guid} endpoints.\n\n**modifiedSince**: ISO timestamp filter - only returns objects written after this time. Useful for incremental sync.",
         "operationId": "QueryController_findDataObjects",
         "parameters": [
           {
@@ -8618,7 +8618,7 @@
         ],
         "summary": "Find data objects with full content (ETP Discovery + Store)",
         "tags": [
-          "Query & Growing Objects"
+          "Query"
         ]
       }
     },
@@ -8941,7 +8941,7 @@
         ],
         "summary": "Batch graph search across multiple URIs (Discovery Protocol 3)",
         "tags": [
-          "Query & Growing Objects"
+          "Query"
         ]
       }
     },
@@ -15552,7 +15552,7 @@
       "description": "OSDU manifest generation from ETP dataspaces - read-only, no transaction required. Common use case: browse resources, then generate a manifest in a single call. Supported source domains: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. Use `GET /health/converters` to list all registered source types and their target OSDU kinds."
     },
     {
-      "name": "Query & Growing Objects",
+      "name": "Query",
       "description": "Advanced search - read-only, no transaction required.\n\n**Graph scope**: `self` (direct), `targets` (referenced by), `sources` (referencing), `targetsOrSelf`, `sourcesOrSelf`. **Depth**: 1 = immediate, N = recursive, 0 = unlimited (may timeout).\n\n**Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP has no server-side pagination)."
     },
     {

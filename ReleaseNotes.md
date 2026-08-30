@@ -2,7 +2,7 @@
 
 Changes in the `open-etp-client` REST gateway since the M27 baseline (`cfffaa2`).
 
-> **Note**: Features requiring ETP protocols not yet implemented in `open-etp-server` (DiscoveryQuery 13, GrowingObject 6, ChannelSubscribe 21) are excluded from the deployed API but available in code for future enablement. See `README.m28.md` for the full feature preview.
+> **Note**: ETP protocols not yet implemented in `open-etp-server` (DiscoveryQuery 13, GrowingObject 6, ChannelSubscribe 21) have been removed from the codebase. See `ToDo.md` for re-enablement plan.
 
 ---
 
@@ -44,28 +44,18 @@ See [sdk/README.md](./sdk/README.md) for full API reference.
 | PUT    | `/witsml/store`                    | Ingest WITSML 2.1/1.4.1 XML with auto-transaction and channel extraction | Live |
 | POST   | `/dataspaces/{id}/epc/upload`      | Upload EPC + H5 file pair, unzip, parse, and ingest with transaction     | Live |
 | GET    | `/wells?name=&dataspace=&include=` | Cross-dataspace well search with hierarchy resolution                    | Live |
-| POST   | `/query/resources/find`            | FindResources by URI + scope/depth/type filter (ETP Protocol 13)         | Pending¹ |
-| POST   | `/query/growing/metadata`          | Growing-object part metadata (ETP Protocol 6)                            | Pending¹ |
-| POST   | `/query/growing/range`             | Growing-object parts by index range (ETP Protocol 6)                     | Pending¹ |
-| POST   | `/query/channels/metadata`         | Channel metadata for streaming (ETP Protocol 21)                         | Pending¹ |
-
-¹ Requires ETP server protocol support not yet implemented in `open-etp-server`. Hidden from Swagger/OpenAPI.
 
 ### GraphQL API
 
 New `/graphql` endpoint with field-level selection and DataLoader batching. Query types: `dataspaces`, `resources` (with lazy `content` and `arrays` fields), `graph` traversal. Uses the same ETP session pool as REST.
 
-### ETP Protocol Handlers (5 new)
+### ETP Protocol Handlers
 
 | Protocol                  | ID  | Handler                             | Purpose                                       | Status |
 | ------------------------- | --- | ----------------------------------- | --------------------------------------------- | ------ |
 | StoreQuery                | 14  | `StoreQueryCustomer`                | Bulk data object retrieval                    | Live |
-| DiscoveryQuery            | 13  | `DiscoveryQueryCustomer`            | URI-pattern resource search with scope/depth  | Pending¹ |
-| GrowingObject             | 6   | `GrowingObjectCustomer`             | Log curve / trajectory station parts by range | Pending¹ |
-| GrowingObjectNotification | 7   | `GrowingObjectNotificationCustomer` | Push notifications for part changes           | Pending¹ |
-| ChannelSubscribe          | 21  | `ChannelSubscribeCustomer`          | Real-time channel metadata and streaming      | Pending¹ |
 
-¹ Client-side handler implemented, awaiting `open-etp-server` protocol support.
+Protocols DiscoveryQuery (13), GrowingObject (6), GrowingObjectNotification (7), and ChannelSubscribe (21) have been removed — `open-etp-server` does not implement them. See `ToDo.md`.
 
 ---
 

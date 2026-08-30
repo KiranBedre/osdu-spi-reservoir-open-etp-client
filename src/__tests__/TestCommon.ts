@@ -16,8 +16,6 @@
 
 import "jest";
 
-import fs from "fs";
-
 import {
   Energistics,
   EtpContentType,
@@ -81,10 +79,49 @@ describe("JSON serialization", () => {
   });
 
   it("IJKGrid valid and invalid", done => {
-    const grid = fs.readFileSync(
-      "./devops/data/obj_IjkGridRepresentation_9a487aca-44ca-4989-8ba7-653a5358ee80.xml",
-      "ascii"
-    );
+    // Minimal valid IjkGrid XML (trimmed from full RESQML 2.0 specimen)
+    const grid = `<?xml version="1.0" encoding="UTF-8"?>
+<resqml2:IjkGridRepresentation
+  xmlns:resqml2="http://www.energistics.org/energyml/data/resqmlv2"
+  xmlns:eml="http://www.energistics.org/energyml/data/commonv2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  schemaVersion="2.0" uuid="9a487aca-44ca-4989-8ba7-653a5358ee80"
+  xsi:type="resqml2:obj_IjkGridRepresentation">
+  <eml:Citation xsi:type="eml:Citation">
+    <eml:Title xsi:type="eml:DescriptionString">flow_simulation_grid</eml:Title>
+    <eml:Originator xsi:type="eml:NameString">test</eml:Originator>
+    <eml:Creation xsi:type="xsd:dateTime">2013-11-14T13:06:13Z</eml:Creation>
+    <eml:Format xsi:type="eml:DescriptionString">test</eml:Format>
+  </eml:Citation>
+  <resqml2:Nk xsi:type="xsd:positiveInteger">11</resqml2:Nk>
+  <resqml2:Ni xsi:type="xsd:positiveInteger">39</resqml2:Ni>
+  <resqml2:Nj xsi:type="xsd:positiveInteger">35</resqml2:Nj>
+  <resqml2:Geometry xsi:type="resqml2:IjkGridGeometry">
+    <resqml2:LocalCrs xsi:type="eml:DataObjectReference">
+      <eml:ContentType xsi:type="xsd:string">application/x-resqml+xml;version=2.0;type=obj_LocalDepth3dCrs</eml:ContentType>
+      <eml:Title xsi:type="eml:DescriptionString">Default</eml:Title>
+      <eml:UUID xsi:type="eml:UuidString">a05e8cb9-f948-4891-85c8-64eabde770e8</eml:UUID>
+    </resqml2:LocalCrs>
+    <resqml2:Points xsi:type="resqml2:Point3dHdf5Array">
+      <resqml2:Coordinates xsi:type="eml:Hdf5Dataset">
+        <eml:PathInHdfFile xsi:type="xsd:string">/RESQML/9a487aca/Points</eml:PathInHdfFile>
+        <eml:HdfProxy xsi:type="eml:DataObjectReference">
+          <eml:ContentType xsi:type="xsd:string">application/x-eml+xml;version=2.0;type=obj_EpcExternalPartReference</eml:ContentType>
+          <eml:Title xsi:type="eml:DescriptionString">model.h5</eml:Title>
+          <eml:UUID xsi:type="eml:UuidString">f1dc897a-e05e-4c57-944f-3501cb9cd71c</eml:UUID>
+        </eml:HdfProxy>
+      </resqml2:Coordinates>
+    </resqml2:Points>
+    <resqml2:KDirection xsi:type="resqml2:KDirection">down</resqml2:KDirection>
+    <resqml2:PillarGeometryIsDefined xsi:type="resqml2:BooleanConstantArray">
+      <resqml2:Value xsi:type="xsd:boolean">true</resqml2:Value>
+      <resqml2:Count xsi:type="xsd:positiveInteger">1440</resqml2:Count>
+    </resqml2:PillarGeometryIsDefined>
+    <resqml2:PillarShape xsi:type="resqml2:PillarShape">curved</resqml2:PillarShape>
+    <resqml2:GridIsRighthanded xsi:type="xsd:boolean">true</resqml2:GridIsRighthanded>
+  </resqml2:Geometry>
+</resqml2:IjkGridRepresentation>`;
     XmlUtils.xml2typescript(grid, "resqml20.obj_IjkGridRepresentation").then(
       obj => {
         const o2 = obj as any;
@@ -164,7 +201,7 @@ describe("EtpUri", () => {
     const uri = created.uri;
     expect(uri).toStrictEqual(
       `${dataspace}/resqml20.obj_SeismicLatticeFeature(uuid=0ac4d3a2-d209-433f-8f7a-c59b13dab196,version='v1')` +
-        "?$filter=Ni ge 10&$top=4&$skip=1&$orderby=Citation/Title"
+      "?$filter=Ni ge 10&$top=4&$skip=1&$orderby=Citation/Title"
     );
     expect(created.guid).toStrictEqual(
       EtpUri.uuidStringToByteArray("0ac4d3a2-d209-433f-8f7a-c59b13dab196")

@@ -73,18 +73,7 @@ async function main() {
         },
     ], [pointArray]);
 
-    console.log("\n2. FindResources - all in dataspace");
-    try {
-        const found = await rddms.query.findResources({
-            uri: `eml:///dataspace('${DS}')`,
-            depth: 0,
-        });
-        console.log("   Found:", (found as any[]).length, "resources");
-    } catch (e: any) {
-        console.log("   Skipped (server 501):", e.message.slice(0, 80));
-    }
-
-    console.log("\n3. Batch graph search - targets of PointSet");
+    console.log("\n2. Batch graph search - targets of PointSet");
     try {
         const graphResult = await rddms.query.graphSearch({
             uris: [`eml:///dataspace('${DS}')/resqml20.obj_PointSetRepresentation(${REP_UUID})`],
@@ -97,16 +86,16 @@ async function main() {
         console.log("   Skipped (server 501):", e.message.slice(0, 80));
     }
 
-    console.log("\n4. Graph via Discovery API - targets of PointSet");
+    console.log("\n3. Graph via Discovery API - targets of PointSet");
     const graph = await rddms.graph.targets(DS, "resqml20.obj_PointSetRepresentation", REP_UUID, { depth: 2 });
     console.log("   Nodes:", graph.resources.length);
     for (const r of graph.resources) console.log(`     → ${r.name}`);
 
-    console.log("\n5. List all resources");
+    console.log("\n4. List all resources");
     const all = await rddms.resources.list(DS);
     for (const r of all) console.log(`   ${r.name} - ${r.uri}`);
 
-    console.log("\n6. Cleanup");
+    console.log("\n5. Cleanup");
     await rddms.dataspaces.delete(DS);
     console.log("   Done!");
 }

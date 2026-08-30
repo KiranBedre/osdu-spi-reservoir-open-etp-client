@@ -141,12 +141,8 @@ new RddmsClient(options: RddmsClientOptions)
 
 | Method                    | Returns             | Description              |
 | ------------------------- | ------------------- | ------------------------ |
-| `.findResources(input)`   | `ResourceSummary[]` | URI-based search         |
 | `.findObjects(input)`     | `object[]`          | Search + fetch content   |
 | `.graphSearch(input)`     | `GraphResult`       | Batch graph traversal    |
-| `.growingMetadata(input)` | `object`            | WellLog/Trajectory parts |
-| `.growingRange(input)`    | `object`            | Parts by index range     |
-| `.channelMetadata(input)` | `object`            | Channel names/UOMs       |
 
 #### `rddms.manifest`
 

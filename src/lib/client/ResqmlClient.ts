@@ -61,11 +61,7 @@ import { StoreCustomer } from "../protocols/StoreCustomer";
 import { StoreNotificationCustomer } from "../protocols/StoreNotificationCustomer";
 import { SupportedTypesCustomer } from "../protocols/SupportedTypesCustomer";
 import { TransactionCustomer } from "../protocols/TransactionCustomer";
-import { DiscoveryQueryCustomer } from "../protocols/DiscoveryQueryCustomer";
 import { StoreQueryCustomer } from "../protocols/StoreQueryCustomer";
-import { GrowingObjectCustomer } from "../protocols/GrowingObjectCustomer";
-import { GrowingObjectNotificationCustomer } from "../protocols/GrowingObjectNotificationCustomer";
-import { ChannelSubscribeCustomer } from "../protocols/ChannelSubscribeCustomer";
 
 import { ResourceGraph, Timer } from "../common/ResponseHandlers";
 import { SimpleJson, simpleJson, xml2typescript } from "../mlTypes/XmlJsonUtil";
@@ -227,17 +223,7 @@ export class ResqmlClient {
   private readonly transaction: TransactionCustomer = new TransactionCustomer(
     this.client
   );
-  readonly discoveryQuery: DiscoveryQueryCustomer = new DiscoveryQueryCustomer(
-    this.client
-  );
   readonly storeQuery: StoreQueryCustomer = new StoreQueryCustomer(this.client);
-  readonly growingObject: GrowingObjectCustomer = new GrowingObjectCustomer(
-    this.client
-  );
-  readonly growingObjectNotification: GrowingObjectNotificationCustomer =
-    new GrowingObjectNotificationCustomer(this.client);
-  readonly channelSubscribe: ChannelSubscribeCustomer =
-    new ChannelSubscribeCustomer(this.client);
   private connected = false;
 
   private readonly overhead = 1024; // Represents the overhead to add on top of array size
@@ -289,28 +275,9 @@ export class ResqmlClient {
       Energistics.Etp.v12.Datatypes.Protocol.DataspaceOSDU,
       this.dataspaceOSDU
     );
-    // Extended protocols - always registered; the ETP session negotiation
-    // determines which ones the server actually supports.  REST endpoints
-    // check `isProtocolSupported()` and return 501 when unavailable.
-    this.client.registerHandler(
-      Energistics.Etp.v12.Datatypes.Protocol.DiscoveryQuery,
-      this.discoveryQuery
-    );
     this.client.registerHandler(
       Energistics.Etp.v12.Datatypes.Protocol.StoreQuery,
       this.storeQuery
-    );
-    this.client.registerHandler(
-      Energistics.Etp.v12.Datatypes.Protocol.GrowingObject,
-      this.growingObject
-    );
-    this.client.registerHandler(
-      Energistics.Etp.v12.Datatypes.Protocol.GrowingObjectNotification,
-      this.growingObjectNotification
-    );
-    this.client.registerHandler(
-      Energistics.Etp.v12.Datatypes.Protocol.ChannelSubscribe,
-      this.channelSubscribe
     );
     if (opt) {
       this.options = opt;
