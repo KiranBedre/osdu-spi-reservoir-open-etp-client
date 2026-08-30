@@ -26,7 +26,7 @@
     "docker:compose:start": "npm run docker:compose:base -- up -d -V --force-recreate --remove-orphans",
     "docker:compose:stop": "npm run docker:compose:base -- down --volumes --remove-orphans",
     "test": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit",
-    "test:integration": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit --testPathPattern='TestClient|TestProtocols|TestWitsmlQuery'",
+    "test:integration": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit --testPathPattern='TestClient|TestWitsmlQuery'",
     "test:cov": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit --coverage",
     "test:debug": "npm run env:set -- node --inspect-brk ./node_modules/jest/bin/jest.js --coverage=false --runInBand",
     "test:single": "npm run env:set -- jest --coverage=false --runInBand",

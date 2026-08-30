@@ -299,10 +299,6 @@ export class RddmsClient {
     // ── Query ───────────────────────────────────────────────────────────────
 
     readonly query = {
-        /** Find resources by URI context and scope */
-        findResources: (input: FindResourcesInput) =>
-            this.post<ResourceSummary[]>("/query/resources/find", input),
-
         /** Find data objects with full content */
         findObjects: (input: FindResourcesInput & { modifiedSince?: string }) =>
             this.post<unknown[]>("/query/objects/find", input),
@@ -310,18 +306,6 @@ export class RddmsClient {
         /** Batch graph search across multiple URIs */
         graphSearch: (input: { uris: string[]; scope?: string; depth?: number }) =>
             this.post<GraphResult>("/query/graph/search", input),
-
-        /** Growing object parts metadata */
-        growingMetadata: (input: { uri: string }) =>
-            this.post<unknown>("/query/growing/metadata", input),
-
-        /** Growing object parts by range */
-        growingRange: (input: { uri: string; startIndex: number; endIndex: number; includeOverlapping?: boolean }) =>
-            this.post<unknown>("/query/growing/range", input),
-
-        /** Channel metadata */
-        channelMetadata: (input: { uri: string }) =>
-            this.post<unknown>("/query/channels/metadata", input),
     };
 
     // ── Manifest ────────────────────────────────────────────────────────────

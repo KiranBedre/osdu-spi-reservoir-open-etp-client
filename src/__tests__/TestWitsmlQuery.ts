@@ -239,35 +239,6 @@ describe("Query REST API - Input Validation", () => {
     nestAppServer = (await nestApp.init()).getHttpServer();
   });
 
-  it("POST /query/resources/find - rejects missing Authorization", async () => {
-    const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/query/resources/find`)
-      .set("data-partition-id", testDataPartitionId)
-      .send({ uri: "eml:///dataspace('test')" });
-
-    expect(response.status).toBe(401);
-  });
-
-  it("POST /query/resources/find - rejects missing uri", async () => {
-    const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/query/resources/find`)
-      .set("Authorization", `Bearer ${jwt}`)
-      .set("data-partition-id", testDataPartitionId)
-      .send({});
-
-    expect(response.status).toBe(400);
-  });
-
-  it("POST /query/resources/find - rejects invalid scope enum", async () => {
-    const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/query/resources/find`)
-      .set("Authorization", `Bearer ${jwt}`)
-      .set("data-partition-id", testDataPartitionId)
-      .send({ uri: "eml:///dataspace('test')", scope: "INVALID_SCOPE" });
-
-    expect(response.status).toBe(400);
-  });
-
   it("POST /query/objects/find - rejects missing uri", async () => {
     const response = await request(nestAppServer)
       .post(`${restApiMainUrl}/query/objects/find`)
@@ -278,35 +249,6 @@ describe("Query REST API - Input Validation", () => {
     expect(response.status).toBe(400);
   });
 
-  it("POST /query/growing/metadata - rejects missing uri", async () => {
-    const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/query/growing/metadata`)
-      .set("Authorization", `Bearer ${jwt}`)
-      .set("data-partition-id", testDataPartitionId)
-      .send({});
-
-    expect(response.status).toBe(400);
-  });
-
-  it("POST /query/growing/range - rejects missing required fields", async () => {
-    const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/query/growing/range`)
-      .set("Authorization", `Bearer ${jwt}`)
-      .set("data-partition-id", testDataPartitionId)
-      .send({ uri: "eml:///dataspace('test')" });
-
-    expect(response.status).toBe(400);
-  });
-
-  it("POST /query/channels/metadata - rejects missing uri", async () => {
-    const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/query/channels/metadata`)
-      .set("Authorization", `Bearer ${jwt}`)
-      .set("data-partition-id", testDataPartitionId)
-      .send({});
-
-    expect(response.status).toBe(400);
-  });
 });
 
 describe("Query REST API - Functional", () => {
@@ -316,41 +258,6 @@ describe("Query REST API - Functional", () => {
   beforeAll(async () => {
     const nestApp = await restApp();
     nestAppServer = (await nestApp.init()).getHttpServer();
-  });
-
-  it("POST /query/resources/find - finds resources in dataspace", async () => {
-    const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/query/resources/find`)
-      .set("Authorization", `Bearer ${jwt}`)
-      .set("data-partition-id", testDataPartitionId)
-      .send({
-        uri: testUri,
-        scope: "targets",
-        depth: 1
-      });
-
-    expect([200, 502]).toContain(response.status);
-    if (response.status === 200) {
-      expect(Array.isArray(response.body)).toBe(true);
-    }
-  });
-
-  it("POST /query/resources/find - filters by data object type", async () => {
-    const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/query/resources/find`)
-      .set("Authorization", `Bearer ${jwt}`)
-      .set("data-partition-id", testDataPartitionId)
-      .send({
-        uri: testUri,
-        scope: "targets",
-        depth: 1,
-        dataObjectTypes: ["resqml22.TriangulatedSetRepresentation"]
-      });
-
-    expect([200, 502]).toContain(response.status);
-    if (response.status === 200) {
-      expect(Array.isArray(response.body)).toBe(true);
-    }
   });
 
   it("POST /query/objects/find - retrieves objects with content", async () => {
@@ -368,26 +275,5 @@ describe("Query REST API - Functional", () => {
     if (response.status === 200) {
       expect(Array.isArray(response.body)).toBe(true);
     }
-  });
-
-  it("POST /query/growing/metadata - handles gracefully", async () => {
-    const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/query/growing/metadata`)
-      .set("Authorization", `Bearer ${jwt}`)
-      .set("data-partition-id", testDataPartitionId)
-      .send({ uri: testUri });
-
-    // May return 200 (with data) or 502 (ETP down) or 404 (no growing objects)
-    expect([200, 404, 502]).toContain(response.status);
-  });
-
-  it("POST /query/channels/metadata - handles gracefully", async () => {
-    const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/query/channels/metadata`)
-      .set("Authorization", `Bearer ${jwt}`)
-      .set("data-partition-id", testDataPartitionId)
-      .send({ uri: testUri });
-
-    expect([200, 404, 502]).toContain(response.status);
   });
 });
