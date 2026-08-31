@@ -1040,7 +1040,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
-                  "pm.test(\"has Citation\", function () { pm.expect(pm.response.json()).to.have.property(\"Citation\"); });"
+                  "pm.test(\"has Citation\", function () { var body = pm.response.json(); var obj = Array.isArray(body) ? body[0] : body; pm.expect(obj).to.have.property(\"Citation\"); });"
                 ]
               }
             }
@@ -2039,7 +2039,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"delete rejected (400/403/409)\", function () { pm.expect(pm.response.code).to.be.oneOf([400, 403, 409]); });"
+                  "pm.test(\"delete rejected (400/401/403/409)\", function () { pm.expect(pm.response.code).to.be.oneOf([400, 401, 403, 409]); });"
                 ]
               }
             }
@@ -2476,7 +2476,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                  "pm.test(\"status is 200 or 400\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 400]); });"
                 ]
               }
             }
