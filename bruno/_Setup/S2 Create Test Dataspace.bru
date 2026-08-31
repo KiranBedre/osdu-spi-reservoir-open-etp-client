@@ -21,10 +21,10 @@ body:json {
       "DataspaceId": "{{testDataspaceIdRaw}}",
       "Path": "{{testDataspaceIdRaw}}",
       "CustomData": {
-        "viewers": { "values": ["{{defaultViewers}}"] },
-        "owners": { "values": ["{{defaultOwners}}"] },
-        "legaltags": { "values": ["{{defaultLegalTag}}"] },
-        "otherRelevantDataCountries": { "values": ["US"] }
+        "viewers": ["{{defaultViewers}}"],
+        "owners": ["{{defaultOwners}}"],
+        "legaltags": ["{{defaultLegalTag}}"],
+        "otherRelevantDataCountries": ["US"]
       }
     }
   ]
