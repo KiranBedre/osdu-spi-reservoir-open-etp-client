@@ -569,7 +569,7 @@
     },
     "/health/converters": {
       "get": {
-        "description": "Returns all registered RESQML/WITSML \u2192 OSDU type converters for diagnostics and validation.",
+        "description": "Returns all registered RESQML/WITSML → OSDU type converters for diagnostics and validation.",
         "operationId": "HealthAPI_Converters",
         "parameters": [],
         "responses": {
@@ -3674,7 +3674,7 @@
     },
     "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/targets": {
       "get": {
-        "description": "Flat list of resources that this object references (e.g., a Property's supporting Representation, or a Representation's CRS). Follows relationships forward (parent \u2192 child).\n\n**depth**: 1 = immediate targets only, N = recursive (e.g., depth=2 gets targets of targets).\n\n**For graph with edges**: Use `GET /graph/{type}/{guid}/targets` instead.",
+        "description": "Flat list of resources that this object references (e.g., a Property's supporting Representation, or a Representation's CRS). Follows relationships forward (parent → child).\n\n**depth**: 1 = immediate targets only, N = recursive (e.g., depth=2 gets targets of targets).\n\n**For graph with edges**: Use `GET /graph/{type}/{guid}/targets` instead.",
         "operationId": "ResourcesReadAPI_ListTargets",
         "parameters": [
           {
@@ -4752,7 +4752,7 @@
     },
     "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/sources": {
       "get": {
-        "description": "Flat list of resources that reference this object (e.g., Properties attached to a Representation). Follows relationships backward (child \u2192 parent).\n\n**depth**: 1 = immediate sources only, N = recursive.\n\n**For graph with edges**: Use `GET /graph/{type}/{guid}/sources` instead.",
+        "description": "Flat list of resources that reference this object (e.g., Properties attached to a Representation). Follows relationships backward (child → parent).\n\n**depth**: 1 = immediate sources only, N = recursive.\n\n**For graph with edges**: Use `GET /graph/{type}/{guid}/sources` instead.",
         "operationId": "ResourcesReadAPI_ListSources",
         "parameters": [
           {
@@ -7517,7 +7517,7 @@
     },
     "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/arrays/{pathInResource}": {
       "get": {
-        "description": "Retrieve the numeric data of an array. For large arrays, use `starts` and `counts` to fetch slices (subarrays) instead of the full dataset.\n\n**starts/counts**: Must be used together. Each is a comma-separated list matching the array dimensions (e.g., `starts=0,0&counts=100,3` for first 100 rows \u00d7 3 columns).\n\n**format**: `json` (default) returns a number array; `base64` returns a base64-encoded binary string (more efficient for large transfers).\n\n**Chunking**: The ETP layer automatically chunks large arrays (~10 MB per WebSocket message) and reassembles on the server side.",
+        "description": "Retrieve the numeric data of an array. For large arrays, use `starts` and `counts` to fetch slices (subarrays) instead of the full dataset.\n\n**starts/counts**: Must be used together. Each is a comma-separated list matching the array dimensions (e.g., `starts=0,0&counts=100,3` for first 100 rows × 3 columns).\n\n**format**: `json` (default) returns a number array; `base64` returns a base64-encoded binary string (more efficient for large transfers).\n\n**Chunking**: The ETP layer automatically chunks large arrays (~10 MB per WebSocket message) and reassembles on the server side.",
         "operationId": "DataArrayReadAPI_GetArray",
         "parameters": [
           {
@@ -8354,600 +8354,9 @@
         ]
       }
     },
-    "/query/objects/find": {
-      "post": {
-        "description": "Search for data objects and retrieve their full XML/JSON content in a single call. Combines Discovery (find URIs) with GetDataObjects (fetch bodies).\n\n**When to use**: Bulk data export, OSDU Storage ingestion, or when you need the actual XML content (not just metadata).\n\n**Performance**: Fetches full object bodies. For large result sets, consider selective GetDataObjects via the /graph/{type}/{guid} endpoints.\n\n**modifiedSince**: ISO timestamp filter - only returns objects written after this time. Useful for incremental sync.",
-        "operationId": "QueryController_findDataObjects",
-        "parameters": [
-          {
-            "name": "data-partition-id",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "pattern": "^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FindDataObjectsDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Matching data objects with content"
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "statusCode": {
-                      "type": "integer",
-                      "format": "int32",
-                      "minimum": 401,
-                      "maximum": 401,
-                      "example": 401
-                    },
-                    "message": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    },
-                    "error": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "statusCode": {
-                      "type": "integer",
-                      "format": "int32",
-                      "minimum": 403,
-                      "maximum": 403,
-                      "example": 403
-                    },
-                    "message": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    },
-                    "error": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "406": {
-            "description": "Not acceptable response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "statusCode": {
-                      "type": "integer",
-                      "format": "int32",
-                      "minimum": 406,
-                      "maximum": 406,
-                      "example": 406
-                    },
-                    "message": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    },
-                    "error": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients should open a new transaction.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "example": "WEBSOCKET_SESSION_TERMINATED",
-                      "description": "Stable machine-readable identifier for this error condition."
-                    },
-                    "description": {
-                      "type": "string",
-                      "example": "ETP WebSocket session terminated (code 1011, reason: Internal server error)."
-                    },
-                    "transactionId": {
-                      "type": "string",
-                      "format": "uuid",
-                      "description": "Transaction id that was terminated."
-                    },
-                    "closeCode": {
-                      "type": "integer",
-                      "format": "int32",
-                      "example": 1011,
-                      "description": "WebSocket close code reported by the ETP server."
-                    },
-                    "closeReason": {
-                      "type": "string",
-                      "description": "WebSocket close reason reported by the ETP server."
-                    },
-                    "terminatedAt": {
-                      "type": "string",
-                      "format": "date-time",
-                      "description": "ISO-8601 timestamp when the session was terminated."
-                    },
-                    "retryable": {
-                      "type": "boolean",
-                      "example": false,
-                      "description": "Always false. The transaction cannot be reused; open a new one."
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too many requests",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "statusCode": {
-                      "type": "integer",
-                      "format": "int32",
-                      "minimum": 429,
-                      "maximum": 429,
-                      "example": 429
-                    },
-                    "message": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    },
-                    "error": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Unknown Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "statusCode": {
-                      "type": "integer",
-                      "format": "int32",
-                      "minimum": 500,
-                      "maximum": 500,
-                      "example": 500
-                    },
-                    "message": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    },
-                    "error": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Unknown Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "statusCode": {
-                      "type": "integer",
-                      "format": "int32",
-                      "minimum": 500,
-                      "maximum": 500,
-                      "example": 500
-                    },
-                    "message": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    },
-                    "error": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Find data objects with full content (ETP Discovery + Store)",
-        "tags": [
-          "Query"
-        ]
-      }
-    },
-    "/query/graph/search": {
-      "post": {
-        "description": "Build a merged, deduplicated subgraph for multiple resource URIs in a single ETP session.\n\nFor each URI, traverses the relationship graph with the given scope and depth, then merges all discovered nodes and edges into a single result.\n\n**Why use this**: Without batch search, deep search across N objects requires N+ individual REST calls. This endpoint does it in one call, reusing a single ETP session.\n\n**Performance**: For very large batches (>100 URIs), split into chunks - URIs are processed sequentially within the session. Depth values > 100 may timeout depending on server configuration.\n\n**Best-effort**: If traversal fails for one URI, remaining URIs are still processed and partial results returned.",
-        "operationId": "QueryController_graphSearch",
-        "parameters": [
-          {
-            "name": "data-partition-id",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "pattern": "^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GraphSearchDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Merged graph containing all discovered resources and edges",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "resources": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "uri": {
-                            "type": "string"
-                          },
-                          "name": {
-                            "type": "string"
-                          },
-                          "sourceCount": {
-                            "type": "number"
-                          },
-                          "targetCount": {
-                            "type": "number"
-                          },
-                          "lastChanged": {
-                            "type": "string"
-                          },
-                          "storeLastWrite": {
-                            "type": "string"
-                          },
-                          "activeStatus": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    },
-                    "links": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "source": {
-                            "type": "string"
-                          },
-                          "target": {
-                            "type": "string"
-                          },
-                          "path": {
-                            "type": "string"
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "statusCode": {
-                      "type": "integer",
-                      "format": "int32",
-                      "minimum": 401,
-                      "maximum": 401,
-                      "example": 401
-                    },
-                    "message": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    },
-                    "error": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "statusCode": {
-                      "type": "integer",
-                      "format": "int32",
-                      "minimum": 403,
-                      "maximum": 403,
-                      "example": 403
-                    },
-                    "message": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    },
-                    "error": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "406": {
-            "description": "Not acceptable response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "statusCode": {
-                      "type": "integer",
-                      "format": "int32",
-                      "minimum": 406,
-                      "maximum": 406,
-                      "example": 406
-                    },
-                    "message": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    },
-                    "error": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "410": {
-            "description": "The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients should open a new transaction.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "code": {
-                      "type": "string",
-                      "example": "WEBSOCKET_SESSION_TERMINATED",
-                      "description": "Stable machine-readable identifier for this error condition."
-                    },
-                    "description": {
-                      "type": "string",
-                      "example": "ETP WebSocket session terminated (code 1011, reason: Internal server error)."
-                    },
-                    "transactionId": {
-                      "type": "string",
-                      "format": "uuid",
-                      "description": "Transaction id that was terminated."
-                    },
-                    "closeCode": {
-                      "type": "integer",
-                      "format": "int32",
-                      "example": 1011,
-                      "description": "WebSocket close code reported by the ETP server."
-                    },
-                    "closeReason": {
-                      "type": "string",
-                      "description": "WebSocket close reason reported by the ETP server."
-                    },
-                    "terminatedAt": {
-                      "type": "string",
-                      "format": "date-time",
-                      "description": "ISO-8601 timestamp when the session was terminated."
-                    },
-                    "retryable": {
-                      "type": "boolean",
-                      "example": false,
-                      "description": "Always false. The transaction cannot be reused; open a new one."
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "Too many requests",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "statusCode": {
-                      "type": "integer",
-                      "format": "int32",
-                      "minimum": 429,
-                      "maximum": 429,
-                      "example": 429
-                    },
-                    "message": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    },
-                    "error": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Unknown Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "statusCode": {
-                      "type": "integer",
-                      "format": "int32",
-                      "minimum": 500,
-                      "maximum": 500,
-                      "example": 500
-                    },
-                    "message": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    },
-                    "error": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Unknown Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "statusCode": {
-                      "type": "integer",
-                      "format": "int32",
-                      "minimum": 500,
-                      "maximum": 500,
-                      "example": 500
-                    },
-                    "message": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    },
-                    "error": {
-                      "type": "string",
-                      "pattern": "^[a-zA-Z0-9 ]*$",
-                      "maxLength": 2048
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "Batch graph search across multiple URIs (Discovery Protocol 3)",
-        "tags": [
-          "Query"
-        ]
-      }
-    },
     "/dataspaces/{dataspaceId}/transactions": {
       "post": {
-        "description": "Start a new transaction for atomic write operations in this dataspace.\n\nReturns a `transactionId` UUID. Pass it to write/array endpoints as a query parameter.\n\n**Lifecycle**: commit with `PUT \u2026/transactions/{txId}`, rollback with `DELETE \u2026/transactions/{txId}`.\n\n**Timeout**: Auto-rollback after `TimeoutPeriod` seconds (default 300) if no new transaction messages occur.\n\n**Constraint**: Only one transaction can be active per dataspace at a time.\n\n**Typical write workflow**:\n```\nPOST  /dataspaces/{ds}/transactions              \u2192 transactionId\nPUT   /dataspaces/{ds}/resources?transactionId=\u2026  \u2192 put objects (JSON array)\nPUT   /dataspaces/{ds}/resources/arrays?transactionId=\u2026 \u2192 put arrays (one per channel)\nPUT   /dataspaces/{ds}/transactions/{txId}        \u2192 commit\n```",
+        "description": "Start a new transaction for atomic write operations in this dataspace.\n\nReturns a `transactionId` UUID. Pass it to write/array endpoints as a query parameter.\n\n**Lifecycle**: commit with `PUT …/transactions/{txId}`, rollback with `DELETE …/transactions/{txId}`.\n\n**Timeout**: Auto-rollback after `TimeoutPeriod` seconds (default 300) if no new transaction messages occur.\n\n**Constraint**: Only one transaction can be active per dataspace at a time.\n\n**Typical write workflow**:\n```\nPOST  /dataspaces/{ds}/transactions              → transactionId\nPUT   /dataspaces/{ds}/resources?transactionId=…  → put objects (JSON array)\nPUT   /dataspaces/{ds}/resources/arrays?transactionId=… → put arrays (one per channel)\nPUT   /dataspaces/{ds}/transactions/{txId}        → commit\n```",
         "operationId": "TransactionsAPI_PostTransaction",
         "parameters": [
           {
@@ -12054,7 +11463,7 @@
     },
     "/dataspaces/{dataspaceId}/epc/upload": {
       "post": {
-        "description": "Upload a RESQML EPC file (ZIP with XML objects) and an optional HDF5 companion file.\n\n**Processing flow**:\n1. Validate file sizes against configured limits\n2. Unzip EPC \u2192 parse `[Content_Types].xml` manifest\n3. Extract XML objects, identify `EpcExternalPartReference` entries\n4. Scan XML for `<Hdf5Dataset>` blocks \u2192 collect H5 dataset paths\n5. Open H5 file, pre-scan dataset metadata\n6. Start transaction (or reuse caller's)\n7. PUT objects in batches of 100 (avoids ETP message size limits)\n8. PUT arrays one-by-one from H5 file (bounded memory)\n9. Commit transaction\n10. Auto-ingest to OSDU catalog (if `autoIngest` is set)\n\n**Auto-ingest modes**:\n- `false` (default) - no catalog registration\n- `true` / `records` - builds manifest \u2192 pushes records via Storage Service (data immediately searchable)\n- `workflow` - builds manifest \u2192 submits to OSDU ingestion workflow DAG\n\n**Note**: `autoIngest` requires an internal transaction (omit `transactionId`). When using an external transaction, auto-ingest is skipped because the data may not be committed yet.\n\n**Performance**: H5 file is written to disk (not buffered in memory). Arrays are read and sent one at a time. Duplicate H5 dataset references are deduplicated.",
+        "description": "Upload a RESQML EPC file (ZIP with XML objects) and an optional HDF5 companion file.\n\n**Processing flow**:\n1. Validate file sizes against configured limits\n2. Unzip EPC → parse `[Content_Types].xml` manifest\n3. Extract XML objects, identify `EpcExternalPartReference` entries\n4. Scan XML for `<Hdf5Dataset>` blocks → collect H5 dataset paths\n5. Open H5 file, pre-scan dataset metadata\n6. Start transaction (or reuse caller's)\n7. PUT objects in batches of 100 (avoids ETP message size limits)\n8. PUT arrays one-by-one from H5 file (bounded memory)\n9. Commit transaction\n10. Auto-ingest to OSDU catalog (if `autoIngest` is set)\n\n**Auto-ingest modes**:\n- `false` (default) - no catalog registration\n- `true` / `records` - builds manifest → pushes records via Storage Service (data immediately searchable)\n- `workflow` - builds manifest → submits to OSDU ingestion workflow DAG\n\n**Note**: `autoIngest` requires an internal transaction (omit `transactionId`). When using an external transaction, auto-ingest is skipped because the data may not be committed yet.\n\n**Performance**: H5 file is written to disk (not buffered in memory). Arrays are read and sent one at a time. Duplicate H5 dataset references are deduplicated.",
         "operationId": "EpcUploadAPI_uploadEpc",
         "parameters": [
           {
@@ -13351,7 +12760,7 @@
     },
     "/dataspaces/{dataspaceId}/clone": {
       "post": {
-        "description": "Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.\n\n**Note**: This is a server-side deep copy via ETP - no data is transferred through the REST layer.",
+        "description": "Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.\n\n**Prerequisites**:\n- The source dataspace is automatically locked during the clone and unlocked afterwards.\n- The target dataspace (DataspaceId) must not already exist.\n\n**Note**: This is a server-side deep copy via ETP — no data is transferred through the REST layer.",
         "operationId": "DataspaceMutationsAPI_CloneDataspace",
         "parameters": [
           {
@@ -14070,7 +13479,7 @@
     },
     "/witsml/store": {
       "put": {
-        "description": "Parse WITSML 2.1 (or 1.4.1 container) XML and store as ETP data objects. If no transactionId is provided, automatically wraps the write in a transaction (start \u2192 put \u2192 commit).\n\n**Key features**:\n- **WITSML 1.4.1 support**: Detects plural container wrappers (`<wells>`, `<logs>`, etc.) and splits into individual WITSML 2.1 objects with deterministic UUID v5 from uid\n- **Channel data extraction**: Automatically extracts `<logData><data>` rows (1.4.1) or ChannelSet data (2.1) as separate ETP data arrays\n- **Trajectory support**: Extracts MD/Inclination/Azimuth from `<trajectoryStation>` elements as arrays\n- **Auto-transaction**: If no `transactionId` is provided, the write is wrapped in an internal transaction. If provided, the caller manages commit/rollback.",
+        "description": "Parse WITSML 2.1 (or 1.4.1 container) XML and store as ETP data objects. If no transactionId is provided, automatically wraps the write in a transaction (start → put → commit).\n\n**Key features**:\n- **WITSML 1.4.1 support**: Detects plural container wrappers (`<wells>`, `<logs>`, etc.) and splits into individual WITSML 2.1 objects with deterministic UUID v5 from uid\n- **Channel data extraction**: Automatically extracts `<logData><data>` rows (1.4.1) or ChannelSet data (2.1) as separate ETP data arrays\n- **Trajectory support**: Extracts MD/Inclination/Azimuth from `<trajectoryStation>` elements as arrays\n- **Auto-transaction**: If no `transactionId` is provided, the write is wrapped in an internal transaction. If provided, the caller manages commit/rollback.",
         "operationId": "WitsmlController_putWitsmlObjects",
         "parameters": [
           {
@@ -15518,12 +14927,603 @@
           "PWLS"
         ]
       }
+    },
+    "/query/objects/find": {
+      "post": {
+        "description": "Search for data objects and retrieve their full XML/JSON content in a single call. Combines Discovery (find URIs) with GetDataObjects (fetch bodies).\n\n**When to use**: Bulk data export, OSDU Storage ingestion, or when you need the actual XML content (not just metadata).\n\n**Performance**: Fetches full object bodies. For large result sets, consider selective GetDataObjects via the /graph/{type}/{guid} endpoints.\n\n**modifiedSince**: ISO timestamp filter - only returns objects written after this time. Useful for incremental sync.",
+        "operationId": "QueryController_findDataObjects",
+        "parameters": [
+          {
+            "name": "data-partition-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FindDataObjectsDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Matching data objects with content"
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 401,
+                      "maximum": 401,
+                      "example": 401
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 403,
+                      "maximum": 403,
+                      "example": 403
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not acceptable response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 406,
+                      "maximum": 406,
+                      "example": 406
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients should open a new transaction.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "example": "WEBSOCKET_SESSION_TERMINATED",
+                      "description": "Stable machine-readable identifier for this error condition."
+                    },
+                    "description": {
+                      "type": "string",
+                      "example": "ETP WebSocket session terminated (code 1011, reason: Internal server error)."
+                    },
+                    "transactionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "description": "Transaction id that was terminated."
+                    },
+                    "closeCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "example": 1011,
+                      "description": "WebSocket close code reported by the ETP server."
+                    },
+                    "closeReason": {
+                      "type": "string",
+                      "description": "WebSocket close reason reported by the ETP server."
+                    },
+                    "terminatedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "ISO-8601 timestamp when the session was terminated."
+                    },
+                    "retryable": {
+                      "type": "boolean",
+                      "example": false,
+                      "description": "Always false. The transaction cannot be reused; open a new one."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 429,
+                      "maximum": 429,
+                      "example": 429
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unknown Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 500,
+                      "maximum": 500,
+                      "example": 500
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unknown Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 500,
+                      "maximum": 500,
+                      "example": 500
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Find data objects with full content (ETP Discovery + Store)",
+        "tags": [
+          "Query"
+        ]
+      }
+    },
+    "/query/graph/search": {
+      "post": {
+        "description": "Build a merged, deduplicated subgraph for multiple resource URIs in a single ETP session.\n\nFor each URI, traverses the relationship graph with the given scope and depth, then merges all discovered nodes and edges into a single result.\n\n**Why use this**: Without batch search, deep search across N objects requires N+ individual REST calls. This endpoint does it in one call, reusing a single ETP session.\n\n**Performance**: For very large batches (>100 URIs), split into chunks - URIs are processed sequentially within the session. Depth values > 100 may timeout depending on server configuration.\n\n**Best-effort**: If traversal fails for one URI, remaining URIs are still processed and partial results returned.",
+        "operationId": "QueryController_graphSearch",
+        "parameters": [
+          {
+            "name": "data-partition-id",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GraphSearchDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Merged graph containing all discovered resources and edges",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "resources": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "uri": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "sourceCount": {
+                            "type": "number"
+                          },
+                          "targetCount": {
+                            "type": "number"
+                          },
+                          "lastChanged": {
+                            "type": "string"
+                          },
+                          "storeLastWrite": {
+                            "type": "string"
+                          },
+                          "activeStatus": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "links": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "type": "string"
+                          },
+                          "target": {
+                            "type": "string"
+                          },
+                          "path": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 401,
+                      "maximum": 401,
+                      "example": 401
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 403,
+                      "maximum": 403,
+                      "example": 403
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not acceptable response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 406,
+                      "maximum": 406,
+                      "example": 406
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients should open a new transaction.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "code": {
+                      "type": "string",
+                      "example": "WEBSOCKET_SESSION_TERMINATED",
+                      "description": "Stable machine-readable identifier for this error condition."
+                    },
+                    "description": {
+                      "type": "string",
+                      "example": "ETP WebSocket session terminated (code 1011, reason: Internal server error)."
+                    },
+                    "transactionId": {
+                      "type": "string",
+                      "format": "uuid",
+                      "description": "Transaction id that was terminated."
+                    },
+                    "closeCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "example": 1011,
+                      "description": "WebSocket close code reported by the ETP server."
+                    },
+                    "closeReason": {
+                      "type": "string",
+                      "description": "WebSocket close reason reported by the ETP server."
+                    },
+                    "terminatedAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "description": "ISO-8601 timestamp when the session was terminated."
+                    },
+                    "retryable": {
+                      "type": "boolean",
+                      "example": false,
+                      "description": "Always false. The transaction cannot be reused; open a new one."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 429,
+                      "maximum": 429,
+                      "example": 429
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unknown Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 500,
+                      "maximum": 500,
+                      "example": 500
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unknown Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 500,
+                      "maximum": 500,
+                      "example": 500
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "Batch graph search across multiple URIs (Discovery Protocol 3)",
+        "tags": [
+          "Query"
+        ]
+      }
     }
   },
   "info": {
     "title": "Reservoir DMS",
-    "description": "REST API for OSDU Reservoir DMS. M28 pre-release \u2014 not yet submitted to the OSDU forum.",
-    "version": "1.3.0-M28-pre",
+    "description": "REST API for OSDU Reservoir DMS (M27).",
+    "version": "1.3.0-M27",
     "contact": {},
     "license": {
       "name": "Apache 2.0",
@@ -15533,7 +15533,7 @@
   "tags": [
     {
       "name": "Health",
-      "description": "Liveness, readiness probes, and server metadata. Use `GET /health/converters` to list all registered RESQML/WITSML \u2192 OSDU converter mappings."
+      "description": "Liveness, readiness probes, and server metadata. Use `GET /health/converters` to list all registered RESQML/WITSML → OSDU converter mappings."
     },
     {
       "name": "Authentication",
@@ -15545,14 +15545,14 @@
     },
     {
       "name": "Resources",
-      "description": "Read-only access to ETP dataspaces, objects, relationships, and data arrays. Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`). Graph endpoints (`/graph/\u2026`) return edges between resources; flat endpoints (`/resources/\u2026`) return lists without edges. No transaction required."
+      "description": "Read-only access to ETP dataspaces, objects, relationships, and data arrays. Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`). Graph endpoints (`/graph/…`) return edges between resources; flat endpoints (`/resources/…`) return lists without edges. No transaction required."
     },
     {
       "name": "Manifest",
       "description": "OSDU manifest generation from ETP dataspaces - read-only, no transaction required. Common use case: browse resources, then generate a manifest in a single call. Supported source domains: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. Use `GET /health/converters` to list all registered source types and their target OSDU kinds."
     },
     {
-      "name": "Query",
+      "name": "Query & Growing Objects",
       "description": "Advanced search - read-only, no transaction required.\n\n**Graph scope**: `self` (direct), `targets` (referenced by), `sources` (referencing), `targetsOrSelf`, `sourcesOrSelf`. **Depth**: 1 = immediate, N = recursive, 0 = unlimited (may timeout).\n\n**Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP has no server-side pagination)."
     },
     {
@@ -15561,7 +15561,7 @@
     },
     {
       "name": "Write",
-      "description": "Create, update, and delete objects, manage dataspaces, upload EPC+H5 files. **Requires a transaction** - start one first via Transactions, then pass `transactionId`. Typical flow: create dataspace \u2192 start transaction \u2192 put objects \u2192 put arrays \u2192 commit."
+      "description": "Create, update, and delete objects, manage dataspaces, upload EPC+H5 files. **Requires a transaction** - start one first via Transactions, then pass `transactionId`. Typical flow: create dataspace → start transaction → put objects → put arrays → commit."
     },
     {
       "name": "Wells",

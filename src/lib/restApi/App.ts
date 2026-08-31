@@ -128,9 +128,9 @@ export default async function app(): Promise<NestExpressApplication> {
   const config = new DocumentBuilder()
     .setTitle("Reservoir DMS")
     .setDescription(
-      `REST API for OSDU Reservoir DMS. M28 pre-release \u2014 not yet submitted to the OSDU forum.`
+      `REST API for OSDU Reservoir DMS (M27).`
     )
-    .setVersion("1.3.0-M28-pre")
+    .setVersion("1.3.0-M27")
     .setLicense(
       "Apache 2.0",
       "https://www.apache.org/licenses/LICENSE-2.0.html"
