@@ -70,6 +70,7 @@ azure_test:
     - npm install -g @usebruno/cli
     - |
       TOKEN_ERR_FILE=/tmp/azure_token_err.txt
+      set +e
       ACCESS_TOKEN=$(node -e '
       const tenant = process.env.AZURE_TENANT_ID;
       const clientId = process.env.AZURE_CLIENT_ID;
@@ -121,6 +122,7 @@ azure_test:
         });
       ' 2>"$TOKEN_ERR_FILE")
       TOKEN_RC=$?
+      set -e
       if [ "$TOKEN_RC" -ne 0 ]; then
         if grep -q "AADSTS7000222" "$TOKEN_ERR_FILE"; then
           echo "[WARN] Azure client secret expired (AADSTS7000222). Skipping azure_test until secret is rotated."
