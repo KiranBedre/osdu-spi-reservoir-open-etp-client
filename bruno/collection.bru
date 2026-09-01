@@ -4,6 +4,22 @@ headers {
 }
 
 script:pre-request {
+  // Ensure dataspace vars used by _Setup are always present in CI.
+  // Priority:
+  // 1) explicit testDataspaceIdRaw
+  // 2) dataspaceIdRaw
+  // 3) dataspaceId
+  // 4) fallback default
+  const dsRaw =
+    bru.getVar("testDataspaceIdRaw") ||
+    bru.getVar("dataspaceIdRaw") ||
+    bru.getVar("dataspaceId") ||
+    "test-ci-bruno";
+  bru.setVar("testDataspaceIdRaw", dsRaw);
+  if (!bru.getVar("testDataspaceId")) {
+    bru.setVar("testDataspaceId", encodeURIComponent(dsRaw));
+  }
+
   // Auto-refresh Keycloak token if expired or missing
   const tokenUrl = bru.getEnvVar("token_url");
   const refreshToken = bru.getEnvVar("refresh_token");
