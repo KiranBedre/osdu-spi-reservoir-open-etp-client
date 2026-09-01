@@ -2640,7 +2640,7 @@
               }
             ],
             "url": {
-              "raw": "{{RDDMS_URL}}/wells?name=*",
+              "raw": "{{RDDMS_URL}}/wells?name=*&dataspace={{test_ds}}&include=logs,trajectories",
               "host": [
                 "{{RDDMS_URL}}"
               ],
@@ -2651,6 +2651,14 @@
                 {
                   "key": "name",
                   "value": "*"
+                },
+                {
+                  "key": "dataspace",
+                  "value": "{{test_ds}}"
+                },
+                {
+                  "key": "include",
+                  "value": "logs,trajectories"
                 }
               ]
             }
@@ -2662,7 +2670,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"status is 200 or 401\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 401]); });"
+                  "pm.test(\"status is 200 or 404\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 404]); });"
                 ]
               }
             }
