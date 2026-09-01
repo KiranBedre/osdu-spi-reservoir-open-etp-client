@@ -936,6 +936,40 @@ Each object must conform to the Energistics JSON schema for its type and include
         });
       }
       logger.info("Session created successfully.");
+      // Pre-validate: check that referenced container objects exist in the dataspace
+      // This catches mismatched UUIDs early with a clear error instead of an opaque ETP failure
+      const uniqueContainers = new Map<string, string>();
+      for (const a of requestBody) {
+        const key = `${a.ContainerType}/${a.ContainerUuid}`;
+        if (!uniqueContainers.has(key)) {
+          uniqueContainers.set(key, a.PathInResource);
+        }
+      }
+      for (const [key] of uniqueContainers) {
+        const [cType, cUuid] = key.split("/");
+        const m = qualifiedTypeRegex.exec(cType);
+        if (m) {
+          const uri = EtpUri.createObjectUri(
+            params.dataspaceId,
+            m.groups?.domainFamily ?? "",
+            m.groups?.domainVersion ?? "",
+            m.groups?.dataType ?? "",
+            cUuid
+          ).uri;
+          try {
+            const objs = await c.getDataObjects([uri]);
+            if (!objs || objs.every(o => o === null)) {
+              logger.warn(
+                `Array container object ${cType}(${cUuid}) not found in dataspace ${params.dataspaceId}. ` +
+                `The array PUT will likely fail. Ensure the object was PUT in the same transaction.`
+              );
+            }
+          } catch {
+            // Non-fatal: if lookup fails, let the array PUT proceed and report its own error
+            logger.debug(`Could not pre-validate container ${cType}(${cUuid}) — lookup unavailable`);
+          }
+        }
+      }
       const r = await Promise.all(
         requestBody.map(async a => {
           const m = qualifiedTypeRegex.exec(a.ContainerType);
