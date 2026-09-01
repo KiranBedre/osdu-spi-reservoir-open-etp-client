@@ -273,7 +273,7 @@
     "testEnvironment": "node"
   },
   "engines": {
-    "node": ">=20",
+    "node": ">=22",
     "npm": ">=6.13"
   }
 }

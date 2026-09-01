@@ -61,7 +61,7 @@ azure_deploy:
 
 azure_test:
   image:
-    name: node:20-alpine
+    name: node:22.22.1-alpine
   stage: integration
   tags: ["osdu-small"]
   needs: ["azure_deploy"]
