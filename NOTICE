@@ -23,6 +23,13 @@ The following software have components provided under the terms of this license:
 - websocket (from https://www.npmjs.com/package/websocket)
 
 ========================================================================
+FSFUL
+========================================================================
+The following software have components provided under the terms of this license:
+
+- libxmljs2 (from https://github.com/marudor/libxmljs2#readme)
+
+========================================================================
 ISC
 ========================================================================
 The following software have components provided under the terms of this license:
@@ -44,22 +51,22 @@ The following software have components provided under the terms of this license:
 - @nestjs/graphql (from https://github.com/nestjs/graphql#readme)
 - @nestjs/platform-express (from https://nestjs.com/)
 - @nestjs/swagger (from https://github.com/nestjs/swagger#readme)
+- adm-zip (from https://github.com/cthackers/adm-zip)
 - bunyan (from https://www.npmjs.com/package/bunyan)
 - class-transformer (from https://github.com/typestack/class-transformer#readme)
 - class-validator (from https://github.com/typestack/class-validator#readme)
 - dataloader (from https://github.com/graphql/dataloader)
-- events (from https://github.com/Gozala/events#readme)
 - express (from https://expressjs.com/)
 - fast-xml-parser (from https://github.com/NaturalIntelligence/fast-xml-parser#readme)
 - graphql (from https://github.com/graphql/graphql-js)
 - helmet (from https://helmet.js.org/)
 - jsonwebtoken (from https://github.com/auth0/node-jsonwebtoken#readme)
+- libxmljs2 (from https://github.com/marudor/libxmljs2#readme)
 - node-fetch (from https://github.com/node-fetch/node-fetch)
 - sax (from https://github.com/isaacs/sax-js#readme)
 - swagger-ui-express (from https://github.com/scottie1984/swagger-ui-express)
 - ts-morph (from https://github.com/dsherret/ts-morph#readme)
 - uuid (from https://github.com/uuidjs/uuid#readme)
-- xml-js (from https://www.npmjs.com/package/xml-js)
 
 ========================================================================
 hdf5
@@ -67,6 +74,13 @@ hdf5
 The following software have components provided under the terms of this license:
 
 - h5wasm (from https://github.com/usnistgov/h5wasm#readme)
+
+========================================================================
+mit-veillard-variant
+========================================================================
+The following software have components provided under the terms of this license:
+
+- libxmljs2 (from https://github.com/marudor/libxmljs2#readme)
 
 ========================================================================
 public-domain
