@@ -115,6 +115,10 @@ azure_test_postman:
       --env-var CLIENT_SECRET=${AZURE_CLIENT_SECRET}
       --env-var HOSTNAME=${AZURE_DNS_NAME}
       --env-var RESERVOIR_DDMS_HOST=${AZURE_DNS_NAME}/api/reservoir-ddms/v2
+      --env-var dataspaceIdRaw=test-ci-postman
+      --env-var dataspaceId=test-ci-postman
+      --env-var testDataspaceIdRaw=test-ci-postman
+      --env-var testDataspaceId=test-ci-postman
       --delay-request 3000
   allow_failure: true
   rules:
