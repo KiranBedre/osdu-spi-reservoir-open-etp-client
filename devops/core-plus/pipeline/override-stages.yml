@@ -38,7 +38,7 @@ cimpl-containerize-bootstrap-gitlab:
     - |
       RDMS_HOST="${CIMPL_DNS_NAME#http://}"; RDMS_HOST="${RDMS_HOST#https://}"
       export RDMS_BASE="https://${RDMS_HOST}/api/reservoir-ddms/v2"
-    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${RDMS_BASE} --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
+    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${RDMS_BASE} --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN} --env-var dataspaceIdRaw=test-ci-bruno --env-var dataspaceId=test-ci-bruno --env-var testDataspaceIdRaw=test-ci-bruno --env-var testDataspaceId=test-ci-bruno"
     - cd bruno
     # This client repo validates the REST->ETP proxy; it complements (does not
     # replicate) the open-etp-server data tests. _Setup is the self-contained
@@ -98,7 +98,7 @@ cimpl-dev2-acceptance-test-python:
     - curl "${GET_COLLECTION_URL}" > collection.json && COLLECTION=collection.json
     - |
       curl --header "data-partition-id: ${DATA_PARTITION_ID}" "${CIMPL_POSTMAN_ENV_URL}" > environment.json && ENVIRONMENT=environment.json
-    - newman run "$COLLECTION" --working-dir . -e "${ENVIRONMENT}" -d test_config_file.json --delay-request 3000 --env-var TENANT_ID=${CIMPL_TENANT} --env-var HOSTNAME=${CIMPL_DNS_NAME} --env-var RESERVOIR_DDMS_HOST=${CIMPL_DNS_NAME}/api/reservoir-ddms/v2 || exit $?
+    - newman run "$COLLECTION" --working-dir . -e "${ENVIRONMENT}" -d test_config_file.json --delay-request 3000 --env-var TENANT_ID=${CIMPL_TENANT} --env-var HOSTNAME=${CIMPL_DNS_NAME} --env-var RESERVOIR_DDMS_HOST=${CIMPL_DNS_NAME}/api/reservoir-ddms/v2 --env-var dataspaceIdRaw=test-ci-postman --env-var dataspaceId=test-ci-postman --env-var testDataspaceIdRaw=test-ci-postman --env-var testDataspaceId=test-ci-postman || exit $?
 
 cimpl-test-postman:
   tags: ["osdu-small"]

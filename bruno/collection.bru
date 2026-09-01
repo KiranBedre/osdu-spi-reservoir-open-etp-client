@@ -4,6 +4,22 @@ headers {
 }
 
 script:pre-request {
+  // Ensure dataspace vars used by _Setup are always present in CI.
+  // Priority:
+  // 1) explicit testDataspaceIdRaw
+  // 2) dataspaceIdRaw
+  // 3) dataspaceId
+  // 4) fallback default
+  const dsRaw =
+    bru.getVar("testDataspaceIdRaw") ||
+    bru.getVar("dataspaceIdRaw") ||
+    bru.getVar("dataspaceId") ||
+    "test-ci-bruno";
+  bru.setVar("testDataspaceIdRaw", dsRaw);
+  if (!bru.getVar("testDataspaceId")) {
+    bru.setVar("testDataspaceId", encodeURIComponent(dsRaw));
+  }
+
   // Auto-refresh Keycloak token if expired or missing
   const tokenUrl = bru.getEnvVar("token_url");
   const refreshToken = bru.getEnvVar("refresh_token");
@@ -13,19 +29,29 @@ script:pre-request {
   // Refresh if no token or if we haven't refreshed in the last 55 minutes
   const lastRefresh = bru.getVar("_token_ts") || 0;
   const now = Date.now();
+  const clientSecret = bru.getEnvVar("client_secret");
+  const clientScope = bru.getEnvVar("client_scope");
   if (!currentToken || (now - lastRefresh) > 55 * 60 * 1000) {
-    if (tokenUrl && refreshToken && clientId) {
+    if (tokenUrl && clientId) {
       try {
-        const resp = await require("axios").post(tokenUrl,
-          `grant_type=refresh_token&client_id=${clientId}&refresh_token=${refreshToken}&scope=email openid profile`,
-          { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
-        );
-        if (resp.data && resp.data.access_token) {
-          bru.setVar("access_token", resp.data.access_token);
-          bru.setVar("_token_ts", now);
-          // Update refresh token if rotated
-          if (resp.data.refresh_token) {
-            bru.setEnvVar("refresh_token", resp.data.refresh_token);
+        let body;
+        if (clientSecret) {
+          // Azure AD client_credentials flow
+          body = `grant_type=client_credentials&client_id=${clientId}&client_secret=${encodeURIComponent(clientSecret)}&scope=${encodeURIComponent(clientScope || clientId + '/.default')}`;
+        } else if (refreshToken) {
+          // Keycloak refresh_token flow
+          body = `grant_type=refresh_token&client_id=${clientId}&refresh_token=${refreshToken}&scope=email openid profile`;
+        }
+        if (body) {
+          const resp = await require("axios").post(tokenUrl, body,
+            { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+          );
+          if (resp.data && resp.data.access_token) {
+            bru.setVar("access_token", resp.data.access_token);
+            bru.setVar("_token_ts", now);
+            if (resp.data.refresh_token) {
+              bru.setEnvVar("refresh_token", resp.data.refresh_token);
+            }
           }
         }
       } catch (e) {
