@@ -76,7 +76,7 @@ azure_test:
       "grant_type=client_credentials&client_id=${AZURE_CLIENT_ID}&client_secret=${AZURE_CLIENT_SECRET}&scope=${AZURE_CLIENT_ID}/.default"
       "https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token"
       | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.parse(d).access_token))")
-    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${AZURE_DNS_NAME}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN}"
+    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${AZURE_DNS_NAME}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN} --env-var dataspaceIdRaw=test-ci-bruno --env-var dataspaceId=test-ci-bruno --env-var testDataspaceIdRaw=test-ci-bruno --env-var testDataspaceId=test-ci-bruno"
     - cd bruno
     # This client repo validates the REST->ETP proxy; it complements (does not
     # replicate) the open-etp-server data tests. _Setup is the self-contained
