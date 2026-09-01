@@ -66,16 +66,60 @@ azure_test:
   tags: ["osdu-small"]
   needs: ["azure_deploy"]
   extends: .azure_variables
-  variables:
-    AZURE_CLIENT_ID: $AZURE_CLIENT_ID
-    AZURE_CLIENT_SECRET: $AZURE_CLIENT_SECRET
   script:
     - npm install -g @usebruno/cli
-    - >
-      ACCESS_TOKEN=$(wget -qO- --post-data
-      "grant_type=client_credentials&client_id=${AZURE_CLIENT_ID}&client_secret=${AZURE_CLIENT_SECRET}&scope=${AZURE_CLIENT_ID}/.default"
-      "https://login.microsoftonline.com/${AZURE_TENANT_ID}/oauth2/v2.0/token"
-      | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.parse(d).access_token))")
+    - |
+      ACCESS_TOKEN=$(node -e '
+      const tenant = process.env.AZURE_TENANT_ID;
+      const clientId = process.env.AZURE_CLIENT_ID;
+      const clientSecret = process.env.AZURE_CLIENT_SECRET;
+
+      if (!tenant || !clientId || !clientSecret) {
+        const missing = [
+          !tenant ? "AZURE_TENANT_ID" : "",
+          !clientId ? "AZURE_CLIENT_ID" : "",
+          !clientSecret ? "AZURE_CLIENT_SECRET" : ""
+        ].filter(Boolean).join(", ");
+        console.error(`Missing required Azure variables: ${missing}`);
+        process.exit(1);
+      }
+
+      const params = new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: clientId,
+        client_secret: clientSecret,
+        scope: `${clientId}/.default`
+      });
+
+      fetch(`https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: params
+      })
+        .then(async (res) => {
+          const body = await res.text();
+          let json = {};
+          try {
+            json = JSON.parse(body);
+          } catch {
+            console.error(`Azure token endpoint returned non-JSON response with status ${res.status}`);
+            process.exit(1);
+          }
+
+          if (!res.ok || !json.access_token) {
+            const detail = json.error_description || json.error || "No details returned";
+            console.error(`Failed to get Azure access token (${res.status}): ${detail}`);
+            process.exit(1);
+          }
+
+          process.stdout.write(json.access_token);
+        })
+        .catch((err) => {
+          console.error(`Azure token request failed: ${err.message}`);
+          process.exit(1);
+        });
+      ')
+      test -n "$ACCESS_TOKEN"
     - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${AZURE_DNS_NAME}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN} --env-var dataspaceIdRaw=test-ci-bruno --env-var dataspaceId=test-ci-bruno --env-var testDataspaceIdRaw=test-ci-bruno --env-var testDataspaceId=test-ci-bruno"
     - cd bruno
     # This client repo validates the REST->ETP proxy; it complements (does not
@@ -102,8 +146,6 @@ azure_test_postman:
       optional: true
   extends: .azure_variables
   variables:
-    AZURE_CLIENT_ID: $AZURE_CLIENT_ID
-    AZURE_CLIENT_SECRET: $AZURE_CLIENT_SECRET
     RESERVOIR_DDMS_COLLECTION_URL: "https://community.opengroup.org/osdu/qa/-/raw/main/Postman%20Collection/45_CICD_Reservoir_DDMS/Reservoir%20DDMS%20CI-CD%20v3.1.postman_collection.json?inline=false"
   script:
     - newman --version
