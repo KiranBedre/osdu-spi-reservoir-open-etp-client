@@ -354,6 +354,17 @@ export default class EpcUploadAPI {
     })
     @ApiQuery(transactionIdQueryParam)
     @ApiQuery({
+        name: "dataspace",
+        required: false,
+        description:
+            "Override the dataspace from the URL path. "
+            + "When the path uses `dataspaceId=auto` (the recommended default), the dataspace is derived from `{username}/{epc_filename}`. "
+            + "Set this query parameter to use a specific dataspace instead (e.g. `?dataspace=myteam/project1`).",
+        schema: {
+            type: "string"
+        }
+    })
+    @ApiQuery({
         name: "autoIngest",
         required: false,
         description:
@@ -484,11 +495,16 @@ export default class EpcUploadAPI {
             "3. Extract XML objects, identify `EpcExternalPartReference` entries\n" +
             "4. Scan XML for `<Hdf5Dataset>` blocks → collect H5 dataset paths\n" +
             "5. Open H5 file, pre-scan dataset metadata\n" +
-            "6. Start transaction (or reuse caller's)\n" +
-            "7. PUT objects in batches of 100 (avoids ETP message size limits)\n" +
-            "8. PUT arrays one-by-one from H5 file (bounded memory)\n" +
-            "9. Commit transaction\n" +
-            "10. Auto-ingest to OSDU catalog (if `autoIngest` is set)\n\n" +
+            "6. Ensure dataspace exists (auto-create if needed)\n" +
+            "7. Start transaction (or reuse caller's)\n" +
+            "8. PUT objects in batches of 100 (avoids ETP message size limits)\n" +
+            "9. PUT arrays one-by-one from H5 file (bounded memory)\n" +
+            "10. Commit transaction\n" +
+            "11. Auto-ingest to OSDU catalog (if `autoIngest` is set)\n\n" +
+            "**Dataspace resolution**:\n" +
+            "- Use `/dataspaces/auto/epc/upload` to auto-generate the dataspace as `{username}/{epc_name}`\n" +
+            "- Override with `?dataspace=my/space` to use a specific name\n" +
+            "- The dataspace is auto-created if it doesn't exist\n\n" +
             "**Auto-ingest modes**:\n" +
             "- `false` (default) - no catalog registration\n" +
             "- `true` / `records` - builds manifest → pushes records via Storage Service (data immediately searchable)\n" +
@@ -518,8 +534,35 @@ export default class EpcUploadAPI {
         @Query("transactionId") transactionId?: string,
         @Query("autoIngest") autoIngest?: string,
         @Query("validate") validate?: string,
+        @Query("dataspace") dataspaceOverride?: string,
         @Req() request?: express.Request
     ) {
+        // ── Resolve dataspace name ──
+        // Defaults: dataspaceId="auto" → username/epcname, validate=off, autoIngest=off
+        // Override via query: ?dataspace=my/space  ?validate=true  ?autoIngest=records
+        let dataspaceId = dataspaceOverride || params.dataspaceId;
+        if (dataspaceId === "auto") {
+            const epcName = files?.epc?.[0]?.originalname?.replace(/\.epc$/i, "") || "upload";
+            const safeName = epcName.replace(/[^a-zA-Z0-9_-]/g, "_").toLowerCase();
+            // Extract user from JWT
+            const bearer = extractToken(request);
+            let userName = "user";
+            if (bearer) {
+                try {
+                    const jwt = decode(bearer) as JwtPayload;
+                    if (jwt && typeof jwt !== "string") {
+                        userName = (jwt.unique_name || jwt.preferred_username || jwt.sub || "user")
+                            .replace(/@.*/, "")
+                            .replace(/[^a-zA-Z0-9_-]/g, "_")
+                            .toLowerCase();
+                    }
+                } catch { /* use default */ }
+            }
+            dataspaceId = `${userName}/${safeName}`;
+            // Overwrite params so downstream code uses the resolved name
+            params = { ...params, dataspaceId };
+        }
+
         logger.info(
             `EPC upload request for dataspace: ${params.dataspaceId}`
         );
@@ -874,7 +917,18 @@ export default class EpcUploadAPI {
                 });
             }
 
+            // ── 5b. Auto-create dataspace if it doesn't exist ──
             const dataspaceUri = `eml:///dataspace('${params.dataspaceId}')`;
+            try {
+                const created = await c.findOrCreateDataspace(params.dataspaceId, params.dataspaceId);
+                if (created) {
+                    logger.info(`Dataspace '${params.dataspaceId}' ensured (findOrCreate)`);
+                }
+            } catch (dsErr) {
+                // Non-fatal — proceed and let the transaction fail if dataspace truly doesn't exist
+                logger.warn(`Could not ensure dataspace exists: ${dsErr}`);
+            }
+
             const txId = transactionId
                 ? undefined
                 : await c.startTransaction(false, [dataspaceUri], "EPC upload");
@@ -1152,6 +1206,7 @@ export default class EpcUploadAPI {
 
             const result: Record<string, unknown> = {
                 success: true,
+                dataspaceId: params.dataspaceId,
                 objectsStored,
                 arraysStored,
                 skippedArrays,

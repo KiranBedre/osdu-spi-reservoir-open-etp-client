@@ -2836,7 +2836,10 @@ export class ResqmlClient {
   ): void {
     const etpUri = new EtpUri(uri);
 
-    if (obj.$type && obj.$type.lastIndexOf("Hdf5Dataset") !== -1) {
+    if (
+      (obj.$type && obj.$type.lastIndexOf("Hdf5Dataset") !== -1) ||
+      (!obj.$type && obj.PathInHdfFile && obj.HdfProxy)
+    ) {
       let contentType = "obj_EpcExternalPartReference";
       if (obj.HdfProxy?.ContentType) {
         contentType = obj.HdfProxy.ContentType.substring(
@@ -2938,9 +2941,8 @@ export class ResqmlClient {
           }
         } else if (obj[key] && typeof obj[key] === "object") {
           if (
-            obj[key].$type &&
-            obj[key].$type.lastIndexOf("DataObjectReference") === -1 &&
-            typeof obj[key] === "object"
+            !obj[key].$type ||
+            obj[key].$type.lastIndexOf("DataObjectReference") === -1
           ) {
             this.findDataArrays(etpUri.uriPath, obj[key], dataArrays);
           }

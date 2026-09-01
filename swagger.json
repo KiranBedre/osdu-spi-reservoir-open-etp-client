@@ -11463,7 +11463,7 @@
     },
     "/dataspaces/{dataspaceId}/epc/upload": {
       "post": {
-        "description": "Upload a RESQML EPC file (ZIP with XML objects) and an optional HDF5 companion file.\n\n**Processing flow**:\n1. Validate file sizes against configured limits\n2. Unzip EPC → parse `[Content_Types].xml` manifest\n3. Extract XML objects, identify `EpcExternalPartReference` entries\n4. Scan XML for `<Hdf5Dataset>` blocks → collect H5 dataset paths\n5. Open H5 file, pre-scan dataset metadata\n6. Start transaction (or reuse caller's)\n7. PUT objects in batches of 100 (avoids ETP message size limits)\n8. PUT arrays one-by-one from H5 file (bounded memory)\n9. Commit transaction\n10. Auto-ingest to OSDU catalog (if `autoIngest` is set)\n\n**Auto-ingest modes**:\n- `false` (default) - no catalog registration\n- `true` / `records` - builds manifest → pushes records via Storage Service (data immediately searchable)\n- `workflow` - builds manifest → submits to OSDU ingestion workflow DAG\n\n**Note**: `autoIngest` requires an internal transaction (omit `transactionId`). When using an external transaction, auto-ingest is skipped because the data may not be committed yet.\n\n**Performance**: H5 file is written to disk (not buffered in memory). Arrays are read and sent one at a time. Duplicate H5 dataset references are deduplicated.",
+        "description": "Upload a RESQML EPC file (ZIP with XML objects) and an optional HDF5 companion file.\n\n**Processing flow**:\n1. Validate file sizes against configured limits\n2. Unzip EPC → parse `[Content_Types].xml` manifest\n3. Extract XML objects, identify `EpcExternalPartReference` entries\n4. Scan XML for `<Hdf5Dataset>` blocks → collect H5 dataset paths\n5. Open H5 file, pre-scan dataset metadata\n6. Ensure dataspace exists (auto-create if needed)\n7. Start transaction (or reuse caller's)\n8. PUT objects in batches of 100 (avoids ETP message size limits)\n9. PUT arrays one-by-one from H5 file (bounded memory)\n10. Commit transaction\n11. Auto-ingest to OSDU catalog (if `autoIngest` is set)\n\n**Dataspace resolution**:\n- Use `/dataspaces/auto/epc/upload` to auto-generate the dataspace as `{username}/{epc_name}`\n- Override with `?dataspace=my/space` to use a specific name\n- The dataspace is auto-created if it doesn't exist\n\n**Auto-ingest modes**:\n- `false` (default) - no catalog registration\n- `true` / `records` - builds manifest → pushes records via Storage Service (data immediately searchable)\n- `workflow` - builds manifest → submits to OSDU ingestion workflow DAG\n\n**Note**: `autoIngest` requires an internal transaction (omit `transactionId`). When using an external transaction, auto-ingest is skipped because the data may not be committed yet.\n\n**Performance**: H5 file is written to disk (not buffered in memory). Arrays are read and sent one at a time. Duplicate H5 dataset references are deduplicated.",
         "operationId": "EpcUploadAPI_uploadEpc",
         "parameters": [
           {
@@ -11529,6 +11529,15 @@
                 "strict"
               ],
               "default": "false"
+            }
+          },
+          {
+            "name": "dataspace",
+            "required": false,
+            "in": "query",
+            "description": "Override the dataspace from the URL path. When the path uses `dataspaceId=auto` (the recommended default), the dataspace is derived from `{username}/{epc_filename}`. Set this query parameter to use a specific dataspace instead (e.g. `?dataspace=myteam/project1`).",
+            "schema": {
+              "type": "string"
             }
           }
         ],

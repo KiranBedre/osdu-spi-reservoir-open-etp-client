@@ -1036,6 +1036,25 @@ export function validateFesapiCompat(
                 ));
             }
         }
+
+        // Check 5: xsi:type on Hdf5Dataset elements (v2.0.1)
+        // Without xsi:type="eml20:Hdf5Dataset", the ETP server returns JSON
+        // without $type, and findDataArrays() cannot discover array references.
+        if (isV201) {
+            const hdfPathRe = /<(?:[\w-]+:)?PathInHdfFile[^>]*>/g;
+            if (hdfPathRe.test(obj.xmlString)) {
+                // Check if any Hdf5Dataset xsi:type is present near PathInHdfFile
+                const hasHdf5Type = /xsi:type\s*=\s*"[^"]*Hdf5Dataset[^"]*"/i.test(obj.xmlString);
+                if (!hasHdf5Type) {
+                    errors.push(makeError(
+                        `Object references HDF5 datasets (PathInHdfFile) but XML lacks xsi:type="...Hdf5Dataset" on the containing element. ` +
+                        `This prevents ETP clients from discovering array metadata. Add xsi:type="eml20:Hdf5Dataset" to the Values element.`,
+                        Severity.WARNING, C,
+                        { uuid: obj.uuid, type: obj.objectType }
+                    ));
+                }
+            }
+        }
     }
 
     return errors;
