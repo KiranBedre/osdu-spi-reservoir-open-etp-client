@@ -70,7 +70,33 @@
       "value": ""
     }
   ],
-  "event": [],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Portability shim: some environments (e.g. the QA/CI platform) define the",
+          "// service base URLs under different variable names. Map them to the names",
+          "// this collection uses so it runs unchanged without manual variable edits.",
+          "function alias(target, source) {",
+          "    var cur = pm.variables.get(target);",
+          "    if (cur === undefined || cur === null || cur === \"\") {",
+          "        var src = pm.variables.get(source);",
+          "        if (src !== undefined && src !== null && src !== \"\") {",
+          "            pm.environment.set(target, src);",
+          "        }",
+          "    }",
+          "}",
+          "alias(\"RDDMS_URL\", \"RESERVOIR_DDMS_HOST\");",
+          "alias(\"LEGAL_URL\", \"LEGAL_HOST\");",
+          "alias(\"data-partition-id\", \"DATA_PARTITION_ID\");",
+          "alias(\"domain\", \"ENTITLEMENTS_DOMAIN\");",
+          "alias(\"access_token\", \"ACCESS_TOKEN\");"
+        ]
+      }
+    }
+  ],
   "item": [
     {
       "name": "0. Auth",
@@ -2614,7 +2640,7 @@
               }
             ],
             "url": {
-              "raw": "{{RDDMS_URL}}/wells?name=*",
+              "raw": "{{RDDMS_URL}}/wells?name=*&dataspace={{test_ds}}&include=logs,trajectories",
               "host": [
                 "{{RDDMS_URL}}"
               ],
@@ -2625,6 +2651,14 @@
                 {
                   "key": "name",
                   "value": "*"
+                },
+                {
+                  "key": "dataspace",
+                  "value": "{{test_ds}}"
+                },
+                {
+                  "key": "include",
+                  "value": "logs,trajectories"
                 }
               ]
             }
@@ -2636,7 +2670,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"status is 200 or 401\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 401]); });"
+                  "pm.test(\"status is 200 or 404\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 404]); });"
                 ]
               }
             }
