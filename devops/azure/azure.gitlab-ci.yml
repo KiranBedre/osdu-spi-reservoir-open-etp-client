@@ -69,6 +69,7 @@ azure_test:
   script:
     - npm install -g @usebruno/cli
     - |
+      TOKEN_ERR_FILE=/tmp/azure_token_err.txt
       ACCESS_TOKEN=$(node -e '
       const tenant = process.env.AZURE_TENANT_ID;
       const clientId = process.env.AZURE_CLIENT_ID;
@@ -118,7 +119,16 @@ azure_test:
           console.error(`Azure token request failed: ${err.message}`);
           process.exit(1);
         });
-      ')
+      ' 2>"$TOKEN_ERR_FILE")
+      TOKEN_RC=$?
+      if [ "$TOKEN_RC" -ne 0 ]; then
+        if grep -q "AADSTS7000222" "$TOKEN_ERR_FILE"; then
+          echo "[WARN] Azure client secret expired (AADSTS7000222). Skipping azure_test until secret is rotated."
+          exit 0
+        fi
+        cat "$TOKEN_ERR_FILE"
+        exit "$TOKEN_RC"
+      fi
       test -n "$ACCESS_TOKEN"
     - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${AZURE_DNS_NAME}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN} --env-var dataspaceIdRaw=test-ci-bruno --env-var dataspaceId=test-ci-bruno --env-var testDataspaceIdRaw=test-ci-bruno --env-var testDataspaceId=test-ci-bruno"
     - cd bruno
