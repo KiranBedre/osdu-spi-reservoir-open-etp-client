@@ -15,6 +15,12 @@ headers {
   Authorization: Bearer {{access_token}}
 }
 
+script:pre-request {
+  if (!bru.getEnvVar("dataspaceIdRaw") && !bru.getVar("dataspaceIdRaw")) {
+    console.warn("Search Wells: dataspaceIdRaw not set. Run _Setup (Create Test Dataspace) first, or set dataspaceIdRaw in the environment.");
+  }
+}
+
 tests {
   test("status is 200 or 404", function () {
     expect(res.getStatus()).to.be.oneOf([200, 404]);
