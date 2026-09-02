@@ -2666,6 +2666,18 @@
           "response": [],
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.collectionVariables.get('test_ds')) {",
+                  "  console.warn('WL1 skipped: test_ds not set. Run Setup (Create Dataspace) first, or set test_ds in the environment.');",
+                  "  pm.execution.setNextRequest(null);",
+                  "}"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
