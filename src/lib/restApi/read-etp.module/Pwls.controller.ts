@@ -22,7 +22,7 @@ import {
   ApiTooManyRequestsResponse
 } from "@nestjs/swagger";
 
-import { Allow, IsOptional, ValidateNested } from "class-validator";
+import { Allow, ArrayMaxSize, IsArray, IsOptional, IsString, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 
 import { errorMessageSchema, swaggerServers } from "../ControllerUtils";
@@ -71,12 +71,13 @@ class PwlsResolveResultDto {
   resolved!: boolean;
 }
 
-class CurveValidationEntry {
-  @Allow()
+export class CurveValidationEntry {
+  @IsString()
   @ApiProperty({ example: "GR", description: "Curve mnemonic or property name" })
   mnemonic!: string;
 
-  @Allow()
+  @IsOptional()
+  @IsString()
   @ApiPropertyOptional({ example: "gAPI", description: "Unit of measurement (optional)" })
   uom?: string;
 }
@@ -107,7 +108,9 @@ class CurveValidationResultEntry {
   warnings?: string[];
 }
 
-class CurveValidationRequestDto {
+export class CurveValidationRequestDto {
+  @IsArray()
+  @ArrayMaxSize(10000)
   @ValidateNested({ each: true })
   @Type(() => CurveValidationEntry)
   @ApiProperty({
