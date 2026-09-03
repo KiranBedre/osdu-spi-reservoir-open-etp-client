@@ -143,14 +143,9 @@ export default async function app(): Promise<NestExpressApplication> {
     .addTag("Health", "Liveness, readiness probes, and server metadata. Use `GET /health/converters` to list all registered RESQML/WITSML → OSDU converter mappings.")
     .addTag("Authentication", "Token info and session management")
     .addTag("Metrics", "Prometheus metrics endpoint")
-    .addTag("Resources",
-      "Read-only access to ETP dataspaces, objects, relationships, and data arrays, plus advanced search (`/query/…`). " +
-      "Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`). " +
-      "Graph endpoints (`/graph/…`) return edges between resources; flat endpoints (`/resources/…`) return lists without edges. " +
-      "**Graph scope**: `self` (direct), `targets` (referenced by), `sources` (referencing), `targetsOrSelf`, `sourcesOrSelf`. " +
-      "**Depth**: 1 = immediate, N = recursive, 0 = unlimited (may timeout). " +
-      "**Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP has no server-side pagination). " +
-      "No transaction required."
+    .addTag("Dataspaces",
+      "Manage dataspaces: list, create, get info, lock/unlock, validate, clone, and delete. " +
+      "A dataspace is the top-level container; pass its URL-encoded id as the `dataspaceId` path segment for all resource operations."
     )
     .addTag("Manifest",
       "OSDU manifest generation from ETP dataspaces - read-only, no transaction required. " +
@@ -158,12 +153,26 @@ export default async function app(): Promise<NestExpressApplication> {
       "Supported source domains: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. " +
       "Use `GET /health/converters` to list all registered source types and their target OSDU kinds."
     )
+    .addTag("Resources",
+      "Read-only access to ETP dataspaces, objects, relationships, and data arrays. " +
+      "Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`). " +
+      "Graph endpoints (`/graph/…`) return edges between resources; flat endpoints (`/resources/…`) return lists without edges. " +
+      "**Graph scope**: `self` (direct), `targets` (referenced by), `sources` (referencing), `targetsOrSelf`, `sourcesOrSelf`. " +
+      "**Depth**: 1 = immediate, N = recursive, 0 = unlimited (may timeout). " +
+      "**Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP has no server-side pagination). " +
+      "No transaction required."
+    )
+    .addTag("Query",
+      "Body-driven search across a dataspace or a batch of URIs (ETP Discovery + Store). " +
+      "`POST /query/objects/find` returns matching objects with full content; `POST /query/graph/search` runs a batch graph search across multiple URIs (Discovery Protocol 3). " +
+      "Use these when a filter or multi-URI batch does not fit a path-addressed `GET /resources/…` call."
+    )
     .addTag("Transactions",
       "Start, commit, or rollback a transaction. Required before any write operation. " +
       "Auto-rollback after timeout (default 300 s). One active transaction per dataspace."
     )
     .addTag("Write",
-      "Create, update, and delete objects, manage dataspaces, upload EPC+H5 files. " +
+      "Create, update, and delete objects and upload EPC+H5 files. " +
       "**Requires a transaction** - start one first via Transactions, then pass `transactionId`. " +
       "Typical flow: create dataspace → start transaction → put objects → put arrays → commit."
     )
@@ -173,18 +182,46 @@ export default async function app(): Promise<NestExpressApplication> {
 
   const document = SwaggerModule.createDocument(nestApp, config);
 
-  // Order operations to follow the natural query/drill-down workflow instead of
-  // burying "list dataspaces" among the write routes. Reading top-to-bottom:
-  // list dataspaces -> dataspace content -> a single object -> its
-  // references -> its arrays -> array content, then write/lifecycle,
-  // then manifest, domain-specific (WITSML/PWLS) and operational endpoints.
-  // This drives both the generated JSON/YAML and (with operationsSorter off)
-  // the Swagger UI order.
+  // Group dataspace-lifecycle operations (list/create/info/lock/validate/
+  // clone/delete) under their own "Dataspaces" tag so they form a section
+  // ahead of Resources, instead of being split between Resources and Write.
+  // Then order operations to follow the natural workflow: manage dataspaces,
+  // drill down into resources (list -> object -> references/arrays -> array
+  // content), search, write, transactions, manifest, domain-specific
+  // (WITSML/PWLS) and operational endpoints. This drives both the generated
+  // JSON/YAML and (with operationsSorter off) the Swagger UI order.
   if (document.paths) {
+    const paths: any = document.paths;
+
+    // 1) Re-tag the dataspace-lifecycle operations into the Dataspaces section.
+    const dataspaceOps: Record<string, string[]> = {
+      "/dataspaces": ["get", "post"],
+      "/dataspaces/{dataspaceId}/info": ["get"],
+      "/dataspaces/{dataspaceId}/lock": ["post", "delete"],
+      "/dataspaces/{dataspaceId}/validate": ["post"],
+      "/dataspaces/{dataspaceId}/clone": ["post"],
+      "/dataspaces/{dataspaceId}": ["delete"]
+    };
+    for (const [p, methods] of Object.entries(dataspaceOps)) {
+      const item = paths[p];
+      if (!item) continue;
+      for (const m of methods) {
+        if (item[m]) item[m].tags = ["Dataspaces"];
+      }
+    }
+
+    // 2) Order the paths.
     const workflowOrder = [
-      // ── Read / query drill-down ──
+      // ── Dataspaces (lifecycle) ──
       "/dataspaces",                                                                              // list & create dataspaces
       "/dataspaces/{dataspaceId}/info",                                                           // dataspace info
+      "/dataspaces/{dataspaceId}/lock",                                                           // lock / unlock
+      "/dataspaces/{dataspaceId}/validate",                                                       // validate
+      "/dataspaces/{dataspaceId}/clone",                                                          // clone
+      "/dataspaces/{dataspaceId}",                                                                // delete
+      // ── Manifest ──
+      "/manifests/build",
+      // ── Resources: read / drill-down ──
       "/dataspaces/{dataspaceId}/resources/all",                                                  // all resources in a dataspace
       "/dataspaces/{dataspaceId}/resources",                                                      // resource types (+ put objects)
       "/dataspaces/{dataspaceId}/resources/{dataObjectType}",                                     // resources by type
@@ -199,19 +236,15 @@ export default async function app(): Promise<NestExpressApplication> {
       "/dataspaces/{dataspaceId}/graph/all",                                                      // deprecated graph variants
       "/dataspaces/{dataspaceId}/graph/{dataObjectType}/{guid}/targets",
       "/dataspaces/{dataspaceId}/graph/{dataObjectType}/{guid}/sources",
+      // ── Query (search) ──
       "/query/objects/find",
       "/query/graph/search",
-      // ── Write / lifecycle ──
-      "/dataspaces/{dataspaceId}/validate",
-      "/dataspaces/{dataspaceId}/lock",
+      // ── Transactions ──
       "/dataspaces/{dataspaceId}/transactions",
       "/dataspaces/{dataspaceId}/transactions/{transactionId}",
+      // ── Write (objects / arrays / epc) ──
       "/dataspaces/{dataspaceId}/resources/arrays",
       "/dataspaces/{dataspaceId}/epc/upload",
-      "/dataspaces/{dataspaceId}/clone",
-      "/dataspaces/{dataspaceId}",
-      // ── Manifest ──
-      "/manifests/build",
       // ── WITSML ──
       "/witsml/store",
       "/witsml/query",
@@ -233,10 +266,10 @@ export default async function app(): Promise<NestExpressApplication> {
       const i = workflowOrder.indexOf(p);
       return i === -1 ? workflowOrder.length : i;
     };
-    const sorted = Object.entries(document.paths).sort(
+    const sorted = Object.entries(paths).sort(
       ([a], [b]) => orderIndex(a) - orderIndex(b) || a.localeCompare(b)
     );
-    document.paths = Object.fromEntries(sorted);
+    document.paths = Object.fromEntries(sorted) as typeof document.paths;
   }
 
   // Generate API file with 2 space indentation forced.
