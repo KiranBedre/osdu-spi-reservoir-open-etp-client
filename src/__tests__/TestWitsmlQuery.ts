@@ -134,6 +134,47 @@ describe("WITSML Store - Input Validation", () => {
 
     expect(response.status).toBe(400);
   });
+
+  it("PUT /witsml/store - rejects when neither xml nor json is provided", async () => {
+    const response = await request(nestAppServer)
+      .put(`${restApiMainUrl}/witsml/store`)
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .send({ dataspace: testDataspace });
+
+    // Handler rejects payloads with no xml and no json before touching ETP.
+    expect([400, 502]).toContain(response.status);
+  });
+
+  it("POST /witsml/query - rejects unknown field (forbidNonWhitelisted)", async () => {
+    const response = await request(nestAppServer)
+      .post(`${restApiMainUrl}/witsml/query`)
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .send({ dataspace: testDataspace, bogusField: true });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("POST /witsml/query - rejects non-numeric skip", async () => {
+    const response = await request(nestAppServer)
+      .post(`${restApiMainUrl}/witsml/query`)
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .send({ dataspace: testDataspace, skip: "not-a-number" });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("POST /witsml/query - rejects non-array objectTypes", async () => {
+    const response = await request(nestAppServer)
+      .post(`${restApiMainUrl}/witsml/query`)
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .send({ dataspace: testDataspace, objectTypes: "Well" });
+
+    expect(response.status).toBe(400);
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -186,7 +227,9 @@ describe("WITSML Store - Functional", () => {
 
     expect([200, 502]).toContain(response.status);
     if (response.status === 200) {
-      expect(Array.isArray(response.body)).toBe(true);
+      expect(Array.isArray(response.body.objects)).toBe(true);
+      expect(response.body).toHaveProperty("total");
+      expect(response.body).toHaveProperty("count");
     }
   });
 
@@ -199,31 +242,156 @@ describe("WITSML Store - Functional", () => {
 
     expect([200, 502]).toContain(response.status);
     if (response.status === 200) {
-      expect(Array.isArray(response.body)).toBe(true);
+      expect(Array.isArray(response.body.objects)).toBe(true);
+    }
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WITSML M27 Enrichments - format flag, filters, relationships, JSON store
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("WITSML M27 Enrichments - Functional", () => {
+  let nestAppServer: any;
+
+  beforeAll(async () => {
+    const nestApp = await restApp();
+    nestAppServer = (await nestApp.init()).getHttpServer();
+  });
+
+  const wellUuid = "00000000-0000-0000-0000-0000000000aa";
+  const sampleWellJson = {
+    $type: "witsml21.Well",
+    Uuid: wellUuid,
+    SchemaVersion: "2.1",
+    Citation: {
+      $type: "eml23.Citation",
+      Title: "M27 JSON Well",
+      Originator: "jest",
+      Creation: "2026-06-02T00:00:00Z",
+      Format: "WITSML v2.1"
+    },
+    Country: "Norway",
+    TimeZone: "+01:00"
+  };
+
+  it("PUT /witsml/store - accepts JSON body (json array)", async () => {
+    const response = await request(nestAppServer)
+      .put(`${restApiMainUrl}/witsml/store`)
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .send({ dataspace: testDataspace, json: [sampleWellJson] });
+
+    // 200 success, 400 if builder cannot map the $type, 502 if ETP is down.
+    expect([200, 400, 502]).toContain(response.status);
+    if (response.status === 200) {
+      expect(response.body).toHaveProperty("success");
     }
   });
 
-  it("GET /witsml/:dataspaceId/objects - lists objects", async () => {
-    const encoded = encodeURIComponent(testDataspace);
+  it("POST /witsml/query - format=json returns parsed content", async () => {
     const response = await request(nestAppServer)
-      .get(`${restApiMainUrl}/witsml/${encoded}/objects`)
+      .post(`${restApiMainUrl}/witsml/query`)
       .set("Authorization", `Bearer ${jwt}`)
-      .set("data-partition-id", testDataPartitionId);
+      .set("data-partition-id", testDataPartitionId)
+      .send({ dataspace: testDataspace, format: "json", objectType: "Well" });
 
     expect([200, 502]).toContain(response.status);
     if (response.status === 200) {
-      expect(Array.isArray(response.body)).toBe(true);
+      expect(Array.isArray(response.body.objects)).toBe(true);
+      expect(response.body).toHaveProperty("total");
+      for (const o of response.body.objects) {
+        expect(o).toHaveProperty("content");
+        expect(o).not.toHaveProperty("xml");
+      }
     }
   });
 
-  it("GET /witsml/:dataspaceId/objects?type=Well - filters by type param", async () => {
-    const encoded = encodeURIComponent(testDataspace);
+  it("POST /witsml/query - $format query param overrides body", async () => {
     const response = await request(nestAppServer)
-      .get(`${restApiMainUrl}/witsml/${encoded}/objects?type=Well`)
+      .post(`${restApiMainUrl}/witsml/query?$format=json`)
       .set("Authorization", `Bearer ${jwt}`)
-      .set("data-partition-id", testDataPartitionId);
+      .set("data-partition-id", testDataPartitionId)
+      .send({ dataspace: testDataspace });
 
     expect([200, 502]).toContain(response.status);
+    if (response.status === 200) {
+      for (const o of response.body.objects) {
+        expect(o).toHaveProperty("content");
+      }
+    }
+  });
+
+  it("POST /witsml/query - multiple objectTypes filter", async () => {
+    const response = await request(nestAppServer)
+      .post(`${restApiMainUrl}/witsml/query`)
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .send({
+        dataspace: testDataspace,
+        objectTypes: ["Well", "Wellbore"]
+      });
+
+    expect([200, 502]).toContain(response.status);
+    if (response.status === 200) {
+      expect(Array.isArray(response.body.objects)).toBe(true);
+    }
+  });
+
+  it("POST /witsml/query - titleContains, uuids, modifiedSince, pagination", async () => {
+    const response = await request(nestAppServer)
+      .post(`${restApiMainUrl}/witsml/query`)
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .send({
+        dataspace: testDataspace,
+        titleContains: "well",
+        uuids: [wellUuid],
+        modifiedSince: "2020-01-01T00:00:00.000Z",
+        skip: 0,
+        top: 10
+      });
+
+    expect([200, 502]).toContain(response.status);
+    if (response.status === 200) {
+      expect(response.body).toHaveProperty("total");
+      expect(response.body.objects.length).toBeLessThanOrEqual(10);
+    }
+  });
+
+  it("POST /witsml/query - relatedTo traversal by bare uuid", async () => {
+    const response = await request(nestAppServer)
+      .post(`${restApiMainUrl}/witsml/query`)
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .send({
+        dataspace: testDataspace,
+        relatedTo: wellUuid,
+        scope: "targets"
+      });
+
+    expect([200, 502]).toContain(response.status);
+    if (response.status === 200) {
+      expect(Array.isArray(response.body.objects)).toBe(true);
+      expect(response.body).toHaveProperty("total");
+    }
+  });
+
+  it("POST /witsml/query - relatedTo unknown uuid returns empty set", async () => {
+    const response = await request(nestAppServer)
+      .post(`${restApiMainUrl}/witsml/query`)
+      .set("Authorization", `Bearer ${jwt}`)
+      .set("data-partition-id", testDataPartitionId)
+      .send({
+        dataspace: testDataspace,
+        relatedTo: "ffffffff-ffff-ffff-ffff-ffffffffffff"
+      });
+
+    expect([200, 502]).toContain(response.status);
+    if (response.status === 200) {
+      expect(response.body.count).toBe(0);
+      expect(response.body.total).toBe(0);
+    }
   });
 });
 

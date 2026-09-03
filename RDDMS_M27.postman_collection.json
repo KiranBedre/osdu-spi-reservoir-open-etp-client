@@ -2514,47 +2514,6 @@
       "name": "11. WITSML",
       "item": [
         {
-          "name": "WM1 List WITSML Objects",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              },
-              {
-                "key": "data-partition-id",
-                "value": "{{data-partition-id}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{RDDMS_URL}}/witsml/{{test_ds_encoded}}/objects",
-              "host": [
-                "{{RDDMS_URL}}"
-              ],
-              "path": [
-                "witsml",
-                "{{test_ds_encoded}}",
-                "objects"
-              ]
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
           "name": "WM2 WITSML Query",
           "request": {
             "method": "POST",
@@ -2613,6 +2572,302 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "WM3 WITSML Query (JSON format)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/witsml/query",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "witsml",
+                "query"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var ds = pm.collectionVariables.get(\"test_ds\");",
+                  "pm.request.body.raw = JSON.stringify({ dataspace: ds, objectType: \"Well\", format: \"json\" });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  var body = pm.response.json();",
+                  "  pm.test(\"has pagination envelope\", function () {",
+                  "    pm.expect(body).to.have.property(\"total\");",
+                  "    pm.expect(body).to.have.property(\"count\");",
+                  "    pm.expect(body.objects).to.be.an(\"array\");",
+                  "  });",
+                  "  pm.test(\"json format yields content, not xml\", function () {",
+                  "    body.objects.forEach(function (o) {",
+                  "      pm.expect(o).to.have.property(\"content\");",
+                  "      pm.expect(o).to.not.have.property(\"xml\");",
+                  "    });",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "WM4 WITSML Query (filters + pagination)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/witsml/query",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "witsml",
+                "query"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var ds = pm.collectionVariables.get(\"test_ds\");",
+                  "pm.request.body.raw = JSON.stringify({ dataspace: ds, objectTypes: [\"Well\", \"Wellbore\"], titleContains: \"well\", modifiedSince: \"2020-01-01T00:00:00.000Z\", skip: 0, top: 25 });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  var body = pm.response.json();",
+                  "  pm.test(\"respects top limit\", function () {",
+                  "    pm.expect(body).to.have.property(\"total\");",
+                  "    pm.expect(body.objects.length).to.be.at.most(25);",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "WM5 WITSML Query (relationships)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/witsml/query",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "witsml",
+                "query"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var ds = pm.collectionVariables.get(\"test_ds\");",
+                  "// relatedTo accepts a bare UUID (resolved in the dataspace) or a full ETP URI.",
+                  "pm.request.body.raw = JSON.stringify({ dataspace: ds, relatedTo: \"00000000-0000-0000-0000-000000000001\", scope: \"targets\", format: \"json\" });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "if (pm.response.code === 200) {",
+                  "  var body = pm.response.json();",
+                  "  pm.test(\"relationship query returns envelope\", function () {",
+                  "    pm.expect(body).to.have.property(\"total\");",
+                  "    pm.expect(body.objects).to.be.an(\"array\");",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "WM6 Store WITSML (JSON body)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/witsml/store",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "witsml",
+                "store"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var ds = pm.collectionVariables.get(\"test_ds\");",
+                  "var well = {",
+                  "  $type: \"witsml21.Well\",",
+                  "  Uuid: \"00000000-0000-0000-0000-0000000000aa\",",
+                  "  SchemaVersion: \"2.1\",",
+                  "  Citation: { $type: \"eml23.Citation\", Title: \"Postman JSON Well\", Originator: \"Postman\", Creation: \"2026-07-10T00:00:00Z\", Format: \"Reservoir DDMS Postman\" },",
+                  "  Country: \"Norway\",",
+                  "  TimeZone: \"+01:00\"",
+                  "};",
+                  "pm.request.body.raw = JSON.stringify({ dataspace: ds, json: [well] });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200 or 400\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 400]); });",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test(\"reports success\", function () { pm.expect(pm.response.json()).to.have.property(\"success\"); });",
+                  "}"
                 ]
               }
             }

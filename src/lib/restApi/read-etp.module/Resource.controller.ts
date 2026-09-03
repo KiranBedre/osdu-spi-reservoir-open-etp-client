@@ -564,6 +564,17 @@ export const depthQueryParam: ApiQueryOptions = {
   }
 };
 
+export const edgesQueryParam: ApiQueryOptions = {
+  name: "edges",
+  required: false,
+  description:
+    "If `true`, return the relationship **graph** (nodes *and* edges) instead of a flat resource list. `edges=true` is equivalent to the deprecated `/graph/...` route; the default (`false`) returns the list, unchanged.",
+  schema: {
+    type: "boolean",
+    default: false
+  }
+};
+
 /**
  * Query parameter to indicate if secondary targets should be included in the response
  * @export
@@ -1009,7 +1020,7 @@ export default class ResourcesReadAPI {
   })
   @ApiOperation({
     summary: "List resource types in a dataspace.",
-    description: `Returns each Energistics type present in the dataspace with its object count (e.g., \`resqml20.obj_IjkGridRepresentation: 12\`). Use this to discover what data exists before listing individual resources.`,
+    description: `Returns each Energistics **type** present in the dataspace with its object count (e.g., \`resqml20.obj_IjkGridRepresentation: 12\`). This is a type catalog, **not** the resources themselves — use \`GET /dataspaces/{id}/resources/all\` to list the actual resource nodes, or \`GET /dataspaces/{id}/resources/{type}\` to list resources of one type. Use this endpoint to discover what data exists before drilling in.`,
     servers: swaggerServers
   })
   public async ListTypes(
@@ -1074,12 +1085,13 @@ export default class ResourcesReadAPI {
   @ApiQuery(storeLastWriteFilterQueryParam)
   @ApiQuery(dataObjectTypesQueryParam)
   @ApiQuery(depthQueryParam)
+  @ApiQuery(edgesQueryParam)
   @ApiQuery(countObjectsQueryParam)
   @ApiQuery(transactionIdQueryParam)
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
     summary: "List all resources in a dataspace",
-    description: `List all resources (data objects) in a dataspace. Returns URI, name, type, and timestamps for each.\n\n**Filtering**: Use \`dataObjectTypes\` to restrict by type (e.g., \`resqml20.obj_IjkGridRepresentation\`), \`storeLastWriteFilter\` for incremental sync, and \`$filter\` for XPath content queries.\n\n**Graph traversal**: Set \`depth\` > 1 to recursively discover related resources. Combined with \`dataObjectTypes\`, this enables server-side deep search without N+1 client calls.\n\n**Pagination**: \`$skip\` and \`$top\` are applied client-side after fetching all results from ETP.`,
+    description: `List all resources (data objects) in a dataspace as a **flat list** of nodes (URI, name, type, timestamps).\n\n**List vs graph**: By default this returns only the resource nodes. Set \`edges=true\` to additionally return the relationship **edges** between them (the relationship graph) — this makes the endpoint equivalent to the deprecated \`GET /dataspaces/{id}/graph/all\`.\n\n**Filtering**: Use \`dataObjectTypes\` to restrict by type (e.g., \`resqml20.obj_IjkGridRepresentation\`), \`storeLastWriteFilter\` for incremental sync, and \`$filter\` for XPath content queries.\n\n**Graph traversal**: Set \`depth\` > 1 to recursively discover related resources. Combined with \`dataObjectTypes\`, this enables server-side deep search without N+1 client calls.\n\n**Pagination**: \`$skip\` and \`$top\` are applied client-side after fetching all results from ETP.`,
     servers: swaggerServers
   })
   public async ListResources(
@@ -1091,10 +1103,11 @@ export default class ResourcesReadAPI {
     storeLastWriteFilter?: Date,
     @Query("dataObjectTypes") dataObjectTypes?: string,
     @Query("depth", OptionalParseIntPipe) depth?: number,
+    @Query("edges", OptionalParseBoolPipe) edges = false,
     @Query("countObjects", OptionalParseBoolPipe) countObjects = false,
     @Query("transactionId") transactionId?: string,
     @Req() request?: express.Request
-  ): Promise<ResourceDto[] | null> {
+  ): Promise<ResourceDto[] | ResourceGraphDto | null> {
     logger.info(
       `Received request to list resources for dataspace: ${params.dataspaceId}`
     );
@@ -1113,28 +1126,49 @@ export default class ResourcesReadAPI {
         transactionId
       );
       logger.info("Session created successfully.");
-      logger.info("Fetching resources...");
-      const resources = await findResources(
-        c,
-        {
-          uri: EtpUri.createDataSpaceUri(params.dataspaceId).uri,
-          depth: depth ?? 1,
-          dataObjectTypes: dataObjectTypes ? dataObjectTypes.split(",") : [],
-          navigableEdges: "Both"
-        },
-        query,
-        "self",
-        countObjects,
-        storeLastWriteFilter
-      );
-      logger.info("Resources fetched successfully.");
-      if (!transactionId) {
-        logger.info("Closing session...");
-        await c.closeSession();
-        logger.info("Session closed successfully.");
+      logger.info(edges ? "Fetching resource graph..." : "Fetching resources...");
+      const findQuery = {
+        uri: EtpUri.createDataSpaceUri(params.dataspaceId).uri,
+        depth: depth ?? 1,
+        dataObjectTypes: dataObjectTypes ? dataObjectTypes.split(",") : [],
+        navigableEdges: "Both" as const
+      };
+      let result: ResourceDto[] | ResourceGraphDto | null;
+      if (edges) {
+        const graph = await graphResources(
+          c,
+          findQuery,
+          query,
+          "self",
+          countObjects,
+          storeLastWriteFilter
+        );
+        logger.info("Resources fetched successfully.");
+        if (!transactionId) {
+          logger.info("Closing session...");
+          await c.closeSession();
+          logger.info("Session closed successfully.");
+        }
+        c = undefined;
+        result = sendGraph(skip, top, graph);
+      } else {
+        const resources = await findResources(
+          c,
+          findQuery,
+          query,
+          "self",
+          countObjects,
+          storeLastWriteFilter
+        );
+        logger.info("Resources fetched successfully.");
+        if (!transactionId) {
+          logger.info("Closing session...");
+          await c.closeSession();
+          logger.info("Session closed successfully.");
+        }
+        c = undefined;
+        result = sendResources(skip, top, resources);
       }
-      c = undefined;
-      const result = sendResources(skip, top, resources);
       logger.info("Processed resources successfully.");
       return result;
     } catch (err) {
@@ -1172,8 +1206,9 @@ export default class ResourcesReadAPI {
   @ApiQuery(transactionIdQueryParam)
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
-    summary: "Full relationship graph for a dataspace",
-    description: `Build a complete relationship graph for all resources in a dataspace. Returns nodes and edges (relationships between objects).\n\n**Difference from List All**: This endpoint returns edges/relationships in addition to the resource list. Use it when you need to understand how objects reference each other.\n\n**depth**: 1 = direct relationships only, N = recursive traversal. Higher values may be slow for large dataspaces.`,
+    deprecated: true,
+    summary: "Full relationship graph for a dataspace (deprecated)",
+    description: `**Deprecated** — use \`GET /dataspaces/{id}/resources/all?edges=true\` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nBuild a complete relationship graph for all resources in a dataspace. Returns nodes and edges (relationships between objects).\n\n**depth**: 1 = direct relationships only, N = recursive traversal. Higher values may be slow for large dataspaces.`,
     servers: swaggerServers
   })
   public async GraphResources(
@@ -1341,13 +1376,14 @@ export default class ResourcesReadAPI {
   @ApiQuery(storeLastWriteFilterQueryParam)
   @ApiQuery(dataObjectTypesQueryParam)
   @ApiQuery(depthQueryParam)
+  @ApiQuery(edgesQueryParam)
   @ApiQuery(includeSecondarySourcesQueryParam)
   @ApiQuery(countObjectsQueryParam)
   @ApiQuery(transactionIdQueryParam)
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
     summary: "List targets (resources referenced by this object)",
-    description: `Flat list of resources that this object references (e.g., a Property's supporting Representation, or a Representation's CRS). Follows relationships forward (parent → child).\n\n**depth**: 1 = immediate targets only, N = recursive (e.g., depth=2 gets targets of targets).\n\n**For graph with edges**: Use \`GET /graph/{type}/{guid}/targets\` instead.`,
+    description: `Flat list of resources that this object references (e.g., a Property's supporting Representation, or a Representation's CRS). Follows relationships forward (parent → child).\n\n**depth**: 1 = immediate targets only, N = recursive (e.g., depth=2 gets targets of targets).\n\n**List vs graph**: Set \`edges=true\` to also return the relationship edges (equivalent to the deprecated \`GET /graph/{type}/{guid}/targets\`).`,
     servers: swaggerServers
   })
   public async ListTargets(
@@ -1360,12 +1396,13 @@ export default class ResourcesReadAPI {
     storeLastWriteFilter?: Date,
     @Query("dataObjectTypes") dataObjectTypes?: string,
     @Query("depth", OptionalParseIntPipe) depth?: number,
+    @Query("edges", OptionalParseBoolPipe) edges = false,
     @Query("includeSecondarySources", OptionalParseBoolPipe)
     includeSecondarySources?: boolean,
     @Query("countObjects", OptionalParseBoolPipe) countObjects = false,
     @Query("transactionId") transactionId?: string,
     @Req() request?: express.Request
-  ): Promise<ResourceDto[] | null> {
+  ): Promise<ResourceDto[] | ResourceGraphDto | null> {
     logger.info(
       `Received request to list targets for dataspace: ${params.dataspaceId}, type: ${params.dataObjectType}, guid: ${params.guid}`
     );
@@ -1393,29 +1430,50 @@ export default class ResourcesReadAPI {
         transactionId
       );
       logger.info("Session created successfully.");
-      logger.info("Fetching targets...");
-      const resources = await findResources(
-        c,
-        {
-          uri,
-          depth,
-          dataObjectTypes: dataObjectTypes ? dataObjectTypes.split(",") : [],
-          navigableEdges: "Both",
-          includeSecondarySources
-        },
-        query,
-        "targets",
-        countObjects,
-        storeLastWriteFilter
-      );
-      logger.info("Targets fetched successfully.");
-      if (!transactionId) {
-        logger.info("Closing session...");
-        await c.closeSession();
-        logger.info("Session closed successfully.");
+      logger.info(edges ? "Fetching target graph..." : "Fetching targets...");
+      const findQuery = {
+        uri,
+        depth,
+        dataObjectTypes: dataObjectTypes ? dataObjectTypes.split(",") : [],
+        navigableEdges: "Both" as const,
+        includeSecondarySources
+      };
+      let result: ResourceDto[] | ResourceGraphDto | null;
+      if (edges) {
+        const graph = await graphResources(
+          c,
+          findQuery,
+          query,
+          "targets",
+          countObjects,
+          storeLastWriteFilter
+        );
+        logger.info("Targets fetched successfully.");
+        if (!transactionId) {
+          logger.info("Closing session...");
+          await c.closeSession();
+          logger.info("Session closed successfully.");
+        }
+        c = undefined;
+        result = sendGraph(skip, top, graph);
+      } else {
+        const resources = await findResources(
+          c,
+          findQuery,
+          query,
+          "targets",
+          countObjects,
+          storeLastWriteFilter
+        );
+        logger.info("Targets fetched successfully.");
+        if (!transactionId) {
+          logger.info("Closing session...");
+          await c.closeSession();
+          logger.info("Session closed successfully.");
+        }
+        c = undefined;
+        result = sendResources(skip, top, resources);
       }
-      c = undefined;
-      const result = sendResources(skip, top, resources);
       logger.info(`Processed targets successfully.`);
       return result;
     } catch (err) {
@@ -1460,8 +1518,9 @@ export default class ResourcesReadAPI {
   @ApiQuery(transactionIdQueryParam)
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
-    summary: "Graph targets (with edges)",
-    description: `Graph of resources referenced by this object, including the relationship edges between them. Same traversal as List Targets but returns edge information.\n\n**When to use**: When you need to visualize or process the relationship structure, not just the flat list.`,
+    deprecated: true,
+    summary: "Graph targets (with edges) (deprecated)",
+    description: `**Deprecated** — use \`GET /dataspaces/{id}/resources/{type}/{guid}/targets?edges=true\` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nGraph of resources referenced by this object, including the relationship edges between them. Same traversal as List Targets but returns edge information.`,
     servers: swaggerServers
   })
   public async GraphTargets(
@@ -1556,13 +1615,14 @@ export default class ResourcesReadAPI {
   @ApiQuery(storeLastWriteFilterQueryParam)
   @ApiQuery(dataObjectTypesQueryParam)
   @ApiQuery(depthQueryParam)
+  @ApiQuery(edgesQueryParam)
   @ApiQuery(includeSecondaryTargetsQueryParam)
   @ApiQuery(countObjectsQueryParam)
   @ApiQuery(transactionIdQueryParam)
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
     summary: "List sources (resources that reference this object)",
-    description: `Flat list of resources that reference this object (e.g., Properties attached to a Representation). Follows relationships backward (child → parent).\n\n**depth**: 1 = immediate sources only, N = recursive.\n\n**For graph with edges**: Use \`GET /graph/{type}/{guid}/sources\` instead.`,
+    description: `Flat list of resources that reference this object (e.g., Properties attached to a Representation). Follows relationships backward (child → parent).\n\n**depth**: 1 = immediate sources only, N = recursive.\n\n**List vs graph**: Set \`edges=true\` to also return the relationship edges (equivalent to the deprecated \`GET /graph/{type}/{guid}/sources\`).`,
     servers: swaggerServers
   })
   public async ListSources(
@@ -1575,12 +1635,13 @@ export default class ResourcesReadAPI {
     storeLastWriteFilter?: Date,
     @Query("dataObjectTypes") dataObjectTypes?: string,
     @Query("depth", OptionalParseIntPipe) depth?: number,
+    @Query("edges", OptionalParseBoolPipe) edges = false,
     @Query("includeSecondaryTargets", OptionalParseBoolPipe)
     includeSecondaryTargets?: boolean,
     @Query("countObjects", OptionalParseBoolPipe) countObjects = false,
     @Query("transactionId") transactionId?: string,
     @Req() request?: express.Request
-  ): Promise<ResourceDto[] | null> {
+  ): Promise<ResourceDto[] | ResourceGraphDto | null> {
     logger.info(
       `Received request to list sources for dataspace: ${params.dataspaceId}, type: ${params.dataObjectType}, guid: ${params.guid}`
     );
@@ -1609,29 +1670,50 @@ export default class ResourcesReadAPI {
         transactionId
       );
       logger.info("Session created successfully.");
-      logger.info("Fetching sources...");
-      const resources = await findResources(
-        c,
-        {
-          uri,
-          depth,
-          dataObjectTypes: dataObjectTypes ? dataObjectTypes.split(",") : [],
-          navigableEdges: "Both",
-          includeSecondaryTargets
-        },
-        query,
-        "sources",
-        countObjects,
-        storeLastWriteFilter
-      );
-      logger.info("Sources fetched successfully.");
-      if (!transactionId) {
-        logger.info("Closing session...");
-        await c.closeSession();
-        logger.info("Session closed successfully.");
+      logger.info(edges ? "Fetching source graph..." : "Fetching sources...");
+      const findQuery = {
+        uri,
+        depth,
+        dataObjectTypes: dataObjectTypes ? dataObjectTypes.split(",") : [],
+        navigableEdges: "Both" as const,
+        includeSecondaryTargets
+      };
+      let result: ResourceDto[] | ResourceGraphDto | null;
+      if (edges) {
+        const graph = await graphResources(
+          c,
+          findQuery,
+          query,
+          "sources",
+          countObjects,
+          storeLastWriteFilter
+        );
+        logger.info("Sources fetched successfully.");
+        if (!transactionId) {
+          logger.info("Closing session...");
+          await c.closeSession();
+          logger.info("Session closed successfully.");
+        }
+        c = undefined;
+        result = sendGraph(skip, top, graph);
+      } else {
+        const resources = await findResources(
+          c,
+          findQuery,
+          query,
+          "sources",
+          countObjects,
+          storeLastWriteFilter
+        );
+        logger.info("Sources fetched successfully.");
+        if (!transactionId) {
+          logger.info("Closing session...");
+          await c.closeSession();
+          logger.info("Session closed successfully.");
+        }
+        c = undefined;
+        result = sendResources(skip, top, resources);
       }
-      c = undefined;
-      const result = sendResources(skip, top, resources);
       logger.info("Processed sources successfully.");
       return result;
     } catch (err) {
@@ -1673,8 +1755,9 @@ export default class ResourcesReadAPI {
   @ApiQuery(transactionIdQueryParam)
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
-    summary: "Graph sources (with edges).",
-    description: `Graph of resources that reference this object, including the relationship edges. Same traversal as List Sources but returns edge information.\n\n**When to use**: When you need to visualize or process the relationship structure, not just the flat list. For example, understanding which Properties are attached to a Representation and how.`,
+    deprecated: true,
+    summary: "Graph sources (with edges) (deprecated)",
+    description: `**Deprecated** — use \`GET /dataspaces/{id}/resources/{type}/{guid}/sources?edges=true\` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nGraph of resources that reference this object, including the relationship edges. Same traversal as List Sources but returns edge information.`,
     servers: swaggerServers
   })
   public async GraphSources(

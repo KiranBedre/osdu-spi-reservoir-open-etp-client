@@ -1,0 +1,57 @@
+meta {
+  name: Store Object JSON
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{host}}/witsml/store
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Store WITSML objects using a JSON payload instead of XML. Each object must
+  carry an Energistics `$type` (e.g. `witsml21.Well`) and a `Uuid`. The service
+  converts the JSON to Energistics XML server-side and runs the same store +
+  array-extraction pipeline used for XML input.
+}
+
+body:json {
+  {
+    "dataspace": "{{dataspaceIdRaw}}",
+    "json": [
+      {
+        "$type": "witsml21.Well",
+        "Uuid": "00000000-0000-0000-0000-0000000000aa",
+        "SchemaVersion": "2.1",
+        "Citation": {
+          "$type": "eml23.Citation",
+          "Title": "Bruno JSON Well",
+          "Originator": "Bruno",
+          "Creation": "2026-07-10T00:00:00Z",
+          "Format": "Reservoir DDMS Bruno"
+        },
+        "Country": "Norway",
+        "TimeZone": "+01:00"
+      }
+    ]
+  }
+}
+
+tests {
+  test("status is 200 or 400 or 404 or 412", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 400, 404, 412]);
+  });
+
+  test("successful store reports success", function () {
+    if (res.getStatus() === 200) {
+      expect(res.getBody()).to.have.property("success");
+    }
+  });
+}
