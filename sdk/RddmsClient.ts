@@ -194,8 +194,8 @@ export class RddmsClient {
         create: (input: DataspaceInput[]) => this.post<string[]>("/dataspaces", input),
         info: (ds: string) => this.get<unknown>(`/dataspaces/${enc(ds)}/info`),
         delete: (ds: string) => this.del<unknown>(`/dataspaces/${enc(ds)}`),
-        clone: (ds: string, body: { targetDataspaceId: string }) =>
-            this.post<string>(`/dataspaces/${enc(ds)}/clone`, body),
+        clone: (ds: string, body: { targetDataspaceId: string }, opts?: { reidentify?: boolean }) =>
+            this.post<string>(`/dataspaces/${enc(ds)}/clone${qs(opts ?? {})}`, body),
         lock: (ds: string) => this.post<boolean>(`/dataspaces/${enc(ds)}/lock`),
         unlock: (ds: string) => this.del<boolean>(`/dataspaces/${enc(ds)}/lock`),
     };

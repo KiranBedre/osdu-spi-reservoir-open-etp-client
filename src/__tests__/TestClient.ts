@@ -1305,6 +1305,102 @@ describe("OSDU Dataspaces", () => {
     expect(thrown).toBeFalsy();
   });
 
+  it("Clone dataspace preserves UUIDs, reidentify mints new ones", async () => {
+    const cc = new ResqmlClient();
+    cc.setCallsTraceability(true);
+    await cc.openSession(etpServerUrl, jwt, testDataPartitionId);
+    let thrown = false;
+
+    const plainCopy = "eml:///dataspace('Clone/plain')";
+    const reidCopy = "eml:///dataspace('Clone/reidentify')";
+    const uuidSet = (resources: { uri: string }[]): Set<string> =>
+      new Set(
+        resources
+          .map(r => new EtpUri(r.uri).uuid.toLowerCase())
+          .filter(u => u.length > 0)
+      );
+
+    try {
+      const projects = await cc.getDataspaces();
+      expect(projects).toBeTruthy();
+      if (projects == null) {
+        await cc.closeSession();
+        return;
+      }
+
+      // Pick a source dataspace that actually has objects to copy.
+      let source: string | undefined;
+      let sourceResources: Awaited<
+        ReturnType<typeof cc.getDataspaceResources>
+      > = [];
+      for (const p of projects) {
+        const res = await cc.getDataspaceResources(p.uri);
+        if (res.length > 0) {
+          source = p.uri;
+          sourceResources = res;
+          break;
+        }
+      }
+      if (!source) {
+        // No seeded data on this server: nothing meaningful to validate.
+        await cc.closeSession();
+        return;
+      }
+      const sourceUuids = uuidSet(sourceResources);
+
+      // Clean up any leftovers from a previous run.
+      await cc.deleteDataspaces([plainCopy]).catch(() => undefined);
+      await cc.deleteDataspaces([reidCopy]).catch(() => undefined);
+
+      // --- Default clone: UUID-preserving deep copy ---
+      expect(await cc.lockDataspaces([source])).toBeTruthy();
+      expect(
+        await cc.cloneDataspace("Clone/plain", "Clone/plain", source, new Map())
+      ).toBeTruthy();
+      expect(await cc.unlockDataspaces([source])).toBeTruthy();
+
+      const plainResources = await cc.getDataspaceResources(plainCopy);
+      // Same objects, same identities.
+      expect(plainResources.length).toBe(sourceResources.length);
+      expect([...uuidSet(plainResources)].sort()).toStrictEqual(
+        [...sourceUuids].sort()
+      );
+
+      // --- Reidentify clone: same objects, brand new identities ---
+      expect(await cc.lockDataspaces([source])).toBeTruthy();
+      expect(
+        await cc.cloneDataspace(
+          "Clone/reidentify",
+          "Clone/reidentify",
+          source,
+          new Map(),
+          true
+        )
+      ).toBeTruthy();
+      expect(await cc.unlockDataspaces([source])).toBeTruthy();
+
+      const reidResources = await cc.getDataspaceResources(reidCopy);
+      const reidUuids = uuidSet(reidResources);
+      // Same number of objects...
+      expect(reidResources.length).toBe(sourceResources.length);
+      // ...but none of the source UUIDs survive.
+      for (const u of reidUuids) {
+        expect(sourceUuids.has(u)).toBe(false);
+      }
+      expect(reidUuids.size).toBe(sourceUuids.size);
+
+      // Cleanup
+      expect(await cc.deleteDataspaces([plainCopy])).toBeTruthy();
+      expect(await cc.deleteDataspaces([reidCopy])).toBeTruthy();
+    } catch (err) {
+      thrown = true;
+      logger.error("Clone/reidentify test failed", err);
+      await cc.unlockDataspaces([reidCopy]).catch(() => undefined);
+    }
+    await cc.closeSession();
+    expect(thrown).toBeFalsy();
+  });
+
   it("Resources import", async () => {
     const c3 = new ResqmlClient();
     c3.setCallsTraceability(true);

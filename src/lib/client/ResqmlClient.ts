@@ -1006,7 +1006,8 @@ export class ResqmlClient {
     dataspaceUid: string,
     path: string,
     originURI: URI,
-    customData: Map<string, DataValue> = new Map<string, DataValue>()
+    customData: Map<string, DataValue> = new Map<string, DataValue>(),
+    reidentify: boolean = false
   ): Promise<boolean> {
     const uri = EtpUri.createDataSpaceUri(dataspaceUid).uri;
 
@@ -1024,6 +1025,15 @@ export class ResqmlClient {
         .then(this.checkErrors.bind(this))
         .then(() => this.dataspaceOSDU.copyDataspacesContent([originURI], uri))
         .then(this.checkErrors.bind(this))
+        .then(async () => {
+          if (reidentify) {
+            // The server-side copy preserves the source object UUIDs. When the
+            // caller wants an independent, re-ingestable copy, rewrite every
+            // object in the freshly copied dataspace with brand new identities.
+            await this.reidentifyDataspaceObjects(uri);
+          }
+          return true;
+        })
         .catch(async err => {
           // Rollback: delete the destination dataspace to avoid orphaned empty dataspaces
           try {
@@ -1042,6 +1052,14 @@ export class ResqmlClient {
       return false;
     }
 
+    if (reidentify) {
+      // The non-OSDU fallback stores a reference to the origin dataspace instead
+      // of performing a real copy, so there is nothing to re-identify.
+      this.logger.warn(
+        "reidentify requested but ignored: server does not support DataspaceOSDU content copy"
+      );
+    }
+
     const dataspaces = await this.getDataspaces();
     if (!dataspaces || dataspaces.findIndex(f => f.uri === uri) !== -1) {
       return false;
@@ -1053,6 +1071,166 @@ export class ResqmlClient {
     customData.set("fromDataspace", EtpDataValue.avroString(originURI));
 
     return this.createDataspaces([p]);
+  }
+
+  /**
+   * Rewrite every object of a dataspace with freshly minted UUIDs.
+   *
+   * Intended to be called on a dataspace that was just populated by a
+   * server-side {@link cloneDataspace}/{@link copyDataspacesContent}, which
+   * preserves the source object identities. Sharing UUIDs across dataspaces is
+   * fine for isolated sandbox editing, but collides when the copy is later
+   * merged back or re-ingested into OSDU (the manifest builder derives the OSDU
+   * record id from the object UUID). This method turns the copy into an
+   * independent, publishable dataset by:
+   *   1. minting a new UUID for every object in the dataspace,
+   *   2. rewriting each object body so its own UUID, all of its Data Object
+   *      Reference (DOR) uuids and any embedded array paths point at the new
+   *      identities (opaque token replacement, see {@link EtpUri.remapUuids}),
+   *   3. re-associating each HDF5 array under the new object URIs,
+   *   4. deleting the original (old-UUID) objects.
+   *
+   * All writes run inside a single transaction: any failure rolls the dataspace
+   * back to the plain (UUID-preserving) copy.
+   *
+   * Note: the array re-association streams array bytes back through the gateway.
+   * It is validated for arrays that fit the negotiated message size; very large
+   * arrays fall back to a chunked numeric copy. Run against representative data
+   * before relying on it for production re-ingestion.
+   *
+   * @param {URI} targetUri URI of the dataspace to re-identify
+   * @returns {Promise<boolean>} success
+   * @memberof ResqmlClient
+   */
+  public async reidentifyDataspaceObjects(targetUri: URI): Promise<boolean> {
+    const resources = await this.getDataspaceResources(targetUri);
+    if (resources.length === 0) {
+      return true;
+    }
+
+    // 1. Mint a new uuid for every object in the dataspace.
+    const uuidMap = new Map<string, string>();
+    for (const r of resources) {
+      const uuid = new EtpUri(r.uri).uuid;
+      if (uuid && !uuidMap.has(uuid.toLowerCase())) {
+        uuidMap.set(uuid.toLowerCase(), uuidRandom());
+      }
+    }
+    if (uuidMap.size === 0) {
+      return true;
+    }
+
+    const oldUris = resources.map(r => r.uri);
+
+    // 2. Fetch the raw object bodies (to rewrite) and the parsed objects (to
+    //    enumerate the HDF5 arrays that belong to each of them).
+    const [rawObjects, parsedObjects] = await Promise.all([
+      this.getDataObjects(oldUris),
+      this.getObjects(oldUris)
+    ]);
+
+    // 3. Enumerate every array using the OLD identities, before any rewrite.
+    const oldArrays = new Map<URI, IDataArray>();
+    parsedObjects.forEach((o, i) => {
+      if (o) {
+        this.findDataArrays(oldUris[i], o, oldArrays);
+      }
+    });
+
+    // 4. Build the rewritten object bodies with their new identities.
+    const newObjects: DataObject[] = [];
+    for (const dob of rawObjects) {
+      if (!dob) {
+        continue;
+      }
+      const newXml = EtpUri.remapUuids(byteToString(dob.data), uuidMap);
+      const newUri = EtpUri.remapUuids(dob.resource.uri, uuidMap);
+      newObjects.push({
+        resource: { ...dob.resource, uri: newUri },
+        data: Buffer.from(newXml),
+        format: dob.format || "xml",
+        blobId: null
+      });
+    }
+
+    // 5. Apply everything atomically.
+    const transaction = await this.startTransaction(
+      false,
+      [targetUri],
+      `Reidentify dataspace ${targetUri}`
+    );
+    try {
+      const put = await this.putDataObjects(newObjects);
+      if (!put) {
+        throw new EtpError(
+          "Failed to write re-identified objects",
+          ErrorCode.EINVALID_STATE
+        );
+      }
+
+      for (const array of oldArrays.values()) {
+        await this.reidentifyDataArray(array.uid, uuidMap);
+      }
+
+      await this.deleteObjects(oldUris).then(this.checkErrors.bind(this));
+      await this.commitTransaction(transaction);
+      return true;
+    } catch (err) {
+      await this.rollbackTransaction(transaction).catch(rollbackErr =>
+        this.logger.error(
+          "Failed to roll back re-identify transaction",
+          rollbackErr
+        )
+      );
+      throw err;
+    }
+  }
+
+  /**
+   * Copy a single HDF5 array from its old (source) identity to the new,
+   * re-identified identity, faithfully preserving its values and dimensions.
+   *
+   * @private
+   * @param {IArrayId} oldUid array identifier using the pre-remap identities
+   * @param {Map<string, string>} uuidMap lower-cased old uuid -> new uuid
+   * @memberof ResqmlClient
+   */
+  private async reidentifyDataArray(
+    oldUid: IArrayId,
+    uuidMap: Map<string, string>
+  ): Promise<void> {
+    const newUid: IArrayId = {
+      uri: EtpUri.remapUuids(oldUid.uri, uuidMap),
+      pathInResource: EtpUri.remapUuids(oldUid.pathInResource, uuidMap)
+    };
+    if (
+      newUid.uri === oldUid.uri &&
+      newUid.pathInResource === oldUid.pathInResource
+    ) {
+      // Nothing referenced this array's identity got remapped: leave as-is.
+      return;
+    }
+
+    const array = await this.getDataArray(oldUid.uri, oldUid.pathInResource);
+    if (!array?.data) {
+      this.logger.warn(
+        `Skipping array re-association, no content for ${oldUid.uri}${oldUid.pathInResource}`
+      );
+      return;
+    }
+
+    // Faithful, type-agnostic passthrough: re-send the exact array payload
+    // (values + dimensions) under the new identity.
+    const put: Energistics.Etp.v12.Datatypes.DataArrayTypes.PutDataArraysType = {
+      array: array.data,
+      uid: newUid,
+      customData: array.customData ?? new Map()
+    };
+    const errors = await this.dataArray.put([put]);
+    const failed = errors.filter(e => e.code !== 0);
+    if (failed.length > 0) {
+      throw new EtpError(failed[0].message, failed[0].code);
+    }
   }
 
   /**

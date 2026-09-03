@@ -23,6 +23,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
   Req,
   UseGuards
 } from "@nestjs/common";
@@ -41,6 +42,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiProperty,
+  ApiQuery,
   ApiTags,
   ApiTooManyRequestsResponse
 } from "@nestjs/swagger";
@@ -78,6 +80,7 @@ import {
   extractToken,
   getSchemasForType,
   httpErrorFromEtpError,
+  OptionalParseBoolPipe,
   patternString,
   swaggerServers,
   partitionPattern,
@@ -300,7 +303,7 @@ export default class DataspaceMutationsAPI {
   @HttpCode(200)
   @ApiOperation({
     summary: "Clone (duplicate) a dataspace",
-    description: `Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.\n\n**Prerequisites**:\n- The source dataspace is automatically locked during the clone and unlocked afterwards.\n- The target dataspace (DataspaceId) must not already exist.\n\n**Note**: This is a server-side deep copy via ETP — no data is transferred through the REST layer.`,
+    description: `Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.\n\n**Prerequisites**:\n- The source dataspace is automatically locked during the clone and unlocked afterwards.\n- The target dataspace (DataspaceId) must not already exist.\n\n**Object identity**: By default the clone is a server-side deep copy that **reuses the source object UUIDs**. The two dataspaces are independent stores, so editing the clone never affects the source — but the copied objects keep the *same identity* as the originals. That is fine for isolated sandbox/scenario work, but the shared UUIDs collide if the clone is later merged back or re-ingested into OSDU (the manifest builder derives each OSDU record id from the object UUID).\n\n**?reidentify** (default \`false\`): when set to \`true\`, after the copy every object in the clone is rewritten with brand new UUIDs, remapping the object's own identity, all of its Data Object References (DORs) and its array paths, and re-associating the arrays. Use \`reidentify=true\` when you need an independently publishable / re-ingestable copy. Leave it \`false\` (the default) for a fast snapshot that stays linked in identity to the source.\n\n**Note**: This is a server-side deep copy via ETP — no object or array data is transferred through the REST layer (re-identification streams array bytes through the gateway).`,
     servers: swaggerServers
   })
   @ApiBody({
@@ -330,9 +333,17 @@ export default class DataspaceMutationsAPI {
       pattern: patternString(dataspaceUriPattern)
     }
   })
+  @ApiQuery({
+    name: "reidentify",
+    required: false,
+    type: Boolean,
+    description:
+      "When true, mint new UUIDs for every object in the clone and remap all references/arrays so the copy is an independent, re-ingestable dataset. Defaults to false (the clone reuses the source object UUIDs)."
+  })
   public async CloneDataspace(
     @Param() params: FindInDataSpaceParams,
     @Body() requestBody: DataspaceDto,
+    @Query("reidentify", OptionalParseBoolPipe) reidentify = false,
     @Req() request?: express.Request
   ): Promise<string> {
     if (
@@ -386,7 +397,8 @@ export default class DataspaceMutationsAPI {
           requestBody.DataspaceId,
           requestBody.Path ?? requestBody.DataspaceId,
           uri,
-          customData
+          customData,
+          reidentify
         );
         if (!dataspaces) {
           throw new NotFoundException({
