@@ -96,9 +96,25 @@ cimpl-dev2-acceptance-test-python:
     - >
       echo "[{ \"CLIENT_ID\": \"${CIMPL_CLIENT_ID}\", \"CLIENT_SECRET\": \"${CIMPL_CLIENT_SECRET}\", \"grant_type\": \"${CIMPL_GRANT_TYPE}\", \"refresh_token\": \"${CIMPL_REFRESH_TOKEN}\"}]" > test_config_file.json
     - curl "${GET_COLLECTION_URL}" > collection.json && COLLECTION=collection.json
-    - |
-      curl --header "data-partition-id: ${DATA_PARTITION_ID}" "${CIMPL_POSTMAN_ENV_URL}" > environment.json && ENVIRONMENT=environment.json
-    - newman run "$COLLECTION" --working-dir . -e "${ENVIRONMENT}" -d test_config_file.json --delay-request 3000 --env-var TENANT_ID=${CIMPL_TENANT} --env-var HOSTNAME=${CIMPL_DNS_NAME} --env-var RESERVOIR_DDMS_HOST=${CIMPL_DNS_NAME}/api/reservoir-ddms/v2 --env-var dataspaceIdRaw=test-ci-postman --env-var dataspaceId=test-ci-postman --env-var testDataspaceIdRaw=test-ci-postman --env-var testDataspaceId=test-ci-postman || exit $?
+    # Drop the deprecated CIMPL_POSTMAN_ENV_URL fetch (postman-environment is being
+    # retired from the Config Service). Supply the values the env file provided
+    # directly as --env-var. Unlike ci-cd-pipelines release/0.30, main's templates
+    # DO expose CIMPL_TOKEN_URI, so use it directly for Token_Fetch_URL.
+    # domain must include the leading dot; ENTITLEMENTS_DOMAIN already carries it.
+    - >
+      newman run "$COLLECTION" --working-dir . -d test_config_file.json --delay-request 3000
+      --env-var "Token_Fetch_URL=${CIMPL_TOKEN_URI}"
+      --env-var "domain=${ENTITLEMENTS_DOMAIN}"
+      --env-var "Scope=email openid profile"
+      --env-var "data-partition-id=${DATA_PARTITION_ID}"
+      --env-var "TENANT_ID=${CIMPL_TENANT}"
+      --env-var "HOSTNAME=${CIMPL_DNS_NAME}"
+      --env-var "RESERVOIR_DDMS_HOST=${CIMPL_DNS_NAME}/api/reservoir-ddms/v2"
+      --env-var "dataspaceIdRaw=test-ci-postman"
+      --env-var "dataspaceId=test-ci-postman"
+      --env-var "testDataspaceIdRaw=test-ci-postman"
+      --env-var "testDataspaceId=test-ci-postman"
+      || exit $?
 
 cimpl-test-postman:
   tags: ["osdu-small"]
