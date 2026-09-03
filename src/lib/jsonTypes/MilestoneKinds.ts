@@ -302,6 +302,71 @@ export function setSchemaRegistered(kind: string, registered = true): void {
   schemaExistsCache.set(kind, registered);
 }
 
+/** Cache of registered versions (highest-first) per authority:source:entityType. */
+const schemaVersionsCache = new Map<string, string[]>();
+
+/** Compare two "MAJOR.MINOR.PATCH" version strings, highest first. */
+function compareSemverDesc(a: string, b: string): number {
+  const pa = a.split(".").map((n) => parseInt(n, 10) || 0);
+  const pb = b.split(".").map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) {
+    if (pb[i] !== pa[i]) return pb[i] - pa[i];
+  }
+  return 0;
+}
+
+/**
+ * List every registered schema version for an entityType on the target Schema
+ * Service, sorted highest-first (e.g. ["1.2.0", "1.1.0", "1.0.0"]).
+ *
+ * Returns [] when none are registered, the base URL is not configured, or the
+ * lookup fails. Results are cached per authority:source:entityType.
+ */
+export async function listRegisteredVersions(
+  entityType: string,
+  authority = "osdu",
+  source = "wks",
+  osduBaseUrl?: string,
+  token?: string,
+  dataPartitionId?: string
+): Promise<string[]> {
+  const baseUrl = osduBaseUrl || process.env.RDMS_OSDU_URL;
+  if (!baseUrl || baseUrl === "http://localhost") return [];
+  const cacheKey = `${authority}:${source}:${entityType}`;
+  const cached = schemaVersionsCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  const url = `${baseUrl.replace(/\/$/, "")}/api/schema-service/v1/schema`
+    + `?authority=${encodeURIComponent(authority)}&source=${encodeURIComponent(source)}`
+    + `&entityType=${encodeURIComponent(entityType)}&latestVersion=false&status=PUBLISHED&limit=1000`;
+  const headers: Record<string, string> = { "Accept": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (dataPartitionId) headers["data-partition-id"] = dataPartitionId;
+
+  try {
+    const resp = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+    if (resp.status !== 200) {
+      schemaVersionsCache.set(cacheKey, []);
+      return [];
+    }
+    const body: any = await resp.json();
+    const items: any[] = Array.isArray(body?.schemaInfos)
+      ? body.schemaInfos
+      : Array.isArray(body) ? body : [];
+    const versions = items
+      .map((i) => i?.schemaIdentity)
+      .filter((si) => si && si.entityType === entityType)
+      .map((si) => `${si.schemaVersionMajor}.${si.schemaVersionMinor}.${si.schemaVersionPatch}`);
+    const sorted = [...new Set(versions)].sort(compareSemverDesc);
+    schemaVersionsCache.set(cacheKey, sorted);
+    return sorted;
+  } catch (err: any) {
+    logger.warn(`Version listing failed for '${entityType}' (${err?.message ?? err})`);
+    schemaVersionsCache.set(cacheKey, []);
+    return [];
+  }
+}
+
 /**
  * Parse a full kind string into its Schema Service identity components.
  * e.g. "osdu:wks:work-product-component--StructureMap:1.0.0"
