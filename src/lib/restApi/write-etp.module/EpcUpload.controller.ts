@@ -91,7 +91,8 @@ import {
     ensureSchemaVersions,
     isSchemaRegistered,
     setSchemaRegistered,
-    parseKindIdentity
+    parseKindIdentity,
+    listRegisteredVersions
 } from "../../jsonTypes/MilestoneKinds";
 import { decode, JwtPayload } from "jsonwebtoken";
 import { readFile } from "fs/promises";
@@ -164,6 +165,41 @@ type IngestMode = "records" | "workflow";
 /** Optional directory holding OSDU schema JSON files for auto-registration. */
 const SCHEMA_DIR = process.env.RDMS_SCHEMA_DIR;
 
+/**
+ * When a kind is not registered at any version, remap it to a registered generic
+ * work-product-component sibling (GenericRepresentation / GenericInterpretation /
+ * GenericFeature / GenericProperty) instead of dropping the record. Lossy but
+ * keeps the object; the original type is preserved in `data.Type`.
+ * Opt out with RDMS_INGEST_GENERIC_FALLBACK=false. Default on.
+ */
+const GENERIC_FALLBACK = (process.env.RDMS_INGEST_GENERIC_FALLBACK ?? "true") !== "false";
+
+/**
+ * Map a work-product-component entityType to an ordered list of candidate
+ * generic sibling entityTypes, classified by role and (for representations)
+ * geometry. Mirrors the converter's routing preference in the RESQML→OSDU guide:
+ * grid-derived representations prefer GenericBinGrid (preserves grid geometry:
+ * origin, bin widths, node counts) and fall back to GenericRepresentation.
+ * Returns [] for non-WPC groups or kinds that are already generic.
+ */
+function genericSiblingsFor(entityType: string): string[] {
+    const m = entityType.match(/^work-product-component--(.+)$/);
+    if (!m) return [];                   // only WPCs have generic siblings
+    const name = m[1];
+    if (name.startsWith("Generic")) return [];
+    if (name.endsWith("Interpretation")) return ["work-product-component--GenericInterpretation"];
+    if (name.endsWith("Feature")) return ["work-product-component--GenericFeature"];
+    if (name.endsWith("Property")) return ["work-product-component--GenericProperty"];
+    // Representation family. Grid-derived types keep grid geometry in GenericBinGrid.
+    if (/BinGrid|Grid2d|StructureMap|SeismicHorizon/i.test(name)) {
+        return [
+            "work-product-component--GenericBinGrid",
+            "work-product-component--GenericRepresentation"
+        ];
+    }
+    return ["work-product-component--GenericRepresentation"];
+}
+
 /** Result of an auto-ingest attempt (returned in the upload response). */
 interface CatalogIngestionResult {
     status: string;
@@ -175,6 +211,8 @@ interface CatalogIngestionResult {
     unsupportedKinds?: Record<string, number>;
     /** Kinds whose schema was auto-registered during this ingest. */
     registeredSchemas?: string[];
+    /** Kinds substituted with a fallback kind before ingest (original kind → substituted kind). */
+    remappedKinds?: Record<string, string>;
     /** Number of records that failed the resilient per-record fallback. */
     failedCount?: number;
     /** Sample of per-record failures (capped). */
@@ -1378,7 +1416,7 @@ export default class EpcUploadAPI {
             // Guard: drop records whose kind has no schema on the target instance
             // (optionally auto-registering first) so one unsupported kind cannot
             // fail the entire atomic batch / workflow.
-            const { pushable, unsupportedKinds, registeredSchemas } =
+            const { pushable, unsupportedKinds, registeredSchemas, remappedKinds } =
                 await this.partitionBySchema(records, bearer, partitionStr, registerMissing);
 
             const unsupportedCount = records.length - pushable.length;
@@ -1388,10 +1426,17 @@ export default class EpcUploadAPI {
                     + `${Object.entries(unsupportedKinds).map(([k, n]) => `${k}×${n}`).join(", ")}`
                 );
             }
+            if (Object.keys(remappedKinds).length > 0) {
+                logger.info(
+                    `[autoIngest] Remapped ${Object.keys(remappedKinds).length} unregistered kind(s) to fallbacks: `
+                    + `${Object.entries(remappedKinds).map(([k, v]) => `${k}→${v}`).join(", ")}`
+                );
+            }
 
             const extra: Partial<CatalogIngestionResult> = {};
             if (Object.keys(unsupportedKinds).length > 0) extra.unsupportedKinds = unsupportedKinds;
             if (registeredSchemas.length > 0) extra.registeredSchemas = registeredSchemas;
+            if (Object.keys(remappedKinds).length > 0) extra.remappedKinds = remappedKinds;
 
             if (pushable.length === 0) {
                 return {
@@ -1421,49 +1466,130 @@ export default class EpcUploadAPI {
     }
 
     /**
-     * Partition manifest records into those whose OSDU `kind` is registered on the
-     * target Schema Service (pushable) and those that are not (unsupported).
+     * Partition manifest records into those whose OSDU `kind` can be ingested on
+     * the target Schema Service (pushable) and those that cannot (unsupported).
      *
-     * When `registerMissing` is set, an unregistered kind is first offered to
-     * {@link tryRegisterSchema}; if that succeeds the kind becomes pushable.
+     * For each unregistered kind, before giving up, it is resolved via
+     * {@link resolveKindFallback} (nearest registered version, then a registered
+     * generic sibling). When `registerMissing` is set, an unregistered kind is
+     * first offered to {@link tryRegisterSchema}. Records whose kind is remapped
+     * have their `kind` rewritten in place (and `data.Type` stamped for generic
+     * substitutions) so the object is ingested rather than skipped.
      */
     private async partitionBySchema(
         records: unknown[],
         bearer: string | undefined,
         partition: string,
         registerMissing: boolean
-    ): Promise<{ pushable: unknown[]; unsupportedKinds: Record<string, number>; registeredSchemas: string[] }> {
+    ): Promise<{
+        pushable: unknown[];
+        unsupportedKinds: Record<string, number>;
+        registeredSchemas: string[];
+        remappedKinds: Record<string, string>;
+    }> {
         const distinctKinds = [...new Set(
             records.map((r: any) => r?.kind).filter((k): k is string => typeof k === "string")
         )];
 
-        const available = new Map<string, boolean>();
+        type Resolution =
+            | { action: "ok" }
+            | { action: "remap"; newKind: string; genericType?: string }
+            | { action: "unsupported" };
+        const resolution = new Map<string, Resolution>();
         const registeredSchemas: string[] = [];
+        const remappedKinds: Record<string, string> = {};
 
         for (const kind of distinctKinds) {
-            let ok = await isSchemaRegistered(kind, osduUrl, bearer, partition);
-            if (!ok && registerMissing) {
-                const registered = await this.tryRegisterSchema(kind, bearer, partition);
-                if (registered) {
-                    ok = true;
-                    setSchemaRegistered(kind, true);
-                    registeredSchemas.push(kind);
-                }
+            // 1) exact schema already registered
+            if (await isSchemaRegistered(kind, osduUrl, bearer, partition)) {
+                resolution.set(kind, { action: "ok" });
+                continue;
             }
-            available.set(kind, ok);
+            // 2) optionally auto-register the exact kind
+            if (registerMissing && await this.tryRegisterSchema(kind, bearer, partition)) {
+                setSchemaRegistered(kind, true);
+                registeredSchemas.push(kind);
+                resolution.set(kind, { action: "ok" });
+                continue;
+            }
+            // 3) fall back to a registered kind (nearest version, then generic sibling)
+            const fb = await this.resolveKindFallback(kind, bearer, partition);
+            if (fb) {
+                resolution.set(kind, { action: "remap", newKind: fb.newKind, genericType: fb.genericType });
+                remappedKinds[kind] = fb.newKind;
+                continue;
+            }
+            resolution.set(kind, { action: "unsupported" });
         }
 
         const pushable: unknown[] = [];
         const unsupportedKinds: Record<string, number> = {};
         for (const r of records as any[]) {
             const kind = r?.kind;
-            if (typeof kind === "string" && available.get(kind)) {
-                pushable.push(r);
-            } else if (typeof kind === "string") {
+            if (typeof kind !== "string") continue;
+            const res = resolution.get(kind);
+            if (!res || res.action === "unsupported") {
                 unsupportedKinds[kind] = (unsupportedKinds[kind] ?? 0) + 1;
+                continue;
+            }
+            if (res.action === "remap") {
+                r.kind = res.newKind;
+                // Preserve the original type on the generic record so it stays identifiable.
+                if (res.genericType && r.data && typeof r.data === "object" && r.data.Type == null) {
+                    r.data.Type = res.genericType;
+                }
+            }
+            pushable.push(r);
+        }
+        return { pushable, unsupportedKinds, registeredSchemas, remappedKinds };
+    }
+
+    /**
+     * Resolve an unregistered kind to a registered substitute so the record is
+     * not dropped. Tries, in order:
+     *   1. the nearest registered version of the SAME entityType (same major
+     *      first, then highest available) — safe, backward-compatible;
+     *   2. a registered generic sibling of the same WPC role (Representation /
+     *      Interpretation / Feature / Property) — lossy but keeps the object,
+     *      recording the original type in `data.Type` (only when generic fallback
+     *      is enabled via RDMS_INGEST_GENERIC_FALLBACK, default on).
+     * Returns the substitute kind (and generic short-type, if any), or undefined.
+     */
+    private async resolveKindFallback(
+        kind: string,
+        bearer: string | undefined,
+        partition: string
+    ): Promise<{ newKind: string; genericType?: string } | undefined> {
+        const id = parseKindIdentity(kind);
+        if (!id) return undefined;
+
+        // 1) nearest registered version of the same entityType
+        const versions = await listRegisteredVersions(
+            id.entityType, id.authority, id.source, osduUrl, bearer, partition
+        );
+        if (versions.length > 0) {
+            const sameMajor = versions.find((v) => parseInt(v.split(".")[0], 10) === id.schemaVersionMajor);
+            const target = sameMajor ?? versions[0];
+            const newKind = `${id.authority}:${id.source}:${id.entityType}:${target}`;
+            if (newKind !== kind) {
+                logger.info(`[autoIngest] Version fallback: '${kind}' → '${newKind}'`);
+                return { newKind };
             }
         }
-        return { pushable, unsupportedKinds, registeredSchemas };
+
+        // 2) generic sibling (opt out via RDMS_INGEST_GENERIC_FALLBACK=false)
+        if (!GENERIC_FALLBACK) return undefined;
+        for (const genericEntity of genericSiblingsFor(id.entityType)) {
+            const gVersions = await listRegisteredVersions(
+                genericEntity, id.authority, id.source, osduUrl, bearer, partition
+            );
+            if (gVersions.length === 0) continue;
+            const genericType = id.entityType.split("--").pop();
+            const newKind = `${id.authority}:${id.source}:${genericEntity}:${gVersions[0]}`;
+            logger.info(`[autoIngest] Generic fallback: '${kind}' → '${newKind}' (Type='${genericType}')`);
+            return { newKind, genericType };
+        }
+        return undefined;
     }
 
     /**

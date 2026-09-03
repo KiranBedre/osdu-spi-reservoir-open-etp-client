@@ -738,6 +738,34 @@ export const createManifest = async (
       }
     });
 
+    // Backfill ACL/legal on any record that slipped through the per-object
+    // stamping in the conversion loops. Master-data records synthesized as a
+    // side-effect inside other converters (e.g. Well / Wellbore / BoundaryFeature)
+    // are added straight to context.created and never receive the dataspace ACL,
+    // so Storage rejects them ("acl.viewers / legaltags / otherRelevantDataCountries
+    // cannot be empty"). Use the dataspace ACL as the backfill source; records that
+    // already carry a non-empty ACL keep their own.
+    const fallbackAclLegal =
+      context.dataspaceACLs.values().next().value as DataspaceLegalACL | undefined;
+    if (fallbackAclLegal !== undefined) {
+      for (const [, rec] of generatedSrn) {
+        if (rec === undefined) continue;
+        const aclEmpty =
+          rec.acl === undefined ||
+          ((rec.acl.viewers?.length ?? 0) === 0 &&
+            (rec.acl.owners?.length ?? 0) === 0);
+        const legalEmpty =
+          rec.legal === undefined ||
+          (rec.legal.legaltags?.length ?? 0) === 0;
+        if (aclEmpty && fallbackAclLegal.acl !== undefined) {
+          rec.acl = fallbackAclLegal.acl;
+        }
+        if (legalEmpty && fallbackAclLegal.legal !== undefined) {
+          rec.legal = fallbackAclLegal.legal;
+        }
+      }
+    }
+
     // Deduplicate records by .id before assembling manifest arrays.
     // The generatedSrn Map is keyed by SRN, but the kind override in the
     // primary and reference loops can produce entries with different SRN keys
