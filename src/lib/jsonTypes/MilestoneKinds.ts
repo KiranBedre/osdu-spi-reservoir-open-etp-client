@@ -22,6 +22,12 @@ const logger = logging.getLogger({ name: "MilestoneKinds", level: "info" });
 /** Runtime-resolved kinds from Schema Service (populated by initSchemaVersions). */
 let resolvedKinds: Map<string, string> | undefined;
 
+/** De-dupes concurrent lazy initialisation attempts (ensureSchemaVersions). */
+let schemaInitPromise: Promise<void> | undefined;
+
+/** Per-kind "is this schema registered on the target instance?" cache. */
+const schemaExistsCache = new Map<string, boolean>();
+
 /**
  * Query the OSDU Schema Service to discover the latest version of each
  * work-product-component, master-data, and dataset schema.
@@ -224,4 +230,98 @@ export function getAllKinds(): string[] {
     return Array.from(resolvedKinds.values());
   }
   return Array.from(FALLBACK_KINDS.values());
+}
+
+/**
+ * Lazily resolve schema versions against the live Schema Service using a real
+ * request token.
+ *
+ * `initSchemaVersions()` runs once at startup, but on a secured OSDU instance it
+ * has no bearer token / data-partition-id and the Schema Service call is rejected,
+ * so we silently keep the static fallback. This helper re-attempts resolution the
+ * first time an authenticated request flows through, and caches the result. If the
+ * attempt fails (or nothing resolves) it stays on the static fallback and allows a
+ * later request to retry.
+ */
+export async function ensureSchemaVersions(
+  osduBaseUrl?: string,
+  token?: string,
+  dataPartitionId?: string
+): Promise<void> {
+  if (resolvedKinds) return;
+  if (!schemaInitPromise) {
+    schemaInitPromise = initSchemaVersions(osduBaseUrl, token, dataPartitionId)
+      .catch(err => {
+        logger.warn(`ensureSchemaVersions failed (${err?.message ?? err}) - keeping static fallback`);
+      })
+      .finally(() => {
+        // Allow a later authenticated request to retry if nothing resolved.
+        if (!resolvedKinds) schemaInitPromise = undefined;
+      });
+  }
+  return schemaInitPromise;
+}
+
+/**
+ * Returns true if the exact kind (authority:source:entityType:version) is
+ * registered on the target OSDU Schema Service. Results are cached per kind.
+ *
+ * When no OSDU base URL is configured (standalone/local mode) this returns true
+ * so ingest is never blocked. On a transient lookup error it also returns true
+ * and defers to the resilient per-record ingest path.
+ */
+export async function isSchemaRegistered(
+  kind: string,
+  osduBaseUrl?: string,
+  token?: string,
+  dataPartitionId?: string
+): Promise<boolean> {
+  const baseUrl = osduBaseUrl || process.env.RDMS_OSDU_URL;
+  if (!baseUrl || baseUrl === "http://localhost") return true;
+  const cached = schemaExistsCache.get(kind);
+  if (cached !== undefined) return cached;
+
+  const url = `${baseUrl.replace(/\/$/, "")}/api/schema-service/v1/schema/${kind}`;
+  const headers: Record<string, string> = { "Accept": "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (dataPartitionId) headers["data-partition-id"] = dataPartitionId;
+
+  try {
+    const resp = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+    const ok = resp.status === 200;
+    schemaExistsCache.set(kind, ok);
+    return ok;
+  } catch (err: any) {
+    logger.warn(`Schema existence check failed for '${kind}' (${err?.message ?? err}) - assuming present`);
+    return true;
+  }
+}
+
+/** Record that a kind is (now) registered, e.g. after a successful auto-registration. */
+export function setSchemaRegistered(kind: string, registered = true): void {
+  schemaExistsCache.set(kind, registered);
+}
+
+/**
+ * Parse a full kind string into its Schema Service identity components.
+ * e.g. "osdu:wks:work-product-component--StructureMap:1.0.0"
+ */
+export function parseKindIdentity(kind: string): {
+  authority: string;
+  source: string;
+  entityType: string;
+  schemaVersionMajor: number;
+  schemaVersionMinor: number;
+  schemaVersionPatch: number;
+} | undefined {
+  const m = kind.match(/^([^:]+):([^:]+):(.+):(\d+)\.(\d+)\.(\d+)$/);
+  if (!m) return undefined;
+  return {
+    authority: m[1],
+    source: m[2],
+    entityType: m[3],
+    schemaVersionMajor: parseInt(m[4], 10),
+    schemaVersionMinor: parseInt(m[5], 10),
+    schemaVersionPatch: parseInt(m[6], 10)
+  };
 }

@@ -10135,6 +10135,25 @@ paths:
               - records
               - workflow
             default: 'false'
+        - name: registerMissingSchemas
+          required: false
+          in: query
+          description: >-
+            When set to 'true' together with `autoIngest`, any record whose OSDU
+            `kind` has no schema registered on the target instance is guarded:
+            RDDMS first attempts to register the schema (from a JSON file under
+            `RDMS_SCHEMA_DIR` named `<entityType>:<version>.json`, e.g.
+            `work-product-component--StructureMap:1.0.0.json`), and if no schema
+            source is available the record is skipped and reported under
+            `catalogIngestion.unsupportedKinds` so the rest of the manifest
+            still ingests. Defaults to 'false' (unsupported kinds are still
+            skipped and reported, but not registered).
+          schema:
+            type: string
+            enum:
+              - 'false'
+              - 'true'
+            default: 'false'
         - name: validate
           required: false
           in: query

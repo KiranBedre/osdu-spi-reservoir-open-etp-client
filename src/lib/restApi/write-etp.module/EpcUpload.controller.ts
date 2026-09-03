@@ -87,7 +87,15 @@ import { createManifest } from "../../jsonTypes/Manifest";
 import { OSDUContext } from "../../jsonTypes/OsduContext";
 import { osduUrl } from "../../common/config";
 import { bigIntToString } from "../../mlTypes/XmlJsonUtil";
+import {
+    ensureSchemaVersions,
+    isSchemaRegistered,
+    setSchemaRegistered,
+    parseKindIdentity
+} from "../../jsonTypes/MilestoneKinds";
 import { decode, JwtPayload } from "jsonwebtoken";
+import { readFile } from "fs/promises";
+import { join } from "path";
 
 import { ValidatorClient } from "../../client/ValidatorClient";
 import type { ValidationReport } from "../../client/ValidatorClient";
@@ -152,6 +160,26 @@ const STORAGE_BATCH_SIZE = 500;
 
 /** Valid values for the autoIngest query parameter */
 type IngestMode = "records" | "workflow";
+
+/** Optional directory holding OSDU schema JSON files for auto-registration. */
+const SCHEMA_DIR = process.env.RDMS_SCHEMA_DIR;
+
+/** Result of an auto-ingest attempt (returned in the upload response). */
+interface CatalogIngestionResult {
+    status: string;
+    mode?: string;
+    recordCount?: number;
+    workflowRunId?: string;
+    error?: string;
+    /** Kinds skipped because no schema is registered on the target instance (kind → record count). */
+    unsupportedKinds?: Record<string, number>;
+    /** Kinds whose schema was auto-registered during this ingest. */
+    registeredSchemas?: string[];
+    /** Number of records that failed the resilient per-record fallback. */
+    failedCount?: number;
+    /** Sample of per-record failures (capped). */
+    failures?: Array<{ id?: string; kind?: string; status: number; error: string }>;
+}
 
 // ---------------------------------------------------------------------------
 // Multer disk storage - files go to OS temp dir, cleaned up after ingest
@@ -379,6 +407,21 @@ export default class EpcUploadAPI {
         }
     })
     @ApiQuery({
+        name: "registerMissingSchemas",
+        required: false,
+        description:
+            "When set to 'true' together with `autoIngest`, any record whose OSDU `kind` has no schema registered on the "
+            + "target instance is guarded: RDDMS first attempts to register the schema (from a JSON file under `RDMS_SCHEMA_DIR` "
+            + "named `<entityType>:<version>.json`, e.g. `work-product-component--StructureMap:1.0.0.json`), and if no schema "
+            + "source is available the record is skipped and reported under `catalogIngestion.unsupportedKinds` so the rest of "
+            + "the manifest still ingests. Defaults to 'false' (unsupported kinds are still skipped and reported, but not registered).",
+        schema: {
+            type: "string",
+            enum: ["false", "true"],
+            default: "false"
+        }
+    })
+    @ApiQuery({
         name: "validate",
         required: false,
         description:
@@ -533,6 +576,7 @@ export default class EpcUploadAPI {
         @Param() params: FindInDataSpaceParams,
         @Query("transactionId") transactionId?: string,
         @Query("autoIngest") autoIngest?: string,
+        @Query("registerMissingSchemas") registerMissingSchemas?: string,
         @Query("validate") validate?: string,
         @Query("dataspace") dataspaceOverride?: string,
         @Req() request?: express.Request
@@ -1177,13 +1221,7 @@ export default class EpcUploadAPI {
             timings.commit = performance.now() - phaseStart;
 
             // ── 9. Auto-ingest to OSDU catalog (optional) ──
-            let catalogIngestion: {
-                status: string;
-                mode?: string;
-                recordCount?: number;
-                workflowRunId?: string;
-                error?: string;
-            } | undefined;
+            let catalogIngestion: CatalogIngestionResult | undefined;
 
             const ingestMode = this.parseIngestMode(autoIngest);
             if (ingestMode && !transactionId) {
@@ -1191,7 +1229,8 @@ export default class EpcUploadAPI {
                 catalogIngestion = await this.performCatalogIngestion(
                     ingestMode,
                     params.dataspaceId,
-                    request
+                    request,
+                    registerMissingSchemas === "true" || registerMissingSchemas === "1"
                 );
                 timings.autoIngest = performance.now() - phaseStart;
             } else if (ingestMode && transactionId) {
@@ -1269,16 +1308,12 @@ export default class EpcUploadAPI {
     private async performCatalogIngestion(
         mode: IngestMode,
         dataspaceId: string,
-        request?: express.Request
-    ): Promise<{
-        status: string;
-        mode?: string;
-        recordCount?: number;
-        workflowRunId?: string;
-        error?: string;
-    }> {
+        request?: express.Request,
+        registerMissing = false
+    ): Promise<CatalogIngestionResult> {
         const bearer = extractToken(request);
         const partition = extractDataPartitionId(request);
+        const partitionStr = typeof partition === "string" ? partition : "osdu";
 
         if (!osduUrl || osduUrl === "http://localhost") {
             return {
@@ -1289,6 +1324,10 @@ export default class EpcUploadAPI {
         }
 
         try {
+            // Align stamped kind versions with the live instance using the request
+            // token (the startup init runs unauthenticated and can silently no-op).
+            await ensureSchemaVersions(osduUrl, bearer, partitionStr);
+
             logger.info(`[autoIngest] Building manifest for dataspace '${dataspaceId}' (mode=${mode})...`);
 
             // Create a fresh ETP session for manifest building
@@ -1336,12 +1375,43 @@ export default class EpcUploadAPI {
                 return { status: "completed", mode, recordCount: 0 };
             }
 
-            logger.info(`[autoIngest] Manifest built: ${records.length} record(s). Pushing via ${mode}...`);
+            // Guard: drop records whose kind has no schema on the target instance
+            // (optionally auto-registering first) so one unsupported kind cannot
+            // fail the entire atomic batch / workflow.
+            const { pushable, unsupportedKinds, registeredSchemas } =
+                await this.partitionBySchema(records, bearer, partitionStr, registerMissing);
+
+            const unsupportedCount = records.length - pushable.length;
+            if (unsupportedCount > 0) {
+                logger.warn(
+                    `[autoIngest] Skipping ${unsupportedCount} record(s) with unregistered kinds: `
+                    + `${Object.entries(unsupportedKinds).map(([k, n]) => `${k}×${n}`).join(", ")}`
+                );
+            }
+
+            const extra: Partial<CatalogIngestionResult> = {};
+            if (Object.keys(unsupportedKinds).length > 0) extra.unsupportedKinds = unsupportedKinds;
+            if (registeredSchemas.length > 0) extra.registeredSchemas = registeredSchemas;
+
+            if (pushable.length === 0) {
+                return {
+                    status: "skipped",
+                    mode,
+                    recordCount: 0,
+                    error: "No records with a registered schema to ingest",
+                    ...extra
+                };
+            }
+
+            logger.info(`[autoIngest] Manifest built: ${pushable.length}/${records.length} record(s) pushable. Pushing via ${mode}...`);
 
             if (mode === "workflow") {
-                return await this.pushViaWorkflow(manifest, bearer, partition);
+                const pruned = this.pruneManifest(manifest, new Set(pushable));
+                const result = await this.pushViaWorkflow(pruned, bearer, partition);
+                return { ...result, ...extra };
             } else {
-                return await this.pushViaRecords(records, bearer, partition);
+                const result = await this.pushViaRecords(pushable, bearer, partition);
+                return { ...result, ...extra };
             }
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
@@ -1350,13 +1420,162 @@ export default class EpcUploadAPI {
         }
     }
 
+    /**
+     * Partition manifest records into those whose OSDU `kind` is registered on the
+     * target Schema Service (pushable) and those that are not (unsupported).
+     *
+     * When `registerMissing` is set, an unregistered kind is first offered to
+     * {@link tryRegisterSchema}; if that succeeds the kind becomes pushable.
+     */
+    private async partitionBySchema(
+        records: unknown[],
+        bearer: string | undefined,
+        partition: string,
+        registerMissing: boolean
+    ): Promise<{ pushable: unknown[]; unsupportedKinds: Record<string, number>; registeredSchemas: string[] }> {
+        const distinctKinds = [...new Set(
+            records.map((r: any) => r?.kind).filter((k): k is string => typeof k === "string")
+        )];
+
+        const available = new Map<string, boolean>();
+        const registeredSchemas: string[] = [];
+
+        for (const kind of distinctKinds) {
+            let ok = await isSchemaRegistered(kind, osduUrl, bearer, partition);
+            if (!ok && registerMissing) {
+                const registered = await this.tryRegisterSchema(kind, bearer, partition);
+                if (registered) {
+                    ok = true;
+                    setSchemaRegistered(kind, true);
+                    registeredSchemas.push(kind);
+                }
+            }
+            available.set(kind, ok);
+        }
+
+        const pushable: unknown[] = [];
+        const unsupportedKinds: Record<string, number> = {};
+        for (const r of records as any[]) {
+            const kind = r?.kind;
+            if (typeof kind === "string" && available.get(kind)) {
+                pushable.push(r);
+            } else if (typeof kind === "string") {
+                unsupportedKinds[kind] = (unsupportedKinds[kind] ?? 0) + 1;
+            }
+        }
+        return { pushable, unsupportedKinds, registeredSchemas };
+    }
+
+    /**
+     * Attempt to register a missing schema on the OSDU Schema Service from a JSON
+     * file under `RDMS_SCHEMA_DIR` (named `<entityType>:<version>.json`).
+     * Returns true if the schema is (now) registered, false if no source is
+     * available or registration failed.
+     */
+    private async tryRegisterSchema(
+        kind: string,
+        bearer: string | undefined,
+        partition: string
+    ): Promise<boolean> {
+        const identity = parseKindIdentity(kind);
+        if (!identity) return false;
+
+        const schema = await this.loadSchemaJson(kind, identity.entityType,
+            `${identity.schemaVersionMajor}.${identity.schemaVersionMinor}.${identity.schemaVersionPatch}`);
+        if (!schema) {
+            logger.warn(
+                `[autoIngest] Cannot auto-register '${kind}': no schema JSON found `
+                + `(set RDMS_SCHEMA_DIR and provide '${identity.entityType}:`
+                + `${identity.schemaVersionMajor}.${identity.schemaVersionMinor}.${identity.schemaVersionPatch}.json'), `
+                + "or register it in the OSDU Schema Service manually."
+            );
+            return false;
+        }
+
+        const body = JSON.stringify({
+            schemaInfo: { schemaIdentity: identity, status: "PUBLISHED" },
+            schema
+        }, bigIntToString);
+
+        try {
+            const res = await fetch(`${osduUrl}/api/schema-service/v1/schema`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Content-Length": `${Buffer.byteLength(body)}`,
+                    "Authorization": `Bearer ${bearer}`,
+                    "data-partition-id": partition
+                },
+                body
+            });
+            if (res.status === 200 || res.status === 201) {
+                logger.info(`[autoIngest] Registered schema '${kind}'`);
+                return true;
+            }
+            if (res.status === 409) {
+                logger.info(`[autoIngest] Schema '${kind}' already registered`);
+                return true;
+            }
+            const errText = await res.text().catch(() => "unknown");
+            logger.warn(`[autoIngest] Schema registration failed for '${kind}' (${res.status}): ${errText}`);
+            return false;
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            logger.warn(`[autoIngest] Schema registration error for '${kind}': ${msg}`);
+            return false;
+        }
+    }
+
+    /** Load a schema JSON body from RDMS_SCHEMA_DIR, if configured and present. */
+    private async loadSchemaJson(
+        kind: string,
+        entityType: string,
+        version: string
+    ): Promise<unknown | undefined> {
+        if (!SCHEMA_DIR) return undefined;
+        const candidates = [
+            `${entityType}:${version}.json`,
+            `${entityType}.${version}.json`,
+            `${kind}.json`
+        ];
+        for (const name of candidates) {
+            try {
+                const raw = await readFile(join(SCHEMA_DIR, name), "utf8");
+                return JSON.parse(raw);
+            } catch { /* try next candidate */ }
+        }
+        return undefined;
+    }
+
+    /** Return a shallow copy of the manifest keeping only the given records. */
+    private pruneManifest(manifest: any, keep: Set<unknown>): unknown {
+        const pruned = { ...manifest, Data: { ...manifest.Data } };
+        if (Array.isArray(pruned.Data?.Datasets)) {
+            pruned.Data.Datasets = pruned.Data.Datasets.filter((r: unknown) => keep.has(r));
+        }
+        if (Array.isArray(pruned.Data?.WorkProductComponents)) {
+            pruned.Data.WorkProductComponents = pruned.Data.WorkProductComponents.filter((r: unknown) => keep.has(r));
+        }
+        if (pruned.Data?.WorkProduct && !keep.has(pruned.Data.WorkProduct)) {
+            delete pruned.Data.WorkProduct;
+        }
+        if (Array.isArray(pruned.MasterData)) {
+            pruned.MasterData = pruned.MasterData.filter((r: unknown) => keep.has(r));
+        }
+        if (Array.isArray(pruned.ReferenceData)) {
+            pruned.ReferenceData = pruned.ReferenceData.filter((r: unknown) => keep.has(r));
+        }
+        return pruned;
+    }
+
     private async pushViaRecords(
         records: unknown[],
         bearer?: string,
         partition?: string | string[]
-    ): Promise<{ status: string; mode: string; recordCount?: number; error?: string }> {
+    ): Promise<CatalogIngestionResult> {
         const partitionStr = typeof partition === "string" ? partition : "osdu";
         let totalPushed = 0;
+        const failures: Array<{ id?: string; kind?: string; status: number; error: string }> = [];
 
         // Deduplicate records by id — Storage API rejects batches with duplicate IDs
         const seenIds = new Set<string>();
@@ -1372,37 +1591,82 @@ export default class EpcUploadAPI {
 
         for (let i = 0; i < uniqueRecords.length; i += STORAGE_BATCH_SIZE) {
             const batch = uniqueRecords.slice(i, i + STORAGE_BATCH_SIZE);
-            const body = JSON.stringify(batch, bigIntToString);
-            const res = await fetch(`${osduUrl}/api/storage/v2/records`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Content-Length": `${Buffer.byteLength(body)}`,
-                    "Authorization": `Bearer ${bearer}`,
-                    "data-partition-id": partitionStr
-                },
-                body
-            });
+            const res = await this.putRecords(batch, bearer, partitionStr);
             if (res.ok) {
                 const result = await res.json() as { recordCount?: number };
                 totalPushed += result?.recordCount ?? batch.length;
-            } else {
-                const errText = await res.text().catch(() => "unknown");
-                logger.warn(
-                    `[autoIngest] Storage batch ${Math.floor(i / STORAGE_BATCH_SIZE) + 1} failed (${res.status}): ${errText}`
-                );
+                continue;
+            }
+
+            // Storage validates a PUT batch atomically: one bad record fails the
+            // whole batch. Retry each record individually so the valid ones still
+            // land, and capture the offenders for the response.
+            const errText = await res.text().catch(() => "unknown");
+            logger.warn(
+                `[autoIngest] Storage batch ${Math.floor(i / STORAGE_BATCH_SIZE) + 1} failed (${res.status}): `
+                + `${errText.slice(0, 300)} - retrying ${batch.length} record(s) individually`
+            );
+            for (const rec of batch) {
+                const single = await this.putRecords([rec], bearer, partitionStr);
+                if (single.ok) {
+                    totalPushed += 1;
+                } else {
+                    const et = await single.text().catch(() => "unknown");
+                    failures.push({
+                        id: (rec as any)?.id,
+                        kind: (rec as any)?.kind,
+                        status: single.status,
+                        error: et.slice(0, 300)
+                    });
+                }
             }
         }
 
+        if (failures.length > 0) {
+            const byKind = failures.reduce<Record<string, number>>((acc, f) => {
+                const k = f.kind ?? "unknown";
+                acc[k] = (acc[k] ?? 0) + 1;
+                return acc;
+            }, {});
+            logger.warn(
+                `[autoIngest] ${failures.length} record(s) rejected by Storage: `
+                + `${Object.entries(byKind).map(([k, n]) => `${k}×${n}`).join(", ")}`
+            );
+        }
+
         logger.info(`[autoIngest] Pushed ${totalPushed}/${uniqueRecords.length} records via Storage Service`);
-        return { status: "completed", mode: "records", recordCount: totalPushed };
+        return {
+            status: failures.length > 0 ? "partial" : "completed",
+            mode: "records",
+            recordCount: totalPushed,
+            ...(failures.length > 0 ? { failedCount: failures.length, failures: failures.slice(0, 20) } : {})
+        };
+    }
+
+    /** PUT a batch of records to the OSDU Storage Service. */
+    private async putRecords(
+        batch: unknown[],
+        bearer: string | undefined,
+        partition: string
+    ): Promise<Response> {
+        const body = JSON.stringify(batch, bigIntToString);
+        return fetch(`${osduUrl}/api/storage/v2/records`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Content-Length": `${Buffer.byteLength(body)}`,
+                "Authorization": `Bearer ${bearer}`,
+                "data-partition-id": partition
+            },
+            body
+        });
     }
 
     private async pushViaWorkflow(
         manifest: unknown,
         bearer?: string,
         partition?: string | string[]
-    ): Promise<{ status: string; mode: string; workflowRunId?: string; error?: string }> {
+    ): Promise<CatalogIngestionResult> {
         const partitionStr = typeof partition === "string" ? partition : "osdu";
         const workflowBody = JSON.stringify({
             executionContext: {
