@@ -6342,6 +6342,479 @@ paths:
       summary: Get array content
       tags:
         - Resources
+  /query/objects/find:
+    post:
+      description: >-
+        Search for data objects and retrieve their full XML/JSON content in a
+        single call. Combines Discovery (find URIs) with GetDataObjects (fetch
+        bodies).
+
+
+        **When to use**: Bulk data export, OSDU Storage ingestion, or when you
+        need the actual XML content (not just metadata).
+
+
+        **Performance**: Fetches full object bodies. For large result sets,
+        consider selective GetDataObjects via the /graph/{type}/{guid}
+        endpoints.
+
+
+        **modifiedSince**: ISO timestamp filter - only returns objects written
+        after this time. Useful for incremental sync.
+      operationId: QueryController_findDataObjects
+      parameters:
+        - name: data-partition-id
+          in: header
+          required: true
+          schema:
+            type: string
+            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/FindDataObjectsDto'
+      responses:
+        '200':
+          description: Matching data objects with content
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 401
+                    maximum: 401
+                    example: 401
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 403
+                    maximum: 403
+                    example: 403
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '406':
+          description: Not acceptable response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 406
+                    maximum: 406
+                    example: 406
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '410':
+          description: >-
+            The underlying ETP WebSocket session has been terminated by the ETP
+            server. The transaction is no longer usable and must not be retried;
+            clients should open a new transaction.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  code:
+                    type: string
+                    example: WEBSOCKET_SESSION_TERMINATED
+                    description: >-
+                      Stable machine-readable identifier for this error
+                      condition.
+                  description:
+                    type: string
+                    example: >-
+                      ETP WebSocket session terminated (code 1011, reason:
+                      Internal server error).
+                  transactionId:
+                    type: string
+                    format: uuid
+                    description: Transaction id that was terminated.
+                  closeCode:
+                    type: integer
+                    format: int32
+                    example: 1011
+                    description: WebSocket close code reported by the ETP server.
+                  closeReason:
+                    type: string
+                    description: WebSocket close reason reported by the ETP server.
+                  terminatedAt:
+                    type: string
+                    format: date-time
+                    description: ISO-8601 timestamp when the session was terminated.
+                  retryable:
+                    type: boolean
+                    example: false
+                    description: >-
+                      Always false. The transaction cannot be reused; open a new
+                      one.
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 429
+                    maximum: 429
+                    example: 429
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '500':
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        default:
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+      security:
+        - HTTPBearer: []
+      summary: Find data objects with full content (ETP Discovery + Store)
+      tags:
+        - Resources
+  /query/graph/search:
+    post:
+      description: >-
+        Build a merged, deduplicated subgraph for multiple resource URIs in a
+        single ETP session.
+
+
+        For each URI, traverses the relationship graph with the given scope and
+        depth, then merges all discovered nodes and edges into a single result.
+
+
+        **Why use this**: Without batch search, deep search across N objects
+        requires N+ individual REST calls. This endpoint does it in one call,
+        reusing a single ETP session.
+
+
+        **Performance**: For very large batches (>100 URIs), split into chunks -
+        URIs are processed sequentially within the session. Depth values > 100
+        may timeout depending on server configuration.
+
+
+        **Best-effort**: If traversal fails for one URI, remaining URIs are
+        still processed and partial results returned.
+      operationId: QueryController_graphSearch
+      parameters:
+        - name: data-partition-id
+          in: header
+          required: true
+          schema:
+            type: string
+            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GraphSearchDto'
+      responses:
+        '200':
+          description: Merged graph containing all discovered resources and edges
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resources:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        uri:
+                          type: string
+                        name:
+                          type: string
+                        sourceCount:
+                          type: number
+                        targetCount:
+                          type: number
+                        lastChanged:
+                          type: string
+                        storeLastWrite:
+                          type: string
+                        activeStatus:
+                          type: string
+                  links:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        source:
+                          type: string
+                        target:
+                          type: string
+                        path:
+                          type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 401
+                    maximum: 401
+                    example: 401
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 403
+                    maximum: 403
+                    example: 403
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '406':
+          description: Not acceptable response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 406
+                    maximum: 406
+                    example: 406
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '410':
+          description: >-
+            The underlying ETP WebSocket session has been terminated by the ETP
+            server. The transaction is no longer usable and must not be retried;
+            clients should open a new transaction.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  code:
+                    type: string
+                    example: WEBSOCKET_SESSION_TERMINATED
+                    description: >-
+                      Stable machine-readable identifier for this error
+                      condition.
+                  description:
+                    type: string
+                    example: >-
+                      ETP WebSocket session terminated (code 1011, reason:
+                      Internal server error).
+                  transactionId:
+                    type: string
+                    format: uuid
+                    description: Transaction id that was terminated.
+                  closeCode:
+                    type: integer
+                    format: int32
+                    example: 1011
+                    description: WebSocket close code reported by the ETP server.
+                  closeReason:
+                    type: string
+                    description: WebSocket close reason reported by the ETP server.
+                  terminatedAt:
+                    type: string
+                    format: date-time
+                    description: ISO-8601 timestamp when the session was terminated.
+                  retryable:
+                    type: boolean
+                    example: false
+                    description: >-
+                      Always false. The transaction cannot be reused; open a new
+                      one.
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 429
+                    maximum: 429
+                    example: 429
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '500':
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        default:
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+      security:
+        - HTTPBearer: []
+      summary: Batch graph search across multiple URIs (Discovery Protocol 3)
+      tags:
+        - Resources
   /manifests/build:
     post:
       description: >-
@@ -10656,104 +11129,6 @@ paths:
       summary: Delete a dataspace
       tags:
         - Write
-  /wells:
-    get:
-      description: >-
-        Searches for wells (WITSML 2.1 Well or RESQML WellboreFeature) matching
-        a name pattern across all accessible dataspaces (or a single specified
-        dataspace). For each matching well, resolves child objects (wellbores,
-        logs, trajectories, channelSets) via ETP relationship graph traversal.
-
-
-        **Name pattern**: Use `*` as wildcard (e.g., `DROGON*` matches all wells
-        starting with DROGON). Pattern matching is case-insensitive.
-
-
-        **Performance note**: Searching all dataspaces iterates each one
-        sequentially. Specify `dataspace` when you know where the wells reside.
-      operationId: WellsController_findWells
-      parameters:
-        - name: name
-          required: false
-          in: query
-          description: >-
-            Well name pattern. Use * as wildcard (e.g., 'DROGON*', '*-1', '*').
-            Case-insensitive. Defaults to '*' (all wells).
-          schema:
-            example: DROGON*
-            type: string
-        - name: dataspace
-          required: false
-          in: query
-          description: >-
-            Restrict search to a single dataspace path (e.g., 'test/drogon').
-            Omit to search all dataspaces.
-          schema:
-            example: test/drogon
-            type: string
-        - name: include
-          required: false
-          in: query
-          description: >-
-            Comma-separated list of child types to resolve: logs, trajectories,
-            channelSets. Omit to include all.
-          schema:
-            example: logs,trajectories
-            type: string
-      responses:
-        '200':
-          description: >-
-            Array of wells, each with resolved child objects (wellbores always
-            included)
-        '410':
-          description: >-
-            The underlying ETP WebSocket session has been terminated by the ETP
-            server. The transaction is no longer usable and must not be retried;
-            clients should open a new transaction.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  code:
-                    type: string
-                    example: WEBSOCKET_SESSION_TERMINATED
-                    description: >-
-                      Stable machine-readable identifier for this error
-                      condition.
-                  description:
-                    type: string
-                    example: >-
-                      ETP WebSocket session terminated (code 1011, reason:
-                      Internal server error).
-                  transactionId:
-                    type: string
-                    format: uuid
-                    description: Transaction id that was terminated.
-                  closeCode:
-                    type: integer
-                    format: int32
-                    example: 1011
-                    description: WebSocket close code reported by the ETP server.
-                  closeReason:
-                    type: string
-                    description: WebSocket close reason reported by the ETP server.
-                  terminatedAt:
-                    type: string
-                    format: date-time
-                    description: ISO-8601 timestamp when the session was terminated.
-                  retryable:
-                    type: boolean
-                    example: false
-                    description: >-
-                      Always false. The transaction cannot be reused; open a new
-                      one.
-      security:
-        - HTTPBearer: []
-      summary: Search wells across dataspaces with hierarchy resolution
-      tags:
-        - Wells
   /witsml/store:
     put:
       description: >-
@@ -11451,6 +11826,104 @@ paths:
       summary: List WITSML objects in a dataspace (metadata only)
       tags:
         - WITSML
+  /wells:
+    get:
+      description: >-
+        Searches for wells (WITSML 2.1 Well or RESQML WellboreFeature) matching
+        a name pattern across all accessible dataspaces (or a single specified
+        dataspace). For each matching well, resolves child objects (wellbores,
+        logs, trajectories, channelSets) via ETP relationship graph traversal.
+
+
+        **Name pattern**: Use `*` as wildcard (e.g., `DROGON*` matches all wells
+        starting with DROGON). Pattern matching is case-insensitive.
+
+
+        **Performance note**: Searching all dataspaces iterates each one
+        sequentially. Specify `dataspace` when you know where the wells reside.
+      operationId: WellsController_findWells
+      parameters:
+        - name: name
+          required: false
+          in: query
+          description: >-
+            Well name pattern. Use * as wildcard (e.g., 'DROGON*', '*-1', '*').
+            Case-insensitive. Defaults to '*' (all wells).
+          schema:
+            example: DROGON*
+            type: string
+        - name: dataspace
+          required: false
+          in: query
+          description: >-
+            Restrict search to a single dataspace path (e.g., 'test/drogon').
+            Omit to search all dataspaces.
+          schema:
+            example: test/drogon
+            type: string
+        - name: include
+          required: false
+          in: query
+          description: >-
+            Comma-separated list of child types to resolve: logs, trajectories,
+            channelSets. Omit to include all.
+          schema:
+            example: logs,trajectories
+            type: string
+      responses:
+        '200':
+          description: >-
+            Array of wells, each with resolved child objects (wellbores always
+            included)
+        '410':
+          description: >-
+            The underlying ETP WebSocket session has been terminated by the ETP
+            server. The transaction is no longer usable and must not be retried;
+            clients should open a new transaction.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  code:
+                    type: string
+                    example: WEBSOCKET_SESSION_TERMINATED
+                    description: >-
+                      Stable machine-readable identifier for this error
+                      condition.
+                  description:
+                    type: string
+                    example: >-
+                      ETP WebSocket session terminated (code 1011, reason:
+                      Internal server error).
+                  transactionId:
+                    type: string
+                    format: uuid
+                    description: Transaction id that was terminated.
+                  closeCode:
+                    type: integer
+                    format: int32
+                    example: 1011
+                    description: WebSocket close code reported by the ETP server.
+                  closeReason:
+                    type: string
+                    description: WebSocket close reason reported by the ETP server.
+                  terminatedAt:
+                    type: string
+                    format: date-time
+                    description: ISO-8601 timestamp when the session was terminated.
+                  retryable:
+                    type: boolean
+                    example: false
+                    description: >-
+                      Always false. The transaction cannot be reused; open a new
+                      one.
+      security:
+        - HTTPBearer: []
+      summary: Search wells across dataspaces with hierarchy resolution
+      tags:
+        - WITSML
   /pwls/status:
     get:
       description: >-
@@ -11909,479 +12382,6 @@ paths:
       summary: Load a vendor curve catalog
       tags:
         - PWLS
-  /query/objects/find:
-    post:
-      description: >-
-        Search for data objects and retrieve their full XML/JSON content in a
-        single call. Combines Discovery (find URIs) with GetDataObjects (fetch
-        bodies).
-
-
-        **When to use**: Bulk data export, OSDU Storage ingestion, or when you
-        need the actual XML content (not just metadata).
-
-
-        **Performance**: Fetches full object bodies. For large result sets,
-        consider selective GetDataObjects via the /graph/{type}/{guid}
-        endpoints.
-
-
-        **modifiedSince**: ISO timestamp filter - only returns objects written
-        after this time. Useful for incremental sync.
-      operationId: QueryController_findDataObjects
-      parameters:
-        - name: data-partition-id
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FindDataObjectsDto'
-      responses:
-        '200':
-          description: Matching data objects with content
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 401
-                    maximum: 401
-                    example: 401
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 403
-                    maximum: 403
-                    example: 403
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '406':
-          description: Not acceptable response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 406
-                    maximum: 406
-                    example: 406
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '410':
-          description: >-
-            The underlying ETP WebSocket session has been terminated by the ETP
-            server. The transaction is no longer usable and must not be retried;
-            clients should open a new transaction.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  code:
-                    type: string
-                    example: WEBSOCKET_SESSION_TERMINATED
-                    description: >-
-                      Stable machine-readable identifier for this error
-                      condition.
-                  description:
-                    type: string
-                    example: >-
-                      ETP WebSocket session terminated (code 1011, reason:
-                      Internal server error).
-                  transactionId:
-                    type: string
-                    format: uuid
-                    description: Transaction id that was terminated.
-                  closeCode:
-                    type: integer
-                    format: int32
-                    example: 1011
-                    description: WebSocket close code reported by the ETP server.
-                  closeReason:
-                    type: string
-                    description: WebSocket close reason reported by the ETP server.
-                  terminatedAt:
-                    type: string
-                    format: date-time
-                    description: ISO-8601 timestamp when the session was terminated.
-                  retryable:
-                    type: boolean
-                    example: false
-                    description: >-
-                      Always false. The transaction cannot be reused; open a new
-                      one.
-        '429':
-          description: Too many requests
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 429
-                    maximum: 429
-                    example: 429
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '500':
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        default:
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-      security:
-        - HTTPBearer: []
-      summary: Find data objects with full content (ETP Discovery + Store)
-      tags:
-        - Query
-  /query/graph/search:
-    post:
-      description: >-
-        Build a merged, deduplicated subgraph for multiple resource URIs in a
-        single ETP session.
-
-
-        For each URI, traverses the relationship graph with the given scope and
-        depth, then merges all discovered nodes and edges into a single result.
-
-
-        **Why use this**: Without batch search, deep search across N objects
-        requires N+ individual REST calls. This endpoint does it in one call,
-        reusing a single ETP session.
-
-
-        **Performance**: For very large batches (>100 URIs), split into chunks -
-        URIs are processed sequentially within the session. Depth values > 100
-        may timeout depending on server configuration.
-
-
-        **Best-effort**: If traversal fails for one URI, remaining URIs are
-        still processed and partial results returned.
-      operationId: QueryController_graphSearch
-      parameters:
-        - name: data-partition-id
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GraphSearchDto'
-      responses:
-        '200':
-          description: Merged graph containing all discovered resources and edges
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  resources:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        uri:
-                          type: string
-                        name:
-                          type: string
-                        sourceCount:
-                          type: number
-                        targetCount:
-                          type: number
-                        lastChanged:
-                          type: string
-                        storeLastWrite:
-                          type: string
-                        activeStatus:
-                          type: string
-                  links:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        source:
-                          type: string
-                        target:
-                          type: string
-                        path:
-                          type: string
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 401
-                    maximum: 401
-                    example: 401
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 403
-                    maximum: 403
-                    example: 403
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '406':
-          description: Not acceptable response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 406
-                    maximum: 406
-                    example: 406
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '410':
-          description: >-
-            The underlying ETP WebSocket session has been terminated by the ETP
-            server. The transaction is no longer usable and must not be retried;
-            clients should open a new transaction.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  code:
-                    type: string
-                    example: WEBSOCKET_SESSION_TERMINATED
-                    description: >-
-                      Stable machine-readable identifier for this error
-                      condition.
-                  description:
-                    type: string
-                    example: >-
-                      ETP WebSocket session terminated (code 1011, reason:
-                      Internal server error).
-                  transactionId:
-                    type: string
-                    format: uuid
-                    description: Transaction id that was terminated.
-                  closeCode:
-                    type: integer
-                    format: int32
-                    example: 1011
-                    description: WebSocket close code reported by the ETP server.
-                  closeReason:
-                    type: string
-                    description: WebSocket close reason reported by the ETP server.
-                  terminatedAt:
-                    type: string
-                    format: date-time
-                    description: ISO-8601 timestamp when the session was terminated.
-                  retryable:
-                    type: boolean
-                    example: false
-                    description: >-
-                      Always false. The transaction cannot be reused; open a new
-                      one.
-        '429':
-          description: Too many requests
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 429
-                    maximum: 429
-                    example: 429
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '500':
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        default:
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-      security:
-        - HTTPBearer: []
-      summary: Batch graph search across multiple URIs (Discovery Protocol 3)
-      tags:
-        - Query
 info:
   title: Reservoir DMS
   description: REST API for OSDU Reservoir DMS (M27).
@@ -12403,9 +12403,14 @@ tags:
   - name: Resources
     description: >-
       Read-only access to ETP dataspaces, objects, relationships, and data
-      arrays. Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for
-      `foo/drogon`). Graph endpoints (`/graph/…`) return edges between
-      resources; flat endpoints (`/resources/…`) return lists without edges. No
+      arrays, plus advanced search (`/query/…`). Use `dataspaceId` as a
+      URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`). Graph endpoints
+      (`/graph/…`) return edges between resources; flat endpoints
+      (`/resources/…`) return lists without edges. **Graph scope**: `self`
+      (direct), `targets` (referenced by), `sources` (referencing),
+      `targetsOrSelf`, `sourcesOrSelf`. **Depth**: 1 = immediate, N = recursive,
+      0 = unlimited (may timeout). **Pagination**: `$skip`/`$top` are applied
+      client-side after fetch (ETP has no server-side pagination). No
       transaction required.
   - name: Manifest
     description: >-
@@ -12414,18 +12419,6 @@ tags:
       single call. Supported source domains: RESQML 2.0.1 & 2.2, PRODML 2.3,
       WITSML 2.1, EML 2.3. Use `GET /health/converters` to list all registered
       source types and their target OSDU kinds.
-  - name: Query & Growing Objects
-    description: >-
-      Advanced search - read-only, no transaction required.
-
-
-      **Graph scope**: `self` (direct), `targets` (referenced by), `sources`
-      (referencing), `targetsOrSelf`, `sourcesOrSelf`. **Depth**: 1 = immediate,
-      N = recursive, 0 = unlimited (may timeout).
-
-
-      **Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP
-      has no server-side pagination).
   - name: Transactions
     description: >-
       Start, commit, or rollback a transaction. Required before any write
@@ -12437,14 +12430,12 @@ tags:
       files. **Requires a transaction** - start one first via Transactions, then
       pass `transactionId`. Typical flow: create dataspace → start transaction →
       put objects → put arrays → commit.
-  - name: Wells
-    description: >-
-      Well-centric search with hierarchy resolution across dataspaces.
-      Domain-specific - not part of core ETP data management.
   - name: WITSML
     description: >-
-      Query and store WITSML/EnergyML objects in ETP dataspaces. Domain-specific
-      - supports WITSML 2.1 and 1.4.1 container formats.
+      Query and store WITSML/EnergyML objects in ETP dataspaces, plus
+      well-centric search with hierarchy resolution across dataspaces (`GET
+      /wells`). Domain-specific - supports WITSML 2.1 and 1.4.1 container
+      formats.
   - name: PWLS
     description: >-
       PWLS v4.0 curve mnemonic resolution and validation. Domain-specific - maps

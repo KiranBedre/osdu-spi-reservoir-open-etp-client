@@ -144,9 +144,12 @@ export default async function app(): Promise<NestExpressApplication> {
     .addTag("Authentication", "Token info and session management")
     .addTag("Metrics", "Prometheus metrics endpoint")
     .addTag("Resources",
-      "Read-only access to ETP dataspaces, objects, relationships, and data arrays. " +
+      "Read-only access to ETP dataspaces, objects, relationships, and data arrays, plus advanced search (`/query/…`). " +
       "Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`). " +
       "Graph endpoints (`/graph/…`) return edges between resources; flat endpoints (`/resources/…`) return lists without edges. " +
+      "**Graph scope**: `self` (direct), `targets` (referenced by), `sources` (referencing), `targetsOrSelf`, `sourcesOrSelf`. " +
+      "**Depth**: 1 = immediate, N = recursive, 0 = unlimited (may timeout). " +
+      "**Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP has no server-side pagination). " +
       "No transaction required."
     )
     .addTag("Manifest",
@@ -154,12 +157,6 @@ export default async function app(): Promise<NestExpressApplication> {
       "Common use case: browse resources, then generate a manifest in a single call. " +
       "Supported source domains: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. " +
       "Use `GET /health/converters` to list all registered source types and their target OSDU kinds."
-    )
-    .addTag("Query & Growing Objects",
-      "Advanced search - read-only, no transaction required.\n\n" +
-      "**Graph scope**: `self` (direct), `targets` (referenced by), `sources` (referencing), `targetsOrSelf`, `sourcesOrSelf`. " +
-      "**Depth**: 1 = immediate, N = recursive, 0 = unlimited (may timeout).\n\n" +
-      "**Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP has no server-side pagination)."
     )
     .addTag("Transactions",
       "Start, commit, or rollback a transaction. Required before any write operation. " +
@@ -170,8 +167,7 @@ export default async function app(): Promise<NestExpressApplication> {
       "**Requires a transaction** - start one first via Transactions, then pass `transactionId`. " +
       "Typical flow: create dataspace → start transaction → put objects → put arrays → commit."
     )
-    .addTag("Wells", "Well-centric search with hierarchy resolution across dataspaces. Domain-specific - not part of core ETP data management.")
-    .addTag("WITSML", "Query and store WITSML/EnergyML objects in ETP dataspaces. Domain-specific - supports WITSML 2.1 and 1.4.1 container formats.")
+    .addTag("WITSML", "Query and store WITSML/EnergyML objects in ETP dataspaces, plus well-centric search with hierarchy resolution across dataspaces (`GET /wells`). Domain-specific - supports WITSML 2.1 and 1.4.1 container formats.")
     .addTag("PWLS", "PWLS v4.0 curve mnemonic resolution and validation. Domain-specific - maps vendor mnemonics to standard property names.")
     .build();
 

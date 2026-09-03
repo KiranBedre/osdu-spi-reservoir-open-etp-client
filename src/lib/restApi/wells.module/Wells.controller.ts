@@ -66,7 +66,7 @@ function parseResource(res: Energistics.Etp.v12.Datatypes.Object.Resource) {
 }
 
 @Controller("wells")
-@ApiTags("Wells")
+@ApiTags("WITSML")
 @ApiBearerAuth("HTTPBearer")
 @UseGuards(HasBearerGuard("jwt"))
 @UseGuards(HasDataPartitionGuard())
