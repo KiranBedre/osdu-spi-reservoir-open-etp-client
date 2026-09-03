@@ -41,7 +41,8 @@ See [sdk/README.md](./sdk/README.md) for full API reference.
 | ------ | ---------------------------------- | ------------------------------------------------------------------------ | ------ |
 | POST   | `/query/objects/find`              | FindDataObjects with full XML content (ETP Protocol 14)                  | Live |
 | POST   | `/query/graph/search`              | Batch graph search - merged subgraph for multiple URIs                   | Live |
-| PUT    | `/witsml/store`                    | Ingest WITSML 2.1/1.4.1 XML with auto-transaction and channel extraction | Live |
+| PUT    | `/witsml/store`                    | Store WITSML 2.1/1.4.1 objects as **XML or JSON**, auto-transaction + channel extraction | Live |
+| POST   | `/witsml/query`                    | Query WITSML objects with filters (type, title, uuid, modified-since, relationships); `xml`/`json` output | Live |
 | POST   | `/dataspaces/{id}/epc/upload`      | Upload EPC + H5 file pair, unzip, parse, and ingest with transaction     | Live |
 | GET    | `/wells?name=&dataspace=&include=` | Cross-dataspace well search with hierarchy resolution                    | Live |
 
@@ -103,8 +104,8 @@ Protocols DiscoveryQuery (13), GrowingObject (6), GrowingObjectNotification (7),
 
 ### WITSML Support
 
-- **Store endpoint** (`PUT /witsml/store`) - accepts WITSML 2.1 and 1.4.1 XML. Auto-detects plural containers, generates deterministic UUIDs, extracts channel data and trajectory stations as ETP arrays.
-- **Query endpoint** (`POST /witsml/query`) - query objects by type filter.
+- **Store endpoint** (`PUT /witsml/store`) - accepts WITSML 2.1 and 1.4.1 objects as **XML or JSON** (JSON is converted to Energistics XML server-side). Auto-detects plural containers, generates deterministic UUIDs, extracts channel data and trajectory stations as ETP arrays.
+- **Query endpoint** (`POST /witsml/query`) - rich filtering: `objectType`/`objectTypes`, `titleContains`, `uuids`, `modifiedSince` (incremental sync), and `relatedTo` + `scope` relationship traversal (e.g. all Wellbores/Logs under a Well). Supports `skip`/`top` pagination (response carries `count` + `total`) and a `$format=xml|json` flag mirroring the RESQML read routes.
 - **Well search** (`GET /wells`) - cross-dataspace search with automatic hierarchy resolution (wellbores, logs, trajectories, channelSets).
 
 ### EPC Upload
@@ -194,7 +195,7 @@ Integration tests (require ETP server): `npm run test:integration`
 - **Tag split** - "Wells" section split into separate **Wells**, **WITSML**, and **PWLS** tags for clarity.
 - **Top-level description** - the Swagger page header documents ETP protocols, write workflow (start transaction → put objects → put arrays → commit), scope values, pagination, and environment variables.
 - **`RestApi.md` removed** - all content migrated into the OpenAPI decorators. `README.md` references updated to point to the Swagger UI.
-- **`openapi.yaml` and `swagger.json` regenerated** - reflect all enriched descriptions. Can be used for client generation.
+- **`openapi.json`, `openapi.yaml` and `swagger.json` regenerated** - reflect all enriched descriptions, the WITSML `$format` flag, JSON store input, and the enriched query filters. Can be used for client generation.
 
 ### RESQML Validator (built-in)
 

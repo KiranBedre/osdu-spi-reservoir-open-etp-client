@@ -1,0 +1,43 @@
+meta {
+  name: Query Objects JSON
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{host}}/witsml/query
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "dataspace": "{{dataspaceIdRaw}}",
+    "objectType": "Well",
+    "format": "json"
+  }
+}
+
+tests {
+  test("status is 200 or 400 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 400, 404]);
+  });
+
+  test("json format returns parsed content, not xml", function () {
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body).to.have.property("total");
+      expect(body).to.have.property("count");
+      expect(body.objects).to.be.an("array");
+      body.objects.forEach(function (o) {
+        expect(o).to.have.property("content");
+        expect(o).to.not.have.property("xml");
+      });
+    }
+  });
+}
