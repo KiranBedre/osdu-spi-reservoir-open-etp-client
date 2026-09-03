@@ -141,6 +141,41 @@ export class EtpUri {
     return b.join("");
   }
 
+  /**
+   * Pattern matching a canonical (dashed) UUID token anywhere in a string.
+   * Case-insensitive so it matches UUIDs regardless of the casing used by the
+   * server or the object serializer.
+   */
+  public static readonly uuidTokenPattern =
+    /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+
+  /**
+   * Replace every UUID token found in a piece of text using the provided map.
+   *
+   * Each 36-character UUID is treated as an opaque, globally-unique token, so a
+   * plain replace over the text correctly rewrites an object's own identity, all
+   * of its Data Object Reference (DOR) uuids and any array paths that embed a
+   * uuid, without having to parse the underlying XML. UUIDs that are not present
+   * in the map (for example references to objects outside the dataspace) are left
+   * untouched.
+   *
+   * @static
+   * @param {string} text source text (object body, uri, array path, ...)
+   * @param {Map<string, string>} uuidMap lower-cased old uuid -> new uuid
+   * @returns {string} the text with all mapped uuids replaced
+   * @memberof EtpUri
+   */
+  public static remapUuids(text: string, uuidMap: Map<string, string>): string {
+    if (uuidMap.size === 0) {
+      return text;
+    }
+    // Fresh RegExp instance to avoid sharing lastIndex state on the global regex.
+    return text.replace(
+      new RegExp(EtpUri.uuidTokenPattern),
+      match => uuidMap.get(match.toLowerCase()) ?? match
+    );
+  }
+
   get isWitsml(): boolean {
     return this.domainFamily === "witsml";
   }

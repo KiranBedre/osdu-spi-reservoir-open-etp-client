@@ -150,6 +150,99 @@ describe("EtpUri", () => {
     expect(EtpUri.uuidByteArrayToString(a)).toStrictEqual(uid);
   });
 
+  it("Remap uuids in object body, uri and array path", () => {
+    const selfUuid = "0ac4d3a2-d209-433f-8f7a-c59b13dab196";
+    const proxyUuid = "11111111-2222-3333-4444-555555555555";
+    const externalUuid = "99999999-8888-7777-6666-555544443333";
+    const newSelf = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const newProxy = "12121212-3434-5656-7878-909090909090";
+
+    const uuidMap = new Map<string, string>([
+      [selfUuid, newSelf],
+      [proxyUuid, newProxy]
+    ]);
+
+    // A minimal object body that carries: its own uuid, a DOR to the HDF proxy,
+    // an array path embedding the self uuid and a DOR to an object that lives
+    // outside the dataspace (must be left untouched).
+    const body = [
+      `<IjkGridRepresentation uuid="${selfUuid}">`,
+      `  <Points><HdfProxy><UUID>${proxyUuid}</UUID></HdfProxy>`,
+      `    <PathInHdfFile>/RESQML/${selfUuid}/points</PathInHdfFile></Points>`,
+      `  <LocalCrs><UUID>${externalUuid}</UUID></LocalCrs>`,
+      `</IjkGridRepresentation>`
+    ].join("\n");
+
+    const remapped = EtpUri.remapUuids(body, uuidMap);
+
+    // Self uuid and DOR uuid rewritten everywhere they occur.
+    expect(remapped).toContain(`uuid="${newSelf}"`);
+    expect(remapped).toContain(`<UUID>${newProxy}</UUID>`);
+    expect(remapped).toContain(`/RESQML/${newSelf}/points`);
+    // Old identities must be fully gone.
+    expect(remapped).not.toContain(selfUuid);
+    expect(remapped).not.toContain(proxyUuid);
+    // References outside the map are preserved untouched.
+    expect(remapped).toContain(`<UUID>${externalUuid}</UUID>`);
+
+    // Object uri gets the same treatment.
+    const oldUri = `${dataspace}/resqml20.obj_IjkGridRepresentation(${selfUuid})`;
+    expect(EtpUri.remapUuids(oldUri, uuidMap)).toBe(
+      `${dataspace}/resqml20.obj_IjkGridRepresentation(${newSelf})`
+    );
+  });
+
+  it("Remap uuids is case-insensitive and a no-op for an empty map", () => {
+    const upper = "0AC4D3A2-D209-433F-8F7A-C59B13DAB196";
+    const replacement = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const map = new Map<string, string>([
+      ["0ac4d3a2-d209-433f-8f7a-c59b13dab196", replacement]
+    ]);
+    expect(EtpUri.remapUuids(`uuid=${upper}`, map)).toBe(`uuid=${replacement}`);
+    expect(EtpUri.remapUuids(`uuid=${upper}`, new Map())).toBe(`uuid=${upper}`);
+  });
+
+  it("remapUuids rewrites self uuid, DOR references and array paths", () => {
+    const gridOld = "0ac4d3a2-d209-433f-8f7a-c59b13dab196";
+    const hdfOld = "11111111-2222-3333-4444-555555555555";
+    const externalOld = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const gridNew = "99999999-8888-7777-6666-555555555555";
+    const hdfNew = "12341234-1234-1234-1234-123412341234";
+
+    // Only grid + hdf proxy are in the dataspace; the external reference is not.
+    const uuidMap = new Map<string, string>([
+      [gridOld, gridNew],
+      [hdfOld, hdfNew]
+    ]);
+
+    const body =
+      `<IjkGridRepresentation uuid="${gridOld}">` +
+      // self identity is repeated (e.g. in the array path) and in mixed case
+      `<PathInHdfFile>/RESQML/${gridOld.toUpperCase()}/points</PathInHdfFile>` +
+      // DOR to the HDF proxy that lives in the dataspace -> must be remapped
+      `<HdfProxy><UUID>${hdfOld}</UUID></HdfProxy>` +
+      // DOR to an object outside the dataspace -> must be left untouched
+      `<Interpretation><UUID>${externalOld}</UUID></Interpretation>` +
+      `</IjkGridRepresentation>`;
+
+    const remapped = EtpUri.remapUuids(body, uuidMap);
+
+    expect(remapped).toContain(`uuid="${gridNew}"`);
+    // path uuid is remapped even though it was upper-cased in the source
+    expect(remapped).toContain(`/RESQML/${gridNew}/points`);
+    expect(remapped).toContain(`<UUID>${hdfNew}</UUID>`);
+    // external reference is preserved
+    expect(remapped).toContain(`<UUID>${externalOld}</UUID>`);
+    // none of the old in-dataspace uuids survive
+    expect(remapped).not.toContain(gridOld);
+    expect(remapped).not.toContain(hdfOld);
+  });
+
+  it("remapUuids leaves text untouched for an empty map", () => {
+    const body = `<X uuid="0ac4d3a2-d209-433f-8f7a-c59b13dab196"/>`;
+    expect(EtpUri.remapUuids(body, new Map())).toStrictEqual(body);
+  });
+
   it("Object URI", async () => {
     const deprecated = EtpUri.create(
       dataspaceName,

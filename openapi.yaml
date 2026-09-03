@@ -1546,8 +1546,27 @@ paths:
         - The target dataspace (DataspaceId) must not already exist.
 
 
-        **Note**: This is a server-side deep copy via ETP — no data is
-        transferred through the REST layer.
+        **Object identity**: By default the clone is a server-side deep copy
+        that **reuses the source object UUIDs**. The two dataspaces are
+        independent stores, so editing the clone never affects the source — but
+        the copied objects keep the *same identity* as the originals. That is
+        fine for isolated sandbox/scenario work, but the shared UUIDs collide if
+        the clone is later merged back or re-ingested into OSDU (the manifest
+        builder derives each OSDU record id from the object UUID).
+
+
+        **?reidentify** (default `false`): when set to `true`, after the copy
+        every object in the clone is rewritten with brand new UUIDs, remapping
+        the object's own identity, all of its Data Object References (DORs) and
+        its array paths, and re-associating the arrays. Use `reidentify=true`
+        when you need an independently publishable / re-ingestable copy. Leave
+        it `false` (the default) for a fast snapshot that stays linked in
+        identity to the source.
+
+
+        **Note**: This is a server-side deep copy via ETP — no object or array
+        data is transferred through the REST layer (re-identification streams
+        array bytes through the gateway).
       operationId: DataspaceMutationsAPI_CloneDataspace
       parameters:
         - name: data-partition-id
@@ -1567,6 +1586,16 @@ paths:
             pattern: ^[^/]+(\/[^/]+)?$
             example: demo/Volve
             type: string
+        - name: reidentify
+          required: false
+          in: query
+          description: >-
+            When true, mint new UUIDs for every object in the clone and remap
+            all references/arrays so the copy is an independent, re-ingestable
+            dataset. Defaults to false (the clone reuses the source object
+            UUIDs).
+          schema:
+            type: boolean
       requestBody:
         required: true
         description: New Dataspace description
