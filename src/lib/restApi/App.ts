@@ -173,21 +173,69 @@ export default async function app(): Promise<NestExpressApplication> {
 
   const document = SwaggerModule.createDocument(nestApp, config);
 
-  // Sort paths by tag order so the generated JSON/YAML follows the same
-  // logical sequence as the Swagger UI (Health first, Metrics last).
-  if (document.tags && document.paths) {
-    const tagOrder = document.tags.map((t: any) => t.name);
-    const pathTagIndex = (pathObj: any): number => {
-      for (const method of Object.values(pathObj) as any[]) {
-        if (method?.tags?.[0]) {
-          const idx = tagOrder.indexOf(method.tags[0]);
-          if (idx >= 0) return idx;
-        }
-      }
-      return tagOrder.length;
+  // Order operations to follow the natural query/drill-down workflow instead of
+  // burying "list dataspaces" among the write routes. Reading top-to-bottom:
+  // list dataspaces -> dataspace content -> a single object -> its
+  // references -> its arrays -> array content, then write/lifecycle,
+  // then manifest, domain-specific (WITSML/PWLS) and operational endpoints.
+  // This drives both the generated JSON/YAML and (with operationsSorter off)
+  // the Swagger UI order.
+  if (document.paths) {
+    const workflowOrder = [
+      // ── Read / query drill-down ──
+      "/dataspaces",                                                                              // list & create dataspaces
+      "/dataspaces/{dataspaceId}/info",                                                           // dataspace info
+      "/dataspaces/{dataspaceId}/resources/all",                                                  // all resources in a dataspace
+      "/dataspaces/{dataspaceId}/resources",                                                      // resource types (+ put objects)
+      "/dataspaces/{dataspaceId}/resources/{dataObjectType}",                                     // resources by type
+      "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}",                              // one object (+ delete)
+      "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/targets",                      // referenced-by
+      "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/sources",                      // referencing
+      "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/arrays",                       // list arrays of an object
+      "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/arrays/{pathInResource}/metadata", // array metadata
+      "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/arrays/{pathInResource}",      // array content
+      "/dataspaces/multi-resources/get-content",                                                  // batch get object content
+      "/dataspaces/{dataspaceId}/deleted",                                                        // tombstones
+      "/dataspaces/{dataspaceId}/graph/all",                                                      // deprecated graph variants
+      "/dataspaces/{dataspaceId}/graph/{dataObjectType}/{guid}/targets",
+      "/dataspaces/{dataspaceId}/graph/{dataObjectType}/{guid}/sources",
+      "/query/objects/find",
+      "/query/graph/search",
+      // ── Write / lifecycle ──
+      "/dataspaces/{dataspaceId}/validate",
+      "/dataspaces/{dataspaceId}/lock",
+      "/dataspaces/{dataspaceId}/transactions",
+      "/dataspaces/{dataspaceId}/transactions/{transactionId}",
+      "/dataspaces/{dataspaceId}/resources/arrays",
+      "/dataspaces/{dataspaceId}/epc/upload",
+      "/dataspaces/{dataspaceId}/clone",
+      "/dataspaces/{dataspaceId}",
+      // ── Manifest ──
+      "/manifests/build",
+      // ── WITSML ──
+      "/witsml/store",
+      "/witsml/query",
+      "/wells",
+      // ── PWLS ──
+      "/pwls/status",
+      "/pwls/resolve",
+      "/pwls/validate",
+      "/pwls/catalog",
+      // ── Operational ──
+      "/health/readiness",
+      "/health/liveness",
+      "/health/info",
+      "/health/converters",
+      "/auth/token",
+      "/metrics"
+    ];
+    const orderIndex = (p: string): number => {
+      const i = workflowOrder.indexOf(p);
+      return i === -1 ? workflowOrder.length : i;
     };
-    const sorted = Object.entries(document.paths)
-      .sort(([, a], [, b]) => pathTagIndex(a) - pathTagIndex(b));
+    const sorted = Object.entries(document.paths).sort(
+      ([a], [b]) => orderIndex(a) - orderIndex(b) || a.localeCompare(b)
+    );
     document.paths = Object.fromEntries(sorted);
   }
 
@@ -200,7 +248,8 @@ export default async function app(): Promise<NestExpressApplication> {
   SwaggerModule.setup(restApiRoutePath, nestApp, document, {
     swaggerOptions: {
       apisSorter: "alpha",
-      operationsSorter: "alpha",
+      // Preserve the spec (workflow) order of operations within each tag
+      // rather than sorting alphabetically, so the UI reads as a drill-down.
       modelsSorter: "alpha",
       tagsSorter: (a: any, b: any) => {
         const order = document.tags?.map((t: any) => t.name) ?? [];

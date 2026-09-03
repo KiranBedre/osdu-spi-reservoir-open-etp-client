@@ -235,8 +235,9 @@ const swaggerServers: any = undefined;
 @UseGuards(HasBearerGuard("jwt"))
 @ApiHeader({
   name: "data-partition-id",
+  description: "Data partition id (ex. 'osdu')",
   required: true,
-  schema: { type: "string", pattern: patternString(partitionPattern) }
+  schema: { type: "string", example: "osdu", pattern: patternString(partitionPattern) }
 })
 @UseGuards(HasDataPartitionGuard())
 @ApiUnauthorizedResponse(errorMessageSchema("Unauthorized", 401))
@@ -264,7 +265,20 @@ export default class QueryController {
     servers: swaggerServers
   })
   @ApiOkResponse({
-    description: "Matching data objects with content"
+    description: "Matching data objects with full content (array; empty array if nothing matches)",
+    schema: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          uri: { type: "string", example: "eml:///dataspace('demo/model')/resqml20.obj_IjkGridRepresentation(0c8a1e2f-...)" },
+          name: { type: "string", example: "Grid_1" },
+          format: { type: "string", enum: ["xml", "json"], example: "xml" },
+          data: { type: "string", nullable: true, description: "Full object body as text (XML or JSON per format)" },
+          lastChanged: { type: "string", format: "date-time", nullable: true, example: "2026-06-02T12:00:00.000Z" }
+        }
+      }
+    }
   })
   @ApiBody({ type: FindDataObjectsDto })
   public async findDataObjects(
