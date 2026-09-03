@@ -264,7 +264,7 @@ paths:
         - HTTPBearer: []
       summary: Create new dataspaces
       tags:
-        - Write
+        - Dataspaces
     get:
       description: >-
         List all dataspaces available on the connected ETP server. Returns path,
@@ -567,7 +567,7 @@ paths:
         - HTTPBearer: []
       summary: List dataspaces.
       tags:
-        - Resources
+        - Dataspaces
   /dataspaces/{dataspaceId}/info:
     get:
       description: >-
@@ -805,7 +805,1488 @@ paths:
         - HTTPBearer: []
       summary: Get dataspace info
       tags:
-        - Resources
+        - Dataspaces
+  /dataspaces/{dataspaceId}/lock:
+    post:
+      description: >-
+        Set a dataspace to read-only. Write operations and delete will be
+        rejected (403) while locked. Use `DELETE /dataspaces/{dataspaceId}/lock`
+        to unlock.
+      operationId: ResourcesReadAPI_LockDataspace
+      parameters:
+        - name: data-partition-id
+          in: header
+          description: Data partition id (ex. 'osdu')
+          schema:
+            type: string
+            example: data-partition-id
+            maxLength: 1048
+            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
+        - name: dataspaceId
+          required: true
+          in: path
+          description: Name of dataspace
+          schema:
+            maxLength: 2048
+            pattern: ^[^/]+(\/[^/]+)?$
+            example: demo/Volve
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 401
+                    maximum: 401
+                    example: 401
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 403
+                    maximum: 403
+                    example: 403
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 404
+                    maximum: 404
+                    example: 404
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '406':
+          description: Not acceptable response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 406
+                    maximum: 406
+                    example: 406
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '410':
+          description: >-
+            The underlying ETP WebSocket session has been terminated by the ETP
+            server. The transaction is no longer usable and must not be retried;
+            clients should open a new transaction.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  code:
+                    type: string
+                    example: WEBSOCKET_SESSION_TERMINATED
+                    description: >-
+                      Stable machine-readable identifier for this error
+                      condition.
+                  description:
+                    type: string
+                    example: >-
+                      ETP WebSocket session terminated (code 1011, reason:
+                      Internal server error).
+                  transactionId:
+                    type: string
+                    format: uuid
+                    description: Transaction id that was terminated.
+                  closeCode:
+                    type: integer
+                    format: int32
+                    example: 1011
+                    description: WebSocket close code reported by the ETP server.
+                  closeReason:
+                    type: string
+                    description: WebSocket close reason reported by the ETP server.
+                  terminatedAt:
+                    type: string
+                    format: date-time
+                    description: ISO-8601 timestamp when the session was terminated.
+                  retryable:
+                    type: boolean
+                    example: false
+                    description: >-
+                      Always false. The transaction cannot be reused; open a new
+                      one.
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 429
+                    maximum: 429
+                    example: 429
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '500':
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        default:
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+      security:
+        - HTTPBearer: []
+      summary: Lock a dataspace
+      tags:
+        - Dataspaces
+    delete:
+      description: >-
+        Remove the read-only lock from a dataspace, allowing write operations
+        again.
+      operationId: ResourcesReadAPI_UnlockDataspace
+      parameters:
+        - name: data-partition-id
+          in: header
+          description: Data partition id (ex. 'osdu')
+          schema:
+            type: string
+            example: data-partition-id
+            maxLength: 1048
+            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
+        - name: dataspaceId
+          required: true
+          in: path
+          description: Name of dataspace
+          schema:
+            maxLength: 2048
+            pattern: ^[^/]+(\/[^/]+)?$
+            example: demo/Volve
+            type: string
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: boolean
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 401
+                    maximum: 401
+                    example: 401
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 403
+                    maximum: 403
+                    example: 403
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 404
+                    maximum: 404
+                    example: 404
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '406':
+          description: Not acceptable response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 406
+                    maximum: 406
+                    example: 406
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '410':
+          description: >-
+            The underlying ETP WebSocket session has been terminated by the ETP
+            server. The transaction is no longer usable and must not be retried;
+            clients should open a new transaction.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  code:
+                    type: string
+                    example: WEBSOCKET_SESSION_TERMINATED
+                    description: >-
+                      Stable machine-readable identifier for this error
+                      condition.
+                  description:
+                    type: string
+                    example: >-
+                      ETP WebSocket session terminated (code 1011, reason:
+                      Internal server error).
+                  transactionId:
+                    type: string
+                    format: uuid
+                    description: Transaction id that was terminated.
+                  closeCode:
+                    type: integer
+                    format: int32
+                    example: 1011
+                    description: WebSocket close code reported by the ETP server.
+                  closeReason:
+                    type: string
+                    description: WebSocket close reason reported by the ETP server.
+                  terminatedAt:
+                    type: string
+                    format: date-time
+                    description: ISO-8601 timestamp when the session was terminated.
+                  retryable:
+                    type: boolean
+                    example: false
+                    description: >-
+                      Always false. The transaction cannot be reused; open a new
+                      one.
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 429
+                    maximum: 429
+                    example: 429
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '500':
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        default:
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+      security:
+        - HTTPBearer: []
+      summary: Unlock a dataspace
+      tags:
+        - Dataspaces
+  /dataspaces/{dataspaceId}/validate:
+    post:
+      description: >-
+        Fetches all data objects from the dataspace via ETP and runs RESQML
+        strict validation (XSD schema, DOR integrity, cross-object consistency,
+        business rules). Read-only - does not modify any data.
+
+
+        **Performance**: Fetches full XML for every object in the dataspace. For
+        large dataspaces (>1000 objects), this may take several seconds.
+      operationId: ResourcesReadAPI_ValidateDataspace
+      parameters:
+        - name: data-partition-id
+          in: header
+          description: Data partition id (ex. 'osdu')
+          schema:
+            type: string
+            example: data-partition-id
+            maxLength: 1048
+            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
+        - name: dataspaceId
+          required: true
+          in: path
+          description: Name of dataspace
+          schema:
+            maxLength: 2048
+            pattern: ^[^/]+(\/[^/]+)?$
+            example: demo/Volve
+            type: string
+      responses:
+        '200':
+          description: Validation report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  is_valid:
+                    type: boolean
+                  version:
+                    type: string
+                    nullable: true
+                  object_count:
+                    type: integer
+                  validated_count:
+                    type: integer
+                  error_count:
+                    type: integer
+                  warning_count:
+                    type: integer
+                  errors:
+                    type: array
+                    items:
+                      type: object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 401
+                    maximum: 401
+                    example: 401
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 403
+                    maximum: 403
+                    example: 403
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 404
+                    maximum: 404
+                    example: 404
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '406':
+          description: Not acceptable response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 406
+                    maximum: 406
+                    example: 406
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '410':
+          description: >-
+            The underlying ETP WebSocket session has been terminated by the ETP
+            server. The transaction is no longer usable and must not be retried;
+            clients should open a new transaction.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  code:
+                    type: string
+                    example: WEBSOCKET_SESSION_TERMINATED
+                    description: >-
+                      Stable machine-readable identifier for this error
+                      condition.
+                  description:
+                    type: string
+                    example: >-
+                      ETP WebSocket session terminated (code 1011, reason:
+                      Internal server error).
+                  transactionId:
+                    type: string
+                    format: uuid
+                    description: Transaction id that was terminated.
+                  closeCode:
+                    type: integer
+                    format: int32
+                    example: 1011
+                    description: WebSocket close code reported by the ETP server.
+                  closeReason:
+                    type: string
+                    description: WebSocket close reason reported by the ETP server.
+                  terminatedAt:
+                    type: string
+                    format: date-time
+                    description: ISO-8601 timestamp when the session was terminated.
+                  retryable:
+                    type: boolean
+                    example: false
+                    description: >-
+                      Always false. The transaction cannot be reused; open a new
+                      one.
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 429
+                    maximum: 429
+                    example: 429
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '500':
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        default:
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+      security:
+        - HTTPBearer: []
+      summary: Validate RESQML objects in a dataspace
+      tags:
+        - Dataspaces
+  /dataspaces/{dataspaceId}/clone:
+    post:
+      description: >-
+        Create a copy of an existing dataspace with all its objects and arrays.
+        Useful for creating scenario branches or snapshots.
+
+
+        **Prerequisites**:
+
+        - The source dataspace is automatically locked during the clone and
+        unlocked afterwards.
+
+        - The target dataspace (DataspaceId) must not already exist.
+
+
+        **Note**: This is a server-side deep copy via ETP — no data is
+        transferred through the REST layer.
+      operationId: DataspaceMutationsAPI_CloneDataspace
+      parameters:
+        - name: data-partition-id
+          in: header
+          description: Data partition id (ex. 'osdu')
+          schema:
+            type: string
+            example: data-partition-id
+            maxLength: 1048
+            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
+        - name: dataspaceId
+          required: true
+          in: path
+          description: Name of dataspace
+          schema:
+            maxLength: 2048
+            pattern: ^[^/]+(\/[^/]+)?$
+            example: demo/Volve
+            type: string
+      requestBody:
+        required: true
+        description: New Dataspace description
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                DataspaceId:
+                  type: string
+                  description: Name of dataspace
+                  example: demo/Volve
+                  maxLength: 2048
+                  pattern: ^[^/]+(\/[^/]+)?$
+                Path:
+                  type: string
+                  description: Path of dataspace
+                  example: demo/Volve
+                  maxLength: 2048
+                  pattern: ^[^\r\n'"]+$
+                CustomData:
+                  type: object
+                  description: Additional data
+                  example:
+                    key: value
+                  additionalProperties:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+              required:
+                - DataspaceId
+              additionalProperties: false
+            examples:
+              New Scenario description:
+                value:
+                  DataspaceId: projectA/Scenario2
+                  Path: projectA/Scenario2
+                  CustomData:
+                    viewers:
+                      - data.default.viewers@osdu.example.com
+                    owners:
+                      - data.default.owners@osdu.example.com
+                    legaltags:
+                      - osdu-ReservoirDDMS-Legal-Tag
+                    otherRelevantDataCountries:
+                      - US
+                      - UK
+                    key: value
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: string
+                maxLength: 2048
+                pattern: >-
+                  ^(?:eml:\/\/\/|^eml:\/\/\/dataspace\('[^'"]*?(?:''[^'"]*?)*'\))$
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 403
+                    maximum: 403
+                    example: 403
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 404
+                    maximum: 404
+                    example: 404
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '406':
+          description: Not acceptable response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 406
+                    maximum: 406
+                    example: 406
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '410':
+          description: >-
+            The underlying ETP WebSocket session has been terminated by the ETP
+            server. The transaction is no longer usable and must not be retried;
+            clients should open a new transaction.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  code:
+                    type: string
+                    example: WEBSOCKET_SESSION_TERMINATED
+                    description: >-
+                      Stable machine-readable identifier for this error
+                      condition.
+                  description:
+                    type: string
+                    example: >-
+                      ETP WebSocket session terminated (code 1011, reason:
+                      Internal server error).
+                  transactionId:
+                    type: string
+                    format: uuid
+                    description: Transaction id that was terminated.
+                  closeCode:
+                    type: integer
+                    format: int32
+                    example: 1011
+                    description: WebSocket close code reported by the ETP server.
+                  closeReason:
+                    type: string
+                    description: WebSocket close reason reported by the ETP server.
+                  terminatedAt:
+                    type: string
+                    format: date-time
+                    description: ISO-8601 timestamp when the session was terminated.
+                  retryable:
+                    type: boolean
+                    example: false
+                    description: >-
+                      Always false. The transaction cannot be reused; open a new
+                      one.
+        '429':
+          description: Too many request
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 429
+                    maximum: 429
+                    example: 429
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '500':
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        default:
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+      security:
+        - HTTPBearer: []
+      summary: Clone (duplicate) a dataspace
+      tags:
+        - Dataspaces
+  /dataspaces/{dataspaceId}:
+    delete:
+      description: >-
+        Delete a dataspace and all its contents. Returns 403 if the dataspace is
+        locked - unlock it first.
+      operationId: DataspaceMutationsAPI_DeleteDataspace
+      parameters:
+        - name: data-partition-id
+          in: header
+          description: Data partition id (ex. 'osdu')
+          schema:
+            type: string
+            example: data-partition-id
+            maxLength: 1048
+            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
+        - name: dataspaceId
+          required: true
+          in: path
+          description: Name of dataspace
+          schema:
+            maxLength: 2048
+            pattern: ^[^/]+(\/[^/]+)?$
+            example: demo/Volve
+            type: string
+      responses:
+        '204':
+          description: ''
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 403
+                    maximum: 403
+                    example: 403
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 404
+                    maximum: 404
+                    example: 404
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '406':
+          description: Not acceptable response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 406
+                    maximum: 406
+                    example: 406
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '410':
+          description: >-
+            The underlying ETP WebSocket session has been terminated by the ETP
+            server. The transaction is no longer usable and must not be retried;
+            clients should open a new transaction.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  code:
+                    type: string
+                    example: WEBSOCKET_SESSION_TERMINATED
+                    description: >-
+                      Stable machine-readable identifier for this error
+                      condition.
+                  description:
+                    type: string
+                    example: >-
+                      ETP WebSocket session terminated (code 1011, reason:
+                      Internal server error).
+                  transactionId:
+                    type: string
+                    format: uuid
+                    description: Transaction id that was terminated.
+                  closeCode:
+                    type: integer
+                    format: int32
+                    example: 1011
+                    description: WebSocket close code reported by the ETP server.
+                  closeReason:
+                    type: string
+                    description: WebSocket close reason reported by the ETP server.
+                  terminatedAt:
+                    type: string
+                    format: date-time
+                    description: ISO-8601 timestamp when the session was terminated.
+                  retryable:
+                    type: boolean
+                    example: false
+                    description: >-
+                      Always false. The transaction cannot be reused; open a new
+                      one.
+        '429':
+          description: Too many request
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 429
+                    maximum: 429
+                    example: 429
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '500':
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        default:
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+      security:
+        - HTTPBearer: []
+      summary: Delete a dataspace
+      tags:
+        - Dataspaces
+  /manifests/build:
+    post:
+      description: >-
+        Generate an OSDU-compatible manifest from ETP dataspace resources.
+        Converts RESQML, WITSML, PRODML, and EML objects to OSDU record format.
+
+
+        **Supported source domains**: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML
+        2.1, EML 2.3. Use `GET /health/converters` to list all registered
+        mappings.
+
+
+        **Type filtering**: Default includes common
+        representation/interpretation types. Pass `typePatterns: ["*"]` for all
+        types. Properties with canonical OSDU/PWLS names (porosity,
+        permeability, saturation, etc.) are auto-included even without an
+        explicit `*Property` pattern.
+
+
+        **Key behaviors**:
+
+        - Best-effort mode - partial results returned on converter errors (check
+        `errors[]` in response)
+
+        - Auto-generates deterministic collaboration UUID (v5 from dataspace
+        name)
+
+        - Uses `OSDU_MILESTONE` env var (default M27) for OSDU schema versions
+
+        - GridConnectionSet records report `HasTransmissibilityMultipliers` when
+        attached transmissibility properties are found
+
+        - WellLog records populate TopMeasuredDepth/BottomMeasuredDepth from
+        frame index arrays
+
+
+        **createMissingReferences**: When true, creates placeholder records for
+        unresolved data object references (DORs). When false, missing references
+        appear in the error list.
+      operationId: ObjectsManifestAPI_GetManifest
+      parameters:
+        - name: x-collaboration
+          in: header
+          description: >-
+            Optional collaboration context forwarded to OSDU storage services
+            (JSON string).
+          required: false
+          schema:
+            type: string
+        - name: data-partition-id
+          in: header
+          description: Data partition id
+          schema:
+            type: string
+            example: data-partition-id
+            maxLength: 1048
+            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManifestInputDto'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ManifestDto'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 401
+                    maximum: 401
+                    example: 401
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 403
+                    maximum: 403
+                    example: 403
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 404
+                    maximum: 404
+                    example: 404
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '406':
+          description: Not acceptable response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 406
+                    maximum: 406
+                    example: 406
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '410':
+          description: >-
+            The underlying ETP WebSocket session has been terminated by the ETP
+            server. The transaction is no longer usable and must not be retried;
+            clients should open a new transaction.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  code:
+                    type: string
+                    example: WEBSOCKET_SESSION_TERMINATED
+                    description: >-
+                      Stable machine-readable identifier for this error
+                      condition.
+                  description:
+                    type: string
+                    example: >-
+                      ETP WebSocket session terminated (code 1011, reason:
+                      Internal server error).
+                  transactionId:
+                    type: string
+                    format: uuid
+                    description: Transaction id that was terminated.
+                  closeCode:
+                    type: integer
+                    format: int32
+                    example: 1011
+                    description: WebSocket close code reported by the ETP server.
+                  closeReason:
+                    type: string
+                    description: WebSocket close reason reported by the ETP server.
+                  terminatedAt:
+                    type: string
+                    format: date-time
+                    description: ISO-8601 timestamp when the session was terminated.
+                  retryable:
+                    type: boolean
+                    example: false
+                    description: >-
+                      Always false. The transaction cannot be reused; open a new
+                      one.
+        '429':
+          description: Too many request
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 429
+                    maximum: 429
+                    example: 429
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '500':
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        default:
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+      security:
+        - HTTPBearer: []
+      summary: Build OSDU manifest from ETP resources
+      tags:
+        - Manifest
   /dataspaces/{dataspaceId}/resources/all:
     get:
       description: >-
@@ -7110,7 +8591,7 @@ paths:
         - HTTPBearer: []
       summary: Find data objects with full content (ETP Discovery + Store)
       tags:
-        - Resources
+        - Query
   /query/graph/search:
     post:
       description: >-
@@ -7368,732 +8849,7 @@ paths:
         - HTTPBearer: []
       summary: Batch graph search across multiple URIs (Discovery Protocol 3)
       tags:
-        - Resources
-  /dataspaces/{dataspaceId}/validate:
-    post:
-      description: >-
-        Fetches all data objects from the dataspace via ETP and runs RESQML
-        strict validation (XSD schema, DOR integrity, cross-object consistency,
-        business rules). Read-only - does not modify any data.
-
-
-        **Performance**: Fetches full XML for every object in the dataspace. For
-        large dataspaces (>1000 objects), this may take several seconds.
-      operationId: ResourcesReadAPI_ValidateDataspace
-      parameters:
-        - name: data-partition-id
-          in: header
-          description: Data partition id (ex. 'osdu')
-          schema:
-            type: string
-            example: data-partition-id
-            maxLength: 1048
-            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
-        - name: dataspaceId
-          required: true
-          in: path
-          description: Name of dataspace
-          schema:
-            maxLength: 2048
-            pattern: ^[^/]+(\/[^/]+)?$
-            example: demo/Volve
-            type: string
-      responses:
-        '200':
-          description: Validation report
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  is_valid:
-                    type: boolean
-                  version:
-                    type: string
-                    nullable: true
-                  object_count:
-                    type: integer
-                  validated_count:
-                    type: integer
-                  error_count:
-                    type: integer
-                  warning_count:
-                    type: integer
-                  errors:
-                    type: array
-                    items:
-                      type: object
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 401
-                    maximum: 401
-                    example: 401
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 403
-                    maximum: 403
-                    example: 403
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 404
-                    maximum: 404
-                    example: 404
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '406':
-          description: Not acceptable response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 406
-                    maximum: 406
-                    example: 406
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '410':
-          description: >-
-            The underlying ETP WebSocket session has been terminated by the ETP
-            server. The transaction is no longer usable and must not be retried;
-            clients should open a new transaction.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  code:
-                    type: string
-                    example: WEBSOCKET_SESSION_TERMINATED
-                    description: >-
-                      Stable machine-readable identifier for this error
-                      condition.
-                  description:
-                    type: string
-                    example: >-
-                      ETP WebSocket session terminated (code 1011, reason:
-                      Internal server error).
-                  transactionId:
-                    type: string
-                    format: uuid
-                    description: Transaction id that was terminated.
-                  closeCode:
-                    type: integer
-                    format: int32
-                    example: 1011
-                    description: WebSocket close code reported by the ETP server.
-                  closeReason:
-                    type: string
-                    description: WebSocket close reason reported by the ETP server.
-                  terminatedAt:
-                    type: string
-                    format: date-time
-                    description: ISO-8601 timestamp when the session was terminated.
-                  retryable:
-                    type: boolean
-                    example: false
-                    description: >-
-                      Always false. The transaction cannot be reused; open a new
-                      one.
-        '429':
-          description: Too many requests
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 429
-                    maximum: 429
-                    example: 429
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '500':
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        default:
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-      security:
-        - HTTPBearer: []
-      summary: Validate RESQML objects in a dataspace
-      tags:
-        - Resources
-  /dataspaces/{dataspaceId}/lock:
-    post:
-      description: >-
-        Set a dataspace to read-only. Write operations and delete will be
-        rejected (403) while locked. Use `DELETE /dataspaces/{dataspaceId}/lock`
-        to unlock.
-      operationId: ResourcesReadAPI_LockDataspace
-      parameters:
-        - name: data-partition-id
-          in: header
-          description: Data partition id (ex. 'osdu')
-          schema:
-            type: string
-            example: data-partition-id
-            maxLength: 1048
-            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
-        - name: dataspaceId
-          required: true
-          in: path
-          description: Name of dataspace
-          schema:
-            maxLength: 2048
-            pattern: ^[^/]+(\/[^/]+)?$
-            example: demo/Volve
-            type: string
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: boolean
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 401
-                    maximum: 401
-                    example: 401
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 403
-                    maximum: 403
-                    example: 403
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 404
-                    maximum: 404
-                    example: 404
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '406':
-          description: Not acceptable response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 406
-                    maximum: 406
-                    example: 406
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '410':
-          description: >-
-            The underlying ETP WebSocket session has been terminated by the ETP
-            server. The transaction is no longer usable and must not be retried;
-            clients should open a new transaction.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  code:
-                    type: string
-                    example: WEBSOCKET_SESSION_TERMINATED
-                    description: >-
-                      Stable machine-readable identifier for this error
-                      condition.
-                  description:
-                    type: string
-                    example: >-
-                      ETP WebSocket session terminated (code 1011, reason:
-                      Internal server error).
-                  transactionId:
-                    type: string
-                    format: uuid
-                    description: Transaction id that was terminated.
-                  closeCode:
-                    type: integer
-                    format: int32
-                    example: 1011
-                    description: WebSocket close code reported by the ETP server.
-                  closeReason:
-                    type: string
-                    description: WebSocket close reason reported by the ETP server.
-                  terminatedAt:
-                    type: string
-                    format: date-time
-                    description: ISO-8601 timestamp when the session was terminated.
-                  retryable:
-                    type: boolean
-                    example: false
-                    description: >-
-                      Always false. The transaction cannot be reused; open a new
-                      one.
-        '429':
-          description: Too many requests
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 429
-                    maximum: 429
-                    example: 429
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '500':
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        default:
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-      security:
-        - HTTPBearer: []
-      summary: Lock a dataspace
-      tags:
-        - Resources
-    delete:
-      description: >-
-        Remove the read-only lock from a dataspace, allowing write operations
-        again.
-      operationId: ResourcesReadAPI_UnlockDataspace
-      parameters:
-        - name: data-partition-id
-          in: header
-          description: Data partition id (ex. 'osdu')
-          schema:
-            type: string
-            example: data-partition-id
-            maxLength: 1048
-            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
-        - name: dataspaceId
-          required: true
-          in: path
-          description: Name of dataspace
-          schema:
-            maxLength: 2048
-            pattern: ^[^/]+(\/[^/]+)?$
-            example: demo/Volve
-            type: string
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: boolean
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 401
-                    maximum: 401
-                    example: 401
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 403
-                    maximum: 403
-                    example: 403
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 404
-                    maximum: 404
-                    example: 404
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '406':
-          description: Not acceptable response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 406
-                    maximum: 406
-                    example: 406
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '410':
-          description: >-
-            The underlying ETP WebSocket session has been terminated by the ETP
-            server. The transaction is no longer usable and must not be retried;
-            clients should open a new transaction.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  code:
-                    type: string
-                    example: WEBSOCKET_SESSION_TERMINATED
-                    description: >-
-                      Stable machine-readable identifier for this error
-                      condition.
-                  description:
-                    type: string
-                    example: >-
-                      ETP WebSocket session terminated (code 1011, reason:
-                      Internal server error).
-                  transactionId:
-                    type: string
-                    format: uuid
-                    description: Transaction id that was terminated.
-                  closeCode:
-                    type: integer
-                    format: int32
-                    example: 1011
-                    description: WebSocket close code reported by the ETP server.
-                  closeReason:
-                    type: string
-                    description: WebSocket close reason reported by the ETP server.
-                  terminatedAt:
-                    type: string
-                    format: date-time
-                    description: ISO-8601 timestamp when the session was terminated.
-                  retryable:
-                    type: boolean
-                    example: false
-                    description: >-
-                      Always false. The transaction cannot be reused; open a new
-                      one.
-        '429':
-          description: Too many requests
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 429
-                    maximum: 429
-                    example: 429
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '500':
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        default:
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-      security:
-        - HTTPBearer: []
-      summary: Unlock a dataspace
-      tags:
-        - Resources
+        - Query
   /dataspaces/{dataspaceId}/transactions:
     post:
       description: >-
@@ -9747,762 +10503,6 @@ paths:
       summary: Upload EPC + H5 and ingest into dataspace
       tags:
         - Write
-  /dataspaces/{dataspaceId}/clone:
-    post:
-      description: >-
-        Create a copy of an existing dataspace with all its objects and arrays.
-        Useful for creating scenario branches or snapshots.
-
-
-        **Prerequisites**:
-
-        - The source dataspace is automatically locked during the clone and
-        unlocked afterwards.
-
-        - The target dataspace (DataspaceId) must not already exist.
-
-
-        **Note**: This is a server-side deep copy via ETP — no data is
-        transferred through the REST layer.
-      operationId: DataspaceMutationsAPI_CloneDataspace
-      parameters:
-        - name: data-partition-id
-          in: header
-          description: Data partition id (ex. 'osdu')
-          schema:
-            type: string
-            example: data-partition-id
-            maxLength: 1048
-            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
-        - name: dataspaceId
-          required: true
-          in: path
-          description: Name of dataspace
-          schema:
-            maxLength: 2048
-            pattern: ^[^/]+(\/[^/]+)?$
-            example: demo/Volve
-            type: string
-      requestBody:
-        required: true
-        description: New Dataspace description
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                DataspaceId:
-                  type: string
-                  description: Name of dataspace
-                  example: demo/Volve
-                  maxLength: 2048
-                  pattern: ^[^/]+(\/[^/]+)?$
-                Path:
-                  type: string
-                  description: Path of dataspace
-                  example: demo/Volve
-                  maxLength: 2048
-                  pattern: ^[^\r\n'"]+$
-                CustomData:
-                  type: object
-                  description: Additional data
-                  example:
-                    key: value
-                  additionalProperties:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-              required:
-                - DataspaceId
-              additionalProperties: false
-            examples:
-              New Scenario description:
-                value:
-                  DataspaceId: projectA/Scenario2
-                  Path: projectA/Scenario2
-                  CustomData:
-                    viewers:
-                      - data.default.viewers@osdu.example.com
-                    owners:
-                      - data.default.owners@osdu.example.com
-                    legaltags:
-                      - osdu-ReservoirDDMS-Legal-Tag
-                    otherRelevantDataCountries:
-                      - US
-                      - UK
-                    key: value
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                type: string
-                maxLength: 2048
-                pattern: >-
-                  ^(?:eml:\/\/\/|^eml:\/\/\/dataspace\('[^'"]*?(?:''[^'"]*?)*'\))$
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 403
-                    maximum: 403
-                    example: 403
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 404
-                    maximum: 404
-                    example: 404
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '406':
-          description: Not acceptable response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 406
-                    maximum: 406
-                    example: 406
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '410':
-          description: >-
-            The underlying ETP WebSocket session has been terminated by the ETP
-            server. The transaction is no longer usable and must not be retried;
-            clients should open a new transaction.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  code:
-                    type: string
-                    example: WEBSOCKET_SESSION_TERMINATED
-                    description: >-
-                      Stable machine-readable identifier for this error
-                      condition.
-                  description:
-                    type: string
-                    example: >-
-                      ETP WebSocket session terminated (code 1011, reason:
-                      Internal server error).
-                  transactionId:
-                    type: string
-                    format: uuid
-                    description: Transaction id that was terminated.
-                  closeCode:
-                    type: integer
-                    format: int32
-                    example: 1011
-                    description: WebSocket close code reported by the ETP server.
-                  closeReason:
-                    type: string
-                    description: WebSocket close reason reported by the ETP server.
-                  terminatedAt:
-                    type: string
-                    format: date-time
-                    description: ISO-8601 timestamp when the session was terminated.
-                  retryable:
-                    type: boolean
-                    example: false
-                    description: >-
-                      Always false. The transaction cannot be reused; open a new
-                      one.
-        '429':
-          description: Too many request
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 429
-                    maximum: 429
-                    example: 429
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '500':
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        default:
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-      security:
-        - HTTPBearer: []
-      summary: Clone (duplicate) a dataspace
-      tags:
-        - Write
-  /dataspaces/{dataspaceId}:
-    delete:
-      description: >-
-        Delete a dataspace and all its contents. Returns 403 if the dataspace is
-        locked - unlock it first.
-      operationId: DataspaceMutationsAPI_DeleteDataspace
-      parameters:
-        - name: data-partition-id
-          in: header
-          description: Data partition id (ex. 'osdu')
-          schema:
-            type: string
-            example: data-partition-id
-            maxLength: 1048
-            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
-        - name: dataspaceId
-          required: true
-          in: path
-          description: Name of dataspace
-          schema:
-            maxLength: 2048
-            pattern: ^[^/]+(\/[^/]+)?$
-            example: demo/Volve
-            type: string
-      responses:
-        '204':
-          description: ''
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 403
-                    maximum: 403
-                    example: 403
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 404
-                    maximum: 404
-                    example: 404
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '406':
-          description: Not acceptable response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 406
-                    maximum: 406
-                    example: 406
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '410':
-          description: >-
-            The underlying ETP WebSocket session has been terminated by the ETP
-            server. The transaction is no longer usable and must not be retried;
-            clients should open a new transaction.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  code:
-                    type: string
-                    example: WEBSOCKET_SESSION_TERMINATED
-                    description: >-
-                      Stable machine-readable identifier for this error
-                      condition.
-                  description:
-                    type: string
-                    example: >-
-                      ETP WebSocket session terminated (code 1011, reason:
-                      Internal server error).
-                  transactionId:
-                    type: string
-                    format: uuid
-                    description: Transaction id that was terminated.
-                  closeCode:
-                    type: integer
-                    format: int32
-                    example: 1011
-                    description: WebSocket close code reported by the ETP server.
-                  closeReason:
-                    type: string
-                    description: WebSocket close reason reported by the ETP server.
-                  terminatedAt:
-                    type: string
-                    format: date-time
-                    description: ISO-8601 timestamp when the session was terminated.
-                  retryable:
-                    type: boolean
-                    example: false
-                    description: >-
-                      Always false. The transaction cannot be reused; open a new
-                      one.
-        '429':
-          description: Too many request
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 429
-                    maximum: 429
-                    example: 429
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '500':
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        default:
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-      security:
-        - HTTPBearer: []
-      summary: Delete a dataspace
-      tags:
-        - Write
-  /manifests/build:
-    post:
-      description: >-
-        Generate an OSDU-compatible manifest from ETP dataspace resources.
-        Converts RESQML, WITSML, PRODML, and EML objects to OSDU record format.
-
-
-        **Supported source domains**: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML
-        2.1, EML 2.3. Use `GET /health/converters` to list all registered
-        mappings.
-
-
-        **Type filtering**: Default includes common
-        representation/interpretation types. Pass `typePatterns: ["*"]` for all
-        types. Properties with canonical OSDU/PWLS names (porosity,
-        permeability, saturation, etc.) are auto-included even without an
-        explicit `*Property` pattern.
-
-
-        **Key behaviors**:
-
-        - Best-effort mode - partial results returned on converter errors (check
-        `errors[]` in response)
-
-        - Auto-generates deterministic collaboration UUID (v5 from dataspace
-        name)
-
-        - Uses `OSDU_MILESTONE` env var (default M27) for OSDU schema versions
-
-        - GridConnectionSet records report `HasTransmissibilityMultipliers` when
-        attached transmissibility properties are found
-
-        - WellLog records populate TopMeasuredDepth/BottomMeasuredDepth from
-        frame index arrays
-
-
-        **createMissingReferences**: When true, creates placeholder records for
-        unresolved data object references (DORs). When false, missing references
-        appear in the error list.
-      operationId: ObjectsManifestAPI_GetManifest
-      parameters:
-        - name: x-collaboration
-          in: header
-          description: >-
-            Optional collaboration context forwarded to OSDU storage services
-            (JSON string).
-          required: false
-          schema:
-            type: string
-        - name: data-partition-id
-          in: header
-          description: Data partition id
-          schema:
-            type: string
-            example: data-partition-id
-            maxLength: 1048
-            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ManifestInputDto'
-      responses:
-        '200':
-          description: Success
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ManifestDto'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 401
-                    maximum: 401
-                    example: 401
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 403
-                    maximum: 403
-                    example: 403
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '404':
-          description: Not found
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 404
-                    maximum: 404
-                    example: 404
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '406':
-          description: Not acceptable response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 406
-                    maximum: 406
-                    example: 406
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '410':
-          description: >-
-            The underlying ETP WebSocket session has been terminated by the ETP
-            server. The transaction is no longer usable and must not be retried;
-            clients should open a new transaction.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  code:
-                    type: string
-                    example: WEBSOCKET_SESSION_TERMINATED
-                    description: >-
-                      Stable machine-readable identifier for this error
-                      condition.
-                  description:
-                    type: string
-                    example: >-
-                      ETP WebSocket session terminated (code 1011, reason:
-                      Internal server error).
-                  transactionId:
-                    type: string
-                    format: uuid
-                    description: Transaction id that was terminated.
-                  closeCode:
-                    type: integer
-                    format: int32
-                    example: 1011
-                    description: WebSocket close code reported by the ETP server.
-                  closeReason:
-                    type: string
-                    description: WebSocket close reason reported by the ETP server.
-                  terminatedAt:
-                    type: string
-                    format: date-time
-                    description: ISO-8601 timestamp when the session was terminated.
-                  retryable:
-                    type: boolean
-                    example: false
-                    description: >-
-                      Always false. The transaction cannot be reused; open a new
-                      one.
-        '429':
-          description: Too many request
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 429
-                    maximum: 429
-                    example: 429
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '500':
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        default:
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-      security:
-        - HTTPBearer: []
-      summary: Build OSDU manifest from ETP resources
-      tags:
-        - Manifest
   /witsml/store:
     put:
       description: >-
@@ -12414,18 +12414,11 @@ tags:
     description: Token info and session management
   - name: Metrics
     description: Prometheus metrics endpoint
-  - name: Resources
+  - name: Dataspaces
     description: >-
-      Read-only access to ETP dataspaces, objects, relationships, and data
-      arrays, plus advanced search (`/query/…`). Use `dataspaceId` as a
-      URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`). Graph endpoints
-      (`/graph/…`) return edges between resources; flat endpoints
-      (`/resources/…`) return lists without edges. **Graph scope**: `self`
-      (direct), `targets` (referenced by), `sources` (referencing),
-      `targetsOrSelf`, `sourcesOrSelf`. **Depth**: 1 = immediate, N = recursive,
-      0 = unlimited (may timeout). **Pagination**: `$skip`/`$top` are applied
-      client-side after fetch (ETP has no server-side pagination). No
-      transaction required.
+      Manage dataspaces: list, create, get info, lock/unlock, validate, clone,
+      and delete. A dataspace is the top-level container; pass its URL-encoded
+      id as the `dataspaceId` path segment for all resource operations.
   - name: Manifest
     description: >-
       OSDU manifest generation from ETP dataspaces - read-only, no transaction
@@ -12433,6 +12426,24 @@ tags:
       single call. Supported source domains: RESQML 2.0.1 & 2.2, PRODML 2.3,
       WITSML 2.1, EML 2.3. Use `GET /health/converters` to list all registered
       source types and their target OSDU kinds.
+  - name: Resources
+    description: >-
+      Read-only access to ETP dataspaces, objects, relationships, and data
+      arrays. Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for
+      `foo/drogon`). Graph endpoints (`/graph/…`) return edges between
+      resources; flat endpoints (`/resources/…`) return lists without edges.
+      **Graph scope**: `self` (direct), `targets` (referenced by), `sources`
+      (referencing), `targetsOrSelf`, `sourcesOrSelf`. **Depth**: 1 = immediate,
+      N = recursive, 0 = unlimited (may timeout). **Pagination**: `$skip`/`$top`
+      are applied client-side after fetch (ETP has no server-side pagination).
+      No transaction required.
+  - name: Query
+    description: >-
+      Body-driven search across a dataspace or a batch of URIs (ETP Discovery +
+      Store). `POST /query/objects/find` returns matching objects with full
+      content; `POST /query/graph/search` runs a batch graph search across
+      multiple URIs (Discovery Protocol 3). Use these when a filter or multi-URI
+      batch does not fit a path-addressed `GET /resources/…` call.
   - name: Transactions
     description: >-
       Start, commit, or rollback a transaction. Required before any write
@@ -12440,10 +12451,10 @@ tags:
       transaction per dataspace.
   - name: Write
     description: >-
-      Create, update, and delete objects, manage dataspaces, upload EPC+H5
-      files. **Requires a transaction** - start one first via Transactions, then
-      pass `transactionId`. Typical flow: create dataspace → start transaction →
-      put objects → put arrays → commit.
+      Create, update, and delete objects and upload EPC+H5 files. **Requires a
+      transaction** - start one first via Transactions, then pass
+      `transactionId`. Typical flow: create dataspace → start transaction → put
+      objects → put arrays → commit.
   - name: WITSML
     description: >-
       Query and store WITSML/EnergyML objects in ETP dataspaces, plus

@@ -230,7 +230,7 @@ const swaggerServers: any = undefined;
 // ── Controller ───────────────────────────────────────────────────────────────
 
 @Controller("query")
-@ApiTags("Resources")
+@ApiTags("Query")
 @ApiBearerAuth("HTTPBearer")
 @UseGuards(HasBearerGuard("jwt"))
 @ApiHeader({
