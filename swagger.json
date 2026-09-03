@@ -8079,9 +8079,11 @@
           {
             "name": "data-partition-id",
             "in": "header",
+            "description": "Data partition id (ex. 'osdu')",
             "required": true,
             "schema": {
               "type": "string",
+              "example": "osdu",
               "pattern": "^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$"
             }
           }
@@ -8098,7 +8100,46 @@
         },
         "responses": {
           "200": {
-            "description": "Matching data objects with content"
+            "description": "Matching data objects with full content (array; empty array if nothing matches)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "uri": {
+                        "type": "string",
+                        "example": "eml:///dataspace('demo/model')/resqml20.obj_IjkGridRepresentation(0c8a1e2f-...)"
+                      },
+                      "name": {
+                        "type": "string",
+                        "example": "Grid_1"
+                      },
+                      "format": {
+                        "type": "string",
+                        "enum": [
+                          "xml",
+                          "json"
+                        ],
+                        "example": "xml"
+                      },
+                      "data": {
+                        "type": "string",
+                        "nullable": true,
+                        "description": "Full object body as text (XML or JSON per format)"
+                      },
+                      "lastChanged": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true,
+                        "example": "2026-06-02T12:00:00.000Z"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized",
@@ -8347,9 +8388,11 @@
           {
             "name": "data-partition-id",
             "in": "header",
+            "description": "Data partition id (ex. 'osdu')",
             "required": true,
             "schema": {
               "type": "string",
+              "example": "osdu",
               "pattern": "^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$"
             }
           }
@@ -14019,9 +14062,11 @@
           {
             "name": "data-partition-id",
             "in": "header",
+            "description": "Data partition id (ex. 'osdu')",
             "required": true,
             "schema": {
               "type": "string",
+              "example": "osdu",
               "pattern": "^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$"
             }
           },
@@ -14049,7 +14094,45 @@
         },
         "responses": {
           "200": {
-            "description": "Objects stored successfully"
+            "description": "Objects stored successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "stored": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "objectType": {
+                            "type": "string",
+                            "example": "Well"
+                          },
+                          "uuid": {
+                            "type": "string",
+                            "example": "a1b2c3d4-0000-0000-0000-000000000000"
+                          },
+                          "title": {
+                            "type": "string",
+                            "example": "31/2-1"
+                          }
+                        }
+                      }
+                    },
+                    "arraysStored": {
+                      "type": "integer",
+                      "description": "Number of channel/trajectory data arrays extracted and stored",
+                      "example": 0
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized",
@@ -14298,17 +14381,24 @@
           {
             "name": "data-partition-id",
             "in": "header",
+            "description": "Data partition id (ex. 'osdu')",
             "required": true,
             "schema": {
               "type": "string",
+              "example": "osdu",
               "pattern": "^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$"
             }
           },
           {
             "name": "$format",
-            "required": true,
+            "required": false,
             "in": "query",
+            "description": "Output encoding; overrides the body `format` field. `xml` (default) returns raw Energistics XML in each object's `xml`; `json` returns the parsed object in `content`.",
             "schema": {
+              "enum": [
+                "xml",
+                "json"
+              ],
               "type": "string"
             }
           }
@@ -14325,7 +14415,65 @@
         },
         "responses": {
           "200": {
-            "description": "Object array with content and metadata (uri, objectType, uuid, name, xml|content, lastChanged), plus count and total"
+            "description": "Paged object array plus count (this page) and total (all matches before pagination)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "objects": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "uri": {
+                            "type": "string",
+                            "example": "eml:///dataspace('test/witsml')/witsml21.Well(a1b2c3d4-...)"
+                          },
+                          "objectType": {
+                            "type": "string",
+                            "example": "Well"
+                          },
+                          "uuid": {
+                            "type": "string",
+                            "example": "a1b2c3d4-0000-0000-0000-000000000000"
+                          },
+                          "name": {
+                            "type": "string",
+                            "example": "31/2-1"
+                          },
+                          "xml": {
+                            "type": "string",
+                            "nullable": true,
+                            "description": "Raw Energistics XML (present when format=xml)"
+                          },
+                          "content": {
+                            "type": "object",
+                            "nullable": true,
+                            "description": "Parsed object (present when format=json)"
+                          },
+                          "lastChanged": {
+                            "type": "string",
+                            "format": "date-time",
+                            "nullable": true
+                          }
+                        }
+                      }
+                    },
+                    "count": {
+                      "type": "integer",
+                      "description": "Objects returned in this page",
+                      "example": 1
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "Total matches before skip/top pagination",
+                      "example": 1
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Unauthorized",
@@ -14607,7 +14755,115 @@
         ],
         "responses": {
           "200": {
-            "description": "Array of wells, each with resolved child objects (wellbores always included)"
+            "description": "Array of wells, each with resolved child objects (wellbores always included; logs/trajectories/channelSets per `include`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "example": "31/2-1"
+                      },
+                      "uuid": {
+                        "type": "string",
+                        "example": "a1b2c3d4-0000-0000-0000-000000000000"
+                      },
+                      "dataspace": {
+                        "type": "string",
+                        "example": "test/drogon"
+                      },
+                      "typeName": {
+                        "type": "string",
+                        "example": "witsml21.Well"
+                      },
+                      "wellbores": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "uuid": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "typeName": {
+                              "type": "string"
+                            },
+                            "dataspace": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "logs": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "uuid": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "typeName": {
+                              "type": "string"
+                            },
+                            "dataspace": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "trajectories": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "uuid": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "typeName": {
+                              "type": "string"
+                            },
+                            "dataspace": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      },
+                      "channelSets": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "uuid": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "typeName": {
+                              "type": "string"
+                            },
+                            "dataspace": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "410": {
             "description": "The underlying ETP WebSocket session has been terminated by the ETP server. The transaction is no longer usable and must not be retried; clients should open a new transaction.",

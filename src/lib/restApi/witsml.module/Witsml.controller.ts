@@ -724,8 +724,9 @@ function injectExternalArrayRefs(
 @UseGuards(HasBearerGuard("jwt"))
 @ApiHeader({
   name: "data-partition-id",
+  description: "Data partition id (ex. 'osdu')",
   required: true,
-  schema: { type: "string", pattern: patternString(partitionPattern) }
+  schema: { type: "string", example: "osdu", pattern: patternString(partitionPattern) }
 })
 @UseGuards(HasDataPartitionGuard())
 @ApiUnauthorizedResponse(errorMessageSchema("Unauthorized", 401))
@@ -760,7 +761,27 @@ export default class WitsmlController {
     servers: swaggerServers
   })
   @ApiBody({ type: WitsmlStoreDto })
-  @ApiOkResponse({ description: "Objects stored successfully" })
+  @ApiOkResponse({
+    description: "Objects stored successfully",
+    schema: {
+      type: "object",
+      properties: {
+        success: { type: "boolean", example: true },
+        stored: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              objectType: { type: "string", example: "Well" },
+              uuid: { type: "string", example: "a1b2c3d4-0000-0000-0000-000000000000" },
+              title: { type: "string", example: "31/2-1" }
+            }
+          }
+        },
+        arraysStored: { type: "integer", description: "Number of channel/trajectory data arrays extracted and stored", example: 0 }
+      }
+    }
+  })
   @ApiQuery(transactionIdQueryParam)
   async putWitsmlObjects(
     @Body() body: WitsmlStoreDto,
@@ -978,7 +999,32 @@ export default class WitsmlController {
     servers: swaggerServers
   })
   @ApiBody({ type: WitsmlQueryDto })
-  @ApiOkResponse({ description: "Object array with content and metadata (uri, objectType, uuid, name, xml|content, lastChanged), plus count and total" })
+  @ApiQuery({ name: "$format", required: false, enum: ["xml", "json"], description: "Output encoding; overrides the body `format` field. `xml` (default) returns raw Energistics XML in each object's `xml`; `json` returns the parsed object in `content`." })
+  @ApiOkResponse({
+    description: "Paged object array plus count (this page) and total (all matches before pagination)",
+    schema: {
+      type: "object",
+      properties: {
+        objects: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              uri: { type: "string", example: "eml:///dataspace('test/witsml')/witsml21.Well(a1b2c3d4-...)" },
+              objectType: { type: "string", example: "Well" },
+              uuid: { type: "string", example: "a1b2c3d4-0000-0000-0000-000000000000" },
+              name: { type: "string", example: "31/2-1" },
+              xml: { type: "string", nullable: true, description: "Raw Energistics XML (present when format=xml)" },
+              content: { type: "object", nullable: true, description: "Parsed object (present when format=json)" },
+              lastChanged: { type: "string", format: "date-time", nullable: true }
+            }
+          }
+        },
+        count: { type: "integer", description: "Objects returned in this page", example: 1 },
+        total: { type: "integer", description: "Total matches before skip/top pagination", example: 1 }
+      }
+    }
+  })
   @ApiNotFoundResponse({ description: "Dataspace not found or not accessible" })
   async queryWitsmlObjects(
     @Body() body: WitsmlQueryDto,
