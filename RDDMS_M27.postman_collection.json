@@ -2514,47 +2514,6 @@
       "name": "11. WITSML",
       "item": [
         {
-          "name": "WM1 List WITSML Objects",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              },
-              {
-                "key": "data-partition-id",
-                "value": "{{data-partition-id}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{RDDMS_URL}}/witsml/{{test_ds_encoded}}/objects",
-              "host": [
-                "{{RDDMS_URL}}"
-              ],
-              "path": [
-                "witsml",
-                "{{test_ds_encoded}}",
-                "objects"
-              ]
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
           "name": "WM2 WITSML Query",
           "request": {
             "method": "POST",

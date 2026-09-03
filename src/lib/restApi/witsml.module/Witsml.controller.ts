@@ -18,9 +18,7 @@ import {
   BadRequestException,
   Body,
   Controller,
-  Get,
   HttpCode,
-  Param,
   Post,
   Put,
   Query,
@@ -976,7 +974,7 @@ export default class WitsmlController {
       "- `relatedTo` + `scope` - traverse relationships from a given object (e.g. all Wellbores/Logs under a Well) using a bare UUID or full ETP URI\n" +
       "- `skip` / `top` - pagination\n\n" +
       "The response includes `total` (matches before pagination) and `count` (returned in this page).\n\n" +
-      "**Note**: For metadata-only listing, use `GET /witsml/{dataspaceId}/objects` instead.",
+      "**Note**: For metadata-only listing, use the generic `GET /dataspaces/{dataspaceId}/resources/all` endpoint instead.",
     servers: swaggerServers
   })
   @ApiBody({ type: WitsmlQueryDto })
@@ -1116,80 +1114,6 @@ export default class WitsmlController {
       await c.closeSession();
 
       return { objects, count: objects.length, total };
-    } catch (err) {
-      await c?.closeSession();
-      throw httpErrorFromEtpError(err);
-    }
-  }
-
-  /**
-   * Get WITSML objects by type from a dataspace (convenience GET endpoint).
-   */
-  @Get(":dataspaceId/objects")
-  @ApiOperation({
-    summary: "List WITSML objects in a dataspace (metadata only)",
-    description:
-      "Returns a lightweight listing of all objects in a dataspace without fetching XML content. " +
-      "Use `type` query parameter to filter by WITSML object type.\n\n" +
-      "**dataspaceId format**: URL-encoded dataspace path, e.g., `test%2Fwitsml` for `test/witsml`.\n\n" +
-      "**Difference from POST /witsml/query**: This endpoint returns only metadata (uri, name, type, timestamp) " +
-      "and is much faster for large dataspaces. Use POST /witsml/query when you need the full XML body.",
-    servers: swaggerServers
-  })
-  @ApiQuery({
-    name: "type",
-    required: false,
-    description: "Filter by ETP object type name (case-insensitive). Examples: Well, Wellbore, WellLog, Trajectory, ChannelSet",
-    schema: { type: "string" },
-    example: "Well"
-  })
-  @ApiOkResponse({ description: "Object metadata array (uri, objectType, uuid, name, lastChanged) with count" })
-  async listWitsmlObjects(
-    @Param("dataspaceId") dataspaceId: string,
-    @Query("type") objectType: string | undefined,
-    @Req() request: express.Request
-  ) {
-    let c: ResqmlClient | undefined;
-    try {
-      c = await createSession(
-        extractToken(request),
-        extractDataPartitionId(request)
-      );
-
-      const dataspaceUri = `eml:///dataspace('${dataspaceId}')`;
-      const resources = await c.getResources(
-        dataspaceUri,
-        Energistics.Etp.v12.Datatypes.Object.ContextScopeKind.targets
-      );
-
-      let filtered = resources;
-      if (objectType) {
-        const typeLC = objectType.toLowerCase();
-        filtered = resources.filter(r => {
-          const etpUri = new EtpUri(r.uri);
-          return etpUri.objectType?.toLowerCase() === typeLC;
-        });
-      }
-
-      await c.closeSession();
-
-      return {
-        objects: filtered.map(r => {
-          const etpUri = new EtpUri(r.uri);
-          return {
-            uri: r.uri,
-            objectType: etpUri.objectType,
-            uuid: etpUri.uuid,
-            name: r.name,
-            lastChanged: r.lastChanged
-              ? new Date(
-                Number(BigInt(r.lastChanged) / BigInt(1000))
-              ).toISOString()
-              : null
-          };
-        }),
-        count: filtered.length
-      };
     } catch (err) {
       await c?.closeSession();
       throw httpErrorFromEtpError(err);

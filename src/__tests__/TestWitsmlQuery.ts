@@ -245,29 +245,6 @@ describe("WITSML Store - Functional", () => {
       expect(Array.isArray(response.body.objects)).toBe(true);
     }
   });
-
-  it("GET /witsml/:dataspaceId/objects - lists objects", async () => {
-    const encoded = encodeURIComponent(testDataspace);
-    const response = await request(nestAppServer)
-      .get(`${restApiMainUrl}/witsml/${encoded}/objects`)
-      .set("Authorization", `Bearer ${jwt}`)
-      .set("data-partition-id", testDataPartitionId);
-
-    expect([200, 502]).toContain(response.status);
-    if (response.status === 200) {
-      expect(Array.isArray(response.body)).toBe(true);
-    }
-  });
-
-  it("GET /witsml/:dataspaceId/objects?type=Well - filters by type param", async () => {
-    const encoded = encodeURIComponent(testDataspace);
-    const response = await request(nestAppServer)
-      .get(`${restApiMainUrl}/witsml/${encoded}/objects?type=Well`)
-      .set("Authorization", `Bearer ${jwt}`)
-      .set("data-partition-id", testDataPartitionId);
-
-    expect([200, 502]).toContain(response.status);
-  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

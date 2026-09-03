@@ -1675,8 +1675,14 @@ paths:
   /dataspaces/{dataspaceId}/resources/all:
     get:
       description: >-
-        List all resources (data objects) in a dataspace. Returns URI, name,
-        type, and timestamps for each.
+        List all resources (data objects) in a dataspace as a **flat list** of
+        nodes (URI, name, type, timestamps).
+
+
+        **List vs graph**: By default this returns only the resource nodes. Set
+        `edges=true` to additionally return the relationship **edges** between
+        them (the relationship graph) — this makes the endpoint equivalent to
+        the deprecated `GET /dataspaces/{id}/graph/all`.
 
 
         **Filtering**: Use `dataObjectTypes` to restrict by type (e.g.,
@@ -1784,6 +1790,17 @@ paths:
           description: >-
             If true, the source and target count will be computed for each
             resource.
+          schema:
+            type: boolean
+            default: false
+        - name: edges
+          required: false
+          in: query
+          description: >-
+            If `true`, return the relationship **graph** (nodes *and* edges)
+            instead of a flat resource list. `edges=true` is equivalent to the
+            deprecated `/graph/...` route; the default (`false`) returns the
+            list, unchanged.
           schema:
             type: boolean
             default: false
@@ -2080,14 +2097,15 @@ paths:
         - Resources
   /dataspaces/{dataspaceId}/graph/all:
     get:
+      deprecated: true
       description: >-
+        **Deprecated** — use `GET /dataspaces/{id}/resources/all?edges=true`
+        instead, which returns the same nodes-and-edges graph. This route
+        remains for M26 backward compatibility.
+
+
         Build a complete relationship graph for all resources in a dataspace.
         Returns nodes and edges (relationships between objects).
-
-
-        **Difference from List All**: This endpoint returns edges/relationships
-        in addition to the resource list. Use it when you need to understand how
-        objects reference each other.
 
 
         **depth**: 1 = direct relationships only, N = recursive traversal.
@@ -2476,7 +2494,7 @@ paths:
                     maxLength: 2048
       security:
         - HTTPBearer: []
-      summary: Full relationship graph for a dataspace
+      summary: Full relationship graph for a dataspace (deprecated)
       tags:
         - Resources
   /dataspaces/{dataspaceId}/resources/{dataObjectType}:
@@ -2872,8 +2890,8 @@ paths:
         targets of targets).
 
 
-        **For graph with edges**: Use `GET /graph/{type}/{guid}/targets`
-        instead.
+        **List vs graph**: Set `edges=true` to also return the relationship
+        edges (equivalent to the deprecated `GET /graph/{type}/{guid}/targets`).
       operationId: ResourcesReadAPI_ListTargets
       parameters:
         - name: data-partition-id
@@ -3004,6 +3022,17 @@ paths:
           description: >-
             If true, the source and target count will be computed for each
             resource.
+          schema:
+            type: boolean
+            default: false
+        - name: edges
+          required: false
+          in: query
+          description: >-
+            If `true`, return the relationship **graph** (nodes *and* edges)
+            instead of a flat resource list. `edges=true` is equivalent to the
+            deprecated `/graph/...` route; the default (`false`) returns the
+            list, unchanged.
           schema:
             type: boolean
             default: false
@@ -3300,14 +3329,17 @@ paths:
         - Resources
   /dataspaces/{dataspaceId}/graph/{dataObjectType}/{guid}/targets:
     get:
+      deprecated: true
       description: >-
+        **Deprecated** — use `GET
+        /dataspaces/{id}/resources/{type}/{guid}/targets?edges=true` instead,
+        which returns the same nodes-and-edges graph. This route remains for M26
+        backward compatibility.
+
+
         Graph of resources referenced by this object, including the relationship
         edges between them. Same traversal as List Targets but returns edge
         information.
-
-
-        **When to use**: When you need to visualize or process the relationship
-        structure, not just the flat list.
       operationId: ResourcesReadAPI_GraphTargets
       parameters:
         - name: data-partition-id
@@ -3729,7 +3761,7 @@ paths:
                     maxLength: 2048
       security:
         - HTTPBearer: []
-      summary: Graph targets (with edges)
+      summary: Graph targets (with edges) (deprecated)
       tags:
         - Resources
   /dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/sources:
@@ -3743,8 +3775,8 @@ paths:
         **depth**: 1 = immediate sources only, N = recursive.
 
 
-        **For graph with edges**: Use `GET /graph/{type}/{guid}/sources`
-        instead.
+        **List vs graph**: Set `edges=true` to also return the relationship
+        edges (equivalent to the deprecated `GET /graph/{type}/{guid}/sources`).
       operationId: ResourcesReadAPI_ListSources
       parameters:
         - name: data-partition-id
@@ -3875,6 +3907,17 @@ paths:
           description: >-
             If true, the source and target count will be computed for each
             resource.
+          schema:
+            type: boolean
+            default: false
+        - name: edges
+          required: false
+          in: query
+          description: >-
+            If `true`, return the relationship **graph** (nodes *and* edges)
+            instead of a flat resource list. `edges=true` is equivalent to the
+            deprecated `/graph/...` route; the default (`false`) returns the
+            list, unchanged.
           schema:
             type: boolean
             default: false
@@ -4171,15 +4214,17 @@ paths:
         - Resources
   /dataspaces/{dataspaceId}/graph/{dataObjectType}/{guid}/sources:
     get:
+      deprecated: true
       description: >-
+        **Deprecated** — use `GET
+        /dataspaces/{id}/resources/{type}/{guid}/sources?edges=true` instead,
+        which returns the same nodes-and-edges graph. This route remains for M26
+        backward compatibility.
+
+
         Graph of resources that reference this object, including the
         relationship edges. Same traversal as List Sources but returns edge
         information.
-
-
-        **When to use**: When you need to visualize or process the relationship
-        structure, not just the flat list. For example, understanding which
-        Properties are attached to a Representation and how.
       operationId: ResourcesReadAPI_GraphSources
       parameters:
         - name: data-partition-id
@@ -4601,7 +4646,7 @@ paths:
                     maxLength: 2048
       security:
         - HTTPBearer: []
-      summary: Graph sources (with edges).
+      summary: Graph sources (with edges) (deprecated)
       tags:
         - Resources
   /dataspaces/{dataspaceId}/deleted:
@@ -8273,9 +8318,12 @@ paths:
         - Write
     get:
       description: >-
-        Returns each Energistics type present in the dataspace with its object
-        count (e.g., `resqml20.obj_IjkGridRepresentation: 12`). Use this to
-        discover what data exists before listing individual resources.
+        Returns each Energistics **type** present in the dataspace with its
+        object count (e.g., `resqml20.obj_IjkGridRepresentation: 12`). This is a
+        type catalog, **not** the resources themselves — use `GET
+        /dataspaces/{id}/resources/all` to list the actual resource nodes, or
+        `GET /dataspaces/{id}/resources/{type}` to list resources of one type.
+        Use this endpoint to discover what data exists before drilling in.
       operationId: ResourcesReadAPI_ListTypes
       parameters:
         - name: data-partition-id
@@ -11395,8 +11443,8 @@ paths:
         (returned in this page).
 
 
-        **Note**: For metadata-only listing, use `GET
-        /witsml/{dataspaceId}/objects` instead.
+        **Note**: For metadata-only listing, use the generic `GET
+        /dataspaces/{dataspaceId}/resources/all` endpoint instead.
       operationId: WitsmlController_queryWitsmlObjects
       parameters:
         - name: data-partition-id
@@ -11602,228 +11650,6 @@ paths:
       security:
         - HTTPBearer: []
       summary: Query WITSML objects with filters (XML or JSON)
-      tags:
-        - WITSML
-  /witsml/{dataspaceId}/objects:
-    get:
-      description: >-
-        Returns a lightweight listing of all objects in a dataspace without
-        fetching XML content. Use `type` query parameter to filter by WITSML
-        object type.
-
-
-        **dataspaceId format**: URL-encoded dataspace path, e.g.,
-        `test%2Fwitsml` for `test/witsml`.
-
-
-        **Difference from POST /witsml/query**: This endpoint returns only
-        metadata (uri, name, type, timestamp) and is much faster for large
-        dataspaces. Use POST /witsml/query when you need the full XML body.
-      operationId: WitsmlController_listWitsmlObjects
-      parameters:
-        - name: data-partition-id
-          in: header
-          required: true
-          schema:
-            type: string
-            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
-        - name: dataspaceId
-          required: true
-          in: path
-          schema:
-            type: string
-        - name: type
-          required: false
-          in: query
-          description: >-
-            Filter by ETP object type name (case-insensitive). Examples: Well,
-            Wellbore, WellLog, Trajectory, ChannelSet
-          schema:
-            type: string
-      responses:
-        '200':
-          description: >-
-            Object metadata array (uri, objectType, uuid, name, lastChanged)
-            with count
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 401
-                    maximum: 401
-                    example: 401
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '403':
-          description: Forbidden
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 403
-                    maximum: 403
-                    example: 403
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '406':
-          description: Not acceptable response
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 406
-                    maximum: 406
-                    example: 406
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '410':
-          description: >-
-            The underlying ETP WebSocket session has been terminated by the ETP
-            server. The transaction is no longer usable and must not be retried;
-            clients should open a new transaction.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  code:
-                    type: string
-                    example: WEBSOCKET_SESSION_TERMINATED
-                    description: >-
-                      Stable machine-readable identifier for this error
-                      condition.
-                  description:
-                    type: string
-                    example: >-
-                      ETP WebSocket session terminated (code 1011, reason:
-                      Internal server error).
-                  transactionId:
-                    type: string
-                    format: uuid
-                    description: Transaction id that was terminated.
-                  closeCode:
-                    type: integer
-                    format: int32
-                    example: 1011
-                    description: WebSocket close code reported by the ETP server.
-                  closeReason:
-                    type: string
-                    description: WebSocket close reason reported by the ETP server.
-                  terminatedAt:
-                    type: string
-                    format: date-time
-                    description: ISO-8601 timestamp when the session was terminated.
-                  retryable:
-                    type: boolean
-                    example: false
-                    description: >-
-                      Always false. The transaction cannot be reused; open a new
-                      one.
-        '429':
-          description: Too many requests
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 429
-                    maximum: 429
-                    example: 429
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        '500':
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-        default:
-          description: Unknown Error
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                properties:
-                  statusCode:
-                    type: integer
-                    format: int32
-                    minimum: 500
-                    maximum: 500
-                    example: 500
-                  message:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-                  error:
-                    type: string
-                    pattern: ^[a-zA-Z0-9 ]*$
-                    maxLength: 2048
-      security:
-        - HTTPBearer: []
-      summary: List WITSML objects in a dataspace (metadata only)
       tags:
         - WITSML
   /wells:
