@@ -68,6 +68,22 @@
     {
       "key": "manifest_uris",
       "value": ""
+    },
+    {
+      "key": "del_txn_id",
+      "value": ""
+    },
+    {
+      "key": "del_obj_guid",
+      "value": ""
+    },
+    {
+      "key": "clone_ds",
+      "value": ""
+    },
+    {
+      "key": "clone_ds_encoded",
+      "value": ""
     }
   ],
   "event": [
@@ -166,6 +182,48 @@
                   "pm.environment.set(\"access_token\", data.access_token);",
                   "pm.environment.set(\"ACCESS_TOKEN\", data.access_token);",
                   "if (data.id_token) { pm.environment.set(\"id_token\", data.id_token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0b Get Local Dev Token (optional)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/auth/token",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "auth",
+                "token"
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Local-development convenience endpoint. On Keycloak-secured instances",
+                  "// (preship/CI) it is disabled and returns 401/403/404 - that is expected.",
+                  "pm.test(\"reachable (200 dev, or 401/403/404 when secured)\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 401, 403, 404, 501]);",
+                  "});"
                 ]
               }
             }
@@ -339,6 +397,48 @@
                   "    var body = pm.response.json();",
                   "    pm.expect(body).to.have.property(\"count\");",
                   "    pm.expect(body.count).to.be.above(0);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "H5 Metrics",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/metrics",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "metrics"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"exposes prometheus text\", function () {",
+                  "    pm.expect(pm.response.text()).to.match(/# (HELP|TYPE)|_/);",
                   "});"
                 ]
               }
@@ -1322,6 +1422,110 @@
               }
             }
           ]
+        },
+        {
+          "name": "R11 List All Dataspaces",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"returns an array\", function () {",
+                  "    pm.expect(pm.response.json()).to.be.an(\"array\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "R12 Validate RESQML Objects",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/validate",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{test_ds_encoded}}",
+                "validate"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200 or 201\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});",
+                  "if (pm.response.code < 300) {",
+                  "    pm.test(\"returns a validation result\", function () {",
+                  "        pm.expect(pm.response.json()).to.be.an(\"object\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -1974,6 +2178,279 @@
       ]
     },
     {
+      "name": "7b. Object Delete",
+      "item": [
+        {
+          "name": "OD1 Start Delete-Setup Transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/transactions",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{test_ds_encoded}}",
+                "transactions"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200 or 201\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });",
+                  "var raw = pm.response.text().trim();",
+                  "try { var d = JSON.parse(raw); raw = (typeof d === \"string\") ? d : (d.transactionId || raw); } catch(e) {}",
+                  "raw = raw.replace(/^\"|\"$/g, \"\");",
+                  "pm.collectionVariables.set(\"del_txn_id\", raw);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "OD2 Put Object To Delete",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/resources?transactionId={{del_txn_id}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{test_ds_encoded}}",
+                "resources?transactionId={{del_txn_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{del_resources_body}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function uuid() { return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) { var r=Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16); }); }",
+                  "var g = uuid();",
+                  "pm.collectionVariables.set('del_obj_guid', g);",
+                  "var body = [{ '$type':'resqml20.obj_LocalDepth3dCrs', SchemaVersion:'2.0', Uuid:g,",
+                  "  Citation:{Title:'Delete Test CRS',Originator:'RDDMS-CI',Creation:'2026-01-01T00:00:00Z',Format:'[ADME:CI:1.0]'},",
+                  "  XOffset:0,YOffset:0,ZOffset:0,",
+                  "  ArealRotation:{_:0,'$type':'eml20.PlaneAngleMeasure',Uom:'dega'},",
+                  "  ProjectedAxisOrder:'easting northing',ProjectedUom:'m',VerticalUom:'m',ZIncreasingDownward:true,",
+                  "  VerticalCrs:{'$type':'eml20.VerticalUnknownCrs',Unknown:'unknown'},",
+                  "  ProjectedCrs:{'$type':'eml20.ProjectedUnknownCrs',Unknown:'WKT'}}];",
+                  "pm.collectionVariables.set('del_resources_body', JSON.stringify(body));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200 or 201\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "OD3 Commit Delete-Setup Transaction",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/transactions/{{del_txn_id}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{test_ds_encoded}}",
+                "transactions",
+                "{{del_txn_id}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "OD4 Delete Data Object",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/resources/resqml20.obj_LocalDepth3dCrs/{{del_obj_guid}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{test_ds_encoded}}",
+                "resources",
+                "resqml20.obj_LocalDepth3dCrs",
+                "{{del_obj_guid}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200 or 204\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 204]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "OD5 Verify Object Deleted",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/resources/resqml20.obj_LocalDepth3dCrs/{{del_obj_guid}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{test_ds_encoded}}",
+                "resources",
+                "resqml20.obj_LocalDepth3dCrs",
+                "{{del_obj_guid}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"object gone (404 or empty)\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
+                  "    if (pm.response.code === 200) {",
+                  "        var b = pm.response.json();",
+                  "        var arr = Array.isArray(b) ? b : [b];",
+                  "        pm.expect(arr.filter(function(x){return x && x.Uuid;}).length).to.equal(0);",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "8. Lock Unlock and Error Cases",
       "item": [
         {
@@ -2366,6 +2843,87 @@
       ]
     },
     {
+      "name": "9b. EPC Upload (optional)",
+      "item": [
+        {
+          "name": "EU1 Upload EPC + Ingest (optional)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/epc/upload?autoIngest=false&validate=false",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{test_ds_encoded}}",
+                "epc",
+                "upload"
+              ],
+              "query": [
+                {
+                  "key": "autoIngest",
+                  "value": "false"
+                },
+                {
+                  "key": "validate",
+                  "value": "false"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "epc",
+                  "type": "file",
+                  "src": "{{epc_file_path}}"
+                },
+                {
+                  "key": "h5",
+                  "type": "file",
+                  "src": "{{h5_file_path}}"
+                }
+              ]
+            },
+            "description": "Optional. Uploads an EPC (+ optional H5) and, when `autoIngest` is set, ingests the RESQML manifest into OSDU.\n\n**File dependency (why this is not run by default in CI):** set the collection/environment variables `epc_file_path` and `h5_file_path` to local file paths (e.g. `data/drogon201/drogon.epc` and `drogon.h5`) before running. Without a valid file, the server returns 400/415 and the test tolerates it.\n\n**Query params:** `autoIngest` = false|true|records|workflow; `validate` = false|true|strict."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// File-dependent: tolerant of missing-file (400/415) so CI never breaks.",
+                  "pm.test(\"upload handled (2xx with files, or 4xx without)\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 202, 400, 413, 415, 422]);",
+                  "});",
+                  "if (pm.response.code < 300) {",
+                  "    pm.test(\"returns an upload/ingest result\", function () {",
+                  "        pm.expect(pm.response.json()).to.be.an(\"object\");",
+                  "    });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "10. PWLS",
       "item": [
         {
@@ -2503,6 +3061,62 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"status is 200 or 400\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 400]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PW4 Load Vendor Catalog",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/pwls/catalog",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "pwls",
+                "catalog"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"schemaVersion\": \"1.0.0\",\n  \"Company Code\": 999,\n  \"Company Name\": \"PostmanTest\",\n  \"data\": [\n    {\n      \"Curve Mnemonic\": \"PM_TEST_GR\",\n      \"Property\": \"gamma ray\",\n      \"Curve Unit Quantity Class\": \"API gamma ray\",\n      \"LIS Curve Mnemonic\": null\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200/201/400\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 400]);",
+                  "});"
                 ]
               }
             }
@@ -2938,6 +3552,176 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test(\"status is 200 or 404\", function () { pm.expect(pm.response.code).to.be.oneOf([200, 404]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "12b. Clone Dataspace",
+      "item": [
+        {
+          "name": "CLN1 Clone Dataspace",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/clone?reidentify=true",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{test_ds_encoded}}",
+                "clone?reidentify=true"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{clone_ds_body}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var suffix = Math.floor(Math.random() * 10000);",
+                  "var cloneDs = 'test/RDDMS_CLONE' + suffix;",
+                  "pm.collectionVariables.set('clone_ds', cloneDs);",
+                  "pm.collectionVariables.set('clone_ds_encoded', encodeURIComponent(cloneDs));",
+                  "var partition = pm.variables.get('data-partition-id');",
+                  "var domain = pm.variables.get('domain') || '.group';",
+                  "var groupSuffix = '@' + partition + domain;",
+                  "var legalTag = pm.collectionVariables.get('legal_tag_name') || (partition + '-RDDMS-Legal-Tag');",
+                  "var body = [{ DataspaceId: cloneDs, Path: cloneDs, CustomData: {",
+                  "    viewers: ['data.default.viewers' + groupSuffix],",
+                  "    owners: ['data.default.owners' + groupSuffix],",
+                  "    legaltags: [legalTag],",
+                  "    otherRelevantDataCountries: ['US'] } }];",
+                  "pm.collectionVariables.set('clone_ds_body', JSON.stringify(body));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"clone accepted (200/201)\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CLN2 Verify Clone Exists",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{clone_ds_encoded}}/info",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{clone_ds_encoded}}",
+                "info"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"clone URI present\", function () {",
+                  "    pm.expect(pm.response.json().uri).to.include(pm.collectionVariables.get('clone_ds'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CLN3 Delete Clone",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{clone_ds_encoded}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{clone_ds_encoded}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"clone deleted (200/204)\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 204]);",
+                  "});"
                 ]
               }
             }
