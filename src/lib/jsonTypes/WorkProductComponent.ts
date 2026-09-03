@@ -849,6 +849,175 @@ export const getMinMaxPoints = async (
   return { minX, minY, maxX, maxY, pNodeCount };
 };
 
+/** Estimated-bbox controls (opt-out / tunable via env). */
+const SPATIAL_ESTIMATE_ENABLED =
+  (process.env.RDMS_SPATIAL_ESTIMATE ?? "true") !== "false";
+/** Read the whole point array when the node count is at or below this. */
+const SPATIAL_FULL_READ_THRESHOLD = Number(
+  process.env.RDMS_SPATIAL_FULL_READ_THRESHOLD ?? "20000"
+);
+/** For larger arrays, sample this many evenly-spaced blocks along the slowest axis. */
+const SPATIAL_SAMPLE_BLOCKS = Number(
+  process.env.RDMS_SPATIAL_SAMPLE_BLOCKS ?? "16"
+);
+/** Bound the total number of nodes read when decimating to roughly this budget. */
+const SPATIAL_SAMPLE_BUDGET = Number(
+  process.env.RDMS_SPATIAL_SAMPLE_BUDGET ?? "8192"
+);
+
+/**
+ * Resolve the ETP array id (uri + path) for an HDF5/external point array so it
+ * can be read via the DataArray protocol.
+ */
+const resolvePointArrayId = (
+  dataspaceUri: string,
+  array: SimpleJson<resqml20.Point3dHdf5Array | resqml22.Point3dExternalArray>
+): { uri: URI; pathInResource: string } | undefined => {
+  if (array.$type === "resqml20.Point3dHdf5Array") {
+    const hdfArray = array as SimpleJson<resqml20.Point3dHdf5Array>;
+    const etpType = new EtpContentType(
+      hdfArray.Coordinates.HdfProxy.ContentType
+    ).etpType;
+    const uri = `${dataspaceUri}/${etpType}(${hdfArray.Coordinates.HdfProxy.UUID})`;
+    return { uri, pathInResource: hdfArray.Coordinates.PathInHdfFile };
+  } else if (array.$type === "resqml22.Point3dExternalArray") {
+    const hdfArray = array as SimpleJson<resqml22.Point3dExternalArray>;
+    const etpDataspaceUri = new EtpUri(dataspaceUri).dataSpace;
+    const etpUri = new EtpUri(
+      hdfArray.Coordinates.ExternalDataArrayPart[0].URI
+    );
+    const uri = EtpUri.createTypedObjectUri(
+      etpDataspaceUri,
+      etpUri.dataObjectType,
+      etpUri.uuid,
+      etpUri.version
+    ).uri;
+    return {
+      uri,
+      pathInResource:
+        hdfArray.Coordinates.ExternalDataArrayPart[0].PathInExternalFile
+    };
+  }
+  return undefined;
+};
+
+/**
+ * Cheap approximate min/max of a point array.
+ *
+ * For geometry defined by metadata (lattice/parametric/z-value) this delegates
+ * to {@link getMinMaxPoints}, which is already metadata-only. For bulk
+ * HDF5/external point arrays it avoids streaming the whole array: small arrays
+ * are read in full, larger ones are decimated into a bounded number of
+ * evenly-spaced blocks along the slowest axis (including both ends) so the
+ * resulting bounding box is a close approximation at bounded cost. `pNodeCount`
+ * is the true node count taken from the array metadata, not the sampled count.
+ */
+export const getMinMaxPointsEstimate = async (
+  client: ResqmlClient,
+  dataspaceUri: string,
+  geo: SimpleJson<resqml20.AbstractPoint3dArray | resqml22.AbstractPoint3dArray>
+): Promise<{
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  pNodeCount: number;
+}> => {
+  const isHdf5 =
+    geo.$type === "resqml20.Point3dHdf5Array" ||
+    geo.$type === "resqml22.Point3dExternalArray";
+  if (!isHdf5) {
+    // Z-value arrays defer to their supporting geometry, which may itself be a
+    // bulk array — route it back through the estimate so it is decimated too.
+    if (geo.$type === "resqml20.Point3dZValueArray") {
+      const sup = (geo as SimpleJson<resqml20.Point3dZValueArray>)
+        .SupportingGeometry as SimpleJson<resqml20.AbstractPoint3dArray>;
+      return getMinMaxPointsEstimate(client, dataspaceUri, sup);
+    }
+    if (geo.$type === "resqml22.Point3dZValueArray") {
+      const sup = (geo as SimpleJson<resqml22.Point3dZValueArray>)
+        .SupportingGeometry as SimpleJson<resqml22.AbstractPoint3dArray>;
+      return getMinMaxPointsEstimate(client, dataspaceUri, sup);
+    }
+    return getMinMaxPoints(client, dataspaceUri, geo);
+  }
+
+  let minX: number = Number.POSITIVE_INFINITY;
+  let maxX: number = Number.NEGATIVE_INFINITY;
+  let minY: number = Number.POSITIVE_INFINITY;
+  let maxY: number = Number.NEGATIVE_INFINITY;
+
+  const visitor = (values: any): void => {
+    const val = values as number[];
+    val.forEach((v, index) => {
+      if (Number.isNaN(v)) {
+        return;
+      }
+      const mod = index % 3;
+      if (mod === 0) {
+        minX = Math.min(v, minX);
+        maxX = Math.max(v, maxX);
+      } else if (mod === 1) {
+        minY = Math.min(v, minY);
+        maxY = Math.max(v, maxY);
+      }
+    });
+  };
+
+  try {
+    const id = resolvePointArrayId(
+      dataspaceUri,
+      geo as SimpleJson<
+        resqml20.Point3dHdf5Array | resqml22.Point3dExternalArray
+      >
+    );
+    if (!id) {
+      return getMinMaxPoints(client, dataspaceUri, geo);
+    }
+
+    const meta = await client.getDataArrayMetadata(id.uri, id.pathInResource);
+    const dims = (meta?.dimensions ?? []).map(Number).filter(d => d > 0);
+    if (dims.length === 0) {
+      return getMinMaxPoints(client, dataspaceUri, geo);
+    }
+
+    const total = dims.reduce((a, b) => a * b, 1);
+    const coordsPerNode = dims[dims.length - 1] === 3 ? 3 : 1;
+    const nodeCount =
+      coordsPerNode === 3 ? Math.round(total / 3) : total;
+    const slow = dims[0];
+    const pointsPerRow = Math.max(1, Math.round(nodeCount / slow));
+
+    // Small enough: read the whole array for an exact bbox.
+    if (nodeCount <= SPATIAL_FULL_READ_THRESHOLD) {
+      await client.visitDataArrayValues(id, visitor, 0, slow);
+      return { minX, minY, maxX, maxY, pNodeCount: nodeCount };
+    }
+
+    // Decimate: sample evenly-spaced contiguous blocks along the slowest axis.
+    const numBlocks = Math.max(2, Math.min(SPATIAL_SAMPLE_BLOCKS, slow));
+    let rowsPerBlock = Math.max(
+      1,
+      Math.floor(SPATIAL_SAMPLE_BUDGET / (numBlocks * pointsPerRow))
+    );
+    rowsPerBlock = Math.min(
+      rowsPerBlock,
+      Math.max(1, Math.floor(slow / numBlocks))
+    );
+
+    const maxStart = Math.max(0, slow - rowsPerBlock);
+    for (let b = 0; b < numBlocks; b++) {
+      const start = Math.round((b * maxStart) / (numBlocks - 1));
+      await client.visitDataArrayValues(id, visitor, start, rowsPerBlock);
+    }
+    return { minX, minY, maxX, maxY, pNodeCount: nodeCount };
+  } catch {
+    // On any read failure, degrade gracefully: leave the bbox unresolved so
+    // the caller simply omits SpatialArea rather than failing the manifest.
+    return { minX, minY, maxX, maxY, pNodeCount: 0 };
+  }
+};
+
 /**
  * Generic class for all WorkProductComponent created from Resqml Objects
  *
@@ -1675,14 +1844,19 @@ export class ResqmlWorkProductComponent<
 
     let NodeCount = undefined;
 
-    if (context.useDataArrayForManifest) {
+    // When includeArrayData is set, read the full arrays for an exact bbox.
+    // Otherwise fall back to a cheap estimated bbox (metadata for lattice
+    // geometry, decimated sampling for bulk point sets) so irregular objects
+    // still get a SpatialArea without streaming their entire array.
+    const useEstimate =
+      SPATIAL_ESTIMATE_ENABLED && !context.useDataArrayForManifest;
+    if (context.useDataArrayForManifest || useEstimate) {
       NodeCount = 0;
       for await (const g of geometries) {
-        const { minX, minY, maxX, maxY, pNodeCount } = await getMinMaxPoints(
-          client,
-          dataspaceUri,
-          g.Points
-        );
+        const { minX, minY, maxX, maxY, pNodeCount } =
+          context.useDataArrayForManifest
+            ? await getMinMaxPoints(client, dataspaceUri, g.Points)
+            : await getMinMaxPointsEstimate(client, dataspaceUri, g.Points);
         aMinX = Math.min(minX, aMinX);
         aMinY = Math.min(minY, aMinY);
         aMaxX = Math.max(maxX, aMaxX);
