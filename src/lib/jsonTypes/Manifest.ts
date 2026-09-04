@@ -136,7 +136,8 @@ export const DEFAULT_DATASPACE_TYPE_PATTERNS: string[] = [
  */
 export const DEFAULT_INGEST_EXCLUDE_PATTERNS: string[] = [
   "*Activity",          // resqml20.obj_Activity / eml23.Activity
-  "*ActivityTemplate"   // resqml20.obj_ActivityTemplate / eml23.ActivityTemplate
+  "*ActivityTemplate",  // resqml20.obj_ActivityTemplate / eml23.ActivityTemplate
+  "*PropertySet"        // resqml20.obj_PropertySet -> PersistedCollection (pure grouping container)
 ];
 
 /** Property type pattern for secondary filter matching */

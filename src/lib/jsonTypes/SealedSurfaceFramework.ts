@@ -14,8 +14,7 @@ export class SealedSurfaceFrameworkOSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml20.obj_SealedSurfaceFrameworkRepresentation>
   >
-  implements SealedSurfaceFramework
-{
+  implements SealedSurfaceFramework {
   public data: Data = {};
 
   constructor(

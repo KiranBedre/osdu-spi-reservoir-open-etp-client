@@ -14,8 +14,7 @@ export class SealedVolumeFrameworkOSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml20.obj_SealedVolumeFrameworkRepresentation>
   >
-  implements SealedVolumeFramework
-{
+  implements SealedVolumeFramework {
   public data: Data = {};
 
   constructor(

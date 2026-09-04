@@ -14,8 +14,7 @@ export class RockFluidOrganizationInterpretation22OSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml22.RockFluidOrganizationInterpretation>
   >
-  implements RockFluidOrganizationInterpretation
-{
+  implements RockFluidOrganizationInterpretation {
   public data: Data = {};
 
   constructor(

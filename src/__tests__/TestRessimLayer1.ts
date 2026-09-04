@@ -77,14 +77,17 @@ describe("manifestFilterMatches presets", () => {
         type: string,
         name: string,
         typePatterns?: string[],
-        propertyFilter?: "all" | "canonical" | "none"
+        propertyFilter?: "all" | "canonical" | "none",
+        excludePatterns?: string[]
     ) => boolean;
     let DEFAULT_DATASPACE_TYPE_PATTERNS: string[];
+    let DEFAULT_INGEST_EXCLUDE_PATTERNS: string[];
 
     beforeAll(() => {
         const m = require("../lib/jsonTypes/Manifest");
         manifestFilterMatches = m.manifestFilterMatches;
         DEFAULT_DATASPACE_TYPE_PATTERNS = m.DEFAULT_DATASPACE_TYPE_PATTERNS;
+        DEFAULT_INGEST_EXCLUDE_PATTERNS = m.DEFAULT_INGEST_EXCLUDE_PATTERNS;
     });
 
     it("default (no args) includes all types AND all properties", () => {
@@ -130,6 +133,29 @@ describe("manifestFilterMatches presets", () => {
         expect(
             manifestFilterMatches("resqml22.TimeSeries", "ts", DEFAULT_DATASPACE_TYPE_PATTERNS, "none")
         ).toBe(false);
+    });
+
+    it("DEFAULT_INGEST_EXCLUDE_PATTERNS hard-drops Activity, ActivityTemplate and PropertySet", () => {
+        expect(DEFAULT_INGEST_EXCLUDE_PATTERNS).toEqual(
+            expect.arrayContaining(["*Activity", "*ActivityTemplate", "*PropertySet"])
+        );
+        // Container/Activity types are excluded even with permissive property/type filters
+        expect(
+            manifestFilterMatches("resqml20.obj_PropertySet", "props", undefined, "all", DEFAULT_INGEST_EXCLUDE_PATTERNS)
+        ).toBe(false);
+        expect(
+            manifestFilterMatches("resqml20.obj_Activity", "act", undefined, "all", DEFAULT_INGEST_EXCLUDE_PATTERNS)
+        ).toBe(false);
+        expect(
+            manifestFilterMatches("resqml20.obj_ActivityTemplate", "tmpl", undefined, "all", DEFAULT_INGEST_EXCLUDE_PATTERNS)
+        ).toBe(false);
+        // Core geology is still kept under the default exclude set
+        expect(
+            manifestFilterMatches("resqml20.obj_FaultInterpretation", "fault", undefined, "canonical", DEFAULT_INGEST_EXCLUDE_PATTERNS)
+        ).toBe(true);
+        expect(
+            manifestFilterMatches("resqml20.obj_LocalDepth3dCrs", "crs", undefined, "none", DEFAULT_INGEST_EXCLUDE_PATTERNS)
+        ).toBe(true);
     });
 });
 

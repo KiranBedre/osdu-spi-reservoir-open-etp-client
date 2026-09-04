@@ -14,8 +14,7 @@ export class StructuralOrganizationInterpretationOSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml20.obj_StructuralOrganizationInterpretation>
   >
-  implements StructuralOrganizationInterpretation
-{
+  implements StructuralOrganizationInterpretation {
   public data: Data = {};
 
   constructor(
