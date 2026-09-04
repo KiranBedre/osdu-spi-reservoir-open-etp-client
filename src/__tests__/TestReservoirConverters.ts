@@ -31,36 +31,79 @@ const mockClient = {
 // ExtraMetadata Preservation (non-osdu entries → ResqmlMetadata)
 // ============================================================================
 describe("ExtraMetadata non-osdu preservation", () => {
-  it("stores non-osdu metadata in ExtensionProperties.ResqmlMetadata", () => {
-    const context = new OSDUContext("test-partition", "test-rddms");
-    // Use a minimal concrete class for testing
-    const { GenericPropertyOSDU } = require("../lib/jsonTypes/GenericProperty");
+  it("stores non-osdu metadata in ExtensionProperties.ResqmlMetadata when opted in", () => {
+    const prev = process.env.RDMS_PRESERVE_RESQML_METADATA;
+    process.env.RDMS_PRESERVE_RESQML_METADATA = "true";
+    try {
+      const context = new OSDUContext("test-partition", "test-rddms");
+      // Use a minimal concrete class for testing
+      const { GenericPropertyOSDU } = require("../lib/jsonTypes/GenericProperty");
 
-    const xml: any = {
-      SchemaVersion: "2.0",
-      Uuid: "test-uuid",
-      Citation: { Title: "Test", Originator: "tester", Creation: new Date() },
-      IndexableElement: "cells",
-      Count: 1,
-      PropertyKind: { PropertyKind: "length" },
-      PatchOfValues: [{ Values: {} }]
-    };
+      const xml: any = {
+        SchemaVersion: "2.0",
+        Uuid: "test-uuid",
+        Citation: { Title: "Test", Originator: "tester", Creation: new Date() },
+        IndexableElement: "cells",
+        Count: 1,
+        PropertyKind: { PropertyKind: "length" },
+        PatchOfValues: [{ Values: {} }]
+      };
 
-    const osdu = new GenericPropertyOSDU(xml, context);
-    osdu.data = { ValueCount: 1 };
+      const osdu = new GenericPropertyOSDU(xml, context);
+      osdu.data = { ValueCount: 1 };
 
-    const extra = [
-      { Name: "AuthoringSoftware", Value: "Petrel 2023" },
-      { Name: "CustomField", Value: "MyValue" },
-      { Name: "osdu/data/ValueCount", Value: "99" } // osdu-prefixed should go to data
-    ];
+      const extra = [
+        { Name: "AuthoringSoftware", Value: "Petrel 2023" },
+        { Name: "CustomField", Value: "MyValue" },
+        { Name: "osdu/data/ValueCount", Value: "99" } // osdu-prefixed should go to data
+      ];
 
-    osdu.assignExtraMetaData(extra);
+      osdu.assignExtraMetaData(extra);
 
-    // Non-osdu entries go to ResqmlMetadata sub-object
-    expect(osdu.data.ExtensionProperties?.ResqmlMetadata).toBeDefined();
-    expect(osdu.data.ExtensionProperties.ResqmlMetadata["AuthoringSoftware"]).toEqual("Petrel 2023");
-    expect(osdu.data.ExtensionProperties.ResqmlMetadata["CustomField"]).toEqual("MyValue");
+      // Non-osdu entries go to ResqmlMetadata sub-object
+      expect(osdu.data.ExtensionProperties?.ResqmlMetadata).toBeDefined();
+      expect(osdu.data.ExtensionProperties.ResqmlMetadata["AuthoringSoftware"]).toEqual("Petrel 2023");
+      expect(osdu.data.ExtensionProperties.ResqmlMetadata["CustomField"]).toEqual("MyValue");
+    } finally {
+      if (prev === undefined) delete process.env.RDMS_PRESERVE_RESQML_METADATA;
+      else process.env.RDMS_PRESERVE_RESQML_METADATA = prev;
+    }
+  });
+
+  it("does NOT store non-osdu metadata by default (opt-in flag off)", () => {
+    const prev = process.env.RDMS_PRESERVE_RESQML_METADATA;
+    delete process.env.RDMS_PRESERVE_RESQML_METADATA;
+    try {
+      const context = new OSDUContext("test-partition", "test-rddms");
+      const { GenericPropertyOSDU } = require("../lib/jsonTypes/GenericProperty");
+
+      const xml: any = {
+        SchemaVersion: "2.0",
+        Uuid: "test-uuid-default-off",
+        Citation: { Title: "Test", Originator: "tester", Creation: new Date() },
+        IndexableElement: "cells",
+        Count: 1,
+        PropertyKind: { PropertyKind: "length" },
+        PatchOfValues: [{ Values: {} }]
+      };
+
+      const osdu = new GenericPropertyOSDU(xml, context);
+      osdu.data = { ValueCount: 1 };
+
+      osdu.assignExtraMetaData([
+        { Name: "AuthoringSoftware", Value: "Petrel 2023" },
+        { Name: "CustomField", Value: "MyValue" },
+        { Name: "osdu/data/ValueCount", Value: "99" } // osdu-prefixed still mapped
+      ]);
+
+      // Non-osdu entries are dropped unless RDMS_PRESERVE_RESQML_METADATA=true
+      expect(osdu.data.ExtensionProperties?.ResqmlMetadata).toBeUndefined();
+      // osdu-prefixed mapping is unaffected by the flag
+      expect(osdu.data.ValueCount).toEqual(99);
+    } finally {
+      if (prev === undefined) delete process.env.RDMS_PRESERVE_RESQML_METADATA;
+      else process.env.RDMS_PRESERVE_RESQML_METADATA = prev;
+    }
   });
 
   it("preserves AuthoringSoftware from Citation.Format", () => {

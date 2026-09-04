@@ -178,6 +178,7 @@ export default async function app(): Promise<NestExpressApplication> {
     )
     .addTag("WITSML", "Query and store WITSML/EnergyML objects in ETP dataspaces, plus well-centric search with hierarchy resolution across dataspaces (`GET /wells`). Domain-specific - supports WITSML 2.1 and 1.4.1 container formats.")
     .addTag("PWLS", "PWLS v4.0 curve mnemonic resolution and validation. Domain-specific - maps vendor mnemonics to standard property names.")
+    .addTag("Linked Data", "Public, read-only semantic-web metadata: the JSON-LD context, the graph ontology, and the RESQML→OSDU OWL alignment. Complements the RDF/CSV/GraphML serializations of the resource graph.")
     .build();
 
   const document = SwaggerModule.createDocument(nestApp, config);
@@ -228,6 +229,7 @@ export default async function app(): Promise<NestExpressApplication> {
       "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}",                              // one object (+ delete)
       "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/targets",                      // referenced-by
       "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/sources",                      // referencing
+      "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/rdf",                          // single-object RDF projection
       "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/arrays",                       // list arrays of an object
       "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/arrays/{pathInResource}/metadata", // array metadata
       "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/arrays/{pathInResource}",      // array content
@@ -254,6 +256,10 @@ export default async function app(): Promise<NestExpressApplication> {
       "/pwls/resolve",
       "/pwls/validate",
       "/pwls/catalog",
+      // ── Linked Data ──
+      "/rdf/context",
+      "/rdf/ontology",
+      "/rdf/alignment",
       // ── Operational ──
       "/health/readiness",
       "/health/liveness",

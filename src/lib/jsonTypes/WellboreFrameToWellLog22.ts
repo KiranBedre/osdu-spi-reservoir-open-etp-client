@@ -12,10 +12,13 @@ import type { IDataArray } from "../common/EtpTypes";
 import type { SimpleJson } from "../mlTypes/XmlJsonUtil";
 
 import { OSDUContext } from "./OsduContext";
-import { ResqmlWorkProductComponent, ResqmlResource } from "./WorkProductComponent";
+import { ResqmlWorkProductComponent, ResqmlResource, visitDoubleValues } from "./WorkProductComponent";
 import { isKnownPwlsProperty, getPropertyFromMnemonic } from "./PwlsCurveCatalog";
 
 import { Data, WellLog, Curves } from "./Generated/work-product-component/WellLog.1.3.0";
+import Logging from "../common/Logging";
+
+const logger = Logging.getLogger("EtpClient");
 
 /**
  * Extract OSDU WellLog WPC information from a RESQML 2.2 WellboreFrameRepresentation.
@@ -113,26 +116,82 @@ export class WellboreFrameToWellLog22OSDU
       const arrays = new Map<string, IDataArray>();
       client.findDataArrays(frameUri, xml as Record<string, any>, arrays);
       const firstArray = Array.from(arrays.values())[0];
-      if (!firstArray) return undefined;
+      if (firstArray) {
+        const { uri, pathInResource } = firstArray.uid;
+        const firstSub = await client.getDataSubarray(uri, pathInResource, [0], [1], false);
+        const lastSub = await client.getDataSubarray(uri, pathInResource, [nodeCount - 1], [1], false);
 
-      const { uri, pathInResource } = firstArray.uid;
-      const firstSub = await client.getDataSubarray(uri, pathInResource, [0], [1], false);
-      const lastSub = await client.getDataSubarray(uri, pathInResource, [nodeCount - 1], [1], false);
-
-      const topVal = this.extractNumericValue(firstSub?.data);
-      const bottomVal = this.extractNumericValue(lastSub?.data);
-      if (topVal === undefined || bottomVal === undefined) return undefined;
-
-      let interval: number | undefined;
-      if (nodeCount > 1) {
-        const computed = (bottomVal - topVal) / (nodeCount - 1);
-        if (computed > 0) interval = computed;
+        const topVal = this.extractNumericValue(firstSub?.data);
+        const bottomVal = this.extractNumericValue(lastSub?.data);
+        if (topVal !== undefined && bottomVal !== undefined) {
+          return this.buildDepthRange(topVal, bottomVal, nodeCount);
+        }
       }
 
-      return { top: topVal, bottom: bottomVal, interval };
-    } catch {
+      // Fallback: read the full NodeMd array (handles HDF5, constant and
+      // lattice arrays, and servers where GetDataSubarray fails silently).
+      const fallback = await this.readNodeMdEnds(frameUri, xml, nodeCount, client);
+      if (fallback) {
+        return this.buildDepthRange(fallback.top, fallback.bottom, nodeCount);
+      }
+      logger.warn(
+        `extractDepthRange: could not resolve NodeMd depth range for frame ${frameUri} (nodeCount=${nodeCount})`
+      );
+      return undefined;
+    } catch (err) {
+      logger.warn(
+        `extractDepthRange: error reading NodeMd for frame ${frameUri}: ${err}`
+      );
       return undefined;
     }
+  }
+
+  /** Build the top/bottom/interval result, computing interval for regular logs. */
+  private buildDepthRange(
+    top: number,
+    bottom: number,
+    nodeCount: number
+  ): { top: number; bottom: number; interval?: number } {
+    let interval: number | undefined;
+    if (nodeCount > 1) {
+      const computed = (bottom - top) / (nodeCount - 1);
+      if (computed > 0) interval = computed;
+    }
+    return { top, bottom, interval };
+  }
+
+  /**
+   * Read the first and last NodeMd values by scanning the full index array.
+   * Used as a fallback when GetDataSubarray is unavailable or returns empty.
+   */
+  private async readNodeMdEnds(
+    frameUri: string,
+    xml: SimpleJson<resqml22.WellboreFrameRepresentation>,
+    nodeCount: number,
+    client: ResqmlClient
+  ): Promise<{ top: number; bottom: number } | undefined> {
+    const nodeMd = (xml as any).NodeMd;
+    if (!nodeMd) return undefined;
+    const values: number[] = [];
+    try {
+      await visitDoubleValues(frameUri, nodeMd, client, async (chunk, meta) => {
+        const start =
+          meta && meta.starts && meta.starts.length > 0 ? meta.starts[0] : 0;
+        for (let i = 0; i < chunk.length; i++) {
+          values[start + i] = Number(chunk[i]);
+        }
+      });
+    } catch (err) {
+      logger.warn(
+        `extractDepthRange: fallback NodeMd read failed for frame ${frameUri}: ${err}`
+      );
+      return undefined;
+    }
+    const top = values[0];
+    const bottom = values[nodeCount - 1] ?? values[values.length - 1];
+    if (top === undefined || bottom === undefined || Number.isNaN(top) || Number.isNaN(bottom))
+      return undefined;
+    return { top, bottom };
   }
 
   private extractNumericValue(

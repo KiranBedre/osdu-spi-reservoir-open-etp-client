@@ -24,6 +24,7 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards
 } from "@nestjs/common";
 
@@ -40,6 +41,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiProduces,
   ApiProperty,
   ApiPropertyOptional,
   ApiQuery,
@@ -102,8 +104,138 @@ import {
 import { ResourceGraph } from "../../common/ResponseHandlers";
 import { ErrorCode, EtpError } from "../../common/EtpTypes";
 import logging from "../../common/Logging";
+import {
+  RDF_MIME_JSONLD,
+  RDF_MIME_NTRIPLES,
+  RDF_MIME_TURTLE,
+  RdfFormat,
+  resolveRdfFormat,
+  serializeGraph
+} from "./RdfSerialization";
+import {
+  EXPORT_MIME_CSV,
+  EXPORT_MIME_GRAPHML,
+  GraphExportFormat,
+  resolveGraphExportFormat,
+  serializeGraphExport
+} from "./GraphExport";
+import { createHash } from "crypto";
 
 const logger = logging.getLogger("EtpClient");
+
+/** RDF alternate representations advertised via the `Link` header. */
+const RDF_ALTERNATES: ReadonlyArray<readonly [RdfFormat, string]> = [
+  ["turtle", RDF_MIME_TURTLE],
+  ["jsonld", RDF_MIME_JSONLD],
+  ["ntriples", RDF_MIME_NTRIPLES]
+];
+
+/** Split a request URL into its path and query-string parts. */
+const splitUrl = (req?: express.Request): [string, string] => {
+  const [path, qs = ""] = (req?.originalUrl ?? req?.url ?? "").split("?");
+  return [path, qs];
+};
+
+/**
+ * Build `Link` header values advertising the RDF alternate representations of
+ * the current resource (via `?format=`). Only emitted on the default JSON
+ * response so RDF clients can discover the linked-data variants.
+ */
+const rdfAlternateLinks = (req?: express.Request): string[] => {
+  if (!req) return [];
+  const [path, qs] = splitUrl(req);
+  return RDF_ALTERNATES.map(([fmt, mime]) => {
+    const p = new URLSearchParams(qs);
+    p.set("format", fmt);
+    return `<${path}?${p.toString()}>; rel="alternate"; type="${mime}"`;
+  });
+};
+
+/** Build `Link` header values for pagination (rel=next / rel=prev). */
+const paginationLinks = (
+  req: express.Request | undefined,
+  total: number,
+  skip = 0,
+  top?: number
+): string[] => {
+  if (!req || top === undefined) return [];
+  const [path, qs] = splitUrl(req);
+  const make = (newSkip: number, rel: string): string => {
+    const p = new URLSearchParams(qs);
+    p.set("$skip", String(newSkip));
+    p.set("$top", String(top));
+    return `<${path}?${p.toString()}>; rel="${rel}"`;
+  };
+  const links: string[] = [];
+  if (skip + top < total) links.push(make(skip + top, "next"));
+  if (skip > 0) links.push(make(Math.max(0, skip - top), "prev"));
+  return links;
+};
+
+/** Compute a weak ETag for a response payload. */
+const weakEtag = (payload: string): string =>
+  `W/"${createHash("sha1").update(payload).digest("hex")}"`;
+
+/**
+ * Set caching (`ETag`) and discovery/pagination (`Link`) headers on a graph or
+ * resource-list response, and honour conditional GET. Returns `true` when the
+ * caller should short-circuit with `304 Not Modified`.
+ */
+const applyGraphResponseHeaders = (
+  request: express.Request | undefined,
+  response: express.Response | undefined,
+  body: unknown,
+  isRdf: boolean,
+  page: { total: number; skip?: number; top?: number }
+): boolean => {
+  if (!response) return false;
+
+  const payload = typeof body === "string" ? body : JSON.stringify(body ?? null);
+  const etag = weakEtag(payload);
+  response.setHeader("ETag", etag);
+
+  const links: string[] = [
+    ...(isRdf ? [] : rdfAlternateLinks(request)),
+    ...paginationLinks(request, page.total, page.skip, page.top)
+  ];
+  if (links.length > 0) response.setHeader("Link", links.join(", "));
+
+  const ifNoneMatch = request?.headers["if-none-match"];
+  if (ifNoneMatch && ifNoneMatch === etag) {
+    response.status(304);
+    return true;
+  }
+  return false;
+};
+
+/**
+ * Resolve the requested serialization for a graph response. Export formats
+ * (CSV, GraphML) take precedence over RDF formats; both are selected via the
+ * `Accept` header or an explicit `?format=`. Returns `undefined` for the
+ * default JSON response.
+ */
+const resolveGraphOutput = (
+  accept?: string,
+  format?: string
+): { rdf?: RdfFormat; export?: GraphExportFormat } | undefined => {
+  const exportFormat = resolveGraphExportFormat(accept, format);
+  if (exportFormat) return { export: exportFormat };
+  const rdf = resolveRdfFormat(accept, format);
+  if (rdf) return { rdf };
+  return undefined;
+};
+
+/** Serialize a graph DTO to the resolved non-JSON output. */
+const serializeGraphOutput = (
+  graphDto: RdfGraphLike,
+  output: { rdf?: RdfFormat; export?: GraphExportFormat }
+): { body: string | Record<string, unknown>; contentType: string } => {
+  if (output.export) return serializeGraphExport(graphDto, output.export);
+  return serializeGraph(graphDto, output.rdf as RdfFormat);
+};
+
+/** Minimal graph shape accepted by the serializers (matches ResourceGraphDto). */
+type RdfGraphLike = Parameters<typeof serializeGraph>[0];
 
 export const uriPattern =
   /^(?<protocol>(?:[^:]+)s?)?:\/\/(?:(?<user>[^:\n\r]+):(?<pass>[^@\n\r]+)@)?(?<host>(?:www\.)?(?:[^:\/\n\r]+))(?::(?<port>\d+))?\/?(?<request>[^?#\n\r]+)?\??(?<query>[^#\n\r]*)?\#?(?<anchor>[^\n\r]*)?$/;
@@ -572,6 +704,17 @@ export const edgesQueryParam: ApiQueryOptions = {
   schema: {
     type: "boolean",
     default: false
+  }
+};
+
+export const rdfFormatQueryParam: ApiQueryOptions = {
+  name: "format",
+  required: false,
+  description:
+    "Explicitly request a non-JSON serialization of the relationship graph, overriding the `Accept` header. RDF: `turtle`, `jsonld`, `ntriples`. Graph export: `csv` (node table), `graphml` (nodes + edges). Omit for the default JSON response.",
+  schema: {
+    type: "string",
+    enum: ["turtle", "jsonld", "ntriples", "csv", "graphml"]
   }
 };
 
@@ -1087,11 +1230,20 @@ export default class ResourcesReadAPI {
   @ApiQuery(depthQueryParam)
   @ApiQuery(edgesQueryParam)
   @ApiQuery(countObjectsQueryParam)
+  @ApiQuery(rdfFormatQueryParam)
   @ApiQuery(transactionIdQueryParam)
+  @ApiProduces(
+    "application/json",
+    RDF_MIME_TURTLE,
+    RDF_MIME_JSONLD,
+    RDF_MIME_NTRIPLES,
+    EXPORT_MIME_CSV,
+    EXPORT_MIME_GRAPHML
+  )
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
     summary: "List all resources in a dataspace",
-    description: `List all resources (data objects) in a dataspace as a **flat list** of nodes (URI, name, type, timestamps).\n\n**List vs graph**: By default this returns only the resource nodes. Set \`edges=true\` to additionally return the relationship **edges** between them (the relationship graph) — this makes the endpoint equivalent to the deprecated \`GET /dataspaces/{id}/graph/all\`.\n\n**Filtering**: Use \`dataObjectTypes\` to restrict by type (e.g., \`resqml20.obj_IjkGridRepresentation\`), \`storeLastWriteFilter\` for incremental sync, and \`$filter\` for XPath content queries.\n\n**Graph traversal**: Set \`depth\` > 1 to recursively discover related resources. Combined with \`dataObjectTypes\`, this enables server-side deep search without N+1 client calls.\n\n**Pagination**: \`$skip\` and \`$top\` are applied client-side after fetching all results from ETP.`,
+    description: `List all resources (data objects) in a dataspace as a **flat list** of nodes (URI, name, type, timestamps).\n\n**List vs graph**: By default this returns only the resource nodes. Set \`edges=true\` to additionally return the relationship **edges** between them (the relationship graph) — this makes the endpoint equivalent to the deprecated \`GET /dataspaces/{id}/graph/all\`.\n\n**Linked data**: Send \`Accept: text/turtle\` or \`Accept: application/ld+json\` to receive the relationship graph as RDF (edges are always included). ETP resource URIs are used verbatim as RDF subjects.\n\n**Filtering**: Use \`dataObjectTypes\` to restrict by type (e.g., \`resqml20.obj_IjkGridRepresentation\`), \`storeLastWriteFilter\` for incremental sync, and \`$filter\` for XPath content queries.\n\n**Graph traversal**: Set \`depth\` > 1 to recursively discover related resources. Combined with \`dataObjectTypes\`, this enables server-side deep search without N+1 client calls.\n\n**Pagination**: \`$skip\` and \`$top\` are applied client-side after fetching all results from ETP.`,
     servers: swaggerServers
   })
   public async ListResources(
@@ -1105,12 +1257,15 @@ export default class ResourcesReadAPI {
     @Query("depth", OptionalParseIntPipe) depth?: number,
     @Query("edges", OptionalParseBoolPipe) edges = false,
     @Query("countObjects", OptionalParseBoolPipe) countObjects = false,
+    @Query("format") format?: string,
     @Query("transactionId") transactionId?: string,
-    @Req() request?: express.Request
-  ): Promise<ResourceDto[] | ResourceGraphDto | null> {
+    @Req() request?: express.Request,
+    @Res({ passthrough: true }) response?: express.Response
+  ): Promise<ResourceDto[] | ResourceGraphDto | string | Record<string, unknown> | null> {
     logger.info(
       `Received request to list resources for dataspace: ${params.dataspaceId}`
     );
+    const output = resolveGraphOutput(request?.headers.accept, format);
     const query = {
       top,
       skip,
@@ -1126,15 +1281,16 @@ export default class ResourcesReadAPI {
         transactionId
       );
       logger.info("Session created successfully.");
-      logger.info(edges ? "Fetching resource graph..." : "Fetching resources...");
+      const wantGraph = edges || output !== undefined;
+      logger.info(wantGraph ? "Fetching resource graph..." : "Fetching resources...");
       const findQuery = {
         uri: EtpUri.createDataSpaceUri(params.dataspaceId).uri,
         depth: depth ?? 1,
         dataObjectTypes: dataObjectTypes ? dataObjectTypes.split(",") : [],
         navigableEdges: "Both" as const
       };
-      let result: ResourceDto[] | ResourceGraphDto | null;
-      if (edges) {
+      let result: ResourceDto[] | ResourceGraphDto | string | Record<string, unknown> | null;
+      if (wantGraph) {
         const graph = await graphResources(
           c,
           findQuery,
@@ -1150,7 +1306,33 @@ export default class ResourcesReadAPI {
           logger.info("Session closed successfully.");
         }
         c = undefined;
-        result = sendGraph(skip, top, graph);
+        const graphDto = sendGraph(skip, top, graph);
+        const total = [...graph.values()].length;
+        if (output) {
+          const { body, contentType } = serializeGraphOutput(graphDto, output);
+          response?.type(contentType);
+          if (
+            applyGraphResponseHeaders(request, response, body, true, {
+              total,
+              skip,
+              top
+            })
+          ) {
+            return null;
+          }
+          result = body;
+        } else {
+          if (
+            applyGraphResponseHeaders(request, response, graphDto, false, {
+              total,
+              skip,
+              top
+            })
+          ) {
+            return null;
+          }
+          result = graphDto;
+        }
       } else {
         const resources = await findResources(
           c,
@@ -1167,7 +1349,17 @@ export default class ResourcesReadAPI {
           logger.info("Session closed successfully.");
         }
         c = undefined;
-        result = sendResources(skip, top, resources);
+        const list = sendResources(skip, top, resources);
+        if (
+          applyGraphResponseHeaders(request, response, list, false, {
+            total: resources.length,
+            skip,
+            top
+          })
+        ) {
+          return null;
+        }
+        result = list;
       }
       logger.info("Processed resources successfully.");
       return result;
@@ -1203,12 +1395,21 @@ export default class ResourcesReadAPI {
   @ApiQuery(dataObjectTypesQueryParam)
   @ApiQuery(depthQueryParam)
   @ApiQuery(countObjectsQueryParam)
+  @ApiQuery(rdfFormatQueryParam)
   @ApiQuery(transactionIdQueryParam)
+  @ApiProduces(
+    "application/json",
+    RDF_MIME_TURTLE,
+    RDF_MIME_JSONLD,
+    RDF_MIME_NTRIPLES,
+    EXPORT_MIME_CSV,
+    EXPORT_MIME_GRAPHML
+  )
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
     deprecated: true,
     summary: "Full relationship graph for a dataspace (deprecated)",
-    description: `**Deprecated** — use \`GET /dataspaces/{id}/resources/all?edges=true\` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nBuild a complete relationship graph for all resources in a dataspace. Returns nodes and edges (relationships between objects).\n\n**depth**: 1 = direct relationships only, N = recursive traversal. Higher values may be slow for large dataspaces.`,
+    description: `**Deprecated** — use \`GET /dataspaces/{id}/resources/all?edges=true\` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nBuild a complete relationship graph for all resources in a dataspace. Returns nodes and edges (relationships between objects).\n\n**Linked data**: Send \`Accept: text/turtle\` or \`Accept: application/ld+json\` to receive the graph as RDF.\n\n**depth**: 1 = direct relationships only, N = recursive traversal. Higher values may be slow for large dataspaces.`,
     servers: swaggerServers
   })
   public async GraphResources(
@@ -1221,15 +1422,18 @@ export default class ResourcesReadAPI {
     @Query("dataObjectTypes") dataObjectTypes?: string,
     @Query("depth", OptionalParseIntPipe) depth?: number,
     @Query("countObjects", OptionalParseBoolPipe) countObjects?: boolean,
+    @Query("format") format?: string,
     @Query("transactionId") transactionId?: string,
-    @Req() request?: express.Request
-  ): Promise<ResourceGraphDto | null> {
+    @Req() request?: express.Request,
+    @Res({ passthrough: true }) response?: express.Response
+  ): Promise<ResourceGraphDto | string | Record<string, unknown> | null> {
     logger.info(
       `Received request to graph resources for dataspace: ${params.dataspaceId}`
     );
     logger.debug(
       `Query parameters: skip=${skip}, top=${top}, filter=${filter}, storeLastWriteFilter=${storeLastWriteFilter}, dataObjectTypes=${dataObjectTypes}, countObjects=${countObjects}, transactionId=${transactionId}`
     );
+    const output = resolveGraphOutput(request?.headers.accept, format);
     const query = {
       top,
       skip,
@@ -1266,9 +1470,33 @@ export default class ResourcesReadAPI {
         logger.info("Session closed successfully.");
       }
       c = undefined;
-      const result = sendGraph(skip, top, graph);
+      const graphDto = sendGraph(skip, top, graph);
+      const total = [...graph.values()].length;
       logger.info("Processed resource graph successfully.");
-      return result;
+      if (output) {
+        const { body, contentType } = serializeGraphOutput(graphDto, output);
+        response?.type(contentType);
+        if (
+          applyGraphResponseHeaders(request, response, body, true, {
+            total,
+            skip,
+            top
+          })
+        ) {
+          return null;
+        }
+        return body;
+      }
+      if (
+        applyGraphResponseHeaders(request, response, graphDto, false, {
+          total,
+          skip,
+          top
+        })
+      ) {
+        return null;
+      }
+      return graphDto;
     } catch (err) {
       logger.error(
         `Error occurred while graphing resources for dataspace ${params.dataspaceId}: ${err}`
@@ -1355,6 +1583,102 @@ export default class ResourcesReadAPI {
     } catch (err) {
       logger.error(
         `Error occurred while listing resources by type for dataspace ${params.dataspaceId}: ${err}`
+      );
+      if (!transactionId) {
+        await c?.closeSession();
+      }
+      throw httpErrorFromEtpError(err);
+    }
+  }
+
+  /**
+   * RDF projection of a single data object (and its immediate relationships).
+   *
+   * @memberof ResourcesReadAPI
+   */
+  @Get(":dataspaceId/resources/:dataObjectType/:guid/rdf")
+  @ApiQuery(versionQueryParam)
+  @ApiQuery(depthQueryParam)
+  @ApiQuery(rdfFormatQueryParam)
+  @ApiQuery(transactionIdQueryParam)
+  @ApiProduces(
+    RDF_MIME_TURTLE,
+    RDF_MIME_JSONLD,
+    RDF_MIME_NTRIPLES,
+    EXPORT_MIME_CSV,
+    EXPORT_MIME_GRAPHML
+  )
+  @ApiOkResponse({ description: "RDF/graph projection of the data object" })
+  @ApiOperation({
+    summary: "RDF projection of a single data object",
+    description: `Returns the data object and its immediate relationships as linked data. Content-negotiated via the \`Accept\` header or the \`format\` query parameter (\`turtle\`, \`jsonld\`, \`ntriples\`, \`csv\`, \`graphml\`); defaults to Turtle.\n\n**depth**: 1 = the object and its direct neighbours (default), N = recursive traversal.`,
+    servers: swaggerServers
+  })
+  public async ObjectRdf(
+    @Param() params: FindInObjectParams,
+    @Query("version") version?: string,
+    @Query("depth", OptionalParseIntPipe) depth?: number,
+    @Query("format") format?: string,
+    @Query("transactionId") transactionId?: string,
+    @Req() request?: express.Request,
+    @Res({ passthrough: true }) response?: express.Response
+  ): Promise<string | Record<string, unknown> | null> {
+    logger.info(
+      `Received request for RDF projection of dataspace: ${params.dataspaceId}, type: ${params.dataObjectType}, guid: ${params.guid}`
+    );
+    const output = resolveGraphOutput(request?.headers.accept, format) ?? {
+      rdf: "turtle" as RdfFormat
+    };
+    const m = dataObjectTypeRegexp.exec(params.dataObjectType);
+    const uri = EtpUri.createObjectUri(
+      params.dataspaceId,
+      m?.groups?.domainFamily ?? "",
+      m?.groups?.domainVersion ?? "",
+      m?.groups?.dataType ?? "",
+      params.guid,
+      version
+    ).uri;
+    let c = undefined;
+    try {
+      logger.info("Creating session...");
+      c = await createSession(
+        extractToken(request),
+        extractDataPartitionId(request),
+        undefined,
+        transactionId
+      );
+      logger.info("Session created successfully.");
+      logger.info("Fetching object graph...");
+      const graph = await graphResources(
+        c,
+        {
+          uri,
+          depth: depth ?? 1,
+          dataObjectTypes: [],
+          navigableEdges: "Both" as const
+        },
+        { top: undefined, skip: undefined, filter: undefined },
+        "self",
+        false
+      );
+      logger.info("Object graph fetched successfully.");
+      if (!transactionId) {
+        logger.info("Closing session...");
+        await c.closeSession();
+        logger.info("Session closed successfully.");
+      }
+      c = undefined;
+      const graphDto = sendGraph(undefined, undefined, graph);
+      const total = [...graph.values()].length;
+      const { body, contentType } = serializeGraphOutput(graphDto, output);
+      response?.type(contentType);
+      if (applyGraphResponseHeaders(request, response, body, true, { total })) {
+        return null;
+      }
+      return body;
+    } catch (err) {
+      logger.error(
+        `Error occurred while building RDF projection for dataspace ${params.dataspaceId}: ${err}`
       );
       if (!transactionId) {
         await c?.closeSession();

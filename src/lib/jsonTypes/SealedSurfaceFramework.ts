@@ -14,8 +14,7 @@ export class SealedSurfaceFrameworkOSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml20.obj_SealedSurfaceFrameworkRepresentation>
   >
-  implements SealedSurfaceFramework
-{
+  implements SealedSurfaceFramework {
   public data: Data = {};
 
   constructor(
@@ -41,7 +40,7 @@ export class SealedSurfaceFrameworkOSDU
         const srn = await SealedSurfaceFrameworkOSDU.dorToSrn(
           ReservoirDMSUrl, dor, client, context
         );
-        if (srn) repIds.push(srn + ":");
+        if (srn) repIds.push(srn);
       }
     }
 

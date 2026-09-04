@@ -329,7 +329,7 @@ export class ManifestInputDto {
     type: [String],
     maxItems: 99999,
     maxLength: 2048,
-    description: `Energistics types to restrict search against when indexing entire dataspaces, accept * and . wildcard.`,
+    description: `Optional filter restricting NON-property types when indexing entire dataspaces (accepts * and ? wildcards). When omitted, ALL types are included. Pass a curated list to restrict, e.g. ["*Feature","*Interpretation*","*Representation","*StratigraphicColumn","*Activity*","*Collection","witsml21.*"] for top-level types only. CRS objects are always included regardless of this filter.`,
     example: ["resqml20.obj_*Representation"],
     pattern: `${patternString(/^[0-9a-zA-Z._*?]+$/)}`
   })
@@ -343,13 +343,28 @@ export class ManifestInputDto {
     name: "propertyFilter",
     type: String,
     enum: ["canonical", "none", "all"],
-    description: `Controls property inclusion when using default type patterns. "canonical" (default): include properties with standard names (PWLS, OSDU, simulator abbreviations like PORO, PERMX, SW). "none": exclude all properties. "all": include all properties regardless of name.`,
-    example: "canonical"
+    description: `Controls property inclusion, independent of typePatterns. "all" (default): include every property. "canonical": include only properties with standard names (PWLS, OSDU, simulator abbreviations like PORO, PERMX, SW). "none": exclude all properties. Combine with typePatterns to build presets, e.g. all types + no properties, or curated top-level + no properties.`,
+    example: "all"
   })
   @IsOptional()
   @IsString()
   @IsIn(["canonical", "none", "all"])
   propertyFilter?: PropertyFilter;
+
+  @ApiPropertyOptional({
+    name: "excludePatterns",
+    type: [String],
+    maxItems: 99999,
+    maxLength: 2048,
+    description: `Optional list of type patterns (accepts * and ? wildcards) that HARD-exclude matching types, applied before every inclusion rule except CRS (always kept). Use to drop noisy/low-value types that would otherwise bloat the manifest or introduce dangling references, e.g. ["*Activity","*ActivityTemplate"] (Activity records reference every property they consumed, which become dangling when propertyFilter="canonical"), or ["*GridConnectionSet"] when connection-set counts explode.`,
+    example: ["*Activity", "*ActivityTemplate"],
+    pattern: `${patternString(/^[0-9a-zA-Z._*?]+$/)}`
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  excludePatterns?: string[];
 
   @ApiPropertyOptional({
     name: "technicalAssurances",
@@ -506,7 +521,11 @@ export default class ObjectsManifestAPI {
 
 **Supported source domains**: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. Use \`GET /health/converters\` to list all registered mappings.
 
-**Type filtering**: Default includes common representation/interpretation types. Pass \`typePatterns: ["*"]\` for all types. Properties with canonical OSDU/PWLS names (porosity, permeability, saturation, etc.) are auto-included even without an explicit \`*Property\` pattern.
+**Type filtering (opt-in)**: By default ALL types are included (representations, interpretations, properties, CRS, etc.). Filtering is opt-in via two independent controls:
+- \`typePatterns\`: restrict NON-property types (e.g. pass a curated list for top-level types only).
+- \`propertyFilter\`: \`all\` (default) | \`canonical\` (only standard-named properties like PORO/PERMX/SW) | \`none\` (exclude properties).
+
+Common presets: all types + all properties (default); all types + no properties (\`propertyFilter: none\`); all types + canonical properties (\`propertyFilter: canonical\`); curated top-level + no properties (\`typePatterns\` + \`propertyFilter: none\`). CRS objects are always included regardless of the filter.
 
 **Key behaviors**:
 - Best-effort mode - partial results returned on converter errors (check \`errors[]\` in response)
@@ -591,7 +610,8 @@ export default class ObjectsManifestAPI {
         context,
         body.typePatterns,
         maxManifestSize,
-        body.propertyFilter ?? "canonical"
+        body.propertyFilter ?? "all",
+        body.excludePatterns
       );
       logger.info("Manifest creation successful.");
       await c.closeSession();

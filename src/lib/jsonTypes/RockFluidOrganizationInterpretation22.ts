@@ -14,8 +14,7 @@ export class RockFluidOrganizationInterpretation22OSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml22.RockFluidOrganizationInterpretation>
   >
-  implements RockFluidOrganizationInterpretation
-{
+  implements RockFluidOrganizationInterpretation {
   public data: Data = {};
 
   constructor(
@@ -41,7 +40,7 @@ export class RockFluidOrganizationInterpretation22OSDU
         const srn = await RockFluidOrganizationInterpretation22OSDU.dorToSrn(
           ReservoirDMSUrl, dor, client, context
         );
-        if (srn) unitIds.push(srn + ":");
+        if (srn) unitIds.push(srn);
       }
     }
 

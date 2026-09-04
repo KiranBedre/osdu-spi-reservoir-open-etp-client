@@ -107,14 +107,14 @@ const getACLForDataspace = (
 };
 
 /**
- * Default type patterns applied when indexing entire dataspaces without
- * explicit typePatterns. Focuses on discovery-worthy types (features,
- * interpretations, representations, wells) and excludes bulk properties
- * to avoid manifest bloat. Properties with canonical OSDU names are
- * included automatically via a secondary filter (see createManifest).
+ * Curated type-pattern preset covering discovery-worthy types (features,
+ * interpretations, representations, wells) while excluding bulk properties.
  *
- * Pass ["*"] to index all types, or ["*Property", ...DEFAULT_DATASPACE_TYPE_PATTERNS]
- * to include ALL properties regardless of name.
+ * NOTE: This is no longer the default. When no `typePatterns` are supplied,
+ * manifests now include ALL types (see createManifest). This preset remains
+ * exported as an opt-in filter that callers can pass explicitly to reproduce
+ * the older, narrower behavior. Properties with canonical OSDU names are still
+ * included automatically via a secondary filter (see createManifest).
  */
 export const DEFAULT_DATASPACE_TYPE_PATTERNS: string[] = [
   "*Feature",
@@ -126,8 +126,29 @@ export const DEFAULT_DATASPACE_TYPE_PATTERNS: string[] = [
   "witsml21.*"
 ];
 
+/**
+ * Types that reference other data objects but carry little standalone
+ * discovery value and frequently introduce referential-integrity noise when
+ * combined with property filtering (e.g. Activity records reference every
+ * property they consumed; with `propertyFilter="canonical"` those references
+ * become dangling). Excluded by default on the auto-ingest path so the emitted
+ * manifest stays self-consistent for the OSDU ingestion workflow (Airflow DAG).
+ */
+export const DEFAULT_INGEST_EXCLUDE_PATTERNS: string[] = [
+  "*Activity",          // resqml20.obj_Activity / eml23.Activity
+  "*ActivityTemplate",  // resqml20.obj_ActivityTemplate / eml23.ActivityTemplate
+  "*PropertySet"        // resqml20.obj_PropertySet -> PersistedCollection (pure grouping container)
+];
+
 /** Property type pattern for secondary filter matching */
 const PROPERTY_TYPE_PATTERN = /Property$/i;
+
+/**
+ * Essential dependency types that are ALWAYS included in a manifest,
+ * regardless of any `typePatterns` filter. CRS objects are referenced by
+ * representations for spatial context, so they must never be filtered out.
+ */
+const ALWAYS_INCLUDE_PATTERN = /Crs$/i;
 
 /**
  * Common reservoir-simulation property name abbreviations.
@@ -185,19 +206,91 @@ export function isCanonicalProperty(dataObjectType: string, name: string): boole
 }
 
 /**
+ * Decide whether a dataspace resource should be included in a manifest.
+ *
+ * The result is controlled by two independent dimensions:
+ *
+ * 1. `typePatterns` — restricts NON-property types. When omitted, all types
+ *    are included. Pass an explicit list (e.g. DEFAULT_DATASPACE_TYPE_PATTERNS)
+ *    to restrict to a curated top-level set.
+ * 2. `propertyFilter` — controls properties independently of `typePatterns`:
+ *    - "all": include every property
+ *    - "canonical": include only properties with standard names (PWLS/OSDU/simulator)
+ *    - "none": exclude all properties
+ *
+ * Essential dependency types (e.g. CRS) are ALWAYS included, regardless of
+ * either dimension. This yields the supported preset combinations:
+ *   - all types + all properties (default)
+ *   - all types, no properties            (propertyFilter="none")
+ *   - all types + canonical properties    (propertyFilter="canonical")
+ *   - curated top-level, no properties    (typePatterns=DEFAULT_..., propertyFilter="none")
+ *
+ * @param {string} dataObjectType Energistics data-object type (e.g. "resqml20.obj_ContinuousProperty")
+ * @param {string} name Resource name (Citation.Title exposed via ETP Discovery)
+ * @param {string[]} [typePatterns] Optional type patterns (accept `*` and `?` wildcards) restricting non-property types. When omitted, all types match.
+ * @param {PropertyFilter} [propertyFilter] Property inclusion mode (default "all").
+ * @param {string[]} [excludePatterns] Optional type patterns (accept `*` and `?` wildcards) that HARD-exclude matching types (properties included). Applied before every other rule except the always-include set (CRS).
+ * @return {boolean} true if the resource should be included
+ */
+export function manifestFilterMatches(
+  dataObjectType: string,
+  name: string,
+  typePatterns?: string[],
+  propertyFilter: PropertyFilter = "all",
+  excludePatterns?: string[]
+): boolean {
+  // Essential dependency types (CRS, ...) are never filtered out.
+  if (ALWAYS_INCLUDE_PATTERN.test(dataObjectType)) return true;
+
+  // Hard exclusions win over every inclusion rule below (except CRS above).
+  if (excludePatterns && excludePatterns.length > 0) {
+    for (const p of compilePatterns(excludePatterns)) {
+      if (dataObjectType.match(p)) return false;
+    }
+  }
+
+  // Properties are gated solely by propertyFilter, independent of typePatterns.
+  if (PROPERTY_TYPE_PATTERN.test(dataObjectType)) {
+    if (propertyFilter === "none") return false;
+    if (propertyFilter === "all") return true;
+    // "canonical": include only properties with standard names
+    return isCanonicalProperty(dataObjectType, name);
+  }
+
+  // Non-property types: default include all; an empty filter also means "all".
+  const effectivePatterns = typePatterns ?? ["*"];
+  if (effectivePatterns.length === 0) return true;
+  for (const p of compilePatterns(effectivePatterns)) {
+    if (dataObjectType.match(p)) return true;
+  }
+  return false;
+}
+
+/** Compile `*`/`?` wildcard type patterns into RegExp matchers. */
+function compilePatterns(patterns: string[]): RegExp[] {
+  return patterns.map(
+    t => new RegExp(t.replaceAll("*", "\\w*").replaceAll("?", "\\w?"))
+  );
+}
+
+/**
  * Create a manifest for a list of uris
  *
  * @param {ResqmlClient} client linked to ETP server
  * @param {URI[]} uris List of URIS to add as work product components
  * @param {OSDUContext} context OSDU related information
  * @param {string[]} [typePatterns] Optional list of type patterns to filter the URIs.
- *   When undefined, DEFAULT_DATASPACE_TYPE_PATTERNS is used for dataspace-level URIs.
- *   Pass ["*"] to index all types.
+ *   When undefined, ALL types are included (filtering is opt-in). Pass an explicit
+ *   pattern list (e.g. DEFAULT_DATASPACE_TYPE_PATTERNS) to restrict results.
+ *   CRS objects are always included regardless of the filter.
  * @param {number} [maxManifestSize] Optional maximum size of the manifest in MB, default is 1000
- * @param {PropertyFilter} [propertyFilter] Controls property inclusion:
- *   - "canonical" (default): include properties with standard names (PWLS, OSDU, simulator)
+ * @param {PropertyFilter} [propertyFilter] Controls property inclusion (independent of typePatterns):
+ *   - "all" (default): include all properties regardless of name
+ *   - "canonical": include only properties with standard names (PWLS, OSDU, simulator)
  *   - "none": exclude all properties
- *   - "all": include all properties regardless of name
+ * @param {string[]} [excludePatterns] Optional type patterns that HARD-exclude matching
+ *   types (e.g. DEFAULT_INGEST_EXCLUDE_PATTERNS to drop Activity records that would
+ *   otherwise emit dangling references). CRS is always kept regardless.
  * @return {Promise<Manifest>}
  */
 export const createManifest = async (
@@ -206,7 +299,8 @@ export const createManifest = async (
   context: OSDUContext,
   typePatterns?: string[],
   maxManifestSize: number = 1000,
-  propertyFilter: PropertyFilter = "canonical"
+  propertyFilter: PropertyFilter = "all",
+  excludePatterns?: string[]
 ): Promise<Manifest> => {
   if (uris.length === 0) {
     return Promise.reject("No URI provided");
@@ -231,11 +325,6 @@ export const createManifest = async (
 
     const allUris = new Set<string>();
 
-    const effectivePatterns = typePatterns ?? DEFAULT_DATASPACE_TYPE_PATTERNS;
-    const matchPatterns: RegExp[] = effectivePatterns.map(
-      t => new RegExp(t.replaceAll("*", "\\w*").replaceAll("?", "\\w?"))
-    );
-
     for (const uri of uris) {
       const etpUri = new EtpUri(uri);
       if (!etpUri.isValid) {
@@ -247,24 +336,16 @@ export const createManifest = async (
         let dataspaceUris = await client.getDataspaceResources(
           dataspaceUri.uri
         );
-        if (matchPatterns.length > 0) {
-          dataspaceUris = dataspaceUris.filter(f => {
-            const u: EtpUri = new EtpUri(f.uri);
-            for (const p of matchPatterns) {
-              if (u.dataObjectType.match(p)) {
-                return true;
-              }
-            }
-            // Property inclusion based on propertyFilter setting
-            if (PROPERTY_TYPE_PATTERN.test(u.dataObjectType)) {
-              if (propertyFilter === "none") return false;
-              if (propertyFilter === "all") return true;
-              // "canonical": include only properties with standard names
-              return isCanonicalProperty(u.dataObjectType, f.name);
-            }
-            return false;
-          });
-        }
+        dataspaceUris = dataspaceUris.filter(f => {
+          const u: EtpUri = new EtpUri(f.uri);
+          return manifestFilterMatches(
+            u.dataObjectType,
+            f.name,
+            typePatterns,
+            propertyFilter,
+            excludePatterns
+          );
+        });
         dataspaceUris.forEach(r => allUris.add(r.uri));
       } else {
         allUris.add(etpUri.uri);
@@ -549,8 +630,18 @@ export const createManifest = async (
       logger.info(`[perf] Convert ${resolvedObjects.length} objects: ${Date.now() - tConvert}ms`);
     }
 
-    // A3: Auto-generate lineage Activity record for this manifest build
-    if (context.created.size > 0 && context.generateLineageActivity !== false) {
+    // A3: Auto-generate lineage Activity record for this manifest build.
+    // Suppressed when the caller excludes the Activity type (e.g. auto-ingest
+    // defaults to excluding "*Activity"), keeping the manifest consistent with
+    // the requested filter instead of injecting a synthetic Activity.
+    const lineageSuppressed =
+      !!excludePatterns?.length &&
+      compilePatterns(excludePatterns).some(p => "Activity".match(p));
+    if (
+      context.created.size > 0 &&
+      context.generateLineageActivity !== false &&
+      !lineageSuppressed
+    ) {
       const outputIds: string[] = [];
       context.created.forEach((_, id) => {
         if (!id.includes("reference-data") && !id.includes("master-data")) {
@@ -578,7 +669,11 @@ export const createManifest = async (
               DataObjectParameter: `${id}:`
             })),
             SoftwareSpecifications: [{ SoftwareName: "RDDMS", Version: "1.0" }],
-            ActivityTemplateID: `${context.partition}:master-data--ActivityTemplate:RDDMSManifestBuild:`,
+            // ActivityTemplateID intentionally omitted: no matching
+            // master-data--ActivityTemplate record is emitted, so referencing
+            // one would create a dangling reference that fails OSDU referential
+            // integrity (the OSDU Activity schema makes this field optional).
+            ActivityTemplateID: undefined,
             ParentActivityID: undefined,
             ParentProjectID: undefined,
             PriorActivityIDs: undefined

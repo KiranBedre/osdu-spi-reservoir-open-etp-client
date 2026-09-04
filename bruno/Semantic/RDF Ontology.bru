@@ -1,0 +1,24 @@
+meta {
+  name: RDF Ontology
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{host}}/rdf/ontology
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: text/turtle
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  test("content-type is turtle", function () {
+    expect(res.getHeader("content-type") || "").to.include("text/turtle");
+  });
+}
