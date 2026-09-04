@@ -313,6 +313,16 @@ export const createManifest = async (
   }
   try {
     const tManifestStart = Date.now();
+    // Per-build tally of ETP object types that never reach the manifest, so the
+    // otherwise-silent "omit" filters produce an actionable list instead of a
+    // blind spot. `skippedNoConverter` = no converter registered for the type;
+    // `skippedConverterUndefined` = a converter matched but chose to skip the
+    // object (returned undefined). Emitted once at the end of the build.
+    const skippedNoConverter = new Map<string, number>();
+    const skippedConverterUndefined = new Map<string, number>();
+    const bumpSkip = (m: Map<string, number>, key: string): void => {
+      m.set(key, (m.get(key) ?? 0) + 1);
+    };
     // Align stamped kind versions with the live target instance using the
     // request token. The startup init (RestServer) runs unauthenticated and
     // silently no-ops on secured instances, so without this the builder stays on
@@ -552,7 +562,7 @@ export const createManifest = async (
 
         const c = ResqmlOSDU.get(etpUri.dataObjectType);
         if (c === undefined) {
-          logger.warn(`No converter for type: ${etpUri.dataObjectType} (from $type=${resObj.$type})`);
+          bumpSkip(skippedNoConverter, etpUri.dataObjectType);
           continue;
         }
         try {
@@ -748,6 +758,7 @@ export const createManifest = async (
           const etpUri = new EtpUri(objUri);
           const c = ResqmlOSDU.get(etpUri.dataObjectType);
           if (c === undefined) {
+            bumpSkip(skippedNoConverter, etpUri.dataObjectType);
             unknownSrn.add(k);
             continue;
           }
@@ -779,7 +790,7 @@ export const createManifest = async (
           if (!objUri) { unknownSrn.add(k); continue; }
           const etpUri = new EtpUri(objUri);
           const c = ResqmlOSDU.get(etpUri.dataObjectType);
-          if (!c) { unknownSrn.add(k); continue; }
+          if (!c) { bumpSkip(skippedNoConverter, etpUri.dataObjectType); unknownSrn.add(k); continue; }
 
           const obj = objects.get(objUri);
           if (!obj) { unknownSrn.add(k); continue; }
@@ -803,6 +814,9 @@ export const createManifest = async (
               }
             }
             const srn = context.uriToSrn(objUri, obj);
+            if (res === undefined) {
+              bumpSkip(skippedConverterUndefined, etpUri.dataObjectType);
+            }
             if (srn === undefined || res === undefined || res.id === undefined) {
               unknownSrn.add(k);
             } else {
@@ -1082,6 +1096,23 @@ export const createManifest = async (
         `[schema-compat] MasterData(remap=${mdRes.remapped},drop=${mdRes.dropped}) ` +
         `ReferenceData(remap=${rdRes.remapped},drop=${rdRes.dropped}) ` +
         `WorkProductComponents(remap=${wpcRemapped},drop=${wpcDropped})`
+      );
+    }
+
+    // Actionable summary of ETP object types that were omitted from the
+    // manifest by the converter-registry / converter-skip filters. Sorted by
+    // frequency so the highest-value missing converters surface first.
+    if (skippedNoConverter.size > 0 || skippedConverterUndefined.size > 0) {
+      const fmt = (m: Map<string, number>): string =>
+        Array.from(m.entries())
+          .sort((a, b) => b[1] - a[1])
+          .map(([t, n]) => `${t}×${n}`)
+          .join(", ");
+      const sum = (m: Map<string, number>): number =>
+        Array.from(m.values()).reduce((a, b) => a + b, 0);
+      logger.info(
+        `[skip] no-converter=${sum(skippedNoConverter)} [${fmt(skippedNoConverter)}] ` +
+        `converter-skipped=${sum(skippedConverterUndefined)} [${fmt(skippedConverterUndefined)}]`
       );
     }
 
