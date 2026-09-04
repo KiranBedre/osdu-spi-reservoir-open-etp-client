@@ -7,13 +7,19 @@ import type { IResqmlDataObject } from "../client/ResqmlClient";
 import logging from "../common/Logging";
 const logger = logging.getLogger("EtpClient");
 
-import { getKindOrFallback } from "./MilestoneKinds";
+import {
+  ensureSchemaVersions,
+  getKind,
+  getKindOrFallback,
+  isSchemaRegistered
+} from "./MilestoneKinds";
 import {
   DataspaceLegalACL,
   OSDUContext,
   OSDUResourceType
 } from "./OsduContext";
 import ResqmlOSDU, { EtpDataspaceManifest } from "./ResqmlOsdu";
+import { WorkProductManifest } from "./WorkProduct";
 import {
   CollaborationProjectManifest,
   deriveCollaborationId
@@ -307,6 +313,28 @@ export const createManifest = async (
   }
   try {
     const tManifestStart = Date.now();
+    // Per-build tally of ETP object types that never reach the manifest, so the
+    // otherwise-silent "omit" filters produce an actionable list instead of a
+    // blind spot. `skippedNoConverter` = no converter registered for the type;
+    // `skippedConverterUndefined` = a converter matched but chose to skip the
+    // object (returned undefined). Emitted once at the end of the build.
+    const skippedNoConverter = new Map<string, number>();
+    const skippedConverterUndefined = new Map<string, number>();
+    const bumpSkip = (m: Map<string, number>, key: string): void => {
+      m.set(key, (m.get(key) ?? 0) + 1);
+    };
+    // Align stamped kind versions with the live target instance using the
+    // request token. The startup init (RestServer) runs unauthenticated and
+    // silently no-ops on secured instances, so without this the builder stays on
+    // the static fallback table — producing wrong schema versions and emitting
+    // work-product-component types that are absent on the target. Once resolved,
+    // getKind()/getKindOrFallback() return registered versions and unknown WPC
+    // types fall back to GenericRepresentation.
+    try {
+      await ensureSchemaVersions(osduUrl, context.bearer, context.partition);
+    } catch {
+      // Keep the static fallback table if resolution fails.
+    }
     try {
       await registerDMS(context);
     } catch {
@@ -370,12 +398,15 @@ export const createManifest = async (
           continue;
         }
 
-        // Create WorkProduct
-        // manifests.Data.WorkProduct = WorkProductManifest(
-        //   dataspaces[0],
-        //   context
-        // );
-        // manifests.Data.WorkProduct.version = 1;
+        // Create WorkProduct. The DAG-based OSDU ingestion workflow
+        // (Osdu_ingest) is WorkProduct-centric: it walks the WorkProduct's
+        // Components array to discover and ingest the associated
+        // WorkProductComponents. Without an emitted WorkProduct the WPCs are
+        // orphaned and silently skipped by the DAG. The Components array is
+        // populated later (see the WPC loop) via
+        // `manifests.Data.WorkProduct?.data?.Components?.push(...)`.
+        manifests.Data.WorkProduct = WorkProductManifest(dataspace, context);
+        manifests.Data.WorkProduct.version = 1;
         currentDataspaces.add(dataspaceId);
         if (!context.dataspaceACLs.has(dataspaceUri)) {
           const aclLegal = getACLForDataspace(dataspace);
@@ -531,7 +562,7 @@ export const createManifest = async (
 
         const c = ResqmlOSDU.get(etpUri.dataObjectType);
         if (c === undefined) {
-          logger.warn(`No converter for type: ${etpUri.dataObjectType} (from $type=${resObj.$type})`);
+          bumpSkip(skippedNoConverter, etpUri.dataObjectType);
           continue;
         }
         try {
@@ -727,6 +758,7 @@ export const createManifest = async (
           const etpUri = new EtpUri(objUri);
           const c = ResqmlOSDU.get(etpUri.dataObjectType);
           if (c === undefined) {
+            bumpSkip(skippedNoConverter, etpUri.dataObjectType);
             unknownSrn.add(k);
             continue;
           }
@@ -758,7 +790,7 @@ export const createManifest = async (
           if (!objUri) { unknownSrn.add(k); continue; }
           const etpUri = new EtpUri(objUri);
           const c = ResqmlOSDU.get(etpUri.dataObjectType);
-          if (!c) { unknownSrn.add(k); continue; }
+          if (!c) { bumpSkip(skippedNoConverter, etpUri.dataObjectType); unknownSrn.add(k); continue; }
 
           const obj = objects.get(objUri);
           if (!obj) { unknownSrn.add(k); continue; }
@@ -782,6 +814,9 @@ export const createManifest = async (
               }
             }
             const srn = context.uriToSrn(objUri, obj);
+            if (res === undefined) {
+              bumpSkip(skippedConverterUndefined, etpUri.dataObjectType);
+            }
             if (srn === undefined || res === undefined || res.id === undefined) {
               unknownSrn.add(k);
             } else {
@@ -945,6 +980,140 @@ export const createManifest = async (
           generatedSrn.set(r, rd);
         }
       });
+    }
+
+    // Final target-compatibility pass. Some records carry a schema kind that
+    // bypasses getKind() — master-data side-records (e.g. BoundaryFeature) and
+    // reference-data records built via buildReference() hardcode their version.
+    // When a live target registry is available, reconcile each record's kind
+    // against it:
+    //   - version drift      -> rewrite to the registered version (id is
+    //                           unaffected; the version is not part of the SRN)
+    //   - absent WPC type     -> fall back to GenericRepresentation
+    //   - absent ref/md type  -> drop the record (soft SRN references become
+    //                           dangling, which OSDU tolerates)
+    // In standalone/local mode isSchemaRegistered() returns true for everything,
+    // so this pass is a no-op there.
+    if (osduUrl && osduUrl !== "http://localhost") {
+      const bearer = context.bearer;
+      const partition = context.partition;
+      const categoryOf = (kind: string): string =>
+        (kind.split(":")[2] ?? "").split("--")[0];
+      const entityOf = (kind: string): string =>
+        (kind.split(":")[2] ?? "").split("--")[1] ?? "";
+      const rewriteKindAndId = (rec: any, newKind: string): void => {
+        rec.kind = newKind;
+        const typeSeg = newKind.split(":")[2];
+        if (typeSeg && typeof rec.id === "string") {
+          const idParts = rec.id.split(":");
+          if (idParts.length >= 3) {
+            idParts[1] = typeSeg;
+            rec.id = idParts.join(":");
+          }
+        }
+      };
+      const resolveKind = async (
+        kind: string
+      ): Promise<string | undefined> => {
+        if (await isSchemaRegistered(kind, osduUrl, bearer, partition)) {
+          return kind;
+        }
+        const cat = categoryOf(kind);
+        // 1) version drift: registered version for the same entity type
+        const byEntity = getKind(entityOf(kind));
+        if (
+          byEntity &&
+          byEntity !== kind &&
+          categoryOf(byEntity) === cat &&
+          (await isSchemaRegistered(byEntity, osduUrl, bearer, partition))
+        ) {
+          return byEntity;
+        }
+        // 2) absent work-product-component -> GenericRepresentation
+        if (cat === "work-product-component") {
+          const generic = getKind("GenericRepresentation");
+          if (
+            generic &&
+            (await isSchemaRegistered(generic, osduUrl, bearer, partition))
+          ) {
+            return generic;
+          }
+        }
+        // 3) absent reference-data / master-data -> drop
+        return undefined;
+      };
+      const normalizeArray = async (
+        arr: any[] | undefined
+      ): Promise<{ kept: any[]; remapped: number; dropped: number }> => {
+        const kept: any[] = [];
+        let remapped = 0;
+        let dropped = 0;
+        for (const rec of arr ?? []) {
+          if (!rec?.kind) {
+            kept.push(rec);
+            continue;
+          }
+          const target = await resolveKind(rec.kind);
+          if (target === undefined) {
+            dropped++;
+            continue;
+          }
+          if (target !== rec.kind) {
+            rewriteKindAndId(rec, target);
+            remapped++;
+          }
+          kept.push(rec);
+        }
+        return { kept, remapped, dropped };
+      };
+
+      const mdRes = await normalizeArray(manifests.MasterData);
+      manifests.MasterData = mdRes.kept;
+      const rdRes = await normalizeArray(manifests.ReferenceData);
+      manifests.ReferenceData = rdRes.kept;
+      let wpcRemapped = 0;
+      let wpcDropped = 0;
+      if (manifests.Data?.WorkProductComponents) {
+        const wpcRes = await normalizeArray(
+          manifests.Data.WorkProductComponents
+        );
+        manifests.Data.WorkProductComponents = wpcRes.kept;
+        wpcRemapped = wpcRes.remapped;
+        wpcDropped = wpcRes.dropped;
+        // Resync the WorkProduct's Components list with the (possibly
+        // remapped/dropped) WPC ids. normalizeArray may rewrite a WPC's id
+        // when its kind is remapped (e.g. WellboreInterpretation ->
+        // GenericRepresentation) or drop it entirely, which would otherwise
+        // leave the Components array pointing at stale/dangling ids and break
+        // the WorkProduct-centric DAG ingestion.
+        if (manifests.Data?.WorkProduct?.data) {
+          manifests.Data.WorkProduct.data.Components = wpcRes.kept
+            .filter(rec => typeof (rec as { id?: unknown }).id === "string")
+            .map(rec => `${(rec as { id: string }).id}:`);
+        }
+      }
+      logger.info(
+        `[schema-compat] MasterData(remap=${mdRes.remapped},drop=${mdRes.dropped}) ` +
+        `ReferenceData(remap=${rdRes.remapped},drop=${rdRes.dropped}) ` +
+        `WorkProductComponents(remap=${wpcRemapped},drop=${wpcDropped})`
+      );
+    }
+
+    // Actionable summary of ETP object types that were omitted from the
+    // manifest by the converter-registry / converter-skip filters. Sorted by
+    // frequency so the highest-value missing converters surface first.
+    if (skippedNoConverter.size > 0 || skippedConverterUndefined.size > 0) {
+      const fmt = (m: Map<string, number>): string =>
+        Array.from(m.entries())
+          .sort((a, b) => b[1] - a[1])
+          .map(([t, n]) => `${t}×${n}`)
+          .join(", ");
+      const sum = (m: Map<string, number>): number =>
+        Array.from(m.values()).reduce((a, b) => a + b, 0);
+      logger.info(
+        `[skip] no-converter=${sum(skippedNoConverter)} [${fmt(skippedNoConverter)}] ` +
+        `converter-skipped=${sum(skippedConverterUndefined)} [${fmt(skippedConverterUndefined)}]`
+      );
     }
 
     if (manifests.MasterData.length === 0) {

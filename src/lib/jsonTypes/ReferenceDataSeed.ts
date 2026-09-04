@@ -111,7 +111,7 @@ export const RESQML_REFERENCE_DATA: Record<string, string[]> = {
     "ApparentDepth",
     "MeasuredDepth",
   ],
-  CurveMainFamily: [
+  LogCurveMainFamily: [
     "absorbed dose",
     "amplitude",
     "density",

@@ -282,7 +282,7 @@ export class WellboreFrameToWellLogOSDU
               ? kindName
               : undefined;
             curve.LogCurveMainFamilyID = context.addReferenceData(
-              "CurveMainFamily",
+              "LogCurveMainFamily",
               pwlsProperty ?? kindName
             );
           }
@@ -293,7 +293,7 @@ export class WellboreFrameToWellLogOSDU
           const resolved = getPropertyFromMnemonic(curve.Mnemonic);
           if (resolved) {
             curve.LogCurveMainFamilyID = context.addReferenceData(
-              "CurveMainFamily",
+              "LogCurveMainFamily",
               resolved
             );
           }
