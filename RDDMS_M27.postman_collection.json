@@ -3730,6 +3730,289 @@
       ]
     },
     {
+      "name": "14. Semantic (RDF / SKOS / Export)",
+      "item": [
+        {
+          "name": "S1 JSON-LD Context",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/ld+json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/rdf/context",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "rdf",
+                "context"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "S2 Graph Ontology (Turtle)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/turtle",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/rdf/ontology",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "rdf",
+                "ontology"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "S3 RESQML→OSDU Alignment (Turtle)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/turtle",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/rdf/alignment",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "rdf",
+                "alignment"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "S4 PWLS Catalog as SKOS (Turtle)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "text/turtle",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/pwls/catalog",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "pwls",
+                "catalog"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "S5 Object RDF (Turtle)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "text/turtle",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/resources/resqml20.obj_LocalDepth3dCrs/{{crs_guid}}/rdf",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{test_ds_encoded}}",
+                "resources",
+                "resqml20.obj_LocalDepth3dCrs",
+                "{{crs_guid}}",
+                "rdf"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "S6 Export Resources as CSV",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "text/csv",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/resources/all?format=csv",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{test_ds_encoded}}",
+                "resources",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "format",
+                  "value": "csv"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "S7 Error as problem+json (RFC 7807)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/problem+json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/does-not-exist",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "does-not-exist"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 404\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"content-type is problem+json\", function () { pm.expect(pm.response.headers.get(\"Content-Type\") || \"\").to.include(\"application/problem+json\"); });",
+                  "pm.test(\"body is RFC 7807 shape\", function () { const b = pm.response.json(); pm.expect(b).to.have.property(\"title\"); pm.expect(b).to.have.property(\"status\"); pm.expect(b).to.have.property(\"detail\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "13. Cleanup",
       "item": [
         {

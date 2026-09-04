@@ -2055,11 +2055,22 @@ paths:
         mappings.
 
 
-        **Type filtering**: Default includes common
-        representation/interpretation types. Pass `typePatterns: ["*"]` for all
-        types. Properties with canonical OSDU/PWLS names (porosity,
-        permeability, saturation, etc.) are auto-included even without an
-        explicit `*Property` pattern.
+        **Type filtering (opt-in)**: By default ALL types are included
+        (representations, interpretations, properties, CRS, etc.). Filtering is
+        opt-in via two independent controls:
+
+        - `typePatterns`: restrict NON-property types (e.g. pass a curated list
+        for top-level types only).
+
+        - `propertyFilter`: `all` (default) | `canonical` (only standard-named
+        properties like PORO/PERMX/SW) | `none` (exclude properties).
+
+
+        Common presets: all types + all properties (default); all types + no
+        properties (`propertyFilter: none`); all types + canonical properties
+        (`propertyFilter: canonical`); curated top-level + no properties
+        (`typePatterns` + `propertyFilter: none`). CRS objects are always
+        included regardless of the filter.
 
 
         **Key behaviors**:
@@ -2428,15 +2439,18 @@ paths:
           required: false
           in: query
           description: >-
-            Explicitly request an RDF serialization of the relationship graph,
-            overriding the `Accept` header: `turtle`, `jsonld`, or `ntriples`.
-            Omit for the default JSON response.
+            Explicitly request a non-JSON serialization of the relationship
+            graph, overriding the `Accept` header. RDF: `turtle`, `jsonld`,
+            `ntriples`. Graph export: `csv` (node table), `graphml` (nodes +
+            edges). Omit for the default JSON response.
           schema:
             type: string
             enum:
               - turtle
               - jsonld
               - ntriples
+              - csv
+              - graphml
         - name: transactionId
           required: false
           in: query
@@ -2723,6 +2737,174 @@ paths:
                     - customData
                   additionalProperties: false
             application/n-triples:
+              schema:
+                type: array
+                maxItems: 256
+                additionalProperties: false
+                items:
+                  type: object
+                  properties:
+                    uri:
+                      type: string
+                      description: Unique Resource Identifier of the resource
+                      example: >-
+                        eml:///dataspace('demo/Volve')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)
+                      maxLength: 2048
+                      pattern: >-
+                        ^(?:eml:\/\/\/|^eml:\/\/\/dataspace\('[^'"]*?(?:''[^'"]*?)*'\)\/?)(witsml|resqml|prodml|eml)[1-9]\d\.\w+(?:\((?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|uuid=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12},version='[^']*?(?:''[^']*?)*')\))?$
+                    alternateUris:
+                      description: Alternate uris of the resource
+                      maxItems: 100000
+                      type: array
+                      items:
+                        type: string
+                        maxLength: 2048
+                        pattern: >-
+                          ^(?<protocol>(?:[^:]+)s?)?:\/\/(?:(?<user>[^:\n\r]+):(?<pass>[^@\n\r]+)@)?(?<host>(?:www\.)?(?:[^:\/\n\r]+))(?::(?<port>\d+))?\/?(?<request>[^?#\n\r]+)?\??(?<query>[^#\n\r]*)?\#?(?<anchor>[^\n\r]*)?$
+                    name:
+                      type: string
+                      description: Resource title
+                      example: Depth_Hugin_Fm_Top_t
+                      maxLength: 2048
+                      pattern: ^[^\r\n]+$
+                    sourceCount:
+                      type: number
+                      description: Number of objects referencing the resource
+                      format: integer
+                      minimum: 0
+                      maximum: 1000000
+                    targetCount:
+                      type: number
+                      description: Number of objects referenced by the resource
+                      format: integer
+                      minimum: 0
+                      maximum: 1000000
+                    activeStatus:
+                      type: string
+                      description: Indicates if resource is active
+                      example: Active
+                      enum:
+                        - Active
+                        - Inactive
+                    lastChanged:
+                      format: date-time
+                      type: string
+                      description: Date of last modification
+                      example: '2021-09-06T16:06:31.000Z'
+                      maxLength: 2048
+                    storeCreated:
+                      format: date-time
+                      type: string
+                      description: Date of first entry in data store
+                      example: '2021-09-14T20:25:17.128Z'
+                      maxLength: 2048
+                    storeLastWrite:
+                      format: date-time
+                      type: string
+                      description: Date of last entry in data store
+                      example: '2021-09-14T20:26:16.128Z'
+                      maxLength: 2048
+                    customData:
+                      type: object
+                      description: Extra meta data associated to resource
+                      additionalProperties:
+                        type: string
+                        pattern: ^[a-zA-Z0-9 ]*$
+                        maxLength: 2048
+                  required:
+                    - uri
+                    - alternateUris
+                    - name
+                    - lastChanged
+                    - storeCreated
+                    - storeLastWrite
+                    - customData
+                  additionalProperties: false
+            text/csv:
+              schema:
+                type: array
+                maxItems: 256
+                additionalProperties: false
+                items:
+                  type: object
+                  properties:
+                    uri:
+                      type: string
+                      description: Unique Resource Identifier of the resource
+                      example: >-
+                        eml:///dataspace('demo/Volve')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)
+                      maxLength: 2048
+                      pattern: >-
+                        ^(?:eml:\/\/\/|^eml:\/\/\/dataspace\('[^'"]*?(?:''[^'"]*?)*'\)\/?)(witsml|resqml|prodml|eml)[1-9]\d\.\w+(?:\((?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|uuid=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12},version='[^']*?(?:''[^']*?)*')\))?$
+                    alternateUris:
+                      description: Alternate uris of the resource
+                      maxItems: 100000
+                      type: array
+                      items:
+                        type: string
+                        maxLength: 2048
+                        pattern: >-
+                          ^(?<protocol>(?:[^:]+)s?)?:\/\/(?:(?<user>[^:\n\r]+):(?<pass>[^@\n\r]+)@)?(?<host>(?:www\.)?(?:[^:\/\n\r]+))(?::(?<port>\d+))?\/?(?<request>[^?#\n\r]+)?\??(?<query>[^#\n\r]*)?\#?(?<anchor>[^\n\r]*)?$
+                    name:
+                      type: string
+                      description: Resource title
+                      example: Depth_Hugin_Fm_Top_t
+                      maxLength: 2048
+                      pattern: ^[^\r\n]+$
+                    sourceCount:
+                      type: number
+                      description: Number of objects referencing the resource
+                      format: integer
+                      minimum: 0
+                      maximum: 1000000
+                    targetCount:
+                      type: number
+                      description: Number of objects referenced by the resource
+                      format: integer
+                      minimum: 0
+                      maximum: 1000000
+                    activeStatus:
+                      type: string
+                      description: Indicates if resource is active
+                      example: Active
+                      enum:
+                        - Active
+                        - Inactive
+                    lastChanged:
+                      format: date-time
+                      type: string
+                      description: Date of last modification
+                      example: '2021-09-06T16:06:31.000Z'
+                      maxLength: 2048
+                    storeCreated:
+                      format: date-time
+                      type: string
+                      description: Date of first entry in data store
+                      example: '2021-09-14T20:25:17.128Z'
+                      maxLength: 2048
+                    storeLastWrite:
+                      format: date-time
+                      type: string
+                      description: Date of last entry in data store
+                      example: '2021-09-14T20:26:16.128Z'
+                      maxLength: 2048
+                    customData:
+                      type: object
+                      description: Extra meta data associated to resource
+                      additionalProperties:
+                        type: string
+                        pattern: ^[a-zA-Z0-9 ]*$
+                        maxLength: 2048
+                  required:
+                    - uri
+                    - alternateUris
+                    - name
+                    - lastChanged
+                    - storeCreated
+                    - storeLastWrite
+                    - customData
+                  additionalProperties: false
+            application/graphml+xml:
               schema:
                 type: array
                 maxItems: 256
@@ -5627,6 +5809,306 @@ paths:
       summary: List sources (resources that reference this object)
       tags:
         - Resources
+  /dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/rdf:
+    get:
+      description: >-
+        Returns the data object and its immediate relationships as linked data.
+        Content-negotiated via the `Accept` header or the `format` query
+        parameter (`turtle`, `jsonld`, `ntriples`, `csv`, `graphml`); defaults
+        to Turtle.
+
+
+        **depth**: 1 = the object and its direct neighbours (default), N =
+        recursive traversal.
+      operationId: ResourcesReadAPI_ObjectRdf
+      parameters:
+        - name: data-partition-id
+          in: header
+          description: Data partition id (ex. 'osdu')
+          schema:
+            type: string
+            example: data-partition-id
+            maxLength: 1048
+            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
+        - name: dataspaceId
+          required: true
+          in: path
+          description: Name of dataspace
+          schema:
+            maxLength: 2048
+            pattern: ^[^/]+(\/[^/]+)?$
+            example: demo/Volve
+            type: string
+        - name: dataObjectType
+          required: true
+          in: path
+          description: Energistics type of the object
+          schema:
+            maxLength: 2048
+            pattern: >-
+              ^(?<domainFamily>resqml|eml|witsml|prodml)(?<domainVersion>\d+).(?<dataType>(obj_)?\w+)$
+            example: resqml20.obj_ContinuousProperty
+            type: string
+        - name: guid
+          required: true
+          in: path
+          description: Unique Id of the object
+          schema:
+            maxLength: 2048
+            pattern: >-
+              ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+            example: 1615d8d2-2a2d-482c-885e-14225b89e90c
+            type: string
+        - name: version
+          required: false
+          in: query
+          description: Optional version of the object
+          schema:
+            type: string
+            pattern: ^[^']*?(?:''[^']*?)*$
+            maxLength: 2048
+        - name: depth
+          required: false
+          in: query
+          description: >-
+            If present, indicate the number of recursive levels when looking for
+            relations
+          schema:
+            type: number
+            format: integer
+            minimum: 1
+            maximum: 1000
+        - name: format
+          required: false
+          in: query
+          description: >-
+            Explicitly request a non-JSON serialization of the relationship
+            graph, overriding the `Accept` header. RDF: `turtle`, `jsonld`,
+            `ntriples`. Graph export: `csv` (node table), `graphml` (nodes +
+            edges). Omit for the default JSON response.
+          schema:
+            type: string
+            enum:
+              - turtle
+              - jsonld
+              - ntriples
+              - csv
+              - graphml
+        - name: transactionId
+          required: false
+          in: query
+          description: Identify current transaction
+          schema:
+            type: string
+            maxLength: 2048
+            pattern: >-
+              ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$
+      responses:
+        '200':
+          description: RDF/graph projection of the data object
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 401
+                    maximum: 401
+                    example: 401
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 403
+                    maximum: 403
+                    example: 403
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 404
+                    maximum: 404
+                    example: 404
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '406':
+          description: Not acceptable response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 406
+                    maximum: 406
+                    example: 406
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '410':
+          description: >-
+            The underlying ETP WebSocket session has been terminated by the ETP
+            server. The transaction is no longer usable and must not be retried;
+            clients should open a new transaction.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  code:
+                    type: string
+                    example: WEBSOCKET_SESSION_TERMINATED
+                    description: >-
+                      Stable machine-readable identifier for this error
+                      condition.
+                  description:
+                    type: string
+                    example: >-
+                      ETP WebSocket session terminated (code 1011, reason:
+                      Internal server error).
+                  transactionId:
+                    type: string
+                    format: uuid
+                    description: Transaction id that was terminated.
+                  closeCode:
+                    type: integer
+                    format: int32
+                    example: 1011
+                    description: WebSocket close code reported by the ETP server.
+                  closeReason:
+                    type: string
+                    description: WebSocket close reason reported by the ETP server.
+                  terminatedAt:
+                    type: string
+                    format: date-time
+                    description: ISO-8601 timestamp when the session was terminated.
+                  retryable:
+                    type: boolean
+                    example: false
+                    description: >-
+                      Always false. The transaction cannot be reused; open a new
+                      one.
+        '429':
+          description: Too many requests
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 429
+                    maximum: 429
+                    example: 429
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '500':
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        default:
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+      security:
+        - HTTPBearer: []
+      summary: RDF projection of a single data object
+      tags:
+        - Resources
   /dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/arrays:
     get:
       description: >-
@@ -7475,15 +7957,18 @@ paths:
           required: false
           in: query
           description: >-
-            Explicitly request an RDF serialization of the relationship graph,
-            overriding the `Accept` header: `turtle`, `jsonld`, or `ntriples`.
-            Omit for the default JSON response.
+            Explicitly request a non-JSON serialization of the relationship
+            graph, overriding the `Accept` header. RDF: `turtle`, `jsonld`,
+            `ntriples`. Graph export: `csv` (node table), `graphml` (nodes +
+            edges). Omit for the default JSON response.
           schema:
             type: string
             enum:
               - turtle
               - jsonld
               - ntriples
+              - csv
+              - graphml
         - name: transactionId
           required: false
           in: query
@@ -7750,6 +8235,174 @@ paths:
                     - customData
                   additionalProperties: false
             application/n-triples:
+              schema:
+                type: array
+                maxItems: 256
+                additionalProperties: false
+                items:
+                  type: object
+                  properties:
+                    uri:
+                      type: string
+                      description: Unique Resource Identifier of the resource
+                      example: >-
+                        eml:///dataspace('demo/Volve')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)
+                      maxLength: 2048
+                      pattern: >-
+                        ^(?:eml:\/\/\/|^eml:\/\/\/dataspace\('[^'"]*?(?:''[^'"]*?)*'\)\/?)(witsml|resqml|prodml|eml)[1-9]\d\.\w+(?:\((?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|uuid=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12},version='[^']*?(?:''[^']*?)*')\))?$
+                    alternateUris:
+                      description: Alternate uris of the resource
+                      maxItems: 100000
+                      type: array
+                      items:
+                        type: string
+                        maxLength: 2048
+                        pattern: >-
+                          ^(?<protocol>(?:[^:]+)s?)?:\/\/(?:(?<user>[^:\n\r]+):(?<pass>[^@\n\r]+)@)?(?<host>(?:www\.)?(?:[^:\/\n\r]+))(?::(?<port>\d+))?\/?(?<request>[^?#\n\r]+)?\??(?<query>[^#\n\r]*)?\#?(?<anchor>[^\n\r]*)?$
+                    name:
+                      type: string
+                      description: Resource title
+                      example: Depth_Hugin_Fm_Top_t
+                      maxLength: 2048
+                      pattern: ^[^\r\n]+$
+                    sourceCount:
+                      type: number
+                      description: Number of objects referencing the resource
+                      format: integer
+                      minimum: 0
+                      maximum: 1000000
+                    targetCount:
+                      type: number
+                      description: Number of objects referenced by the resource
+                      format: integer
+                      minimum: 0
+                      maximum: 1000000
+                    activeStatus:
+                      type: string
+                      description: Indicates if resource is active
+                      example: Active
+                      enum:
+                        - Active
+                        - Inactive
+                    lastChanged:
+                      format: date-time
+                      type: string
+                      description: Date of last modification
+                      example: '2021-09-06T16:06:31.000Z'
+                      maxLength: 2048
+                    storeCreated:
+                      format: date-time
+                      type: string
+                      description: Date of first entry in data store
+                      example: '2021-09-14T20:25:17.128Z'
+                      maxLength: 2048
+                    storeLastWrite:
+                      format: date-time
+                      type: string
+                      description: Date of last entry in data store
+                      example: '2021-09-14T20:26:16.128Z'
+                      maxLength: 2048
+                    customData:
+                      type: object
+                      description: Extra meta data associated to resource
+                      additionalProperties:
+                        type: string
+                        pattern: ^[a-zA-Z0-9 ]*$
+                        maxLength: 2048
+                  required:
+                    - uri
+                    - alternateUris
+                    - name
+                    - lastChanged
+                    - storeCreated
+                    - storeLastWrite
+                    - customData
+                  additionalProperties: false
+            text/csv:
+              schema:
+                type: array
+                maxItems: 256
+                additionalProperties: false
+                items:
+                  type: object
+                  properties:
+                    uri:
+                      type: string
+                      description: Unique Resource Identifier of the resource
+                      example: >-
+                        eml:///dataspace('demo/Volve')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)
+                      maxLength: 2048
+                      pattern: >-
+                        ^(?:eml:\/\/\/|^eml:\/\/\/dataspace\('[^'"]*?(?:''[^'"]*?)*'\)\/?)(witsml|resqml|prodml|eml)[1-9]\d\.\w+(?:\((?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|uuid=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12},version='[^']*?(?:''[^']*?)*')\))?$
+                    alternateUris:
+                      description: Alternate uris of the resource
+                      maxItems: 100000
+                      type: array
+                      items:
+                        type: string
+                        maxLength: 2048
+                        pattern: >-
+                          ^(?<protocol>(?:[^:]+)s?)?:\/\/(?:(?<user>[^:\n\r]+):(?<pass>[^@\n\r]+)@)?(?<host>(?:www\.)?(?:[^:\/\n\r]+))(?::(?<port>\d+))?\/?(?<request>[^?#\n\r]+)?\??(?<query>[^#\n\r]*)?\#?(?<anchor>[^\n\r]*)?$
+                    name:
+                      type: string
+                      description: Resource title
+                      example: Depth_Hugin_Fm_Top_t
+                      maxLength: 2048
+                      pattern: ^[^\r\n]+$
+                    sourceCount:
+                      type: number
+                      description: Number of objects referencing the resource
+                      format: integer
+                      minimum: 0
+                      maximum: 1000000
+                    targetCount:
+                      type: number
+                      description: Number of objects referenced by the resource
+                      format: integer
+                      minimum: 0
+                      maximum: 1000000
+                    activeStatus:
+                      type: string
+                      description: Indicates if resource is active
+                      example: Active
+                      enum:
+                        - Active
+                        - Inactive
+                    lastChanged:
+                      format: date-time
+                      type: string
+                      description: Date of last modification
+                      example: '2021-09-06T16:06:31.000Z'
+                      maxLength: 2048
+                    storeCreated:
+                      format: date-time
+                      type: string
+                      description: Date of first entry in data store
+                      example: '2021-09-14T20:25:17.128Z'
+                      maxLength: 2048
+                    storeLastWrite:
+                      format: date-time
+                      type: string
+                      description: Date of last entry in data store
+                      example: '2021-09-14T20:26:16.128Z'
+                      maxLength: 2048
+                    customData:
+                      type: object
+                      description: Extra meta data associated to resource
+                      additionalProperties:
+                        type: string
+                        pattern: ^[a-zA-Z0-9 ]*$
+                        maxLength: 2048
+                  required:
+                    - uri
+                    - alternateUris
+                    - name
+                    - lastChanged
+                    - storeCreated
+                    - storeLastWrite
+                    - customData
+                  additionalProperties: false
+            application/graphml+xml:
               schema:
                 type: array
                 maxItems: 256
@@ -10720,6 +11373,49 @@ paths:
             `?dataspace=myteam/project1`).
           schema:
             type: string
+        - name: typePatterns
+          required: false
+          in: query
+          description: >-
+            Auto-ingest manifest filter (only used with `autoIngest`).
+            Comma-separated list of type patterns (accept `*`/`?` wildcards)
+            restricting NON-property types, consistent with `POST
+            /manifests/build`. When omitted, the curated auto-ingest preset is
+            used
+            (`*Feature,*Interpretation*,*Representation,*StratigraphicColumn,*Activity*,*Collection,witsml21.*`).
+            Pass `*` to include all types. CRS is always included.
+          schema:
+            type: string
+        - name: propertyFilter
+          required: false
+          in: query
+          description: >-
+            Auto-ingest property inclusion (only used with `autoIngest`),
+            consistent with `POST /manifests/build`. `canonical` (default for
+            auto-ingest): only standard-named properties (PORO/PERMX/SW, PWLS,
+            OSDU). `all`: every property. `none`: no properties.
+          schema:
+            type: string
+            enum:
+              - canonical
+              - none
+              - all
+            default: canonical
+        - name: excludePatterns
+          required: false
+          in: query
+          description: >-
+            Auto-ingest hard-exclude type patterns (only used with
+            `autoIngest`). Comma-separated list (accept `*`/`?` wildcards) of
+            types to drop even if they would otherwise be included, applied
+            before every inclusion rule except CRS. When omitted, defaults to
+            `*Activity,*ActivityTemplate` — Activity records reference every
+            property they consumed, which become dangling references (and fail
+            the OSDU ingestion workflow) when `propertyFilter=canonical`. Pass
+            an empty value to disable exclusions.
+          schema:
+            type: string
+            default: '*Activity,*ActivityTemplate'
       requestBody:
         required: true
         description: >-
@@ -12148,6 +12844,127 @@ paths:
       tags:
         - PWLS
   /pwls/catalog:
+    get:
+      description: >-
+        Returns the PWLS v4 catalogue. Default JSON lists the standard
+        properties and their QuantityClass. Content-negotiate (Accept or
+        `format`) to receive a SKOS concept scheme in Turtle, JSON-LD or
+        N-Triples.
+      operationId: PwlsController_getCatalog
+      parameters:
+        - name: format
+          required: false
+          in: query
+          description: RDF serialization to return (SKOS). Overrides the Accept header.
+          schema:
+            enum:
+              - turtle
+              - jsonld
+              - ntriples
+            type: string
+        - name: mnemonics
+          required: false
+          in: query
+          description: >-
+            Include vendor mnemonics as skos:altLabel in RDF output (default
+            true).
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: PWLS catalogue (JSON summary or SKOS concept scheme)
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 404
+                    maximum: 404
+                    example: 404
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '406':
+          description: Not acceptable response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 406
+                    maximum: 406
+                    example: 406
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '429':
+          description: Too many request
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 429
+                    maximum: 429
+                    example: 429
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        default:
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+      security: []
+      summary: Get the PWLS curve-property catalogue
+      tags:
+        - PWLS
     post:
       description: >-
         Loads an additional PWLS v4 vendor curve catalog JSON. Mnemonics
@@ -12274,6 +13091,75 @@ paths:
       summary: Load a vendor curve catalog
       tags:
         - PWLS
+  /rdf/context:
+    get:
+      description: >-
+        Returns the `@context` document that clients can use to interpret the
+        compacted JSON-LD returned by the resource graph endpoints.
+      operationId: LinkedDataController_context
+      parameters: []
+      responses:
+        '200':
+          description: JSON-LD context document
+      security: []
+      summary: Get the JSON-LD context
+      tags:
+        - Linked Data
+  /rdf/ontology:
+    get:
+      description: >-
+        Returns the vocabulary (classes and properties) used by the RDF graph
+        serializations. Content-negotiated via the Accept header or the `format`
+        query parameter.
+      operationId: LinkedDataController_ontology
+      parameters:
+        - name: format
+          required: false
+          in: query
+          description: >-
+            RDF serialization to return. Overrides the Accept header. Defaults
+            to Turtle.
+          schema:
+            enum:
+              - turtle
+              - jsonld
+              - ntriples
+            type: string
+      responses:
+        '200':
+          description: Ontology document (Turtle, JSON-LD or N-Triples)
+      security: []
+      summary: Get the Reservoir DDMS graph ontology
+      tags:
+        - Linked Data
+  /rdf/alignment:
+    get:
+      description: >-
+        Returns owl:equivalentClass links from Reservoir DDMS data-object-type
+        classes to the OSDU kinds they are converted to by the Manifest Builder.
+        Content-negotiated via the Accept header or the `format` query
+        parameter.
+      operationId: LinkedDataController_alignment
+      parameters:
+        - name: format
+          required: false
+          in: query
+          description: >-
+            RDF serialization to return. Overrides the Accept header. Defaults
+            to Turtle.
+          schema:
+            enum:
+              - turtle
+              - jsonld
+              - ntriples
+            type: string
+      responses:
+        '200':
+          description: OWL alignment document (Turtle, JSON-LD or N-Triples)
+      security: []
+      summary: Get the RESQML to OSDU class alignment
+      tags:
+        - Linked Data
   /health/readiness:
     get:
       description: >-
@@ -13052,6 +13938,11 @@ tags:
     description: >-
       PWLS v4.0 curve mnemonic resolution and validation. Domain-specific - maps
       vendor mnemonics to standard property names.
+  - name: Linked Data
+    description: >-
+      Public, read-only semantic-web metadata: the JSON-LD context, the graph
+      ontology, and the RESQML→OSDU OWL alignment. Complements the
+      RDF/CSV/GraphML serializations of the resource graph.
 servers:
   - url: /api/reservoir-ddms/v2
 components:
@@ -13543,8 +14434,12 @@ components:
         typePatterns:
           maxItems: 99999
           description: >-
-            Energistics types to restrict search against when indexing entire
-            dataspaces, accept * and . wildcard.
+            Optional filter restricting NON-property types when indexing entire
+            dataspaces (accepts * and ? wildcards). When omitted, ALL types are
+            included. Pass a curated list to restrict, e.g.
+            ["*Feature","*Interpretation*","*Representation","*StratigraphicColumn","*Activity*","*Collection","witsml21.*"]
+            for top-level types only. CRS objects are always included regardless
+            of this filter.
           example:
             - resqml20.obj_*Representation
           type: array
@@ -13559,11 +14454,32 @@ components:
             - none
             - all
           description: >-
-            Controls property inclusion when using default type patterns.
-            "canonical" (default): include properties with standard names (PWLS,
-            OSDU, simulator abbreviations like PORO, PERMX, SW). "none": exclude
-            all properties. "all": include all properties regardless of name.
-          example: canonical
+            Controls property inclusion, independent of typePatterns. "all"
+            (default): include every property. "canonical": include only
+            properties with standard names (PWLS, OSDU, simulator abbreviations
+            like PORO, PERMX, SW). "none": exclude all properties. Combine with
+            typePatterns to build presets, e.g. all types + no properties, or
+            curated top-level + no properties.
+          example: all
+        excludePatterns:
+          maxItems: 99999
+          description: >-
+            Optional list of type patterns (accepts * and ? wildcards) that
+            HARD-exclude matching types, applied before every inclusion rule
+            except CRS (always kept). Use to drop noisy/low-value types that
+            would otherwise bloat the manifest or introduce dangling references,
+            e.g. ["*Activity","*ActivityTemplate"] (Activity records reference
+            every property they consumed, which become dangling when
+            propertyFilter="canonical"), or ["*GridConnectionSet"] when
+            connection-set counts explode.
+          example:
+            - '*Activity'
+            - '*ActivityTemplate'
+          type: array
+          items:
+            type: string
+            maxLength: 2048
+            pattern: ^[0-9a-zA-Z._*?]+$
         technicalAssurances:
           maxItems: 1028
           description: Technical Assurance information.

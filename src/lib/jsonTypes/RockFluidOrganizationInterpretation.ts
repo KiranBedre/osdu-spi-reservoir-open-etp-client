@@ -44,7 +44,7 @@ export class RockFluidOrganizationInterpretationOSDU
         const srn = await RockFluidOrganizationInterpretationOSDU.dorToSrn(
           ReservoirDMSUrl, (item as any).RockFluidUnit, client, context
         );
-        if (srn) unitIds.push(srn + ":");
+        if (srn) unitIds.push(srn);
       }
     }
 

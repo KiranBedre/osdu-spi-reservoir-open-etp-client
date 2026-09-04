@@ -70,6 +70,70 @@ describe("Smart property inclusion filter", () => {
 });
 
 // ============================================================================
+// Manifest filter presets (default = all; opt-in filtering; CRS always in)
+// ============================================================================
+describe("manifestFilterMatches presets", () => {
+    let manifestFilterMatches: (
+        type: string,
+        name: string,
+        typePatterns?: string[],
+        propertyFilter?: "all" | "canonical" | "none"
+    ) => boolean;
+    let DEFAULT_DATASPACE_TYPE_PATTERNS: string[];
+
+    beforeAll(() => {
+        const m = require("../lib/jsonTypes/Manifest");
+        manifestFilterMatches = m.manifestFilterMatches;
+        DEFAULT_DATASPACE_TYPE_PATTERNS = m.DEFAULT_DATASPACE_TYPE_PATTERNS;
+    });
+
+    it("default (no args) includes all types AND all properties", () => {
+        expect(manifestFilterMatches("resqml20.obj_IjkGridRepresentation", "grid")).toBe(true);
+        expect(manifestFilterMatches("resqml20.obj_ContinuousProperty", "PORO")).toBe(true);
+        expect(manifestFilterMatches("resqml20.obj_ContinuousProperty", "some_local_name")).toBe(true);
+        expect(manifestFilterMatches("resqml22.TimeSeries", "ts")).toBe(true);
+    });
+
+    it("always includes CRS regardless of filter", () => {
+        expect(manifestFilterMatches("resqml20.obj_LocalDepth3dCrs", "crs")).toBe(true);
+        expect(manifestFilterMatches("resqml22.LocalTime3dCrs", "crs")).toBe(true);
+        expect(manifestFilterMatches("eml23.LocalEngineeringCompoundCrs", "crs")).toBe(true);
+        // even under the most restrictive filter
+        expect(
+            manifestFilterMatches("resqml20.obj_LocalDepth3dCrs", "crs", ["nomatch"], "none")
+        ).toBe(true);
+    });
+
+    it("propertyFilter 'none' excludes all properties but keeps other types", () => {
+        expect(manifestFilterMatches("resqml20.obj_ContinuousProperty", "PORO", undefined, "none")).toBe(false);
+        expect(manifestFilterMatches("resqml20.obj_ContinuousProperty", "porosity", undefined, "none")).toBe(false);
+        expect(manifestFilterMatches("resqml20.obj_IjkGridRepresentation", "grid", undefined, "none")).toBe(true);
+    });
+
+    it("propertyFilter 'canonical' keeps only standard-named properties", () => {
+        expect(manifestFilterMatches("resqml20.obj_ContinuousProperty", "PORO", undefined, "canonical")).toBe(true);
+        expect(manifestFilterMatches("resqml20.obj_ContinuousProperty", "porosity", undefined, "canonical")).toBe(true);
+        expect(manifestFilterMatches("resqml20.obj_ContinuousProperty", "my_local_prop", undefined, "canonical")).toBe(false);
+    });
+
+    it("curated top-level preset + 'none' excludes properties but includes CRS", () => {
+        expect(
+            manifestFilterMatches("resqml20.obj_IjkGridRepresentation", "grid", DEFAULT_DATASPACE_TYPE_PATTERNS, "none")
+        ).toBe(true);
+        expect(
+            manifestFilterMatches("resqml20.obj_ContinuousProperty", "PORO", DEFAULT_DATASPACE_TYPE_PATTERNS, "none")
+        ).toBe(false);
+        expect(
+            manifestFilterMatches("resqml20.obj_LocalDepth3dCrs", "crs", DEFAULT_DATASPACE_TYPE_PATTERNS, "none")
+        ).toBe(true);
+        // a type not in the curated list is excluded (but not a property/CRS)
+        expect(
+            manifestFilterMatches("resqml22.TimeSeries", "ts", DEFAULT_DATASPACE_TYPE_PATTERNS, "none")
+        ).toBe(false);
+    });
+});
+
+// ============================================================================
 // ColumnBasedTable23 Enrichment
 // ============================================================================
 describe("ColumnBasedTable23 converter", () => {

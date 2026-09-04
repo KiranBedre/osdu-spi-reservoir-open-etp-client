@@ -48,9 +48,9 @@ export class StructuralOrganizationInterpretation22OSDU
         if (srn) {
           const qt = item.BoundaryFeatureInterpretation?.QualifiedType || "";
           if (qt.includes("Fault")) {
-            faultIds.push(srn + ":");
+            faultIds.push(srn);
           } else {
-            horizonIds.push(srn + ":");
+            horizonIds.push(srn);
           }
         }
       }
@@ -108,7 +108,7 @@ export class StructuralOrganizationInterpretation22OSDU
       const srn = await StructuralOrganizationInterpretation22OSDU.dorToSrn(
         uri, dor, client, context
       );
-      if (srn) results.push(srn + ":");
+      if (srn) results.push(srn);
     }
     return results;
   }

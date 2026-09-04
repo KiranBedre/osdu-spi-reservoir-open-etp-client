@@ -1,0 +1,24 @@
+meta {
+  name: RDF Context
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{host}}/rdf/context
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/ld+json
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  test("returns a JSON-LD context", function () {
+    expect(res.getBody()).to.have.property("@context");
+  });
+}

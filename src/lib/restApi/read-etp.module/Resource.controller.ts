@@ -112,6 +112,13 @@ import {
   resolveRdfFormat,
   serializeGraph
 } from "./RdfSerialization";
+import {
+  EXPORT_MIME_CSV,
+  EXPORT_MIME_GRAPHML,
+  GraphExportFormat,
+  resolveGraphExportFormat,
+  serializeGraphExport
+} from "./GraphExport";
 import { createHash } from "crypto";
 
 const logger = logging.getLogger("EtpClient");
@@ -200,6 +207,35 @@ const applyGraphResponseHeaders = (
   }
   return false;
 };
+
+/**
+ * Resolve the requested serialization for a graph response. Export formats
+ * (CSV, GraphML) take precedence over RDF formats; both are selected via the
+ * `Accept` header or an explicit `?format=`. Returns `undefined` for the
+ * default JSON response.
+ */
+const resolveGraphOutput = (
+  accept?: string,
+  format?: string
+): { rdf?: RdfFormat; export?: GraphExportFormat } | undefined => {
+  const exportFormat = resolveGraphExportFormat(accept, format);
+  if (exportFormat) return { export: exportFormat };
+  const rdf = resolveRdfFormat(accept, format);
+  if (rdf) return { rdf };
+  return undefined;
+};
+
+/** Serialize a graph DTO to the resolved non-JSON output. */
+const serializeGraphOutput = (
+  graphDto: RdfGraphLike,
+  output: { rdf?: RdfFormat; export?: GraphExportFormat }
+): { body: string | Record<string, unknown>; contentType: string } => {
+  if (output.export) return serializeGraphExport(graphDto, output.export);
+  return serializeGraph(graphDto, output.rdf as RdfFormat);
+};
+
+/** Minimal graph shape accepted by the serializers (matches ResourceGraphDto). */
+type RdfGraphLike = Parameters<typeof serializeGraph>[0];
 
 export const uriPattern =
   /^(?<protocol>(?:[^:]+)s?)?:\/\/(?:(?<user>[^:\n\r]+):(?<pass>[^@\n\r]+)@)?(?<host>(?:www\.)?(?:[^:\/\n\r]+))(?::(?<port>\d+))?\/?(?<request>[^?#\n\r]+)?\??(?<query>[^#\n\r]*)?\#?(?<anchor>[^\n\r]*)?$/;
@@ -675,10 +711,10 @@ export const rdfFormatQueryParam: ApiQueryOptions = {
   name: "format",
   required: false,
   description:
-    "Explicitly request an RDF serialization of the relationship graph, overriding the `Accept` header: `turtle`, `jsonld`, or `ntriples`. Omit for the default JSON response.",
+    "Explicitly request a non-JSON serialization of the relationship graph, overriding the `Accept` header. RDF: `turtle`, `jsonld`, `ntriples`. Graph export: `csv` (node table), `graphml` (nodes + edges). Omit for the default JSON response.",
   schema: {
     type: "string",
-    enum: ["turtle", "jsonld", "ntriples"]
+    enum: ["turtle", "jsonld", "ntriples", "csv", "graphml"]
   }
 };
 
@@ -1200,7 +1236,9 @@ export default class ResourcesReadAPI {
     "application/json",
     RDF_MIME_TURTLE,
     RDF_MIME_JSONLD,
-    RDF_MIME_NTRIPLES
+    RDF_MIME_NTRIPLES,
+    EXPORT_MIME_CSV,
+    EXPORT_MIME_GRAPHML
   )
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
@@ -1227,7 +1265,7 @@ export default class ResourcesReadAPI {
     logger.info(
       `Received request to list resources for dataspace: ${params.dataspaceId}`
     );
-    const rdfFormat = resolveRdfFormat(request?.headers.accept, format);
+    const output = resolveGraphOutput(request?.headers.accept, format);
     const query = {
       top,
       skip,
@@ -1243,7 +1281,7 @@ export default class ResourcesReadAPI {
         transactionId
       );
       logger.info("Session created successfully.");
-      const wantGraph = edges || rdfFormat !== undefined;
+      const wantGraph = edges || output !== undefined;
       logger.info(wantGraph ? "Fetching resource graph..." : "Fetching resources...");
       const findQuery = {
         uri: EtpUri.createDataSpaceUri(params.dataspaceId).uri,
@@ -1270,8 +1308,8 @@ export default class ResourcesReadAPI {
         c = undefined;
         const graphDto = sendGraph(skip, top, graph);
         const total = [...graph.values()].length;
-        if (rdfFormat) {
-          const { body, contentType } = serializeGraph(graphDto, rdfFormat);
+        if (output) {
+          const { body, contentType } = serializeGraphOutput(graphDto, output);
           response?.type(contentType);
           if (
             applyGraphResponseHeaders(request, response, body, true, {
@@ -1363,7 +1401,9 @@ export default class ResourcesReadAPI {
     "application/json",
     RDF_MIME_TURTLE,
     RDF_MIME_JSONLD,
-    RDF_MIME_NTRIPLES
+    RDF_MIME_NTRIPLES,
+    EXPORT_MIME_CSV,
+    EXPORT_MIME_GRAPHML
   )
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
@@ -1393,7 +1433,7 @@ export default class ResourcesReadAPI {
     logger.debug(
       `Query parameters: skip=${skip}, top=${top}, filter=${filter}, storeLastWriteFilter=${storeLastWriteFilter}, dataObjectTypes=${dataObjectTypes}, countObjects=${countObjects}, transactionId=${transactionId}`
     );
-    const rdfFormat = resolveRdfFormat(request?.headers.accept, format);
+    const output = resolveGraphOutput(request?.headers.accept, format);
     const query = {
       top,
       skip,
@@ -1433,8 +1473,8 @@ export default class ResourcesReadAPI {
       const graphDto = sendGraph(skip, top, graph);
       const total = [...graph.values()].length;
       logger.info("Processed resource graph successfully.");
-      if (rdfFormat) {
-        const { body, contentType } = serializeGraph(graphDto, rdfFormat);
+      if (output) {
+        const { body, contentType } = serializeGraphOutput(graphDto, output);
         response?.type(contentType);
         if (
           applyGraphResponseHeaders(request, response, body, true, {
@@ -1543,6 +1583,102 @@ export default class ResourcesReadAPI {
     } catch (err) {
       logger.error(
         `Error occurred while listing resources by type for dataspace ${params.dataspaceId}: ${err}`
+      );
+      if (!transactionId) {
+        await c?.closeSession();
+      }
+      throw httpErrorFromEtpError(err);
+    }
+  }
+
+  /**
+   * RDF projection of a single data object (and its immediate relationships).
+   *
+   * @memberof ResourcesReadAPI
+   */
+  @Get(":dataspaceId/resources/:dataObjectType/:guid/rdf")
+  @ApiQuery(versionQueryParam)
+  @ApiQuery(depthQueryParam)
+  @ApiQuery(rdfFormatQueryParam)
+  @ApiQuery(transactionIdQueryParam)
+  @ApiProduces(
+    RDF_MIME_TURTLE,
+    RDF_MIME_JSONLD,
+    RDF_MIME_NTRIPLES,
+    EXPORT_MIME_CSV,
+    EXPORT_MIME_GRAPHML
+  )
+  @ApiOkResponse({ description: "RDF/graph projection of the data object" })
+  @ApiOperation({
+    summary: "RDF projection of a single data object",
+    description: `Returns the data object and its immediate relationships as linked data. Content-negotiated via the \`Accept\` header or the \`format\` query parameter (\`turtle\`, \`jsonld\`, \`ntriples\`, \`csv\`, \`graphml\`); defaults to Turtle.\n\n**depth**: 1 = the object and its direct neighbours (default), N = recursive traversal.`,
+    servers: swaggerServers
+  })
+  public async ObjectRdf(
+    @Param() params: FindInObjectParams,
+    @Query("version") version?: string,
+    @Query("depth", OptionalParseIntPipe) depth?: number,
+    @Query("format") format?: string,
+    @Query("transactionId") transactionId?: string,
+    @Req() request?: express.Request,
+    @Res({ passthrough: true }) response?: express.Response
+  ): Promise<string | Record<string, unknown> | null> {
+    logger.info(
+      `Received request for RDF projection of dataspace: ${params.dataspaceId}, type: ${params.dataObjectType}, guid: ${params.guid}`
+    );
+    const output = resolveGraphOutput(request?.headers.accept, format) ?? {
+      rdf: "turtle" as RdfFormat
+    };
+    const m = dataObjectTypeRegexp.exec(params.dataObjectType);
+    const uri = EtpUri.createObjectUri(
+      params.dataspaceId,
+      m?.groups?.domainFamily ?? "",
+      m?.groups?.domainVersion ?? "",
+      m?.groups?.dataType ?? "",
+      params.guid,
+      version
+    ).uri;
+    let c = undefined;
+    try {
+      logger.info("Creating session...");
+      c = await createSession(
+        extractToken(request),
+        extractDataPartitionId(request),
+        undefined,
+        transactionId
+      );
+      logger.info("Session created successfully.");
+      logger.info("Fetching object graph...");
+      const graph = await graphResources(
+        c,
+        {
+          uri,
+          depth: depth ?? 1,
+          dataObjectTypes: [],
+          navigableEdges: "Both" as const
+        },
+        { top: undefined, skip: undefined, filter: undefined },
+        "self",
+        false
+      );
+      logger.info("Object graph fetched successfully.");
+      if (!transactionId) {
+        logger.info("Closing session...");
+        await c.closeSession();
+        logger.info("Session closed successfully.");
+      }
+      c = undefined;
+      const graphDto = sendGraph(undefined, undefined, graph);
+      const total = [...graph.values()].length;
+      const { body, contentType } = serializeGraphOutput(graphDto, output);
+      response?.type(contentType);
+      if (applyGraphResponseHeaders(request, response, body, true, { total })) {
+        return null;
+      }
+      return body;
+    } catch (err) {
+      logger.error(
+        `Error occurred while building RDF projection for dataspace ${params.dataspaceId}: ${err}`
       );
       if (!transactionId) {
         await c?.closeSession();

@@ -43,7 +43,7 @@ See [sdk/README.md](./sdk/README.md) for full API reference.
 | POST   | `/query/graph/search`              | Batch graph search - merged subgraph for multiple URIs                   | Live |
 | PUT    | `/witsml/store`                    | Store WITSML 2.1/1.4.1 objects as **XML or JSON**, auto-transaction + channel extraction | Live |
 | POST   | `/witsml/query`                    | Query WITSML objects with filters (type, title, uuid, modified-since, relationships); `xml`/`json` output | Live |
-| POST   | `/dataspaces/{id}/epc/upload`      | Upload EPC + H5 file pair, unzip, parse, and ingest with transaction     | Live |
+| POST   | `/dataspaces/{id}/epc/upload`      | Upload EPC + H5 file pair, unzip, parse, and ingest with transaction; optional auto-ingest filters (`typePatterns`, `propertyFilter`, `excludePatterns`) and opt-in RESQML validation (`?validate=true`/`strict`) | Live |
 | GET    | `/wells?name=&dataspace=&include=` | Cross-dataspace well search with hierarchy resolution                    | Live |
 
 ### GraphQL API
@@ -70,6 +70,9 @@ Protocols DiscoveryQuery (13), GrowingObject (6), GrowingObjectNotification (7),
 - **Best-effort mode** - converter errors skip the failed object instead of aborting the entire build. Check `errors[]` in the response.
 - **`includeArrayData` option** - opt-in to bulk data array reads during manifest build.
 - **Smart property inclusion** - properties with canonical OSDU/PWLS names are auto-included; non-canonical properties excluded to avoid manifest bloat.
+- **Hard-exclude patterns (`excludePatterns`)** - new filter (comma-separated, `*`/`?` wildcards) applied before every inclusion rule except CRS, on both `POST /manifests/build` (body field) and `POST /dataspaces/{id}/epc/upload` (query param). Defaults to `*Activity,*ActivityTemplate`: Activity records reference every property they consumed, which become dangling references and fail the OSDU ingestion workflow when `propertyFilter=canonical`. Pass an empty value to disable exclusions.
+- **Lineage Activity suppression** - the auto-generated lineage Activity (and its `ActivityTemplate`) are now omitted by default via the same `excludePatterns` default, removing the last source of dangling references in canonical manifests.
+- **Malformed reference-ID fix** - eight structural/framework/rock-fluid converters (StructuralOrganizationInterpretation, SealedSurface/VolumeFramework, RockFluidOrganizationInterpretation, WellboreFrameToWellLog, …) emitted OSDU IDs with a trailing double-colon (`::`) in the URN fragment; corrected to a single separator so references resolve.
 - **Transmissibility detection** - GridConnectionSet records report `HasTransmissibilityMultipliers` when attached properties are found.
 - **WellLog depth range** - WellboreFrame→WellLog populates TopMeasuredDepth/BottomMeasuredDepth.
 
@@ -95,7 +98,7 @@ Protocols DiscoveryQuery (13), GrowingObject (6), GrowingObjectNotification (7),
 
 ### Round-Trip Fidelity
 
-- **ExtraMetadata preservation** - non-`osdu/`-prefixed entries kept in `ResqmlMetadata`.
+- **ExtraMetadata preservation** - non-`osdu/`-prefixed entries kept in `ResqmlMetadata`. **Opt-in** (default OFF) — set `RDMS_PRESERVE_RESQML_METADATA=true` to enable lossless round-trip; otherwise manifests stay lean and only `osdu/`-prefixed metadata is mapped.
 - **AuthoringSoftware** - `Citation.Format` mapped for all WPCs.
 - **IjkGrid field completion** - RealizationIndex, ParentGridID, RockFluidOrganizationInterpretationIDs, HasTruncations.
 - **PropertyKind→UnitQuantity** - QuantityClass lookup for v2.2 PropertyKinds.
@@ -138,13 +141,58 @@ flowchart TD
 
 ---
 
+## Semantic / Linked-Data & Interop Additions (non-breaking)
+
+All items below are **purely additive** — the default `application/json` responses are unchanged. New behaviour is opt-in via the `Accept` header or a `?format=` query parameter, so existing clients are unaffected. No new runtime dependencies were introduced.
+
+### Graph serializations: CSV & GraphML
+
+The relationship-graph endpoints (`GET /dataspaces/{id}/resources/all` and the deprecated `/graph/all`) now serve two tabular/graph-exchange formats in addition to RDF:
+
+| Format  | Media type                 | `?format=`         | Contents                                             |
+| ------- | -------------------------- | ------------------ | ---------------------------------------------------- |
+| CSV     | `text/csv`                 | `csv`              | RFC-4180 node table (uri, name, type, counts, …)     |
+| GraphML | `application/graphml+xml`  | `graphml`          | Full nodes + edges topology (ETP URIs as node ids)   |
+
+### Single-object RDF projection (new endpoint)
+
+| Method | Path                                                          | Purpose                                                        |
+| ------ | ------------------------------------------------------------- | ------------------------------------------------------------- |
+| GET    | `/dataspaces/{id}/resources/{dataObjectType}/{guid}/rdf`      | The object and its immediate relationships as RDF/CSV/GraphML |
+
+Content-negotiated (`turtle`, `jsonld`, `ntriples`, `csv`, `graphml`); defaults to Turtle.
+
+### Linked-Data metadata endpoints (new, public, read-only)
+
+| Method | Path             | Purpose                                                             |
+| ------ | ---------------- | ------------------------------------------------------------------ |
+| GET    | `/rdf/context`   | JSON-LD `@context` for the compacted JSON-LD graph responses       |
+| GET    | `/rdf/ontology`  | The `rddms:` graph ontology (classes & properties)                 |
+| GET    | `/rdf/alignment` | RESQML/WITSML → OSDU `owl:equivalentClass` crosswalk (from the Manifest Builder converter registry) |
+
+Grouped under a new **Linked Data** OpenAPI tag.
+
+### PWLS catalogue as SKOS (new endpoint)
+
+| Method | Path             | Purpose                                                                 |
+| ------ | ---------------- | ----------------------------------------------------------------------- |
+| GET    | `/pwls/catalog`  | PWLS v4 catalogue: JSON summary by default, or a SKOS `ConceptScheme`   |
+
+RDF via `Accept`/`?format=` emits one `skos:Concept` per PWLS property with vendor mnemonics attached as `skos:altLabel` (suppress with `?mnemonics=false`).
+
+### RFC 7807 problem+json errors (opt-in)
+
+When a client sends `Accept: application/problem+json`, error responses are returned as RFC 7807 problem documents (`type`, `title`, `status`, `detail`, `instance`) with content-type `application/problem+json`. Without that Accept value the default error shape is unchanged.
+
+---
+
 ## Behavioral Changes ⚠️
 
 These changes may affect existing consumers:
 
 | Change                      | Old behavior                                                           | New behavior                                  | Workaround                 |
 | --------------------------- | ---------------------------------------------------------------------- | --------------------------------------------- | -------------------------- |
-| **Default manifest filter** | All RESQML types included                                              | Only Interpretations, Representations, WITSML | Pass `typePatterns: ["*"]` |
+| **Default manifest filter** | All RESQML types included                                              | All types **and** all properties included by default (unchanged default); filtering is now opt-in via `typePatterns` (restrict non-property types) and `propertyFilter` = `all`/`canonical`/`none`. CRS objects are always included. | Pass `typePatterns` and/or `propertyFilter` to narrow results |
 | **Grid2d routing**          | Depth-domain Grid2d with HorizonInterpretation → GenericRepresentation | → StructureMap                                | -                          |
 | **DELETE locked dataspace** | Returned 204 (silent success)                                          | Returns 403                                   | Unlock before delete       |
 | **Protocol negotiation**    | `RDMS_ETP_EXTENDED_PROTOCOLS` env var                                  | Auto-negotiated, env var removed              | -                          |
@@ -161,6 +209,7 @@ These changes may affect existing consumers:
 | #126  | Invalid dateTime → HTTP 500                            | Now returns 400 with descriptive message              |
 | #130  | DELETE locked dataspace → 204                          | Now propagates 403                                    |
 | CRS-2 | ArealRotation wrong for rotated local CRS              | Correct affine transform applied                      |
+| -     | WellLog `TopMeasuredDepth`/`BottomMeasuredDepth`/`SamplingInterval` null | `extractDepthRange()` now falls back to a full `NodeMd` scan (HDF5/constant/lattice arrays) when `GetDataSubarray` returns empty, and logs the cause instead of swallowing errors |
 
 ---
 
@@ -171,6 +220,7 @@ These changes may affect existing consumers:
 | CRS and bugfixes        | 41      | Bug fixes, rotation, routing, chunking, SIGTERM                                         |
 | Manifest                | 12      | Converter registry, collaboration UUID, dedup, lineage                                  |
 | Seismic line geometry   | 7       | Coordinate extraction and kind mapping                                                  |
+| RDF / graph exports     | 19      | CSV/GraphML serialization, RDF writer, ontology/OWL alignment, PWLS SKOS                |
 | Reservoir converters    | 40      | IjkGrid, FacetIDs, MilestoneKinds, PRODML                                               |
 | BinGrid + ControlPoints | 18      | GenericBinGrid, HorizonControlPoints routing                                            |
 | Activity converter      | 9       | Parameter extraction (all typed variants)                                               |

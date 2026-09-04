@@ -5,7 +5,9 @@ import {
   Get,
   HttpCode,
   Post,
-  Query
+  Query,
+  Req,
+  Res
 } from "@nestjs/common";
 
 import {
@@ -15,6 +17,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiProduces,
   ApiProperty,
   ApiPropertyOptional,
   ApiQuery,
@@ -24,6 +27,7 @@ import {
 
 import { Allow, ArrayMaxSize, IsArray, IsOptional, IsString, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
+import type express from "express";
 
 import { errorMessageSchema, swaggerServers } from "../ControllerUtils";
 
@@ -34,12 +38,21 @@ import {
   getQuantityClassForProperty,
   getPropertyTypeIdFromMnemonic,
   getPropertyTypeIdForProperty,
+  getPropertyEntries,
   isKnownPwlsProperty,
   loadVendorCatalog,
   hasVendorCatalog,
   getLoadedVendors,
   getLoadedMnemonicCount
 } from "../../jsonTypes/PwlsCurveCatalog";
+import {
+  RDF_MIME_JSONLD,
+  RDF_MIME_NTRIPLES,
+  RDF_MIME_TURTLE,
+  resolveRdfFormat
+} from "./RdfSerialization";
+import { serializeDocument } from "./RdfDocument";
+import { buildPwlsSkosDocument } from "./RdfVocabulary";
 
 // --- DTOs ---
 
@@ -333,6 +346,62 @@ export default class PwlsController {
       unresolved: results.length - resolved,
       withWarnings,
       results
+    };
+  }
+
+  /**
+   * Get the PWLS curve-property catalogue.
+   *
+   * Default JSON returns the catalogue summary and property list. Send
+   * `Accept: text/turtle` / `application/ld+json` / `application/n-triples`
+   * (or `?format=`) to receive the catalogue as a SKOS concept scheme, with
+   * vendor mnemonics attached as `skos:altLabel` on each property concept.
+   */
+  @Get("catalog")
+  @ApiProduces("application/json", RDF_MIME_TURTLE, RDF_MIME_JSONLD, RDF_MIME_NTRIPLES)
+  @ApiQuery({
+    name: "format",
+    required: false,
+    enum: ["turtle", "jsonld", "ntriples"],
+    description: "RDF serialization to return (SKOS). Overrides the Accept header."
+  })
+  @ApiQuery({
+    name: "mnemonics",
+    required: false,
+    type: Boolean,
+    description: "Include vendor mnemonics as skos:altLabel in RDF output (default true)."
+  })
+  @ApiOkResponse({ description: "PWLS catalogue (JSON summary or SKOS concept scheme)" })
+  @ApiOperation({
+    summary: "Get the PWLS curve-property catalogue",
+    description:
+      "Returns the PWLS v4 catalogue. Default JSON lists the standard properties and their QuantityClass. Content-negotiate (Accept or `format`) to receive a SKOS concept scheme in Turtle, JSON-LD or N-Triples.",
+    security: [],
+    servers: swaggerServers
+  })
+  public getCatalog(
+    @Query("format") format?: string,
+    @Query("mnemonics") mnemonics?: string,
+    @Req() request?: express.Request,
+    @Res({ passthrough: true }) response?: express.Response
+  ):
+    | { schemaVersion: string; properties: Array<{ property: string; quantityClass: string }>; status: PwlsStatusDto }
+    | string
+    | Record<string, unknown> {
+    const rdfFormat = resolveRdfFormat(request?.headers.accept, format);
+    if (rdfFormat) {
+      const includeMnemonics = mnemonics !== "false";
+      const { body, contentType } = serializeDocument(
+        buildPwlsSkosDocument({ includeMnemonics }),
+        rdfFormat
+      );
+      response?.type(contentType);
+      return body;
+    }
+    return {
+      schemaVersion: "PWLS v4.0",
+      properties: getPropertyEntries(),
+      status: getPwlsStatus()
     };
   }
 

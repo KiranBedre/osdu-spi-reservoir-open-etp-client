@@ -41,7 +41,7 @@ export class SealedVolumeFramework22OSDU
         const srn = await SealedVolumeFramework22OSDU.dorToSrn(
           ReservoirDMSUrl, dor, client, context
         );
-        if (srn) repIds.push(srn + ":");
+        if (srn) repIds.push(srn);
       }
     }
 

@@ -115,9 +115,9 @@ const UUID_PATTERN =
 /** Captures dataspace path, object UUID and object version from an ETP URI. */
 const ETP_URI_PARTS = new RegExp(
     `dataspace\\('(?<dataspace>[^']*(?:''[^']*)*)'\\)` +
-        `(?:/[^/(]+` +
-        `(?:\\((?:uuid=)?(?<uuid>${UUID_PATTERN})` +
-        `(?:,\\s*version='(?<version>[^']*(?:''[^']*)*)')?\\))?)?`,
+    `(?:/[^/(]+` +
+    `(?:\\((?:uuid=)?(?<uuid>${UUID_PATTERN})` +
+    `(?:,\\s*version='(?<version>[^']*(?:''[^']*)*)')?\\))?)?`,
     "i"
 );
 
@@ -269,6 +269,14 @@ export const jsonLdContext = {
     storeLastWrite: { "@id": "dcterms:modified", "@type": "xsd:dateTime" },
     references: { "@id": "rddms:references", "@type": "@id" }
 } as const;
+
+/**
+ * Standalone JSON-LD context document (`{ "@context": … }`) that clients can
+ * reference to interpret the compacted JSON-LD emitted by the graph endpoints.
+ */
+export const jsonLdContextDocument = (): { "@context": typeof jsonLdContext } => ({
+    "@context": jsonLdContext
+});
 
 /** Serialize a resource graph to a JSON-LD document. */
 export const graphToJsonLd = (graph: RdfGraph): Record<string, unknown> => {

@@ -866,6 +866,16 @@ const SPATIAL_SAMPLE_BUDGET = Number(
 );
 
 /**
+ * Preserve non-`osdu/`-prefixed RESQML ExtraMetadata into
+ * `ExtensionProperties.ResqmlMetadata`. Opt-in (default OFF) so manifests stay
+ * lean unless lossless round-trip is explicitly requested via
+ * `RDMS_PRESERVE_RESQML_METADATA=true`. Read at call time so it can be toggled
+ * per process/run without depending on module-load order.
+ */
+const preserveResqmlMetadata = (): boolean =>
+  process.env.RDMS_PRESERVE_RESQML_METADATA === "true";
+
+/**
  * Resolve the ETP array id (uri + path) for an HDF5/external point array so it
  * can be read via the DataArray protocol.
  */
@@ -1292,11 +1302,16 @@ export class ResqmlResource<RES_TYPE extends IResqmlDataObject> {
         }
       });
 
-    // Preserve non-osdu metadata for lossless round-trip
+    // Preserve non-osdu metadata for lossless round-trip (opt-in, default OFF)
     const nonOsduEntries = extraMetadata.filter(
       x => !x.Name.startsWith("osdu/")
     );
-    if (nonOsduEntries.length > 0 && "data" in this && typeof this.data === "object") {
+    if (
+      preserveResqmlMetadata() &&
+      nonOsduEntries.length > 0 &&
+      "data" in this &&
+      typeof this.data === "object"
+    ) {
       const data = this.data as Record<string, any>;
       if (data["ExtensionProperties"] === undefined) {
         data["ExtensionProperties"] = {};

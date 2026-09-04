@@ -41,7 +41,7 @@ export class SealedSurfaceFrameworkOSDU
         const srn = await SealedSurfaceFrameworkOSDU.dorToSrn(
           ReservoirDMSUrl, dor, client, context
         );
-        if (srn) repIds.push(srn + ":");
+        if (srn) repIds.push(srn);
       }
     }
 

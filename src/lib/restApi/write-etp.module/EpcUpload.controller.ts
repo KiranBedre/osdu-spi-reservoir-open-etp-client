@@ -83,7 +83,7 @@ import {
 
 import { qualifiedTypeRegex } from "../../common/EtpQualifiedType";
 
-import { createManifest } from "../../jsonTypes/Manifest";
+import { createManifest, DEFAULT_DATASPACE_TYPE_PATTERNS, DEFAULT_INGEST_EXCLUDE_PATTERNS, PropertyFilter } from "../../jsonTypes/Manifest";
 import { OSDUContext } from "../../jsonTypes/OsduContext";
 import { osduUrl } from "../../common/config";
 import { bigIntToString } from "../../mlTypes/XmlJsonUtil";
@@ -472,6 +472,37 @@ export default class EpcUploadAPI {
             default: "false"
         }
     })
+    @ApiQuery({
+        name: "typePatterns",
+        required: false,
+        description:
+            "Auto-ingest manifest filter (only used with `autoIngest`). Comma-separated list of type patterns "
+            + "(accept `*`/`?` wildcards) restricting NON-property types, consistent with `POST /manifests/build`. "
+            + "When omitted, the curated auto-ingest preset is used "
+            + "(`*Feature,*Interpretation*,*Representation,*StratigraphicColumn,*Activity*,*Collection,witsml21.*`). "
+            + "Pass `*` to include all types. CRS is always included.",
+        schema: { type: "string" }
+    })
+    @ApiQuery({
+        name: "propertyFilter",
+        required: false,
+        description:
+            "Auto-ingest property inclusion (only used with `autoIngest`), consistent with `POST /manifests/build`. "
+            + "`canonical` (default for auto-ingest): only standard-named properties (PORO/PERMX/SW, PWLS, OSDU). "
+            + "`all`: every property. `none`: no properties.",
+        schema: { type: "string", enum: ["canonical", "none", "all"], default: "canonical" }
+    })
+    @ApiQuery({
+        name: "excludePatterns",
+        required: false,
+        description:
+            "Auto-ingest hard-exclude type patterns (only used with `autoIngest`). Comma-separated list "
+            + "(accept `*`/`?` wildcards) of types to drop even if they would otherwise be included, applied before "
+            + "every inclusion rule except CRS. When omitted, defaults to `*Activity,*ActivityTemplate` — Activity "
+            + "records reference every property they consumed, which become dangling references (and fail the OSDU "
+            + "ingestion workflow) when `propertyFilter=canonical`. Pass an empty value to disable exclusions.",
+        schema: { type: "string", default: "*Activity,*ActivityTemplate" }
+    })
     @ApiOkResponse({
         description: "Ingest result summary",
         schema: {
@@ -617,6 +648,9 @@ export default class EpcUploadAPI {
         @Query("registerMissingSchemas") registerMissingSchemas?: string,
         @Query("validate") validate?: string,
         @Query("dataspace") dataspaceOverride?: string,
+        @Query("typePatterns") typePatterns?: string,
+        @Query("propertyFilter") propertyFilter?: string,
+        @Query("excludePatterns") excludePatterns?: string,
         @Req() request?: express.Request
     ) {
         // ── Resolve dataspace name ──
@@ -1268,7 +1302,12 @@ export default class EpcUploadAPI {
                     ingestMode,
                     params.dataspaceId,
                     request,
-                    registerMissingSchemas === "true" || registerMissingSchemas === "1"
+                    registerMissingSchemas === "true" || registerMissingSchemas === "1",
+                    {
+                        typePatterns: this.parseCsvPatterns(typePatterns),
+                        propertyFilter: this.parsePropertyFilter(propertyFilter),
+                        excludePatterns: this.parseCsvPatterns(excludePatterns)
+                    }
                 );
                 timings.autoIngest = performance.now() - phaseStart;
             } else if (ingestMode && transactionId) {
@@ -1343,11 +1382,32 @@ export default class EpcUploadAPI {
         return undefined;
     }
 
+    /**
+     * Parse a comma-separated query value into a trimmed pattern list.
+     * Returns undefined when the value is absent (caller applies its default);
+     * returns [] when the value is present but empty (caller: no patterns).
+     */
+    private parseCsvPatterns(value?: string): string[] | undefined {
+        if (value === undefined) return undefined;
+        return value.split(",").map(s => s.trim()).filter(s => s.length > 0);
+    }
+
+    /** Parse the propertyFilter query value, defaulting to undefined when invalid/absent. */
+    private parsePropertyFilter(value?: string): PropertyFilter | undefined {
+        if (value === "canonical" || value === "none" || value === "all") return value;
+        return undefined;
+    }
+
     private async performCatalogIngestion(
         mode: IngestMode,
         dataspaceId: string,
         request?: express.Request,
-        registerMissing = false
+        registerMissing = false,
+        manifestFilter?: {
+            typePatterns?: string[];
+            propertyFilter?: PropertyFilter;
+            excludePatterns?: string[];
+        }
     ): Promise<CatalogIngestionResult> {
         const bearer = extractToken(request);
         const partition = extractDataPartitionId(request);
@@ -1390,13 +1450,17 @@ export default class EpcUploadAPI {
             }
 
             const dataspaceUri = `eml:///dataspace('${dataspaceId}')`;
+            // Filter defaults preserve the lean auto-ingest preset, but now also
+            // hard-exclude Activity/ActivityTemplate so canonical property filtering
+            // cannot leave dangling references that fail the OSDU ingestion workflow.
             const manifest = await createManifest(
                 manifestClient,
                 [dataspaceUri],
                 context,
-                undefined, // use default type patterns
+                manifestFilter?.typePatterns ?? DEFAULT_DATASPACE_TYPE_PATTERNS,
                 1000,
-                "canonical"
+                manifestFilter?.propertyFilter ?? "canonical",
+                manifestFilter?.excludePatterns ?? DEFAULT_INGEST_EXCLUDE_PATTERNS
             );
             await manifestClient.closeSession();
 
