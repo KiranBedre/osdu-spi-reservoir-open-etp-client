@@ -375,16 +375,23 @@ describe("Activity Converter – ExtraMetadata overrides (ActivityStates, Busine
   });
 
   it("preserves non-osdu metadata in ExtensionProperties.ResqmlMetadata", () => {
-    const activity = applyMeta([
-      { Name: "osdu/data/BusinessActivities", Value: '["Exploration"]' },
-      { Name: "InternalProjectCode", Value: "DROGON-2024-EXP" }
-    ]);
+    const prev = process.env.RDMS_PRESERVE_RESQML_METADATA;
+    process.env.RDMS_PRESERVE_RESQML_METADATA = "true";
+    try {
+      const activity = applyMeta([
+        { Name: "osdu/data/BusinessActivities", Value: '["Exploration"]' },
+        { Name: "InternalProjectCode", Value: "DROGON-2024-EXP" }
+      ]);
 
-    expect(activity.data.BusinessActivities).toEqual(["Exploration"]);
-    expect(activity.data.ExtensionProperties).toBeDefined();
-    expect(activity.data.ExtensionProperties!["ResqmlMetadata"]).toHaveProperty(
-      "InternalProjectCode",
-      "DROGON-2024-EXP"
-    );
+      expect(activity.data.BusinessActivities).toEqual(["Exploration"]);
+      expect(activity.data.ExtensionProperties).toBeDefined();
+      expect(activity.data.ExtensionProperties!["ResqmlMetadata"]).toHaveProperty(
+        "InternalProjectCode",
+        "DROGON-2024-EXP"
+      );
+    } finally {
+      if (prev === undefined) delete process.env.RDMS_PRESERVE_RESQML_METADATA;
+      else process.env.RDMS_PRESERVE_RESQML_METADATA = prev;
+    }
   });
 });

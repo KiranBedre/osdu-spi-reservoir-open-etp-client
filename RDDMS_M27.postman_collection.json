@@ -2811,6 +2811,13 @@
                   "pm.request.body.raw = JSON.stringify({",
                   "    uris: uris,",
                   "    typePatterns: [\"*\"],",
+                  "    // M27 additive filters (optional):",
+                  "    //   propertyFilter: all | canonical | none",
+                  "    propertyFilter: \"canonical\",",
+                  "    //   excludePatterns: hard-exclude type patterns applied before every",
+                  "    //   inclusion rule except CRS; default *Activity,*ActivityTemplate keeps",
+                  "    //   canonical manifests free of dangling Activity references.",
+                  "    excludePatterns: [\"*Activity\", \"*ActivityTemplate\"],",
                   "    createMissingReferences: true",
                   "});"
                 ]
@@ -2880,6 +2887,24 @@
                 {
                   "key": "validate",
                   "value": "false"
+                },
+                {
+                  "key": "typePatterns",
+                  "value": "*",
+                  "disabled": true,
+                  "description": "Auto-ingest type inclusion (only used with autoIngest). Comma-separated, accepts */? wildcards."
+                },
+                {
+                  "key": "propertyFilter",
+                  "value": "canonical",
+                  "disabled": true,
+                  "description": "Auto-ingest property inclusion (only used with autoIngest): canonical (default) | all | none."
+                },
+                {
+                  "key": "excludePatterns",
+                  "value": "*Activity,*ActivityTemplate",
+                  "disabled": true,
+                  "description": "Auto-ingest hard-exclude type patterns (only used with autoIngest). Default *Activity,*ActivityTemplate prevents dangling Activity references. Pass empty to disable."
                 }
               ]
             },
