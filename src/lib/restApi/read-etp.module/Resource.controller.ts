@@ -24,6 +24,7 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards
 } from "@nestjs/common";
 
@@ -40,6 +41,7 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiProduces,
   ApiProperty,
   ApiPropertyOptional,
   ApiQuery,
@@ -102,6 +104,12 @@ import {
 import { ResourceGraph } from "../../common/ResponseHandlers";
 import { ErrorCode, EtpError } from "../../common/EtpTypes";
 import logging from "../../common/Logging";
+import {
+  RDF_MIME_JSONLD,
+  RDF_MIME_TURTLE,
+  negotiateRdf,
+  serializeGraph
+} from "./RdfSerialization";
 
 const logger = logging.getLogger("EtpClient");
 
@@ -1088,10 +1096,11 @@ export default class ResourcesReadAPI {
   @ApiQuery(edgesQueryParam)
   @ApiQuery(countObjectsQueryParam)
   @ApiQuery(transactionIdQueryParam)
+  @ApiProduces("application/json", RDF_MIME_TURTLE, RDF_MIME_JSONLD)
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
     summary: "List all resources in a dataspace",
-    description: `List all resources (data objects) in a dataspace as a **flat list** of nodes (URI, name, type, timestamps).\n\n**List vs graph**: By default this returns only the resource nodes. Set \`edges=true\` to additionally return the relationship **edges** between them (the relationship graph) — this makes the endpoint equivalent to the deprecated \`GET /dataspaces/{id}/graph/all\`.\n\n**Filtering**: Use \`dataObjectTypes\` to restrict by type (e.g., \`resqml20.obj_IjkGridRepresentation\`), \`storeLastWriteFilter\` for incremental sync, and \`$filter\` for XPath content queries.\n\n**Graph traversal**: Set \`depth\` > 1 to recursively discover related resources. Combined with \`dataObjectTypes\`, this enables server-side deep search without N+1 client calls.\n\n**Pagination**: \`$skip\` and \`$top\` are applied client-side after fetching all results from ETP.`,
+    description: `List all resources (data objects) in a dataspace as a **flat list** of nodes (URI, name, type, timestamps).\n\n**List vs graph**: By default this returns only the resource nodes. Set \`edges=true\` to additionally return the relationship **edges** between them (the relationship graph) — this makes the endpoint equivalent to the deprecated \`GET /dataspaces/{id}/graph/all\`.\n\n**Linked data**: Send \`Accept: text/turtle\` or \`Accept: application/ld+json\` to receive the relationship graph as RDF (edges are always included). ETP resource URIs are used verbatim as RDF subjects.\n\n**Filtering**: Use \`dataObjectTypes\` to restrict by type (e.g., \`resqml20.obj_IjkGridRepresentation\`), \`storeLastWriteFilter\` for incremental sync, and \`$filter\` for XPath content queries.\n\n**Graph traversal**: Set \`depth\` > 1 to recursively discover related resources. Combined with \`dataObjectTypes\`, this enables server-side deep search without N+1 client calls.\n\n**Pagination**: \`$skip\` and \`$top\` are applied client-side after fetching all results from ETP.`,
     servers: swaggerServers
   })
   public async ListResources(
@@ -1106,11 +1115,13 @@ export default class ResourcesReadAPI {
     @Query("edges", OptionalParseBoolPipe) edges = false,
     @Query("countObjects", OptionalParseBoolPipe) countObjects = false,
     @Query("transactionId") transactionId?: string,
-    @Req() request?: express.Request
-  ): Promise<ResourceDto[] | ResourceGraphDto | null> {
+    @Req() request?: express.Request,
+    @Res({ passthrough: true }) response?: express.Response
+  ): Promise<ResourceDto[] | ResourceGraphDto | string | Record<string, unknown> | null> {
     logger.info(
       `Received request to list resources for dataspace: ${params.dataspaceId}`
     );
+    const rdfFormat = negotiateRdf(request?.headers.accept);
     const query = {
       top,
       skip,
@@ -1126,15 +1137,16 @@ export default class ResourcesReadAPI {
         transactionId
       );
       logger.info("Session created successfully.");
-      logger.info(edges ? "Fetching resource graph..." : "Fetching resources...");
+      const wantGraph = edges || rdfFormat !== undefined;
+      logger.info(wantGraph ? "Fetching resource graph..." : "Fetching resources...");
       const findQuery = {
         uri: EtpUri.createDataSpaceUri(params.dataspaceId).uri,
         depth: depth ?? 1,
         dataObjectTypes: dataObjectTypes ? dataObjectTypes.split(",") : [],
         navigableEdges: "Both" as const
       };
-      let result: ResourceDto[] | ResourceGraphDto | null;
-      if (edges) {
+      let result: ResourceDto[] | ResourceGraphDto | string | Record<string, unknown> | null;
+      if (wantGraph) {
         const graph = await graphResources(
           c,
           findQuery,
@@ -1150,7 +1162,14 @@ export default class ResourcesReadAPI {
           logger.info("Session closed successfully.");
         }
         c = undefined;
-        result = sendGraph(skip, top, graph);
+        const graphDto = sendGraph(skip, top, graph);
+        if (rdfFormat) {
+          const { body, contentType } = serializeGraph(graphDto, rdfFormat);
+          response?.type(contentType);
+          result = body;
+        } else {
+          result = graphDto;
+        }
       } else {
         const resources = await findResources(
           c,
@@ -1204,11 +1223,12 @@ export default class ResourcesReadAPI {
   @ApiQuery(depthQueryParam)
   @ApiQuery(countObjectsQueryParam)
   @ApiQuery(transactionIdQueryParam)
+  @ApiProduces("application/json", RDF_MIME_TURTLE, RDF_MIME_JSONLD)
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
     deprecated: true,
     summary: "Full relationship graph for a dataspace (deprecated)",
-    description: `**Deprecated** — use \`GET /dataspaces/{id}/resources/all?edges=true\` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nBuild a complete relationship graph for all resources in a dataspace. Returns nodes and edges (relationships between objects).\n\n**depth**: 1 = direct relationships only, N = recursive traversal. Higher values may be slow for large dataspaces.`,
+    description: `**Deprecated** — use \`GET /dataspaces/{id}/resources/all?edges=true\` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nBuild a complete relationship graph for all resources in a dataspace. Returns nodes and edges (relationships between objects).\n\n**Linked data**: Send \`Accept: text/turtle\` or \`Accept: application/ld+json\` to receive the graph as RDF.\n\n**depth**: 1 = direct relationships only, N = recursive traversal. Higher values may be slow for large dataspaces.`,
     servers: swaggerServers
   })
   public async GraphResources(
@@ -1222,14 +1242,16 @@ export default class ResourcesReadAPI {
     @Query("depth", OptionalParseIntPipe) depth?: number,
     @Query("countObjects", OptionalParseBoolPipe) countObjects?: boolean,
     @Query("transactionId") transactionId?: string,
-    @Req() request?: express.Request
-  ): Promise<ResourceGraphDto | null> {
+    @Req() request?: express.Request,
+    @Res({ passthrough: true }) response?: express.Response
+  ): Promise<ResourceGraphDto | string | Record<string, unknown> | null> {
     logger.info(
       `Received request to graph resources for dataspace: ${params.dataspaceId}`
     );
     logger.debug(
       `Query parameters: skip=${skip}, top=${top}, filter=${filter}, storeLastWriteFilter=${storeLastWriteFilter}, dataObjectTypes=${dataObjectTypes}, countObjects=${countObjects}, transactionId=${transactionId}`
     );
+    const rdfFormat = negotiateRdf(request?.headers.accept);
     const query = {
       top,
       skip,
@@ -1266,9 +1288,14 @@ export default class ResourcesReadAPI {
         logger.info("Session closed successfully.");
       }
       c = undefined;
-      const result = sendGraph(skip, top, graph);
+      const graphDto = sendGraph(skip, top, graph);
       logger.info("Processed resource graph successfully.");
-      return result;
+      if (rdfFormat) {
+        const { body, contentType } = serializeGraph(graphDto, rdfFormat);
+        response?.type(contentType);
+        return body;
+      }
+      return graphDto;
     } catch (err) {
       logger.error(
         `Error occurred while graphing resources for dataspace ${params.dataspaceId}: ${err}`

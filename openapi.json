@@ -2936,7 +2936,7 @@
     },
     "/dataspaces/{dataspaceId}/resources/all": {
       "get": {
-        "description": "List all resources (data objects) in a dataspace as a **flat list** of nodes (URI, name, type, timestamps).\n\n**List vs graph**: By default this returns only the resource nodes. Set `edges=true` to additionally return the relationship **edges** between them (the relationship graph) — this makes the endpoint equivalent to the deprecated `GET /dataspaces/{id}/graph/all`.\n\n**Filtering**: Use `dataObjectTypes` to restrict by type (e.g., `resqml20.obj_IjkGridRepresentation`), `storeLastWriteFilter` for incremental sync, and `$filter` for XPath content queries.\n\n**Graph traversal**: Set `depth` > 1 to recursively discover related resources. Combined with `dataObjectTypes`, this enables server-side deep search without N+1 client calls.\n\n**Pagination**: `$skip` and `$top` are applied client-side after fetching all results from ETP.",
+        "description": "List all resources (data objects) in a dataspace as a **flat list** of nodes (URI, name, type, timestamps).\n\n**List vs graph**: By default this returns only the resource nodes. Set `edges=true` to additionally return the relationship **edges** between them (the relationship graph) — this makes the endpoint equivalent to the deprecated `GET /dataspaces/{id}/graph/all`.\n\n**Linked data**: Send `Accept: text/turtle` or `Accept: application/ld+json` to receive the relationship graph as RDF (edges are always included). ETP resource URIs are used verbatim as RDF subjects.\n\n**Filtering**: Use `dataObjectTypes` to restrict by type (e.g., `resqml20.obj_IjkGridRepresentation`), `storeLastWriteFilter` for incremental sync, and `$filter` for XPath content queries.\n\n**Graph traversal**: Set `depth` > 1 to recursively discover related resources. Combined with `dataObjectTypes`, this enables server-side deep search without N+1 client calls.\n\n**Pagination**: `$skip` and `$top` are applied client-side after fetching all results from ETP.",
         "operationId": "ResourcesReadAPI_ListResources",
         "parameters": [
           {
@@ -3069,6 +3069,204 @@
             "description": "Success",
             "content": {
               "application/json": {
+                "schema": {
+                  "type": "array",
+                  "maxItems": 256,
+                  "additionalProperties": false,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "uri": {
+                        "type": "string",
+                        "description": "Unique Resource Identifier of the resource",
+                        "example": "eml:///dataspace('demo/Volve')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)",
+                        "maxLength": 2048,
+                        "pattern": "^(?:eml:\\/\\/\\/|^eml:\\/\\/\\/dataspace\\('[^'\"]*?(?:''[^'\"]*?)*'\\)\\/?)(witsml|resqml|prodml|eml)[1-9]\\d\\.\\w+(?:\\((?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|uuid=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12},version='[^']*?(?:''[^']*?)*')\\))?$"
+                      },
+                      "alternateUris": {
+                        "description": "Alternate uris of the resource",
+                        "maxItems": 100000,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 2048,
+                          "pattern": "^(?<protocol>(?:[^:]+)s?)?:\\/\\/(?:(?<user>[^:\\n\\r]+):(?<pass>[^@\\n\\r]+)@)?(?<host>(?:www\\.)?(?:[^:\\/\\n\\r]+))(?::(?<port>\\d+))?\\/?(?<request>[^?#\\n\\r]+)?\\??(?<query>[^#\\n\\r]*)?\\#?(?<anchor>[^\\n\\r]*)?$"
+                        }
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "Resource title",
+                        "example": "Depth_Hugin_Fm_Top_t",
+                        "maxLength": 2048,
+                        "pattern": "^[^\\r\\n]+$"
+                      },
+                      "sourceCount": {
+                        "type": "number",
+                        "description": "Number of objects referencing the resource",
+                        "format": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      "targetCount": {
+                        "type": "number",
+                        "description": "Number of objects referenced by the resource",
+                        "format": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      "activeStatus": {
+                        "type": "string",
+                        "description": "Indicates if resource is active",
+                        "example": "Active",
+                        "enum": [
+                          "Active",
+                          "Inactive"
+                        ]
+                      },
+                      "lastChanged": {
+                        "format": "date-time",
+                        "type": "string",
+                        "description": "Date of last modification",
+                        "example": "2021-09-06T16:06:31.000Z",
+                        "maxLength": 2048
+                      },
+                      "storeCreated": {
+                        "format": "date-time",
+                        "type": "string",
+                        "description": "Date of first entry in data store",
+                        "example": "2021-09-14T20:25:17.128Z",
+                        "maxLength": 2048
+                      },
+                      "storeLastWrite": {
+                        "format": "date-time",
+                        "type": "string",
+                        "description": "Date of last entry in data store",
+                        "example": "2021-09-14T20:26:16.128Z",
+                        "maxLength": 2048
+                      },
+                      "customData": {
+                        "type": "object",
+                        "description": "Extra meta data associated to resource",
+                        "additionalProperties": {
+                          "type": "string",
+                          "pattern": "^[a-zA-Z0-9 ]*$",
+                          "maxLength": 2048
+                        }
+                      }
+                    },
+                    "required": [
+                      "uri",
+                      "alternateUris",
+                      "name",
+                      "lastChanged",
+                      "storeCreated",
+                      "storeLastWrite",
+                      "customData"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "text/turtle": {
+                "schema": {
+                  "type": "array",
+                  "maxItems": 256,
+                  "additionalProperties": false,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "uri": {
+                        "type": "string",
+                        "description": "Unique Resource Identifier of the resource",
+                        "example": "eml:///dataspace('demo/Volve')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)",
+                        "maxLength": 2048,
+                        "pattern": "^(?:eml:\\/\\/\\/|^eml:\\/\\/\\/dataspace\\('[^'\"]*?(?:''[^'\"]*?)*'\\)\\/?)(witsml|resqml|prodml|eml)[1-9]\\d\\.\\w+(?:\\((?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|uuid=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12},version='[^']*?(?:''[^']*?)*')\\))?$"
+                      },
+                      "alternateUris": {
+                        "description": "Alternate uris of the resource",
+                        "maxItems": 100000,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 2048,
+                          "pattern": "^(?<protocol>(?:[^:]+)s?)?:\\/\\/(?:(?<user>[^:\\n\\r]+):(?<pass>[^@\\n\\r]+)@)?(?<host>(?:www\\.)?(?:[^:\\/\\n\\r]+))(?::(?<port>\\d+))?\\/?(?<request>[^?#\\n\\r]+)?\\??(?<query>[^#\\n\\r]*)?\\#?(?<anchor>[^\\n\\r]*)?$"
+                        }
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "Resource title",
+                        "example": "Depth_Hugin_Fm_Top_t",
+                        "maxLength": 2048,
+                        "pattern": "^[^\\r\\n]+$"
+                      },
+                      "sourceCount": {
+                        "type": "number",
+                        "description": "Number of objects referencing the resource",
+                        "format": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      "targetCount": {
+                        "type": "number",
+                        "description": "Number of objects referenced by the resource",
+                        "format": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      "activeStatus": {
+                        "type": "string",
+                        "description": "Indicates if resource is active",
+                        "example": "Active",
+                        "enum": [
+                          "Active",
+                          "Inactive"
+                        ]
+                      },
+                      "lastChanged": {
+                        "format": "date-time",
+                        "type": "string",
+                        "description": "Date of last modification",
+                        "example": "2021-09-06T16:06:31.000Z",
+                        "maxLength": 2048
+                      },
+                      "storeCreated": {
+                        "format": "date-time",
+                        "type": "string",
+                        "description": "Date of first entry in data store",
+                        "example": "2021-09-14T20:25:17.128Z",
+                        "maxLength": 2048
+                      },
+                      "storeLastWrite": {
+                        "format": "date-time",
+                        "type": "string",
+                        "description": "Date of last entry in data store",
+                        "example": "2021-09-14T20:26:16.128Z",
+                        "maxLength": 2048
+                      },
+                      "customData": {
+                        "type": "object",
+                        "description": "Extra meta data associated to resource",
+                        "additionalProperties": {
+                          "type": "string",
+                          "pattern": "^[a-zA-Z0-9 ]*$",
+                          "maxLength": 2048
+                        }
+                      }
+                    },
+                    "required": [
+                      "uri",
+                      "alternateUris",
+                      "name",
+                      "lastChanged",
+                      "storeCreated",
+                      "storeLastWrite",
+                      "customData"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "application/ld+json": {
                 "schema": {
                   "type": "array",
                   "maxItems": 256,
@@ -8915,7 +9113,7 @@
     "/dataspaces/{dataspaceId}/graph/all": {
       "get": {
         "deprecated": true,
-        "description": "**Deprecated** — use `GET /dataspaces/{id}/resources/all?edges=true` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nBuild a complete relationship graph for all resources in a dataspace. Returns nodes and edges (relationships between objects).\n\n**depth**: 1 = direct relationships only, N = recursive traversal. Higher values may be slow for large dataspaces.",
+        "description": "**Deprecated** — use `GET /dataspaces/{id}/resources/all?edges=true` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nBuild a complete relationship graph for all resources in a dataspace. Returns nodes and edges (relationships between objects).\n\n**Linked data**: Send `Accept: text/turtle` or `Accept: application/ld+json` to receive the graph as RDF.\n\n**depth**: 1 = direct relationships only, N = recursive traversal. Higher values may be slow for large dataspaces.",
         "operationId": "ResourcesReadAPI_GraphResources",
         "parameters": [
           {
@@ -9038,6 +9236,204 @@
             "description": "Success",
             "content": {
               "application/json": {
+                "schema": {
+                  "type": "array",
+                  "maxItems": 256,
+                  "additionalProperties": false,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "uri": {
+                        "type": "string",
+                        "description": "Unique Resource Identifier of the resource",
+                        "example": "eml:///dataspace('demo/Volve')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)",
+                        "maxLength": 2048,
+                        "pattern": "^(?:eml:\\/\\/\\/|^eml:\\/\\/\\/dataspace\\('[^'\"]*?(?:''[^'\"]*?)*'\\)\\/?)(witsml|resqml|prodml|eml)[1-9]\\d\\.\\w+(?:\\((?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|uuid=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12},version='[^']*?(?:''[^']*?)*')\\))?$"
+                      },
+                      "alternateUris": {
+                        "description": "Alternate uris of the resource",
+                        "maxItems": 100000,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 2048,
+                          "pattern": "^(?<protocol>(?:[^:]+)s?)?:\\/\\/(?:(?<user>[^:\\n\\r]+):(?<pass>[^@\\n\\r]+)@)?(?<host>(?:www\\.)?(?:[^:\\/\\n\\r]+))(?::(?<port>\\d+))?\\/?(?<request>[^?#\\n\\r]+)?\\??(?<query>[^#\\n\\r]*)?\\#?(?<anchor>[^\\n\\r]*)?$"
+                        }
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "Resource title",
+                        "example": "Depth_Hugin_Fm_Top_t",
+                        "maxLength": 2048,
+                        "pattern": "^[^\\r\\n]+$"
+                      },
+                      "sourceCount": {
+                        "type": "number",
+                        "description": "Number of objects referencing the resource",
+                        "format": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      "targetCount": {
+                        "type": "number",
+                        "description": "Number of objects referenced by the resource",
+                        "format": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      "activeStatus": {
+                        "type": "string",
+                        "description": "Indicates if resource is active",
+                        "example": "Active",
+                        "enum": [
+                          "Active",
+                          "Inactive"
+                        ]
+                      },
+                      "lastChanged": {
+                        "format": "date-time",
+                        "type": "string",
+                        "description": "Date of last modification",
+                        "example": "2021-09-06T16:06:31.000Z",
+                        "maxLength": 2048
+                      },
+                      "storeCreated": {
+                        "format": "date-time",
+                        "type": "string",
+                        "description": "Date of first entry in data store",
+                        "example": "2021-09-14T20:25:17.128Z",
+                        "maxLength": 2048
+                      },
+                      "storeLastWrite": {
+                        "format": "date-time",
+                        "type": "string",
+                        "description": "Date of last entry in data store",
+                        "example": "2021-09-14T20:26:16.128Z",
+                        "maxLength": 2048
+                      },
+                      "customData": {
+                        "type": "object",
+                        "description": "Extra meta data associated to resource",
+                        "additionalProperties": {
+                          "type": "string",
+                          "pattern": "^[a-zA-Z0-9 ]*$",
+                          "maxLength": 2048
+                        }
+                      }
+                    },
+                    "required": [
+                      "uri",
+                      "alternateUris",
+                      "name",
+                      "lastChanged",
+                      "storeCreated",
+                      "storeLastWrite",
+                      "customData"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "text/turtle": {
+                "schema": {
+                  "type": "array",
+                  "maxItems": 256,
+                  "additionalProperties": false,
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "uri": {
+                        "type": "string",
+                        "description": "Unique Resource Identifier of the resource",
+                        "example": "eml:///dataspace('demo/Volve')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)",
+                        "maxLength": 2048,
+                        "pattern": "^(?:eml:\\/\\/\\/|^eml:\\/\\/\\/dataspace\\('[^'\"]*?(?:''[^'\"]*?)*'\\)\\/?)(witsml|resqml|prodml|eml)[1-9]\\d\\.\\w+(?:\\((?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|uuid=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12},version='[^']*?(?:''[^']*?)*')\\))?$"
+                      },
+                      "alternateUris": {
+                        "description": "Alternate uris of the resource",
+                        "maxItems": 100000,
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "maxLength": 2048,
+                          "pattern": "^(?<protocol>(?:[^:]+)s?)?:\\/\\/(?:(?<user>[^:\\n\\r]+):(?<pass>[^@\\n\\r]+)@)?(?<host>(?:www\\.)?(?:[^:\\/\\n\\r]+))(?::(?<port>\\d+))?\\/?(?<request>[^?#\\n\\r]+)?\\??(?<query>[^#\\n\\r]*)?\\#?(?<anchor>[^\\n\\r]*)?$"
+                        }
+                      },
+                      "name": {
+                        "type": "string",
+                        "description": "Resource title",
+                        "example": "Depth_Hugin_Fm_Top_t",
+                        "maxLength": 2048,
+                        "pattern": "^[^\\r\\n]+$"
+                      },
+                      "sourceCount": {
+                        "type": "number",
+                        "description": "Number of objects referencing the resource",
+                        "format": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      "targetCount": {
+                        "type": "number",
+                        "description": "Number of objects referenced by the resource",
+                        "format": "integer",
+                        "minimum": 0,
+                        "maximum": 1000000
+                      },
+                      "activeStatus": {
+                        "type": "string",
+                        "description": "Indicates if resource is active",
+                        "example": "Active",
+                        "enum": [
+                          "Active",
+                          "Inactive"
+                        ]
+                      },
+                      "lastChanged": {
+                        "format": "date-time",
+                        "type": "string",
+                        "description": "Date of last modification",
+                        "example": "2021-09-06T16:06:31.000Z",
+                        "maxLength": 2048
+                      },
+                      "storeCreated": {
+                        "format": "date-time",
+                        "type": "string",
+                        "description": "Date of first entry in data store",
+                        "example": "2021-09-14T20:25:17.128Z",
+                        "maxLength": 2048
+                      },
+                      "storeLastWrite": {
+                        "format": "date-time",
+                        "type": "string",
+                        "description": "Date of last entry in data store",
+                        "example": "2021-09-14T20:26:16.128Z",
+                        "maxLength": 2048
+                      },
+                      "customData": {
+                        "type": "object",
+                        "description": "Extra meta data associated to resource",
+                        "additionalProperties": {
+                          "type": "string",
+                          "pattern": "^[a-zA-Z0-9 ]*$",
+                          "maxLength": 2048
+                        }
+                      }
+                    },
+                    "required": [
+                      "uri",
+                      "alternateUris",
+                      "name",
+                      "lastChanged",
+                      "storeCreated",
+                      "storeLastWrite",
+                      "customData"
+                    ],
+                    "additionalProperties": false
+                  }
+                }
+              },
+              "application/ld+json": {
                 "schema": {
                   "type": "array",
                   "maxItems": 256,
