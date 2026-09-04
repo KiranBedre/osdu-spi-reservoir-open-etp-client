@@ -3153,7 +3153,7 @@
       "name": "11. WITSML",
       "item": [
         {
-          "name": "WM2 WITSML Query",
+          "name": "WM1 WITSML Query",
           "request": {
             "method": "POST",
             "header": [
@@ -3217,7 +3217,7 @@
           ]
         },
         {
-          "name": "WM3 WITSML Query (JSON format)",
+          "name": "WM2 WITSML Query (JSON format)",
           "request": {
             "method": "POST",
             "header": [
@@ -3295,7 +3295,7 @@
           ]
         },
         {
-          "name": "WM4 WITSML Query (filters + pagination)",
+          "name": "WM3 WITSML Query (filters + pagination)",
           "request": {
             "method": "POST",
             "header": [
@@ -3366,7 +3366,7 @@
           ]
         },
         {
-          "name": "WM5 WITSML Query (relationships)",
+          "name": "WM4 WITSML Query (relationships)",
           "request": {
             "method": "POST",
             "header": [
@@ -3438,7 +3438,7 @@
           ]
         },
         {
-          "name": "WM6 Store WITSML (JSON body)",
+          "name": "WM5 Store WITSML (JSON body)",
           "request": {
             "method": "PUT",
             "header": [
@@ -3755,7 +3755,7 @@
       ]
     },
     {
-      "name": "14. Semantic (RDF / SKOS / Export)",
+      "name": "13. Semantic (RDF / SKOS / Export)",
       "item": [
         {
           "name": "S1 JSON-LD Context",
@@ -4038,7 +4038,7 @@
       ]
     },
     {
-      "name": "13. Cleanup",
+      "name": "14. Cleanup",
       "item": [
         {
           "name": "CL1 Delete Test Dataspace",
