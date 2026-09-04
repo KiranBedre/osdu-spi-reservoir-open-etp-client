@@ -2424,6 +2424,19 @@ paths:
             format: integer
             minimum: 1
             maximum: 1000
+        - name: format
+          required: false
+          in: query
+          description: >-
+            Explicitly request an RDF serialization of the relationship graph,
+            overriding the `Accept` header: `turtle`, `jsonld`, or `ntriples`.
+            Omit for the default JSON response.
+          schema:
+            type: string
+            enum:
+              - turtle
+              - jsonld
+              - ntriples
         - name: transactionId
           required: false
           in: query
@@ -2626,6 +2639,90 @@ paths:
                     - customData
                   additionalProperties: false
             application/ld+json:
+              schema:
+                type: array
+                maxItems: 256
+                additionalProperties: false
+                items:
+                  type: object
+                  properties:
+                    uri:
+                      type: string
+                      description: Unique Resource Identifier of the resource
+                      example: >-
+                        eml:///dataspace('demo/Volve')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)
+                      maxLength: 2048
+                      pattern: >-
+                        ^(?:eml:\/\/\/|^eml:\/\/\/dataspace\('[^'"]*?(?:''[^'"]*?)*'\)\/?)(witsml|resqml|prodml|eml)[1-9]\d\.\w+(?:\((?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|uuid=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12},version='[^']*?(?:''[^']*?)*')\))?$
+                    alternateUris:
+                      description: Alternate uris of the resource
+                      maxItems: 100000
+                      type: array
+                      items:
+                        type: string
+                        maxLength: 2048
+                        pattern: >-
+                          ^(?<protocol>(?:[^:]+)s?)?:\/\/(?:(?<user>[^:\n\r]+):(?<pass>[^@\n\r]+)@)?(?<host>(?:www\.)?(?:[^:\/\n\r]+))(?::(?<port>\d+))?\/?(?<request>[^?#\n\r]+)?\??(?<query>[^#\n\r]*)?\#?(?<anchor>[^\n\r]*)?$
+                    name:
+                      type: string
+                      description: Resource title
+                      example: Depth_Hugin_Fm_Top_t
+                      maxLength: 2048
+                      pattern: ^[^\r\n]+$
+                    sourceCount:
+                      type: number
+                      description: Number of objects referencing the resource
+                      format: integer
+                      minimum: 0
+                      maximum: 1000000
+                    targetCount:
+                      type: number
+                      description: Number of objects referenced by the resource
+                      format: integer
+                      minimum: 0
+                      maximum: 1000000
+                    activeStatus:
+                      type: string
+                      description: Indicates if resource is active
+                      example: Active
+                      enum:
+                        - Active
+                        - Inactive
+                    lastChanged:
+                      format: date-time
+                      type: string
+                      description: Date of last modification
+                      example: '2021-09-06T16:06:31.000Z'
+                      maxLength: 2048
+                    storeCreated:
+                      format: date-time
+                      type: string
+                      description: Date of first entry in data store
+                      example: '2021-09-14T20:25:17.128Z'
+                      maxLength: 2048
+                    storeLastWrite:
+                      format: date-time
+                      type: string
+                      description: Date of last entry in data store
+                      example: '2021-09-14T20:26:16.128Z'
+                      maxLength: 2048
+                    customData:
+                      type: object
+                      description: Extra meta data associated to resource
+                      additionalProperties:
+                        type: string
+                        pattern: ^[a-zA-Z0-9 ]*$
+                        maxLength: 2048
+                  required:
+                    - uri
+                    - alternateUris
+                    - name
+                    - lastChanged
+                    - storeCreated
+                    - storeLastWrite
+                    - customData
+                  additionalProperties: false
+            application/n-triples:
               schema:
                 type: array
                 maxItems: 256
@@ -7374,6 +7471,19 @@ paths:
           schema:
             type: boolean
             default: false
+        - name: format
+          required: false
+          in: query
+          description: >-
+            Explicitly request an RDF serialization of the relationship graph,
+            overriding the `Accept` header: `turtle`, `jsonld`, or `ntriples`.
+            Omit for the default JSON response.
+          schema:
+            type: string
+            enum:
+              - turtle
+              - jsonld
+              - ntriples
         - name: transactionId
           required: false
           in: query
@@ -7556,6 +7666,90 @@ paths:
                     - customData
                   additionalProperties: false
             application/ld+json:
+              schema:
+                type: array
+                maxItems: 256
+                additionalProperties: false
+                items:
+                  type: object
+                  properties:
+                    uri:
+                      type: string
+                      description: Unique Resource Identifier of the resource
+                      example: >-
+                        eml:///dataspace('demo/Volve')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)
+                      maxLength: 2048
+                      pattern: >-
+                        ^(?:eml:\/\/\/|^eml:\/\/\/dataspace\('[^'"]*?(?:''[^'"]*?)*'\)\/?)(witsml|resqml|prodml|eml)[1-9]\d\.\w+(?:\((?:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}|uuid=[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12},version='[^']*?(?:''[^']*?)*')\))?$
+                    alternateUris:
+                      description: Alternate uris of the resource
+                      maxItems: 100000
+                      type: array
+                      items:
+                        type: string
+                        maxLength: 2048
+                        pattern: >-
+                          ^(?<protocol>(?:[^:]+)s?)?:\/\/(?:(?<user>[^:\n\r]+):(?<pass>[^@\n\r]+)@)?(?<host>(?:www\.)?(?:[^:\/\n\r]+))(?::(?<port>\d+))?\/?(?<request>[^?#\n\r]+)?\??(?<query>[^#\n\r]*)?\#?(?<anchor>[^\n\r]*)?$
+                    name:
+                      type: string
+                      description: Resource title
+                      example: Depth_Hugin_Fm_Top_t
+                      maxLength: 2048
+                      pattern: ^[^\r\n]+$
+                    sourceCount:
+                      type: number
+                      description: Number of objects referencing the resource
+                      format: integer
+                      minimum: 0
+                      maximum: 1000000
+                    targetCount:
+                      type: number
+                      description: Number of objects referenced by the resource
+                      format: integer
+                      minimum: 0
+                      maximum: 1000000
+                    activeStatus:
+                      type: string
+                      description: Indicates if resource is active
+                      example: Active
+                      enum:
+                        - Active
+                        - Inactive
+                    lastChanged:
+                      format: date-time
+                      type: string
+                      description: Date of last modification
+                      example: '2021-09-06T16:06:31.000Z'
+                      maxLength: 2048
+                    storeCreated:
+                      format: date-time
+                      type: string
+                      description: Date of first entry in data store
+                      example: '2021-09-14T20:25:17.128Z'
+                      maxLength: 2048
+                    storeLastWrite:
+                      format: date-time
+                      type: string
+                      description: Date of last entry in data store
+                      example: '2021-09-14T20:26:16.128Z'
+                      maxLength: 2048
+                    customData:
+                      type: object
+                      description: Extra meta data associated to resource
+                      additionalProperties:
+                        type: string
+                        pattern: ^[a-zA-Z0-9 ]*$
+                        maxLength: 2048
+                  required:
+                    - uri
+                    - alternateUris
+                    - name
+                    - lastChanged
+                    - storeCreated
+                    - storeLastWrite
+                    - customData
+                  additionalProperties: false
+            application/n-triples:
               schema:
                 type: array
                 maxItems: 256

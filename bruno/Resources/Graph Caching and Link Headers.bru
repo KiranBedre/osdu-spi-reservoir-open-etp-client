@@ -1,0 +1,54 @@
+meta {
+  name: Graph Caching & Link Headers
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{host}}/dataspaces/{{dataspaceId}}/resources/all?edges=true
+  body: none
+  auth: none
+}
+
+params:query {
+  edges: true
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+  Accept: application/json
+}
+
+docs {
+  Demonstrates the HTTP niceties added to the relationship-graph endpoints
+  (all backward-compatible):
+
+  - `ETag` (weak) on the response enables conditional GETs — resend the value
+    in `If-None-Match` to get `304 Not Modified` when nothing changed.
+  - `Link` header advertises the RDF alternates via `?format=` (rel="alternate"
+    text/turtle, application/ld+json, application/n-triples) and pagination
+    (rel="next" / rel="prev") when `$top` is used.
+
+  The default JSON body is unchanged.
+}
+
+tests {
+  test("status is 200 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
+  });
+
+  test("exposes an ETag", function () {
+    if (res.getStatus() === 200) {
+      expect(res.getHeader("etag")).to.be.a("string");
+    }
+  });
+
+  test("advertises RDF alternates via Link header", function () {
+    if (res.getStatus() === 200) {
+      const link = res.getHeader("link") || "";
+      expect(link).to.include('rel="alternate"');
+      expect(link).to.include("text/turtle");
+    }
+  });
+}

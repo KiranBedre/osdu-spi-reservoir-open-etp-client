@@ -106,12 +106,100 @@ import { ErrorCode, EtpError } from "../../common/EtpTypes";
 import logging from "../../common/Logging";
 import {
   RDF_MIME_JSONLD,
+  RDF_MIME_NTRIPLES,
   RDF_MIME_TURTLE,
-  negotiateRdf,
+  RdfFormat,
+  resolveRdfFormat,
   serializeGraph
 } from "./RdfSerialization";
+import { createHash } from "crypto";
 
 const logger = logging.getLogger("EtpClient");
+
+/** RDF alternate representations advertised via the `Link` header. */
+const RDF_ALTERNATES: ReadonlyArray<readonly [RdfFormat, string]> = [
+  ["turtle", RDF_MIME_TURTLE],
+  ["jsonld", RDF_MIME_JSONLD],
+  ["ntriples", RDF_MIME_NTRIPLES]
+];
+
+/** Split a request URL into its path and query-string parts. */
+const splitUrl = (req?: express.Request): [string, string] => {
+  const [path, qs = ""] = (req?.originalUrl ?? req?.url ?? "").split("?");
+  return [path, qs];
+};
+
+/**
+ * Build `Link` header values advertising the RDF alternate representations of
+ * the current resource (via `?format=`). Only emitted on the default JSON
+ * response so RDF clients can discover the linked-data variants.
+ */
+const rdfAlternateLinks = (req?: express.Request): string[] => {
+  if (!req) return [];
+  const [path, qs] = splitUrl(req);
+  return RDF_ALTERNATES.map(([fmt, mime]) => {
+    const p = new URLSearchParams(qs);
+    p.set("format", fmt);
+    return `<${path}?${p.toString()}>; rel="alternate"; type="${mime}"`;
+  });
+};
+
+/** Build `Link` header values for pagination (rel=next / rel=prev). */
+const paginationLinks = (
+  req: express.Request | undefined,
+  total: number,
+  skip = 0,
+  top?: number
+): string[] => {
+  if (!req || top === undefined) return [];
+  const [path, qs] = splitUrl(req);
+  const make = (newSkip: number, rel: string): string => {
+    const p = new URLSearchParams(qs);
+    p.set("$skip", String(newSkip));
+    p.set("$top", String(top));
+    return `<${path}?${p.toString()}>; rel="${rel}"`;
+  };
+  const links: string[] = [];
+  if (skip + top < total) links.push(make(skip + top, "next"));
+  if (skip > 0) links.push(make(Math.max(0, skip - top), "prev"));
+  return links;
+};
+
+/** Compute a weak ETag for a response payload. */
+const weakEtag = (payload: string): string =>
+  `W/"${createHash("sha1").update(payload).digest("hex")}"`;
+
+/**
+ * Set caching (`ETag`) and discovery/pagination (`Link`) headers on a graph or
+ * resource-list response, and honour conditional GET. Returns `true` when the
+ * caller should short-circuit with `304 Not Modified`.
+ */
+const applyGraphResponseHeaders = (
+  request: express.Request | undefined,
+  response: express.Response | undefined,
+  body: unknown,
+  isRdf: boolean,
+  page: { total: number; skip?: number; top?: number }
+): boolean => {
+  if (!response) return false;
+
+  const payload = typeof body === "string" ? body : JSON.stringify(body ?? null);
+  const etag = weakEtag(payload);
+  response.setHeader("ETag", etag);
+
+  const links: string[] = [
+    ...(isRdf ? [] : rdfAlternateLinks(request)),
+    ...paginationLinks(request, page.total, page.skip, page.top)
+  ];
+  if (links.length > 0) response.setHeader("Link", links.join(", "));
+
+  const ifNoneMatch = request?.headers["if-none-match"];
+  if (ifNoneMatch && ifNoneMatch === etag) {
+    response.status(304);
+    return true;
+  }
+  return false;
+};
 
 export const uriPattern =
   /^(?<protocol>(?:[^:]+)s?)?:\/\/(?:(?<user>[^:\n\r]+):(?<pass>[^@\n\r]+)@)?(?<host>(?:www\.)?(?:[^:\/\n\r]+))(?::(?<port>\d+))?\/?(?<request>[^?#\n\r]+)?\??(?<query>[^#\n\r]*)?\#?(?<anchor>[^\n\r]*)?$/;
@@ -580,6 +668,17 @@ export const edgesQueryParam: ApiQueryOptions = {
   schema: {
     type: "boolean",
     default: false
+  }
+};
+
+export const rdfFormatQueryParam: ApiQueryOptions = {
+  name: "format",
+  required: false,
+  description:
+    "Explicitly request an RDF serialization of the relationship graph, overriding the `Accept` header: `turtle`, `jsonld`, or `ntriples`. Omit for the default JSON response.",
+  schema: {
+    type: "string",
+    enum: ["turtle", "jsonld", "ntriples"]
   }
 };
 
@@ -1095,8 +1194,14 @@ export default class ResourcesReadAPI {
   @ApiQuery(depthQueryParam)
   @ApiQuery(edgesQueryParam)
   @ApiQuery(countObjectsQueryParam)
+  @ApiQuery(rdfFormatQueryParam)
   @ApiQuery(transactionIdQueryParam)
-  @ApiProduces("application/json", RDF_MIME_TURTLE, RDF_MIME_JSONLD)
+  @ApiProduces(
+    "application/json",
+    RDF_MIME_TURTLE,
+    RDF_MIME_JSONLD,
+    RDF_MIME_NTRIPLES
+  )
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
     summary: "List all resources in a dataspace",
@@ -1114,6 +1219,7 @@ export default class ResourcesReadAPI {
     @Query("depth", OptionalParseIntPipe) depth?: number,
     @Query("edges", OptionalParseBoolPipe) edges = false,
     @Query("countObjects", OptionalParseBoolPipe) countObjects = false,
+    @Query("format") format?: string,
     @Query("transactionId") transactionId?: string,
     @Req() request?: express.Request,
     @Res({ passthrough: true }) response?: express.Response
@@ -1121,7 +1227,7 @@ export default class ResourcesReadAPI {
     logger.info(
       `Received request to list resources for dataspace: ${params.dataspaceId}`
     );
-    const rdfFormat = negotiateRdf(request?.headers.accept);
+    const rdfFormat = resolveRdfFormat(request?.headers.accept, format);
     const query = {
       top,
       skip,
@@ -1163,11 +1269,30 @@ export default class ResourcesReadAPI {
         }
         c = undefined;
         const graphDto = sendGraph(skip, top, graph);
+        const total = [...graph.values()].length;
         if (rdfFormat) {
           const { body, contentType } = serializeGraph(graphDto, rdfFormat);
           response?.type(contentType);
+          if (
+            applyGraphResponseHeaders(request, response, body, true, {
+              total,
+              skip,
+              top
+            })
+          ) {
+            return null;
+          }
           result = body;
         } else {
+          if (
+            applyGraphResponseHeaders(request, response, graphDto, false, {
+              total,
+              skip,
+              top
+            })
+          ) {
+            return null;
+          }
           result = graphDto;
         }
       } else {
@@ -1186,7 +1311,17 @@ export default class ResourcesReadAPI {
           logger.info("Session closed successfully.");
         }
         c = undefined;
-        result = sendResources(skip, top, resources);
+        const list = sendResources(skip, top, resources);
+        if (
+          applyGraphResponseHeaders(request, response, list, false, {
+            total: resources.length,
+            skip,
+            top
+          })
+        ) {
+          return null;
+        }
+        result = list;
       }
       logger.info("Processed resources successfully.");
       return result;
@@ -1222,8 +1357,14 @@ export default class ResourcesReadAPI {
   @ApiQuery(dataObjectTypesQueryParam)
   @ApiQuery(depthQueryParam)
   @ApiQuery(countObjectsQueryParam)
+  @ApiQuery(rdfFormatQueryParam)
   @ApiQuery(transactionIdQueryParam)
-  @ApiProduces("application/json", RDF_MIME_TURTLE, RDF_MIME_JSONLD)
+  @ApiProduces(
+    "application/json",
+    RDF_MIME_TURTLE,
+    RDF_MIME_JSONLD,
+    RDF_MIME_NTRIPLES
+  )
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
     deprecated: true,
@@ -1241,6 +1382,7 @@ export default class ResourcesReadAPI {
     @Query("dataObjectTypes") dataObjectTypes?: string,
     @Query("depth", OptionalParseIntPipe) depth?: number,
     @Query("countObjects", OptionalParseBoolPipe) countObjects?: boolean,
+    @Query("format") format?: string,
     @Query("transactionId") transactionId?: string,
     @Req() request?: express.Request,
     @Res({ passthrough: true }) response?: express.Response
@@ -1251,7 +1393,7 @@ export default class ResourcesReadAPI {
     logger.debug(
       `Query parameters: skip=${skip}, top=${top}, filter=${filter}, storeLastWriteFilter=${storeLastWriteFilter}, dataObjectTypes=${dataObjectTypes}, countObjects=${countObjects}, transactionId=${transactionId}`
     );
-    const rdfFormat = negotiateRdf(request?.headers.accept);
+    const rdfFormat = resolveRdfFormat(request?.headers.accept, format);
     const query = {
       top,
       skip,
@@ -1289,11 +1431,30 @@ export default class ResourcesReadAPI {
       }
       c = undefined;
       const graphDto = sendGraph(skip, top, graph);
+      const total = [...graph.values()].length;
       logger.info("Processed resource graph successfully.");
       if (rdfFormat) {
         const { body, contentType } = serializeGraph(graphDto, rdfFormat);
         response?.type(contentType);
+        if (
+          applyGraphResponseHeaders(request, response, body, true, {
+            total,
+            skip,
+            top
+          })
+        ) {
+          return null;
+        }
         return body;
+      }
+      if (
+        applyGraphResponseHeaders(request, response, graphDto, false, {
+          total,
+          skip,
+          top
+        })
+      ) {
+        return null;
       }
       return graphDto;
     } catch (err) {
