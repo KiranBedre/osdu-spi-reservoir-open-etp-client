@@ -134,6 +134,44 @@ describe("ExtraMetadata non-osdu preservation", () => {
     expect(osdu.data.ExtensionProperties?.AuthoringSoftware).toEqual("ResInsight v2024.1");
   });
 
+  it("does not leak authoringSoftware to the serialized record top level", () => {
+    // Regression: a top-level `authoringSoftware` violates the OSDU record
+    // schema (additionalProperties:false), causing the Osdu_ingest DAG to
+    // SILENTLY DROP the record while Storage keeps it. The value must survive
+    // only inside data.ExtensionProperties.AuthoringSoftware.
+    const context = new OSDUContext("test-partition", "test-rddms");
+    const { GenericPropertyOSDU } = require("../lib/jsonTypes/GenericProperty");
+
+    const xml: any = {
+      SchemaVersion: "2.0",
+      Uuid: "test-uuid-3",
+      Citation: {
+        Title: "Test",
+        Originator: "tester",
+        Creation: new Date(),
+        Format: "ResInsight v2024.1"
+      },
+      IndexableElement: "cells",
+      Count: 1,
+      PropertyKind: { PropertyKind: "porosity" },
+      PatchOfValues: [{ Values: {} }]
+    };
+
+    const osdu = new GenericPropertyOSDU(xml, context);
+    osdu.data = { ValueCount: 1 };
+    osdu.assignExtraMetaData([]);
+
+    const serialized = JSON.parse(JSON.stringify(osdu));
+    expect(serialized.authoringSoftware).toBeUndefined();
+    expect(serialized.__context).toBeUndefined();
+    expect(serialized.data.ExtensionProperties?.AuthoringSoftware).toEqual(
+      "ResInsight v2024.1"
+    );
+    // Genuine OSDU fields are still present.
+    expect(serialized.id).toEqual(osdu.id);
+    expect(serialized.kind).toEqual(osdu.kind);
+  });
+
   it("does not create ResqmlMetadata when all entries are osdu-prefixed", () => {
     const context = new OSDUContext("test-partition", "test-rddms");
     const { GenericPropertyOSDU } = require("../lib/jsonTypes/GenericProperty");

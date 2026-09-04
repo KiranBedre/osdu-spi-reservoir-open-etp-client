@@ -137,16 +137,27 @@ export default class HealthAPI {
           }://${etpServerHost}:${etpServerPort}${etpServerPath}/.well-known/etp-server-capabilities?GetVersion=etp12.energistics.org`;
         const req = prot
           .get(url, response => {
+            // Drain the unused body so the socket is released back to the pool.
+            response.resume();
             if (response.statusCode === 200 || response.statusCode === 301) {
               resolve(true);
             } else {
-              throw new InternalServerErrorException({
-                description: "Server not available"
-              });
+              // Must reject, not throw: this callback runs on a later event-loop
+              // tick outside the Promise executor's try/catch and outside Nest's
+              // request context, so a throw here would crash the process.
+              reject(
+                new InternalServerErrorException({
+                  description: "Server not available"
+                })
+              );
             }
           })
           .on("error", () => {
-            reject("Server not available");
+            reject(
+              new InternalServerErrorException({
+                description: "Server not available"
+              })
+            );
           });
         req.end();
       } catch (e) {

@@ -99,7 +99,7 @@ export class WitsmlWellLogOSDU
 
         if (pkTitle && isKnownPwlsProperty(pkTitle)) {
           curve.LogCurveMainFamilyID = context.addReferenceData(
-            "CurveMainFamily",
+            "LogCurveMainFamily",
             pkTitle
           );
         } else {
@@ -107,13 +107,13 @@ export class WitsmlWellLogOSDU
           const resolved = getPropertyFromMnemonic(mnemonic);
           if (resolved) {
             curve.LogCurveMainFamilyID = context.addReferenceData(
-              "CurveMainFamily",
+              "LogCurveMainFamily",
               resolved
             );
           } else if (pkTitle) {
             // Fallback: use raw property kind title
             curve.LogCurveMainFamilyID = context.addReferenceData(
-              "CurveMainFamily",
+              "LogCurveMainFamily",
               pkTitle
             );
           }

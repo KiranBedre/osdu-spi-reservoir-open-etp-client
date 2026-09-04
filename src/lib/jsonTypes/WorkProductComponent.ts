@@ -1099,6 +1099,33 @@ export class ResqmlResource<RES_TYPE extends IResqmlDataObject> {
   }
 
   /**
+   * Serialization boundary for the emitted OSDU record.
+   *
+   * `authoringSoftware` (Citation.Format) and `__context` are internal working
+   * fields — neither belongs in the OSDU record schema. OSDU record schemas are
+   * `additionalProperties: false` at the root, so leaking `authoringSoftware` to
+   * the record's top level makes the Osdu_ingest DAG's strict schema validation
+   * SILENTLY DROP the record ("Additional properties are not allowed
+   * ('authoringSoftware' was unexpected)"), while Storage's soft validation
+   * keeps it — a subtle, hard-to-diagnose divergence between the two ingestion
+   * paths. Stripping it here makes every manifest directly ingestable via BOTH
+   * Storage PUT and the Osdu_ingest DAG with no downstream normalization. The
+   * authoring software is preserved losslessly in
+   * `data.ExtensionProperties.AuthoringSoftware` (see assignExtraMetaData), so
+   * no information is lost.
+   *
+   * Defined on the base class so the guarantee holds for every generated record
+   * regardless of which converter produced it, and is independent of the
+   * `delete this.__context` cleanup individual converters perform.
+   */
+  public toJSON(): Record<string, unknown> {
+    const record = { ...this } as unknown as Record<string, unknown>;
+    delete record.authoringSoftware;
+    delete record.__context;
+    return record;
+  }
+
+  /**
    * Return the resource type ("reference-data", "work-product-component", ...)
    *
    * @returns {string}

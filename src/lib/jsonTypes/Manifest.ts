@@ -7,7 +7,12 @@ import type { IResqmlDataObject } from "../client/ResqmlClient";
 import logging from "../common/Logging";
 const logger = logging.getLogger("EtpClient");
 
-import { getKindOrFallback } from "./MilestoneKinds";
+import {
+  ensureSchemaVersions,
+  getKind,
+  getKindOrFallback,
+  isSchemaRegistered
+} from "./MilestoneKinds";
 import {
   DataspaceLegalACL,
   OSDUContext,
@@ -307,6 +312,18 @@ export const createManifest = async (
   }
   try {
     const tManifestStart = Date.now();
+    // Align stamped kind versions with the live target instance using the
+    // request token. The startup init (RestServer) runs unauthenticated and
+    // silently no-ops on secured instances, so without this the builder stays on
+    // the static fallback table — producing wrong schema versions and emitting
+    // work-product-component types that are absent on the target. Once resolved,
+    // getKind()/getKindOrFallback() return registered versions and unknown WPC
+    // types fall back to GenericRepresentation.
+    try {
+      await ensureSchemaVersions(osduUrl, context.bearer, context.partition);
+    } catch {
+      // Keep the static fallback table if resolution fails.
+    }
     try {
       await registerDMS(context);
     } catch {
@@ -945,6 +962,112 @@ export const createManifest = async (
           generatedSrn.set(r, rd);
         }
       });
+    }
+
+    // Final target-compatibility pass. Some records carry a schema kind that
+    // bypasses getKind() — master-data side-records (e.g. BoundaryFeature) and
+    // reference-data records built via buildReference() hardcode their version.
+    // When a live target registry is available, reconcile each record's kind
+    // against it:
+    //   - version drift      -> rewrite to the registered version (id is
+    //                           unaffected; the version is not part of the SRN)
+    //   - absent WPC type     -> fall back to GenericRepresentation
+    //   - absent ref/md type  -> drop the record (soft SRN references become
+    //                           dangling, which OSDU tolerates)
+    // In standalone/local mode isSchemaRegistered() returns true for everything,
+    // so this pass is a no-op there.
+    if (osduUrl && osduUrl !== "http://localhost") {
+      const bearer = context.bearer;
+      const partition = context.partition;
+      const categoryOf = (kind: string): string =>
+        (kind.split(":")[2] ?? "").split("--")[0];
+      const entityOf = (kind: string): string =>
+        (kind.split(":")[2] ?? "").split("--")[1] ?? "";
+      const rewriteKindAndId = (rec: any, newKind: string): void => {
+        rec.kind = newKind;
+        const typeSeg = newKind.split(":")[2];
+        if (typeSeg && typeof rec.id === "string") {
+          const idParts = rec.id.split(":");
+          if (idParts.length >= 3) {
+            idParts[1] = typeSeg;
+            rec.id = idParts.join(":");
+          }
+        }
+      };
+      const resolveKind = async (
+        kind: string
+      ): Promise<string | undefined> => {
+        if (await isSchemaRegistered(kind, osduUrl, bearer, partition)) {
+          return kind;
+        }
+        const cat = categoryOf(kind);
+        // 1) version drift: registered version for the same entity type
+        const byEntity = getKind(entityOf(kind));
+        if (
+          byEntity &&
+          byEntity !== kind &&
+          categoryOf(byEntity) === cat &&
+          (await isSchemaRegistered(byEntity, osduUrl, bearer, partition))
+        ) {
+          return byEntity;
+        }
+        // 2) absent work-product-component -> GenericRepresentation
+        if (cat === "work-product-component") {
+          const generic = getKind("GenericRepresentation");
+          if (
+            generic &&
+            (await isSchemaRegistered(generic, osduUrl, bearer, partition))
+          ) {
+            return generic;
+          }
+        }
+        // 3) absent reference-data / master-data -> drop
+        return undefined;
+      };
+      const normalizeArray = async (
+        arr: any[] | undefined
+      ): Promise<{ kept: any[]; remapped: number; dropped: number }> => {
+        const kept: any[] = [];
+        let remapped = 0;
+        let dropped = 0;
+        for (const rec of arr ?? []) {
+          if (!rec?.kind) {
+            kept.push(rec);
+            continue;
+          }
+          const target = await resolveKind(rec.kind);
+          if (target === undefined) {
+            dropped++;
+            continue;
+          }
+          if (target !== rec.kind) {
+            rewriteKindAndId(rec, target);
+            remapped++;
+          }
+          kept.push(rec);
+        }
+        return { kept, remapped, dropped };
+      };
+
+      const mdRes = await normalizeArray(manifests.MasterData);
+      manifests.MasterData = mdRes.kept;
+      const rdRes = await normalizeArray(manifests.ReferenceData);
+      manifests.ReferenceData = rdRes.kept;
+      let wpcRemapped = 0;
+      let wpcDropped = 0;
+      if (manifests.Data?.WorkProductComponents) {
+        const wpcRes = await normalizeArray(
+          manifests.Data.WorkProductComponents
+        );
+        manifests.Data.WorkProductComponents = wpcRes.kept;
+        wpcRemapped = wpcRes.remapped;
+        wpcDropped = wpcRes.dropped;
+      }
+      logger.info(
+        `[schema-compat] MasterData(remap=${mdRes.remapped},drop=${mdRes.dropped}) ` +
+        `ReferenceData(remap=${rdRes.remapped},drop=${rdRes.dropped}) ` +
+        `WorkProductComponents(remap=${wpcRemapped},drop=${wpcDropped})`
+      );
     }
 
     if (manifests.MasterData.length === 0) {
