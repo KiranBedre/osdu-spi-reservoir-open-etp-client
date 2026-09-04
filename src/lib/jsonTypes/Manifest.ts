@@ -19,6 +19,7 @@ import {
   OSDUResourceType
 } from "./OsduContext";
 import ResqmlOSDU, { EtpDataspaceManifest } from "./ResqmlOsdu";
+import { WorkProductManifest } from "./WorkProduct";
 import {
   CollaborationProjectManifest,
   deriveCollaborationId
@@ -387,12 +388,15 @@ export const createManifest = async (
           continue;
         }
 
-        // Create WorkProduct
-        // manifests.Data.WorkProduct = WorkProductManifest(
-        //   dataspaces[0],
-        //   context
-        // );
-        // manifests.Data.WorkProduct.version = 1;
+        // Create WorkProduct. The DAG-based OSDU ingestion workflow
+        // (Osdu_ingest) is WorkProduct-centric: it walks the WorkProduct's
+        // Components array to discover and ingest the associated
+        // WorkProductComponents. Without an emitted WorkProduct the WPCs are
+        // orphaned and silently skipped by the DAG. The Components array is
+        // populated later (see the WPC loop) via
+        // `manifests.Data.WorkProduct?.data?.Components?.push(...)`.
+        manifests.Data.WorkProduct = WorkProductManifest(dataspace, context);
+        manifests.Data.WorkProduct.version = 1;
         currentDataspaces.add(dataspaceId);
         if (!context.dataspaceACLs.has(dataspaceUri)) {
           const aclLegal = getACLForDataspace(dataspace);
@@ -1062,6 +1066,17 @@ export const createManifest = async (
         manifests.Data.WorkProductComponents = wpcRes.kept;
         wpcRemapped = wpcRes.remapped;
         wpcDropped = wpcRes.dropped;
+        // Resync the WorkProduct's Components list with the (possibly
+        // remapped/dropped) WPC ids. normalizeArray may rewrite a WPC's id
+        // when its kind is remapped (e.g. WellboreInterpretation ->
+        // GenericRepresentation) or drop it entirely, which would otherwise
+        // leave the Components array pointing at stale/dangling ids and break
+        // the WorkProduct-centric DAG ingestion.
+        if (manifests.Data?.WorkProduct?.data) {
+          manifests.Data.WorkProduct.data.Components = wpcRes.kept
+            .filter(rec => typeof (rec as { id?: unknown }).id === "string")
+            .map(rec => `${(rec as { id: string }).id}:`);
+        }
       }
       logger.info(
         `[schema-compat] MasterData(remap=${mdRes.remapped},drop=${mdRes.dropped}) ` +
