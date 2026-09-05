@@ -2,8 +2,6 @@
 
 Changes in the `open-etp-client` REST gateway since the M27 baseline (`cfffaa2`).
 
-> **Note**: ETP protocols not yet implemented in `open-etp-server` (DiscoveryQuery 13, GrowingObject 6, ChannelSubscribe 21) have been removed from the codebase. See `ToDo.md` for re-enablement plan.
-
 ---
 
 ## TypeScript REST SDK - `RddmsClient`
@@ -55,8 +53,6 @@ New `/graphql` endpoint with field-level selection and DataLoader batching. Quer
 | Protocol                  | ID  | Handler                             | Purpose                                       | Status |
 | ------------------------- | --- | ----------------------------------- | --------------------------------------------- | ------ |
 | StoreQuery                | 14  | `StoreQueryCustomer`                | Bulk data object retrieval                    | Live |
-
-Protocols DiscoveryQuery (13), GrowingObject (6), GrowingObjectNotification (7), and ChannelSubscribe (21) have been removed — `open-etp-server` does not implement them. See `ToDo.md`.
 
 ---
 
