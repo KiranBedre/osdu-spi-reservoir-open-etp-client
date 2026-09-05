@@ -404,7 +404,7 @@ These may affect existing consumers.
 | **WorkProduct emission** | WPCs could be dropped by the DAG | WorkProduct always emitted so WPCs ingest | — |
 | **Default manifest filter** | All RESQML types included | Types **and** properties included by default; filtering opt-in via `typePatterns` and `propertyFilter` (`all`/`canonical`/`none`); CRS always included | Pass `typePatterns` / `propertyFilter` to narrow |
 | **Lineage / PropertySet** | Lineage Activity + PropertySet containers emitted | Dropped by default (dangling-reference sources) | Adjust `excludePatterns` to re-include |
-| **Grid2d routing** | Depth-domain Grid2d + HorizonInterpretation → GenericRepresentation | → StructureMap | — |
+| **Grid2d routing** | Depth-domain Grid2d + HorizonInterpretation → GenericRepresentation | → StructureMap if kind defined | — |
 | **DELETE locked dataspace** | 204 (silent success) | 403 | Unlock before delete |
 | **Protocol negotiation** | `RDMS_ETP_EXTENDED_PROTOCOLS` env var | Auto-negotiated, env var removed | — |
 | **Dataspace ACL override** | ETP customData always overrode pre-configured ACLs | Pre-configured ACLs take priority | — |
