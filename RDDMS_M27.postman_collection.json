@@ -171,6 +171,30 @@
           "response": [],
           "event": [
             {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// CI-portable auth. In OSDU pipelines (CIMPL / AWS / GC) the platform mints",
+                  "// the bearer token and injects it (as access_token / ACCESS_TOKEN). Every",
+                  "// request in this collection sends `Bearer {{access_token}}`, so when a token",
+                  "// is already present we skip this self-mint entirely and no secrets are needed.",
+                  "// The keycloak refresh_token flow below only runs for local ad-hoc use when",
+                  "// you have populated Token_Fetch_URL + refresh_token in a (gitignored) env.",
+                  "var existing = pm.environment.get(\"access_token\") || pm.environment.get(\"ACCESS_TOKEN\") || pm.variables.get(\"access_token\");",
+                  "var tokenUrl = pm.variables.get(\"Token_Fetch_URL\");",
+                  "var canSkip = pm.execution && typeof pm.execution.skipRequest === \"function\";",
+                  "if (existing && String(existing).trim() !== \"\") {",
+                  "    console.log(\"[auth] access_token already provided by platform/env - skipping self-mint\");",
+                  "    if (canSkip) { pm.execution.skipRequest(); }",
+                  "} else if (!tokenUrl || String(tokenUrl).trim() === \"\") {",
+                  "    console.log(\"[auth] no access_token and no Token_Fetch_URL configured - skipping self-mint (provide one)\");",
+                  "    if (canSkip) { pm.execution.skipRequest(); }",
+                  "}"
+                ]
+              }
+            },
+            {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
@@ -1526,286 +1550,286 @@
               }
             }
           ]
+        },
+        {
+          "name": "Graph (sources / targets / full)",
+          "item": [
+            {
+              "name": "G1 Full Graph",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "data-partition-id",
+                    "value": "{{data-partition-id}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/graph/all",
+                  "host": [
+                    "{{RDDMS_URL}}"
+                  ],
+                  "path": [
+                    "dataspaces",
+                    "{{test_ds_encoded}}",
+                    "graph",
+                    "all"
+                  ]
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "G2 Graph Sources",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "data-partition-id",
+                    "value": "{{data-partition-id}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/graph/resqml20.obj_PointSetRepresentation/{{psr_guid}}/sources",
+                  "host": [
+                    "{{RDDMS_URL}}"
+                  ],
+                  "path": [
+                    "dataspaces",
+                    "{{test_ds_encoded}}",
+                    "graph",
+                    "resqml20.obj_PointSetRepresentation",
+                    "{{psr_guid}}",
+                    "sources"
+                  ]
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "G3 Graph Targets",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "data-partition-id",
+                    "value": "{{data-partition-id}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/graph/resqml20.obj_PointSetRepresentation/{{psr_guid}}/targets",
+                  "host": [
+                    "{{RDDMS_URL}}"
+                  ],
+                  "path": [
+                    "dataspaces",
+                    "{{test_ds_encoded}}",
+                    "graph",
+                    "resqml20.obj_PointSetRepresentation",
+                    "{{psr_guid}}",
+                    "targets"
+                  ]
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Arrays (list / content / metadata)",
+          "item": [
+            {
+              "name": "A1 List Arrays",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "data-partition-id",
+                    "value": "{{data-partition-id}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/resources/eml20.obj_EpcExternalPartReference/{{ext_guid}}/arrays",
+                  "host": [
+                    "{{RDDMS_URL}}"
+                  ],
+                  "path": [
+                    "dataspaces",
+                    "{{test_ds_encoded}}",
+                    "resources",
+                    "eml20.obj_EpcExternalPartReference",
+                    "{{ext_guid}}",
+                    "arrays"
+                  ]
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "A2 Get Array Content",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "data-partition-id",
+                    "value": "{{data-partition-id}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/resources/eml20.obj_EpcExternalPartReference/{{ext_guid}}/arrays/{{array_path_encoded}}",
+                  "host": [
+                    "{{RDDMS_URL}}"
+                  ],
+                  "path": [
+                    "dataspaces",
+                    "{{test_ds_encoded}}",
+                    "resources",
+                    "eml20.obj_EpcExternalPartReference",
+                    "{{ext_guid}}",
+                    "arrays",
+                    "{{array_path_encoded}}"
+                  ]
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "A3 Get Array Metadata",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{access_token}}",
+                    "type": "text"
+                  },
+                  {
+                    "key": "data-partition-id",
+                    "value": "{{data-partition-id}}",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/resources/eml20.obj_EpcExternalPartReference/{{ext_guid}}/arrays/{{array_path_encoded}}/metadata",
+                  "host": [
+                    "{{RDDMS_URL}}"
+                  ],
+                  "path": [
+                    "dataspaces",
+                    "{{test_ds_encoded}}",
+                    "resources",
+                    "eml20.obj_EpcExternalPartReference",
+                    "{{ext_guid}}",
+                    "arrays",
+                    "{{array_path_encoded}}",
+                    "metadata"
+                  ]
+                }
+              },
+              "response": [],
+              "event": [
+                {
+                  "listen": "test",
+                  "script": {
+                    "type": "text/javascript",
+                    "exec": [
+                      "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
         }
       ]
     },
     {
-      "name": "4. Graph APIs",
-      "item": [
-        {
-          "name": "G1 Full Graph",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              },
-              {
-                "key": "data-partition-id",
-                "value": "{{data-partition-id}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/graph/all",
-              "host": [
-                "{{RDDMS_URL}}"
-              ],
-              "path": [
-                "dataspaces",
-                "{{test_ds_encoded}}",
-                "graph",
-                "all"
-              ]
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "G2 Graph Sources",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              },
-              {
-                "key": "data-partition-id",
-                "value": "{{data-partition-id}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/graph/resqml20.obj_PointSetRepresentation/{{psr_guid}}/sources",
-              "host": [
-                "{{RDDMS_URL}}"
-              ],
-              "path": [
-                "dataspaces",
-                "{{test_ds_encoded}}",
-                "graph",
-                "resqml20.obj_PointSetRepresentation",
-                "{{psr_guid}}",
-                "sources"
-              ]
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "G3 Graph Targets",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              },
-              {
-                "key": "data-partition-id",
-                "value": "{{data-partition-id}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/graph/resqml20.obj_PointSetRepresentation/{{psr_guid}}/targets",
-              "host": [
-                "{{RDDMS_URL}}"
-              ],
-              "path": [
-                "dataspaces",
-                "{{test_ds_encoded}}",
-                "graph",
-                "resqml20.obj_PointSetRepresentation",
-                "{{psr_guid}}",
-                "targets"
-              ]
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "5. Array APIs",
-      "item": [
-        {
-          "name": "A1 List Arrays",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              },
-              {
-                "key": "data-partition-id",
-                "value": "{{data-partition-id}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/resources/eml20.obj_EpcExternalPartReference/{{ext_guid}}/arrays",
-              "host": [
-                "{{RDDMS_URL}}"
-              ],
-              "path": [
-                "dataspaces",
-                "{{test_ds_encoded}}",
-                "resources",
-                "eml20.obj_EpcExternalPartReference",
-                "{{ext_guid}}",
-                "arrays"
-              ]
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "A2 Get Array Content",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              },
-              {
-                "key": "data-partition-id",
-                "value": "{{data-partition-id}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/resources/eml20.obj_EpcExternalPartReference/{{ext_guid}}/arrays/{{array_path_encoded}}",
-              "host": [
-                "{{RDDMS_URL}}"
-              ],
-              "path": [
-                "dataspaces",
-                "{{test_ds_encoded}}",
-                "resources",
-                "eml20.obj_EpcExternalPartReference",
-                "{{ext_guid}}",
-                "arrays",
-                "{{array_path_encoded}}"
-              ]
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "A3 Get Array Metadata",
-          "request": {
-            "method": "GET",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{access_token}}",
-                "type": "text"
-              },
-              {
-                "key": "data-partition-id",
-                "value": "{{data-partition-id}}",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{RDDMS_URL}}/dataspaces/{{test_ds_encoded}}/resources/eml20.obj_EpcExternalPartReference/{{ext_guid}}/arrays/{{array_path_encoded}}/metadata",
-              "host": [
-                "{{RDDMS_URL}}"
-              ],
-              "path": [
-                "dataspaces",
-                "{{test_ds_encoded}}",
-                "resources",
-                "eml20.obj_EpcExternalPartReference",
-                "{{ext_guid}}",
-                "arrays",
-                "{{array_path_encoded}}",
-                "metadata"
-              ]
-            }
-          },
-          "response": [],
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test(\"status is 200\", function () { pm.response.to.have.status(200); });"
-                ]
-              }
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "6. Query APIs",
+      "name": "4. Query APIs",
       "item": [
         {
           "name": "Q1 Find Objects",
@@ -1946,7 +1970,7 @@
       ]
     },
     {
-      "name": "7. Transaction Rollback",
+      "name": "5. Transaction Rollback",
       "item": [
         {
           "name": "RB1 Start Rollback Transaction",
@@ -2178,7 +2202,7 @@
       ]
     },
     {
-      "name": "7b. Object Delete",
+      "name": "5b. Object Delete",
       "item": [
         {
           "name": "OD1 Start Delete-Setup Transaction",
@@ -2451,7 +2475,7 @@
       ]
     },
     {
-      "name": "8. Lock Unlock and Error Cases",
+      "name": "6. Lock Unlock and Error Cases",
       "item": [
         {
           "name": "L1 Lock Dataspace",
@@ -2755,7 +2779,7 @@
       ]
     },
     {
-      "name": "9. Manifest Build",
+      "name": "7. Manifest Build",
       "item": [
         {
           "name": "M1 Build Manifest",
@@ -2850,7 +2874,7 @@
       ]
     },
     {
-      "name": "9b. EPC Upload (optional)",
+      "name": "7b. EPC Upload (optional)",
       "item": [
         {
           "name": "EU1 Upload EPC + Ingest (optional)",
@@ -2949,7 +2973,7 @@
       ]
     },
     {
-      "name": "10. PWLS",
+      "name": "8. PWLS",
       "item": [
         {
           "name": "PW1 PWLS Status",
@@ -3150,7 +3174,7 @@
       ]
     },
     {
-      "name": "11. WITSML",
+      "name": "9. WITSML",
       "item": [
         {
           "name": "WM1 WITSML Query",
@@ -3515,7 +3539,7 @@
       ]
     },
     {
-      "name": "12. Wells",
+      "name": "10. Wells",
       "item": [
         {
           "name": "WL1 Search Wells",
@@ -3585,7 +3609,7 @@
       ]
     },
     {
-      "name": "12b. Clone Dataspace",
+      "name": "10b. Clone Dataspace",
       "item": [
         {
           "name": "CLN1 Clone Dataspace",
@@ -3755,7 +3779,7 @@
       ]
     },
     {
-      "name": "13. Semantic (RDF / SKOS / Export)",
+      "name": "11. Semantic (RDF / SKOS / Export)",
       "item": [
         {
           "name": "S1 JSON-LD Context",
@@ -4038,7 +4062,7 @@
       ]
     },
     {
-      "name": "14. Cleanup",
+      "name": "12. Cleanup",
       "item": [
         {
           "name": "CL1 Delete Test Dataspace",

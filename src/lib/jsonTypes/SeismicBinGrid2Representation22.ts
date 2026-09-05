@@ -100,20 +100,23 @@ export class SeismicBinGrid22OSDU
     let northing = Wgs84Coordinates?.length ? Wgs84Coordinates[0][1] : 0;
     if (crs.$type === "resqml20.obj_LocalDepth3dCrs") {
       const crs20 = crs as SimpleJson<resqml20.obj_LocalDepth3dCrs>;
+      const c0 = easting;
+      const c1 = northing;
       if (crs20.ProjectedAxisOrder === "northing easting") {
-        easting = northing;
-        northing = easting;
+        easting = c1;
+        northing = c0;
       } else if (crs20.ProjectedAxisOrder === "southing westing") {
-        easting = -northing;
-        northing = -easting;
+        easting = -c1;
+        northing = -c0;
       } else if (crs20.ProjectedAxisOrder === "northing westing") {
-        easting = northing;
-        northing = -easting;
+        easting = -c1;
+        northing = c0;
       } else if (crs20.ProjectedAxisOrder === "westing northing") {
-        easting = -easting;
+        easting = -c0;
+        northing = c1;
       } else if (crs20.ProjectedAxisOrder === "westing southing") {
-        easting = -easting;
-        northing = -northing;
+        easting = -c0;
+        northing = -c1;
       }
     } else {
       const crs23 = crs as SimpleJson<eml23.LocalEngineeringCompoundCrs>;
@@ -195,7 +198,10 @@ export class SeismicBinGrid22OSDU
     const uSpacing = u.Spacing as SimpleJson<eml23.FloatingPointConstantArray>;
     const vSpacing = v.Spacing as SimpleJson<eml23.FloatingPointConstantArray>;
     const [uLen, vLen] = [uSpacing.Value, vSpacing.Value];
-    const [nu, nv] = [uSpacing.Count + 1, vSpacing.Count + 1];
+    // Spacing.Count is the number of intervals (nodes - 1); the far corner of
+    // the extent is reached at origin + intervals * spacing, so multiply by
+    // Count (not Count + 1, which overshoots by one bin).
+    const [nu, nv] = [uSpacing.Count, vSpacing.Count];
 
     const uOffsetLen = Math.sqrt(
       u.Direction.Coordinate1 * u.Direction.Coordinate1 +

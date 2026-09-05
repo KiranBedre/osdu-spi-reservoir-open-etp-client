@@ -24,7 +24,10 @@ import {
   CollaborationProjectManifest,
   deriveCollaborationId
 } from "./CollaborationProject";
-import { getPropertyTypeIDFromResqmlAlias, PropertyTypesIds } from "./PropertyTypes";
+import {
+  getPropertyTypeIDFromResqmlAlias,
+  PropertyTypesIds
+} from "./PropertyTypes";
 import { isKnownPwlsProperty } from "./PwlsCurveCatalog";
 
 import { ErrorCode, EtpError } from "../common/EtpTypes";
@@ -141,9 +144,9 @@ export const DEFAULT_DATASPACE_TYPE_PATTERNS: string[] = [
  * manifest stays self-consistent for the OSDU ingestion workflow (Airflow DAG).
  */
 export const DEFAULT_INGEST_EXCLUDE_PATTERNS: string[] = [
-  "*Activity",          // resqml20.obj_Activity / eml23.Activity
-  "*ActivityTemplate",  // resqml20.obj_ActivityTemplate / eml23.ActivityTemplate
-  "*PropertySet"        // resqml20.obj_PropertySet -> PersistedCollection (pure grouping container)
+  "*Activity", // resqml20.obj_Activity / eml23.Activity
+  "*ActivityTemplate", // resqml20.obj_ActivityTemplate / eml23.ActivityTemplate
+  "*PropertySet" // resqml20.obj_PropertySet -> PersistedCollection (pure grouping container)
 ];
 
 /** Property type pattern for secondary filter matching */
@@ -163,25 +166,74 @@ const ALWAYS_INCLUDE_PATTERN = /Crs$/i;
  */
 const RESSIM_PROPERTY_NAMES = new Set([
   // Porosity & net-to-gross
-  "poro", "porosity", "ntg", "multpv",
+  "poro",
+  "porosity",
+  "ntg",
+  "multpv",
   // Permeability
-  "permx", "permy", "permz", "permxy", "permyz", "permzx",
-  "perm", "kx", "ky", "kz",
+  "permx",
+  "permy",
+  "permz",
+  "permxy",
+  "permyz",
+  "permzx",
+  "perm",
+  "kx",
+  "ky",
+  "kz",
   // Saturations
-  "sw", "sg", "so", "swat", "sgas", "soil",
-  "swl", "swu", "sgl", "sgu", "sowcr", "sogcr", "swcr", "sgcr",
+  "sw",
+  "sg",
+  "so",
+  "swat",
+  "sgas",
+  "soil",
+  "swl",
+  "swu",
+  "sgl",
+  "sgu",
+  "sowcr",
+  "sogcr",
+  "swcr",
+  "sgcr",
   // Region numbers
-  "satnum", "eqlnum", "fipnum", "pvtnum", "imbnum", "actnum",
-  "endnum", "rocknum", "fluxnum",
+  "satnum",
+  "eqlnum",
+  "fipnum",
+  "pvtnum",
+  "imbnum",
+  "actnum",
+  "endnum",
+  "rocknum",
+  "fluxnum",
   // Transmissibility & multipliers
-  "tranx", "trany", "tranz", "multx", "multy", "multz",
-  "multx-", "multy-", "multz-", "multregt",
+  "tranx",
+  "trany",
+  "tranz",
+  "multx",
+  "multy",
+  "multz",
+  "multx-",
+  "multy-",
+  "multz-",
+  "multregt",
   // Pressure & depth
-  "pressure", "depth", "tops", "dz", "dx", "dy",
+  "pressure",
+  "depth",
+  "tops",
+  "dz",
+  "dx",
+  "dy",
   // Rock mechanics
-  "young", "poisson", "biot",
+  "young",
+  "poisson",
+  "biot",
   // Common output / init
-  "rporv", "porv", "fipoil", "fipgas", "fipwat",
+  "rporv",
+  "porv",
+  "fipoil",
+  "fipgas",
+  "fipwat"
 ]);
 
 /** Property filter mode for manifest generation */
@@ -199,7 +251,10 @@ export type PropertyFilter = "canonical" | "none" | "all";
  * - A known PWLS v4 standard property name (875 entries)
  * - An OSDU PropertyType from the reference-data manifest
  */
-export function isCanonicalProperty(dataObjectType: string, name: string): boolean {
+export function isCanonicalProperty(
+  dataObjectType: string,
+  name: string
+): boolean {
   if (!PROPERTY_TYPE_PATTERN.test(dataObjectType)) return false;
   if (!name) return false;
   // Check common simulator abbreviations (case-insensitive)
@@ -457,12 +512,10 @@ export const createManifest = async (
     for (const dataspaceUri of context.dataspaceACLs.keys()) {
       const dsEtpUri = new EtpUri(dataspaceUri);
       const collabId = deriveCollaborationId(dsEtpUri.dataSpace);
-      const dsInfo = await client
-        .getDataspaceInfo([dataspaceUri])
-        .then(
-          ds => (ds.length === 1 ? ds[0] : undefined),
-          () => undefined
-        );
+      const dsInfo = await client.getDataspaceInfo([dataspaceUri]).then(
+        ds => (ds.length === 1 ? ds[0] : undefined),
+        () => undefined
+      );
       if (dsInfo) {
         const cpRecord = CollaborationProjectManifest(
           dsInfo,
@@ -513,33 +566,57 @@ export const createManifest = async (
       const BATCH_SIZE = 50;
       while (tmpUris.length > 0) {
         const batch = tmpUris.splice(0, BATCH_SIZE);
-        logger.info(`[perf] Fetching batch of ${batch.length} URIs from ${dataspace}, first: ${batch[0]?.substring(batch[0].lastIndexOf('/'))}`);
+        logger.info(
+          `[perf] Fetching batch of ${batch.length
+          } URIs from ${dataspace}, first: ${batch[0]?.substring(
+            batch[0].lastIndexOf("/")
+          )}`
+        );
         try {
           const t1 = Date.now();
-          const arr = await client.getResolvedObjects(
-            batch,
-            objects,
-            false
-          );
+          const arr = await client.getResolvedObjects(batch, objects, false);
           const batchNulls = arr.filter(o => o === null).length;
-          logger.info(`[perf] Batch result: ${arr.length} items, ${batchNulls} nulls, objects map size=${objects.size}, took ${Date.now() - t1}ms`);
+          logger.info(
+            `[perf] Batch result: ${arr.length
+            } items, ${batchNulls} nulls, objects map size=${objects.size
+            }, took ${Date.now() - t1}ms`
+          );
           if (batchNulls > 0 && batchNulls === arr.length) {
             // Try single fetch to diagnose
             const testUri = batch[0];
-            logger.warn(`[debug] All nulls! Trying single getObjects for: ${testUri}`);
+            logger.warn(
+              `[debug] All nulls! Trying single getObjects for: ${testUri}`
+            );
             const singleMap = new Map<string, any>();
-            const single = await client.getResolvedObjects([testUri], singleMap, false);
-            logger.warn(`[debug] Single result: ${single.length} items, null=${single[0] === null}, singleMap size=${singleMap.size}`);
+            const single = await client.getResolvedObjects(
+              [testUri],
+              singleMap,
+              false
+            );
+            logger.warn(
+              `[debug] Single result: ${single.length} items, null=${single[0] === null
+              }, singleMap size=${singleMap.size}`
+            );
           }
           resolvedObjects = resolvedObjects.concat(arr);
         } catch (e: any) {
-          logger.error(`getResolvedObjects failed for batch: ${batch.map(u => u.substring(u.lastIndexOf('/') + 1)).join(', ')} - ${e?.message ?? e}`);
+          logger.error(
+            `getResolvedObjects failed for batch: ${batch
+              .map(u => u.substring(u.lastIndexOf("/") + 1))
+              .join(", ")} - ${e?.message ?? e}`
+          );
         }
       }
 
       const nullCount = resolvedObjects.filter(o => o === null).length;
-      const noTypeCount = resolvedObjects.filter(o => o !== null && o?.$type === undefined).length;
-      logger.info(`Resolved ${resolvedObjects.length} objects for dataspace ${dataspace} in ${Date.now() - t0}ms (null=${nullCount}, noType=${noTypeCount})`);
+      const noTypeCount = resolvedObjects.filter(
+        o => o !== null && o?.$type === undefined
+      ).length;
+      logger.info(
+        `Resolved ${resolvedObjects.length
+        } objects for dataspace ${dataspace} in ${Date.now() - t0
+        }ms (null=${nullCount}, noType=${noTypeCount})`
+      );
 
       const tConvert = Date.now();
       for (let i = 0; i < resolvedObjects.length; i++) {
@@ -575,7 +652,9 @@ export const createManifest = async (
           );
           const convertMs = Date.now() - tObj;
           if (convertMs > 200) {
-            logger.warn(`[perf] Slow converter: ${etpUri.dataObjectType} took ${convertMs}ms`);
+            logger.warn(
+              `[perf] Slow converter: ${etpUri.dataObjectType} took ${convertMs}ms`
+            );
           }
           // Override record.kind with the dynamically resolved version.
           // The converter constructor hardcodes a compile-time version, but the
@@ -654,11 +733,17 @@ export const createManifest = async (
           }
         } catch (convErr: any) {
           // Converter failed for this object - skip it
-          logger.error(`Converter failed for ${etpUri.dataObjectType} (${resObj.Uuid}): ${convErr?.message ?? convErr}`);
+          logger.error(
+            `Converter failed for ${etpUri.dataObjectType} (${resObj.Uuid}): ${convErr?.message ?? convErr
+            }`
+          );
           continue;
         }
       }
-      logger.info(`[perf] Convert ${resolvedObjects.length} objects: ${Date.now() - tConvert}ms`);
+      logger.info(
+        `[perf] Convert ${resolvedObjects.length} objects: ${Date.now() - tConvert
+        }ms`
+      );
     }
 
     // A3: Auto-generate lineage Activity record for this manifest build.
@@ -723,7 +808,9 @@ export const createManifest = async (
           }
         }
         context.created.set(activityId, activityRecord);
-        logger.info(`A3: Auto-generated lineage Activity ${activityUuid} with ${outputIds.length} output(s)`);
+        logger.info(
+          `A3: Auto-generated lineage Activity ${activityUuid} with ${outputIds.length} output(s)`
+        );
       }
     }
 
@@ -744,7 +831,9 @@ export const createManifest = async (
     const processedSrn = new Set<string>();
     if (context.createMissingReferences) {
       while (missingSrn.length > 0) {
-        logger.info(`[perf] Reference resolution wave: ${missingSrn.length} missing SRNs`);
+        logger.info(
+          `[perf] Reference resolution wave: ${missingSrn.length} missing SRNs`
+        );
 
         // 1. Identify which URIs need fetching (not already in objects cache)
         const toResolve: { srn: string; uri: string; etpUri: EtpUri }[] = [];
@@ -780,20 +869,32 @@ export const createManifest = async (
               logger.warn(`[perf] Batch ETP fetch failed: ${e?.message ?? e}`);
             }
           }
-          logger.info(`[perf] Fetched ${toResolve.length} objects in ${Date.now() - t0}ms`);
+          logger.info(
+            `[perf] Fetched ${toResolve.length} objects in ${Date.now() - t0}ms`
+          );
         }
 
         // 3. Convert all missing refs (objects now in cache)
         for (const k of missingSrn) {
           if (unknownSrn.has(k)) continue;
           const objUri = context.srnToUri.get(k);
-          if (!objUri) { unknownSrn.add(k); continue; }
+          if (!objUri) {
+            unknownSrn.add(k);
+            continue;
+          }
           const etpUri = new EtpUri(objUri);
           const c = ResqmlOSDU.get(etpUri.dataObjectType);
-          if (!c) { bumpSkip(skippedNoConverter, etpUri.dataObjectType); unknownSrn.add(k); continue; }
+          if (!c) {
+            bumpSkip(skippedNoConverter, etpUri.dataObjectType);
+            unknownSrn.add(k);
+            continue;
+          }
 
           const obj = objects.get(objUri);
-          if (!obj) { unknownSrn.add(k); continue; }
+          if (!obj) {
+            unknownSrn.add(k);
+            continue;
+          }
 
           try {
             const res = await c.convert(objUri, obj, context, client);
@@ -817,14 +918,23 @@ export const createManifest = async (
             if (res === undefined) {
               bumpSkip(skippedConverterUndefined, etpUri.dataObjectType);
             }
-            if (srn === undefined || res === undefined || res.id === undefined) {
+            if (
+              srn === undefined ||
+              res === undefined ||
+              res.id === undefined
+            ) {
               unknownSrn.add(k);
             } else {
-              const dataspaceUri = EtpUri.createDataSpaceUri(etpUri.dataSpace).uri;
+              const dataspaceUri = EtpUri.createDataSpaceUri(
+                etpUri.dataSpace
+              ).uri;
               const aclLegal = context.dataspaceACLs.get(dataspaceUri);
               if (aclLegal !== undefined && res !== undefined) {
                 res.acl = aclLegal?.acl ?? { owners: [], viewers: [] };
-                res.legal = aclLegal?.legal ?? { legaltags: [], otherRelevantDataCountries: [] };
+                res.legal = aclLegal?.legal ?? {
+                  legaltags: [],
+                  otherRelevantDataCountries: []
+                };
               }
               generatedSrn.set(`${srn}`, res);
             }
@@ -842,22 +952,35 @@ export const createManifest = async (
       }
     }
 
-    // Cascade-remove WPCs whose references could not be resolved.
+    // Cascade-remove records whose references could not be resolved.
     // Skip in best-effort mode (createMissingReferences=true): unresolvable
     // reference-data (UnitOfMeasure, PropertyKind, etc.) is expected to be
     // supplied by the platform and should not invalidate successfully-built WPCs.
+    //
+    // There is no explicit origin->target edge list, so derive the edges from
+    // the serialized records: a record whose JSON embeds the SRN of an
+    // unresolved (unknown) object depends on it and must be dropped too. Removal
+    // makes the origin itself unresolved, so repeat to a fixpoint (transitive
+    // cascade).
     if (!context.createMissingReferences) {
-      let edges = context.edges.filter(e =>
-        unknownSrn.has(e.target.slice(0, -1))
-      );
-      while (edges.length > 0) {
-        unknownSrn.clear();
-        edges.forEach(e => {
-          if (generatedSrn.delete(e.origin)) {
-            unknownSrn.add(e.origin);
+      const recordJson = new Map<string, string>();
+      generatedSrn.forEach((rec, srn) => {
+        recordJson.set(srn, JSON.stringify(rec));
+      });
+      let frontier: string[] = Array.from(unknownSrn);
+      while (frontier.length > 0) {
+        const removed: string[] = [];
+        recordJson.forEach((json, srn) => {
+          if (!generatedSrn.has(srn)) {
+            return;
+          }
+          if (frontier.some(bad => bad.length > 0 && json.includes(bad))) {
+            generatedSrn.delete(srn);
+            unknownSrn.add(srn);
+            removed.push(srn);
           }
         });
-        edges = context.edges.filter(e => unknownSrn.has(e.target.slice(0, -1)));
+        frontier = removed;
       }
     }
 
@@ -875,8 +998,9 @@ export const createManifest = async (
     // so Storage rejects them ("acl.viewers / legaltags / otherRelevantDataCountries
     // cannot be empty"). Use the dataspace ACL as the backfill source; records that
     // already carry a non-empty ACL keep their own.
-    const fallbackAclLegal =
-      context.dataspaceACLs.values().next().value as DataspaceLegalACL | undefined;
+    const fallbackAclLegal = context.dataspaceACLs.values().next().value as
+      | DataspaceLegalACL
+      | undefined;
     if (fallbackAclLegal !== undefined) {
       for (const [, rec] of generatedSrn) {
         if (rec === undefined) continue;
@@ -885,8 +1009,7 @@ export const createManifest = async (
           ((rec.acl.viewers?.length ?? 0) === 0 &&
             (rec.acl.owners?.length ?? 0) === 0);
         const legalEmpty =
-          rec.legal === undefined ||
-          (rec.legal.legaltags?.length ?? 0) === 0;
+          rec.legal === undefined || (rec.legal.legaltags?.length ?? 0) === 0;
         if (aclEmpty && fallbackAclLegal.acl !== undefined) {
           rec.acl = fallbackAclLegal.acl;
         }
@@ -1012,9 +1135,7 @@ export const createManifest = async (
           }
         }
       };
-      const resolveKind = async (
-        kind: string
-      ): Promise<string | undefined> => {
+      const resolveKind = async (kind: string): Promise<string | undefined> => {
         if (await isSchemaRegistered(kind, osduUrl, bearer, partition)) {
           return kind;
         }
@@ -1111,8 +1232,12 @@ export const createManifest = async (
       const sum = (m: Map<string, number>): number =>
         Array.from(m.values()).reduce((a, b) => a + b, 0);
       logger.info(
-        `[skip] no-converter=${sum(skippedNoConverter)} [${fmt(skippedNoConverter)}] ` +
-        `converter-skipped=${sum(skippedConverterUndefined)} [${fmt(skippedConverterUndefined)}]`
+        `[skip] no-converter=${sum(skippedNoConverter)} [${fmt(
+          skippedNoConverter
+        )}] ` +
+        `converter-skipped=${sum(skippedConverterUndefined)} [${fmt(
+          skippedConverterUndefined
+        )}]`
       );
     }
 
@@ -1140,7 +1265,10 @@ export const createManifest = async (
     logger.error("Manifest creation failed:", err?.message || err);
     logger.error("Stack:", err?.stack);
     return Promise.reject(
-      new EtpError("Manifest creation failed: " + (err?.message || "unknown"), ErrorCode.EINVALID_STATE)
+      new EtpError(
+        "Manifest creation failed: " + (err?.message || "unknown"),
+        ErrorCode.EINVALID_STATE
+      )
     );
   }
 };

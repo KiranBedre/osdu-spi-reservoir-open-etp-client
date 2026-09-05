@@ -165,8 +165,6 @@ export class OSDUContext {
 
   public technicalAssurances?: ITechnicalAssurance[];
 
-  public edges: { origin: string; target: string }[] = [];
-
   constructor(
     partition: string,
     submitter: string,

@@ -95,20 +95,23 @@ export class SeismicBinGridOSDU
   ): { easting: number; northing: number } {
     let easting = Wgs84Coordinates?.length ? Wgs84Coordinates[0][0] : 0;
     let northing = Wgs84Coordinates?.length ? Wgs84Coordinates[0][1] : 0;
+    const c0 = easting;
+    const c1 = northing;
     if (crs.ProjectedAxisOrder === "northing easting") {
-      easting = northing;
-      northing = easting;
+      easting = c1;
+      northing = c0;
     } else if (crs.ProjectedAxisOrder === "southing westing") {
-      easting = -northing;
-      northing = -easting;
+      easting = -c1;
+      northing = -c0;
     } else if (crs.ProjectedAxisOrder === "northing westing") {
-      easting = northing;
-      northing = -easting;
+      easting = -c1;
+      northing = c0;
     } else if (crs.ProjectedAxisOrder === "westing northing") {
-      easting = -easting;
+      easting = -c0;
+      northing = c1;
     } else if (crs.ProjectedAxisOrder === "westing southing") {
-      easting = -easting;
-      northing = -northing;
+      easting = -c0;
+      northing = -c1;
     }
     return { easting, northing };
   }
@@ -152,7 +155,10 @@ export class SeismicBinGridOSDU
     const uSpacing = u.Spacing as SimpleJson<resqml20.DoubleConstantArray>;
     const vSpacing = v.Spacing as SimpleJson<resqml20.DoubleConstantArray>;
     const [uLen, vLen] = [uSpacing.Value, vSpacing.Value];
-    const [nu, nv] = [uSpacing.Count + 1, vSpacing.Count + 1];
+    // Spacing.Count is the number of intervals (nodes - 1); the far corner of
+    // the extent is reached at origin + intervals * spacing, so multiply by
+    // Count (not Count + 1, which overshoots by one bin).
+    const [nu, nv] = [uSpacing.Count, vSpacing.Count];
 
     const uOffsetLen = Math.sqrt(
       u.Offset.Coordinate1 * u.Offset.Coordinate1 +

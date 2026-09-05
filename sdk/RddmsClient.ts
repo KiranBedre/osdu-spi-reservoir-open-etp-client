@@ -103,6 +103,87 @@ export interface TransactionResult {
     transactionId: string;
 }
 
+export type RdfFormat = "turtle" | "jsonld" | "ntriples";
+
+export interface PwlsStatus {
+    propertiesLoaded?: number;
+    mnemonicsLoaded?: number;
+    vendors?: string[];
+    [key: string]: unknown;
+}
+
+export interface ResolvedMnemonic {
+    mnemonic: string;
+    property?: string;
+    quantityClass?: string;
+    propertyTypeId?: string;
+    resolved: boolean;
+}
+
+export interface CurveValidationInput {
+    curves: Array<{ mnemonic: string; uom?: string }>;
+}
+
+export interface CurveValidationResult {
+    total: number;
+    resolved: number;
+    unresolved: number;
+    withWarnings: number;
+    results: Array<{
+        mnemonic: string;
+        knownProperty: boolean;
+        mnemonicResolved: boolean;
+        property?: string;
+        quantityClass?: string;
+        propertyTypeId?: string;
+        warnings?: string[];
+    }>;
+}
+
+export interface DeletedResource {
+    uri: string;
+    deletedTime?: string;
+    customData?: Record<string, unknown>;
+}
+
+export interface WitsmlStoreInput {
+    dataspace: string;
+    xml?: string;
+    json?: DataObject[];
+}
+
+export interface WitsmlQueryInput {
+    dataspace: string;
+    objectType?: string;
+    objectTypes?: string[];
+    titleContains?: string;
+    uuids?: string[];
+    modifiedSince?: string;
+    relatedTo?: string;
+    scope?: "self" | "sources" | "targets" | "both";
+    skip?: number;
+    top?: number;
+    format?: "xml" | "json";
+}
+
+export interface WellChild {
+    uuid: string;
+    name: string;
+    typeName: string;
+    dataspace: string;
+}
+
+export interface WellSummary {
+    name: string;
+    uuid: string;
+    dataspace: string;
+    typeName: string;
+    wellbores?: WellChild[];
+    logs?: WellChild[];
+    trajectories?: WellChild[];
+    channelSets?: WellChild[];
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -178,6 +259,19 @@ export class RddmsClient {
     private put<T>(path: string, body?: unknown) { return this.request<T>("PUT", path, body); }
     private del<T>(path: string) { return this.request<T>("DELETE", path); }
 
+    /** Multipart POST (e.g. EPC upload). Lets fetch set the boundary. */
+    private async upload<T>(path: string, form: FormData): Promise<T> {
+        const h = await this.headers();
+        const res = await fetch(`${this.base}${path}`, { method: "POST", headers: h, body: form });
+        if (!res.ok) {
+            const text = await res.text();
+            throw new Error(`RDDMS POST ${path} \u2192 ${res.status}: ${text}`);
+        }
+        const ct = res.headers.get("content-type") ?? "";
+        if (ct.includes("json")) return res.json() as Promise<T>;
+        return res.text() as unknown as T;
+    }
+
     // ── Health ──────────────────────────────────────────────────────────────
 
     readonly health = {
@@ -242,6 +336,14 @@ export class RddmsClient {
         /** Validate all objects in a dataspace */
         validate: (ds: string) =>
             this.post<unknown>(`/dataspaces/${enc(ds)}/validate`),
+
+        /** List deleted resources with deletion timestamps */
+        deleted: (ds: string, opts?: { storeLastWriteFilter?: string; dataObjectTypes?: string; transactionId?: string }) =>
+            this.get<DeletedResource[]>(`/dataspaces/${enc(ds)}/deleted${qs(opts ?? {})}`),
+
+        /** RDF/linked-data projection of a single object (Turtle by default) */
+        rdf: (ds: string, type: string, guid: string, opts?: { format?: RdfFormat | "csv" | "graphml"; depth?: number; version?: string; transactionId?: string }) =>
+            this.get<string | Record<string, unknown>>(`/dataspaces/${enc(ds)}/resources/${enc(type)}/${enc(guid)}/rdf${qs(opts ?? {})}`),
     };
 
     // ── Graph ───────────────────────────────────────────────────────────────
@@ -315,6 +417,98 @@ export class RddmsClient {
         build: (input: ManifestInput) =>
             this.post<unknown>("/manifests/build", input),
     };
+
+    // ── PWLS (curve / property catalogue) ────────────────────────────────
+
+    readonly pwls = {
+        /** Catalog status: loaded properties, mnemonics, vendors */
+        status: () => this.get<PwlsStatus>("/pwls/status"),
+
+        /** Resolve a vendor mnemonic to its PWLS property, QuantityClass and PropertyType UUID */
+        resolve: (mnemonic: string) =>
+            this.get<ResolvedMnemonic>(`/pwls/resolve${qs({ mnemonic })}`),
+
+        /** Validate a set of curve mnemonics against the PWLS catalog */
+        validate: (input: CurveValidationInput) =>
+            this.post<CurveValidationResult>("/pwls/validate", input),
+
+        /** Get the PWLS catalogue (JSON summary, or SKOS via format=turtle|jsonld|ntriples) */
+        catalog: (opts?: { format?: RdfFormat; mnemonics?: boolean }) =>
+            this.get<Record<string, unknown> | string>(`/pwls/catalog${qs(opts ?? {})}`),
+
+        /** Load an additional vendor curve catalog (PWLS v4 JSON) */
+        loadCatalog: (body: unknown) =>
+            this.post<{ added: number; totalMnemonics: number; vendors: string[] }>("/pwls/catalog", body),
+    };
+
+    // ── RDF / linked-data ─────────────────────────────────────────
+
+    readonly rdf = {
+        /** JSON-LD @context for the compacted JSON-LD returned by the graph endpoints */
+        context: () => this.get<Record<string, unknown>>("/rdf/context"),
+
+        /** The Reservoir DDMS graph ontology (Turtle by default) */
+        ontology: (opts?: { format?: RdfFormat }) =>
+            this.get<string | Record<string, unknown>>(`/rdf/ontology${qs(opts ?? {})}`),
+
+        /** RESQML/WITSML → OSDU OWL alignment (Turtle by default) */
+        alignment: (opts?: { format?: RdfFormat }) =>
+            this.get<string | Record<string, unknown>>(`/rdf/alignment${qs(opts ?? {})}`),
+    };
+
+    // ── EPC upload (multipart) ────────────────────────────────────
+
+    readonly epc = {
+        /**
+         * Upload an EPC (+ optional H5) file pair and ingest into a dataspace.
+         * Pass `ds='auto'` to derive the dataspace from `{user}/{epc filename}`.
+         */
+        upload: (
+            ds: string,
+            files: { epc: Blob; h5?: Blob; epcName?: string; h5Name?: string },
+            opts?: {
+                transactionId?: string;
+                dataspace?: string;
+                autoIngest?: "false" | "true" | "records" | "workflow";
+                registerMissingSchemas?: boolean;
+                validate?: "false" | "true" | "strict";
+                typePatterns?: string;
+                propertyFilter?: string;
+                excludePatterns?: string;
+            },
+        ) => {
+            const form = new FormData();
+            form.append("epc", files.epc, files.epcName ?? "data.epc");
+            if (files.h5) form.append("h5", files.h5, files.h5Name ?? "data.h5");
+            return this.upload<unknown>(`/dataspaces/${enc(ds)}/epc/upload${qs(opts ?? {})}`, form);
+        },
+    };
+
+    // ── WITSML ──────────────────────────────────────────────
+
+    readonly witsml = {
+        /** Store WITSML 2.1 objects (XML or JSON); auto-transaction unless transactionId given */
+        store: (input: WitsmlStoreInput, opts?: { transactionId?: string }) =>
+            this.put<{ success: boolean; stored: Array<{ objectType: string; uuid: string; title: string }>; arraysStored: number }>(
+                `/witsml/store${qs(opts ?? {})}`, input),
+
+        /** Query WITSML objects with filters (xml or json output) */
+        query: (input: WitsmlQueryInput, opts?: { $format?: "xml" | "json" }) =>
+            this.post<{ objects: unknown[]; count: number; total: number }>(`/witsml/query${qs(opts ?? {})}`, input),
+    };
+
+    // ── Wells ───────────────────────────────────────────────
+
+    readonly wells = {
+        /** Search wells across dataspaces with hierarchy resolution */
+        find: (opts?: { name?: string; dataspace?: string; include?: string }) =>
+            this.get<WellSummary[]>(`/wells${qs(opts ?? {})}`),
+    };
+
+    // ── Metrics ────────────────────────────────────────────
+
+    /** Prometheus metrics (text exposition format) */
+    readonly metrics = () => this.get<string>("/metrics");
 
     // ── High-level helpers ──────────────────────────────────────────────────
 
