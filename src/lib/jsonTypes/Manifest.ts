@@ -380,6 +380,30 @@ export const createManifest = async (
       }
     }
 
+    // Enforce a single dataspace per manifest request. A WorkProduct is 1:1
+    // with a dataspace (its id/name/ETPDataspace/acl/legal are all derived from
+    // one dataspace) and Manifest.Data.WorkProduct is singular. Mixing
+    // dataspaces would tie every WPC — and the ACL/legal backfill — to a single,
+    // arbitrarily-chosen dataspace, leaking governance across boundaries. Build
+    // one manifest per dataspace instead. See docs/WorkProductDataspace.md.
+    const distinctDataspaces = new Set<string>();
+    for (const uri of allUris) {
+      const u = new EtpUri(uri);
+      if (u.isValid) {
+        distinctDataspaces.add(u.dataSpace);
+      }
+    }
+    if (distinctDataspaces.size > 1) {
+      return Promise.reject(
+        new EtpError(
+          `Manifest build supports a single dataspace per request; found ${distinctDataspaces.size}: ${Array.from(
+            distinctDataspaces
+          ).join(", ")}.`,
+          ErrorCode.EINVALID_ARGUMENT
+        )
+      );
+    }
+
     for (const uri of allUris) {
       const etpUri = new EtpUri(uri);
 
@@ -839,25 +863,6 @@ export const createManifest = async (
         // Remove references that cannot be resolved
         missingSrn = missingSrn.filter(k => !unknownSrn.has(k));
         missingSrn = await context.filterOSDUResources(missingSrn);
-      }
-    }
-
-    // Cascade-remove WPCs whose references could not be resolved.
-    // Skip in best-effort mode (createMissingReferences=true): unresolvable
-    // reference-data (UnitOfMeasure, PropertyKind, etc.) is expected to be
-    // supplied by the platform and should not invalidate successfully-built WPCs.
-    if (!context.createMissingReferences) {
-      let edges = context.edges.filter(e =>
-        unknownSrn.has(e.target.slice(0, -1))
-      );
-      while (edges.length > 0) {
-        unknownSrn.clear();
-        edges.forEach(e => {
-          if (generatedSrn.delete(e.origin)) {
-            unknownSrn.add(e.origin);
-          }
-        });
-        edges = context.edges.filter(e => unknownSrn.has(e.target.slice(0, -1)));
       }
     }
 

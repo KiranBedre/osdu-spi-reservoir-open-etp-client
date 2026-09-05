@@ -28,8 +28,7 @@ const RESQML20_Grid2DRepresentation = "resqml20.obj_Grid2dRepresentation";
  */
 export class SeismicLatticeFeatureOSDU
   extends ResqmlResource<SimpleJson<resqml20.obj_SeismicLatticeFeature>>
-  implements SeismicAcquisitionSurvey
-{
+  implements SeismicAcquisitionSurvey {
   public data: Data = {};
 
   public meta?: FrameOfReferenceMetaDataItem[];
@@ -115,10 +114,10 @@ export class SeismicLatticeFeatureOSDU
       grid2dResource.length === 0
         ? undefined
         : await ResqmlResource.getObjects(
-            client,
-            [grid2dResource[0].uri],
-            context
-          );
+          client,
+          [grid2dResource[0].uri],
+          context
+        );
     if (grid2ds && grid2ds.length > 0) {
       const grid2d =
         grid2ds[0] as SimpleJson<resqml20.obj_Grid2dRepresentation>;
@@ -151,12 +150,12 @@ export class SeismicLatticeFeatureOSDU
 
       const uOffsetLen = Math.sqrt(
         u.Offset.Coordinate1 * u.Offset.Coordinate1 +
-          u.Offset.Coordinate2 * u.Offset.Coordinate2
+        u.Offset.Coordinate2 * u.Offset.Coordinate2
       );
 
       const vOffsetLen = Math.sqrt(
         v.Offset.Coordinate1 * v.Offset.Coordinate1 +
-          v.Offset.Coordinate2 * v.Offset.Coordinate2
+        v.Offset.Coordinate2 * v.Offset.Coordinate2
       );
 
       const [ux, uy] = [

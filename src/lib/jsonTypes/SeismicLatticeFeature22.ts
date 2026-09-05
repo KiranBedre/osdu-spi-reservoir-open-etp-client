@@ -29,8 +29,7 @@ const RESQML22_Grid2DRepresentation = "resqml22.Grid2dRepresentation";
  */
 export class SeismicLatticeFeatureOSDU
   extends ResqmlResource<SimpleJson<resqml22.SeismicLatticeFeature>>
-  implements SeismicAcquisitionSurvey
-{
+  implements SeismicAcquisitionSurvey {
   public data: Data = {};
 
   public meta?: FrameOfReferenceMetaDataItem[];
@@ -116,10 +115,10 @@ export class SeismicLatticeFeatureOSDU
       grid2dResource.length === 0
         ? undefined
         : await ResqmlResource.getObjects(
-            client,
-            [grid2dResource[0].uri],
-            context
-          );
+          client,
+          [grid2dResource[0].uri],
+          context
+        );
     if (grid2ds && grid2ds.length > 0) {
       const grid2d = grid2ds[0] as SimpleJson<resqml22.Grid2dRepresentation>;
 
