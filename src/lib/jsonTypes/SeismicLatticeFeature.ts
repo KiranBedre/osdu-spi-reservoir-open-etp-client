@@ -54,20 +54,23 @@ export class SeismicLatticeFeatureOSDU
   ): { easting: number; northing: number } {
     let easting = Wgs84Coordinates?.length ? Wgs84Coordinates[0][0] : 0;
     let northing = Wgs84Coordinates?.length ? Wgs84Coordinates[0][1] : 0;
+    const c0 = easting;
+    const c1 = northing;
     if (crs.ProjectedAxisOrder === "northing easting") {
-      easting = northing;
-      northing = easting;
+      easting = c1;
+      northing = c0;
     } else if (crs.ProjectedAxisOrder === "southing westing") {
-      easting = -northing;
-      northing = -easting;
+      easting = -c1;
+      northing = -c0;
     } else if (crs.ProjectedAxisOrder === "northing westing") {
-      easting = northing;
-      northing = -easting;
+      easting = -c1;
+      northing = c0;
     } else if (crs.ProjectedAxisOrder === "westing northing") {
-      easting = -easting;
+      easting = -c0;
+      northing = c1;
     } else if (crs.ProjectedAxisOrder === "westing southing") {
-      easting = -easting;
-      northing = -northing;
+      easting = -c0;
+      northing = -c1;
     }
     return { easting, northing };
   }
