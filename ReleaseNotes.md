@@ -162,8 +162,7 @@ module — no Python, no separate container, no subprocess.
 - **9 validation layers** — EPC structure, XSD schema (libxmljs2/libxml2), DOR
   integrity, HDF5 references, cross-object consistency, business rules S01–S18,
   PWLS PropertyKind, fesapi compatibility, RDDMS compatibility.
-- **Schema versions** — RESQML 2.0.1 and 2.2 (XSD schemas bundled). 2.0.2 and
-  2.3.0 excluded (not yet published by Energistics).
+- **Schema versions** — RESQML 2.0.1 and 2.2 (XSD schemas bundled). 
 - **`ValidatorClient` local mode** — validation runs in-process by default; set
   `RDMS_VALIDATOR_URL` to fall back to an external HTTP validator service.
 - **In-memory validation** — `validateObjects()` accepts XML strings directly
