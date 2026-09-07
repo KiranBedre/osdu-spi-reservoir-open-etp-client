@@ -162,8 +162,7 @@ module — no Python, no separate container, no subprocess.
 - **9 validation layers** — EPC structure, XSD schema (libxmljs2/libxml2), DOR
   integrity, HDF5 references, cross-object consistency, business rules S01–S18,
   PWLS PropertyKind, fesapi compatibility, RDDMS compatibility.
-- **Schema versions** — RESQML 2.0.1 and 2.2 (XSD schemas bundled). 2.0.2 and
-  2.3.0 excluded (not yet published by Energistics).
+- **Schema versions** — RESQML 2.0.1 and 2.2 (XSD schemas bundled). 
 - **`ValidatorClient` local mode** — validation runs in-process by default; set
   `RDMS_VALIDATOR_URL` to fall back to an external HTTP validator service.
 - **In-memory validation** — `validateObjects()` accepts XML strings directly
@@ -377,17 +376,17 @@ internal; no API changes.
 **Highlights:** seismic easting/northing axis and bin-grid extent corrections
 change emitted coordinates for affected CRS and grids.
 
-| # | Summary | Impact |
+| Ref | Summary | Impact |
 | --- | --- | --- |
-| SEIS-1 | Easting/northing axis swap in seismic geometry | Corners/coordinates were both set to the northing value for northing-first CRS; only affected non-`easting northing` axis orders |
-| SEIS-2 | Bin-grid extent off-by-one | Far corner overshot by one bin (used node count instead of interval count) |
-| CRS-2 | ArealRotation wrong for rotated local CRS | Correct affine transform applied |
-| — | Circular reference resolution in `resolveReferences()` | Objects with mutual DORs now fully resolved |
-| — | Malformed reference IDs (`::` → `:`) in 8 converters | Structural/framework/rock-fluid references now resolve |
-| — | TriangulatedSurface node count 3× overcount | `IndexableElementCount` was counting x,y,z separately |
-| — | WellLog `Top`/`BottomMeasuredDepth`/`SamplingInterval` null | `extractDepthRange()` falls back to a full `NodeMd` scan when `GetDataSubarray` returns empty |
-| #126 | Invalid dateTime → HTTP 500 | Now returns 400 with a descriptive message |
-| #130 | DELETE locked dataspace → 204 | Now propagates 403 |
+| [!268](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/268) | Easting/northing axis swap in seismic geometry | Corners/coordinates were both set to the northing value for northing-first CRS; only affected non-`easting northing` axis orders |
+| [#79](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/issues/79) | Bin-grid extent off-by-one | Far corner overshot by one bin (used node count instead of interval count) |
+| [!268](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/268) | ArealRotation wrong for rotated local CRS | Correct affine transform applied |
+| [!268](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/268) | Circular reference resolution in `resolveReferences()` | Objects with mutual DORs now fully resolved |
+| [!206](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/206) | Malformed reference IDs (`::` → `:`) in 8 converters | Structural/framework/rock-fluid references now resolve |
+| [#67](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/issues/67) | TriangulatedSurface node count 3× overcount | `IndexableElementCount` was counting x,y,z separately |
+| [!269](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/269) | WellLog `Top`/`BottomMeasuredDepth`/`SamplingInterval` null | `extractDepthRange()` falls back to a full `NodeMd` scan when `GetDataSubarray` returns empty |
+| [#126](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/issues/126) | Invalid dateTime → HTTP 500 | Now returns 400 with a descriptive message |
+| [#130](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/issues/130) | DELETE locked dataspace → 204 | Now propagates 403 |
 
 ---
 
@@ -400,11 +399,11 @@ These may affect existing consumers.
 
 | Change | Old behavior | New behavior | Workaround |
 | --- | --- | --- | --- |
-| **Manifest scope** | Multi-dataspace requests produced one manifest | `POST /manifests/build` returns `400` for >1 dataspace | Build one manifest per dataspace |
+| **Manifest scope** ([!373](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/373)) | Multi-dataspace requests produced one manifest | `POST /manifests/build` returns `400` for >1 dataspace | Build one manifest per dataspace |
 | **WorkProduct emission** | WPCs could be dropped by the DAG | WorkProduct always emitted so WPCs ingest | — |
-| **Default manifest filter** | All RESQML types included | Types **and** properties included by default; filtering opt-in via `typePatterns` and `propertyFilter` (`all`/`canonical`/`none`); CRS always included | Pass `typePatterns` / `propertyFilter` to narrow |
+| **Default manifest filter** ([!311](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/311)) | All RESQML types included | Types **and** properties included by default; filtering opt-in via `typePatterns` and `propertyFilter` (`all`/`canonical`/`none`); CRS always included | Pass `typePatterns` / `propertyFilter` to narrow |
 | **Lineage / PropertySet** | Lineage Activity + PropertySet containers emitted | Dropped by default (dangling-reference sources) | Adjust `excludePatterns` to re-include |
 | **Grid2d routing** | Depth-domain Grid2d + HorizonInterpretation → GenericRepresentation | → StructureMap if kind defined | — |
-| **DELETE locked dataspace** | 204 (silent success) | 403 | Unlock before delete |
-| **Protocol negotiation** | `RDMS_ETP_EXTENDED_PROTOCOLS` env var | Auto-negotiated, env var removed | — |
-| **Dataspace ACL override** | ETP customData always overrode pre-configured ACLs | Pre-configured ACLs take priority | — |
+| **DELETE locked dataspace** ([#130](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/issues/130)) | 204 (silent success) | 403 | Unlock before delete |
+| **Protocol negotiation** ([!289](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/289)) | `RDMS_ETP_EXTENDED_PROTOCOLS` env var | Auto-negotiated, env var removed | — |
+| **Dataspace ACL override** ([!207](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/207)) | ETP customData always overrode pre-configured ACLs | Pre-configured ACLs take priority | — |
