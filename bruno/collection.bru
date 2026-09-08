@@ -5,16 +5,21 @@ headers {
 
 script:pre-request {
   // Ensure dataspace vars used by _Setup are always present in CI.
+  // Values may be injected at runtime via --env-var (getVar) or defined in the
+  // selected environment file (getEnvVar) — check both.
   // Priority:
   // 1) explicit testDataspaceIdRaw
   // 2) dataspaceIdRaw
   // 3) dataspaceId
   // 4) fallback default
+  // Must be a two-segment "folder/name" id: transactions reject a bare id
+  // (server enforces /^[^/]+\/[^/]+$/), even though create is lenient.
+  const val = (name) => bru.getVar(name) || bru.getEnvVar(name);
   const dsRaw =
-    bru.getVar("testDataspaceIdRaw") ||
-    bru.getVar("dataspaceIdRaw") ||
-    bru.getVar("dataspaceId") ||
-    "test-ci-bruno";
+    val("testDataspaceIdRaw") ||
+    val("dataspaceIdRaw") ||
+    val("dataspaceId") ||
+    "test/ci-bruno";
   bru.setVar("testDataspaceIdRaw", dsRaw);
   if (!bru.getVar("testDataspaceId")) {
     bru.setVar("testDataspaceId", encodeURIComponent(dsRaw));

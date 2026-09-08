@@ -1,0 +1,70 @@
+meta {
+  name: S1b Ensure Legal Tag
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{legalHost}}/legaltags
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+  Content-Type: application/json
+}
+
+script:pre-request {
+  // The dataspace create call (S2) rejects the request with
+  //   HTTP 400 "Invalid legal tags: <tag>"
+  // whenever the legal tag does not yet exist in the target environment.
+  // Create it here first (idempotent: 409 means it already exists) so the
+  // seed round-trip can proceed. Mirrors "S1b Ensure Legal Tag" in the
+  // Reservoir DDMS Postman collection.
+
+  // Values may live either in the selected environment file (getEnvVar) or be
+  // injected at runtime via --env-var (getVar). Look in both.
+  const val = (name) => bru.getVar(name) || bru.getEnvVar(name);
+
+  // Derive the Legal service base URL from the reservoir-ddms host.
+  const rddmsHost =
+    val("RESERVOIR_DDMS_HOST") || val("host") || "";
+  const legalHost = rddmsHost.replace(
+    /\/api\/reservoir-ddms\/v2\/?$/,
+    "/api/legal/v1"
+  );
+  bru.setVar("legalHost", legalHost);
+
+  const partition = val("data-partition-id") || val("DATA_PARTITION_ID");
+  const tagName = val("defaultLegalTag") || (partition + "-RDDMS-Legal-Tag");
+  bru.setVar("legalTagName", tagName);
+
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + 30);
+  bru.setVar("legalExpiry", d.toISOString().slice(0, 10));
+}
+
+body:json {
+  {
+    "name": "{{legalTagName}}",
+    "description": "RDDMS CI legal tag",
+    "properties": {
+      "contractId": "123456",
+      "countryOfOrigin": ["US"],
+      "dataType": "Third Party Data",
+      "exportClassification": "EAR99",
+      "originator": "RDDMS CI",
+      "personalData": "No Personal Data",
+      "securityClassification": "Private",
+      "expirationDate": "{{legalExpiry}}"
+    }
+  }
+}
+
+tests {
+  test("legal tag ready (200/201/409, or 403 if no legal permission)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 409, 403]);
+  });
+}
