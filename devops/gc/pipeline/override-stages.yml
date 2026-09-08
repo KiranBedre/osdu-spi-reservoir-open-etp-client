@@ -122,7 +122,11 @@ gc-containerize-bootstrap-gcr:
     # (reading 'subtle')". Enable the flagged global (available since Node 17.6)
     # so bruno can run; azure/cimpl use node:20-alpine where it is on by default.
     - export NODE_OPTIONS="--experimental-global-webcrypto"
-    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${RDMS_BASE} --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN} --env-var dataspaceIdRaw=test/ci-bruno --env-var dataspaceId=test%2Fci-bruno --env-var testDataspaceIdRaw=test/ci-bruno --env-var testDataspaceId=test%2Fci-bruno"
+    # Unique per-pipeline dataspace id so a run never collides with a persistent,
+    # foreign-owned "test/ci-bruno" space. GC enforces per-space ACLs, so a reused
+    # space owned by another principal returns 403 (view) / 401 (modify); reused
+    # spaces can also strand a write transaction (412). _Cleanup below deletes it.
+    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${RDMS_BASE} --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN} --env-var dataspaceIdRaw=test/ci-bruno-${CI_PIPELINE_ID} --env-var dataspaceId=test%2Fci-bruno-${CI_PIPELINE_ID} --env-var testDataspaceIdRaw=test/ci-bruno-${CI_PIPELINE_ID} --env-var testDataspaceId=test%2Fci-bruno-${CI_PIPELINE_ID}"
     - cd bruno
     # This client repo validates the REST->ETP proxy; it complements (does not
     # replicate) the open-etp-server data tests. _Setup is the self-contained
