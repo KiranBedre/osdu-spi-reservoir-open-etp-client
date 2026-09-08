@@ -132,7 +132,7 @@ azure_test:
         exit "$TOKEN_RC"
       fi
       test -n "$ACCESS_TOKEN"
-    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${AZURE_DNS_NAME}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN} --env-var dataspaceIdRaw=test-ci-bruno --env-var dataspaceId=test-ci-bruno --env-var testDataspaceIdRaw=test-ci-bruno --env-var testDataspaceId=test-ci-bruno"
+    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${AZURE_DNS_NAME}/api/reservoir-ddms/v2 --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN} --env-var dataspaceIdRaw=test/ci-bruno --env-var dataspaceId=test%2Fci-bruno --env-var testDataspaceIdRaw=test/ci-bruno --env-var testDataspaceId=test%2Fci-bruno"
     - cd bruno
     # This client repo validates the REST->ETP proxy; it complements (does not
     # replicate) the open-etp-server data tests. _Setup is the self-contained
