@@ -16,12 +16,10 @@ Changes in the `open-etp-client` REST gateway since the M27 baseline (`cfffaa2`)
 
 ## 1. OSDU Manifest Builder
 
-**Highlights:** a WorkProduct is now always emitted so the OSDU `Osdu_ingest` DAG
-carries its WorkProductComponents, and every build is scoped to a single
-dataspace. Manifest output changed materially - regenerate any cached or
-expected records.
 
-### Single dataspace per manifest (new)
+### Single dataspace per manifest 
+
+A **WorkProduct** is now always emitted so the OSDU `Osdu_ingest` DAG carries its WorkProductComponents, and every build is scoped to a single dataspace. 
 
 `POST /manifests/build` now rejects requests spanning more than one dataspace
 with `400 EINVALID_ARGUMENT`. A WorkProduct is 1:1 with a dataspace (its
@@ -169,6 +167,12 @@ module - no Python, no separate container, no subprocess.
   (e.g. from ETP GetDataObjects), no EPC file needed.
 - **Per-layer skip options** - `skip_xsd`, `skip_dor`, `skip_business_rules`,
   `skip_fesapi`, `skip_hdf5`, …
+- **DOR-integrity false positives fixed** - valid RESQML 2.2 EPCs no longer fail
+  validation: EML common 2.3 objects (CRS) are now indexed (previously dropped
+  because version `2.3` was unmapped), and references to standard Energistics
+  PropertyKinds (which live in the external PropertyKindDictionary, not the EPC)
+  are recognised via the full standard dictionary rather than a small hardcoded
+  subset. RESQML 2.3.0 is intentionally not accepted (unreleased).
 
 <details>
 <summary>Validator performance across real datasets (4 authoring tools)</summary>
