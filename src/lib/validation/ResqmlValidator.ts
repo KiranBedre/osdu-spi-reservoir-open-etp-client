@@ -101,6 +101,12 @@ const VERSION_MAP: Record<string, string> = {
     "2.2": "2.2",
     "2.2.0": "2.2",
     "2.2.1": "2.2",
+    // EML common objects (CRS, etc.) shipped inside RESQML 2.2 EPCs declare EML
+    // common version 2.3. Map them to the 2.2 schema set so they are indexed for
+    // DOR-integrity and validated, instead of being silently dropped.
+    // NOTE: this is EML common 2.3 only. RESQML 2.3.0 is NOT released yet, so it
+    // is deliberately not mapped here - the validator must not accept it.
+    "2.3": "2.2",
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -119,7 +125,9 @@ const EXT_RESOURCE_TYPE = "http://schemas.energistics.org/package/2012/relations
 
 function normalizeVersion(v: string | null): string | null {
     if (!v) return null;
-    return VERSION_MAP[v] ?? null;
+    if (VERSION_MAP[v]) return VERSION_MAP[v];
+    if (v.startsWith("2.0")) return "2.0.1";
+    return null;
 }
 
 function makeError(
@@ -460,8 +468,11 @@ export function validateDorIntegrity(objects: EpcObject[]): ValidationError[] {
     return errors;
 }
 
-// Standard Energistics PropertyKind UUIDs (a subset - these are defined in the spec, not in EPCs)
-const STANDARD_PK_UUIDS = new Set([
+// Standard Energistics PropertyKind UUIDs. These are defined in the Energistics
+// standard PropertyKindDictionary and are referenced by properties by UUID, but
+// they legitimately live outside the EPC, so DOR-integrity must not flag them.
+// A minimal fallback list is kept in case the bundled dictionary is unavailable.
+const STANDARD_PK_UUIDS_FALLBACK = new Set([
     "a48c9c25-1e3a-43c8-be6a-044224cc69cb", // length
     "f6ad8329-4a87-4a08-8f11-db9ccc7bddbc", // dimensionless
     "742e9e25-6898-46b1-8098-a1c0a0034e81", // angle
@@ -477,8 +488,31 @@ const STANDARD_PK_UUIDS = new Set([
     "71e52983-7da2-4f39-b4d5-f0e44f29cec6", // density
 ]);
 
+// Lazily-loaded full set of standard PropertyKind UUIDs from the bundled
+// Energistics PropertyKindDictionary_v2.3.xml (~3600 entries).
+let standardPkUuidsCache: Set<string> | null = null;
+function getStandardPropertyKindUuids(): Set<string> {
+    if (standardPkUuidsCache) return standardPkUuidsCache;
+    const set = new Set<string>(STANDARD_PK_UUIDS_FALLBACK);
+    try {
+        const dictPath = path.join(
+            SCHEMAS_DIR,
+            "2.2/common/v2.3/xsd_schemas/PropertyKindDictionary_v2.3.xml"
+        );
+        const xml = fs.readFileSync(dictPath, "utf-8");
+        // Each standard kind is declared as <eml:PropertyKind ... uuid="...">.
+        const re = /<(?:[\w-]+:)?PropertyKind\b[^>]*\buuid\s*=\s*"([0-9a-fA-F-]{36})"/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(xml)) !== null) set.add(m[1].toLowerCase());
+    } catch {
+        // Dictionary unavailable - fall back to the minimal hardcoded set.
+    }
+    standardPkUuidsCache = set;
+    return set;
+}
+
 function isStandardPropertyKindUuid(uuid: string): boolean {
-    return STANDARD_PK_UUIDS.has(uuid.toLowerCase());
+    return getStandardPropertyKindUuids().has(uuid.toLowerCase());
 }
 
 // ─── Layer 4: HDF5 Reference Validation ─────────────────────────────────────
@@ -994,10 +1028,10 @@ export function validateFesapiCompat(
             }
         }
 
-        // Check 4: ExtraMetadata position (v2.0.1 only)
+        // Check 4: ExtraMetadata position (v2.0.1 + v2.2)
         if (obj.objectType.includes("StringTableLookup")) continue; // XSD exception
 
-        if (isV201) {
+        if (isV201 || isV22) {
             // Check ExtraMetadata position: must be last among top-level children.
             // We extract only top-level child element names (depth 1) by tracking
             // nesting depth, to avoid false positives from ExtraMetadata/Name and
