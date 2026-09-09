@@ -38,7 +38,12 @@ cimpl-containerize-bootstrap-gitlab:
     - |
       RDMS_HOST="${CIMPL_DNS_NAME#http://}"; RDMS_HOST="${RDMS_HOST#https://}"
       export RDMS_BASE="https://${RDMS_HOST}/api/reservoir-ddms/v2"
-    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${RDMS_BASE} --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN} --env-var dataspaceIdRaw=test/ci-bruno --env-var dataspaceId=test%2Fci-bruno --env-var testDataspaceIdRaw=test/ci-bruno --env-var testDataspaceId=test%2Fci-bruno"
+    # Unique per-pipeline dataspace id so a run never collides with a persistent,
+    # foreign-owned "test/ci-bruno" space. Envs that enforce per-space ACLs (GC/Azure)
+    # otherwise return 401/403 on transaction/write, and reused spaces can strand a
+    # write transaction (412 "too many write transaction URI(s)"). _Cleanup below
+    # deletes this run's space.
+    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${RDMS_BASE} --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN} --env-var dataspaceIdRaw=test/ci-bruno-${CI_PIPELINE_ID} --env-var dataspaceId=test%2Fci-bruno-${CI_PIPELINE_ID} --env-var testDataspaceIdRaw=test/ci-bruno-${CI_PIPELINE_ID} --env-var testDataspaceId=test%2Fci-bruno-${CI_PIPELINE_ID}"
     - cd bruno
     # This client repo validates the REST->ETP proxy; it complements (does not
     # replicate) the open-etp-server data tests. _Setup is the self-contained
