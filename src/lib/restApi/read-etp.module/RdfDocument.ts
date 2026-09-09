@@ -3,9 +3,9 @@
 //
 // The graph serializer (RdfSerialization.ts) is specialised for the ETP
 // relationship graph. This module provides a small, general triple model plus
-// Turtle / N-Triples / JSON-LD writers so that *vocabulary* documents — the
+// Turtle / N-Triples / JSON-LD writers so that *vocabulary* documents - the
 // served ontology, the RESQML→OSDU OWL alignment, and the PWLS SKOS concept
-// scheme — can be emitted from the same negotiation machinery.
+// scheme - can be emitted from the same negotiation machinery.
 // ============================================================================
 
 /** An RDF object term: either an IRI reference or a literal. */

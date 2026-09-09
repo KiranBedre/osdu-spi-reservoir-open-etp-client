@@ -7,7 +7,7 @@
 //   • the RESQML → OSDU OWL alignment (from the ResqmlOSDU registry);
 //   • the PWLS v4 curve-property SKOS concept scheme.
 //
-// All are additive, read-only metadata — they mint no data and touch no store.
+// All are additive, read-only metadata - they mint no data and touch no store.
 // ============================================================================
 
 import { RDDMS_NS, RDDMS_TYPE_NS } from "./RdfSerialization";

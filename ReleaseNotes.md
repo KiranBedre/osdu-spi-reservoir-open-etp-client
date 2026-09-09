@@ -18,7 +18,7 @@ Changes in the `open-etp-client` REST gateway since the M27 baseline (`cfffaa2`)
 
 **Highlights:** a WorkProduct is now always emitted so the OSDU `Osdu_ingest` DAG
 carries its WorkProductComponents, and every build is scoped to a single
-dataspace. Manifest output changed materially — regenerate any cached or
+dataspace. Manifest output changed materially - regenerate any cached or
 expected records.
 
 ### Single dataspace per manifest (new)
@@ -26,31 +26,31 @@ expected records.
 `POST /manifests/build` now rejects requests spanning more than one dataspace
 with `400 EINVALID_ARGUMENT`. A WorkProduct is 1:1 with a dataspace (its
 id / name / ETPDataspace / acl / legal are all derived from one dataspace) and
-`Manifest.Data.WorkProduct` is singular; mixing dataspaces would tie every WPC —
-and the ACL/legal backfill — to a single, arbitrarily-chosen dataspace and leak
+`Manifest.Data.WorkProduct` is singular; mixing dataspaces would tie every WPC -
+and the ACL/legal backfill - to a single, arbitrarily-chosen dataspace and leak
 governance across boundaries. **Build one manifest per dataspace instead.**
 
 ### Builder capabilities
 
-- **Schema Service integration** — on boot, queries the OSDU Schema Service for
+- **Schema Service integration** - on boot, queries the OSDU Schema Service for
   the latest kind versions (M27+), falling back to static `FALLBACK_KINDS` if
   unavailable.
-- **CollaborationProject** — auto-generates a `master-data--CollaborationProject`
+- **CollaborationProject** - auto-generates a `master-data--CollaborationProject`
   record per dataspace (deterministic UUID v5, lifecycle events).
-- **Lineage** — auto-generated Activity linking source EPC to output records
+- **Lineage** - auto-generated Activity linking source EPC to output records
   (suppressed by default; see below).
-- **Best-effort mode** — converter errors skip the failed object instead of
+- **Best-effort mode** - converter errors skip the failed object instead of
   aborting the whole build. Inspect `errors[]` (and the per-build skip summary)
   in the response.
-- **Smart property inclusion** — properties with canonical OSDU/PWLS names are
+- **Smart property inclusion** - properties with canonical OSDU/PWLS names are
   auto-included; non-canonical ones excluded to avoid manifest bloat.
-- **`excludePatterns`** — hard-exclude filter (comma-separated, `*`/`?`
+- **`excludePatterns`** - hard-exclude filter (comma-separated, `*`/`?`
   wildcards) applied before every inclusion rule except CRS, on both
   `POST /manifests/build` and `POST /dataspaces/{id}/epc/upload`. Defaults to
   `*Activity,*ActivityTemplate` (Activity records reference every property they
   consumed, which become dangling references under `propertyFilter=canonical`).
   Pass an empty value to disable.
-- **`includeArrayData`** — opt-in to bulk array reads during manifest build.
+- **`includeArrayData`** - opt-in to bulk array reads during manifest build.
 
 <details>
 <summary>Converter internals & round-trip fidelity (developer detail)</summary>
@@ -69,19 +69,19 @@ governance across boundaries. **Build one manifest per dataspace instead.**
 
 **Round-trip fidelity**
 
-- **ExtraMetadata preservation** — non-`osdu/`-prefixed entries kept in
+- **ExtraMetadata preservation** - non-`osdu/`-prefixed entries kept in
   `ResqmlMetadata`. Opt-in (default OFF); set `RDMS_PRESERVE_RESQML_METADATA=true`
   for lossless round-trip.
-- **AuthoringSoftware** — `Citation.Format` mapped for all WPCs.
-- **IjkGrid completion** — RealizationIndex, ParentGridID,
+- **AuthoringSoftware** - `Citation.Format` mapped for all WPCs.
+- **IjkGrid completion** - RealizationIndex, ParentGridID,
   RockFluidOrganizationInterpretationIDs, HasTruncations.
-- **PropertyKind→UnitQuantity** — QuantityClass lookup for v2.2 PropertyKinds.
-- **Activity parameters** — full typed extraction (String, Float+UOM, Integer,
+- **PropertyKind→UnitQuantity** - QuantityClass lookup for v2.2 PropertyKinds.
+- **Activity parameters** - full typed extraction (String, Float+UOM, Integer,
   DataObject, TimeIndex).
-- **Display labels** — InterpretationName prepended to WPC names.
-- **Transmissibility detection** — GridConnectionSet reports
+- **Display labels** - InterpretationName prepended to WPC names.
+- **Transmissibility detection** - GridConnectionSet reports
   `HasTransmissibilityMultipliers` when attached properties are found.
-- **WellLog depth range** — WellboreFrame→WellLog populates Top/Bottom
+- **WellLog depth range** - WellboreFrame→WellLog populates Top/Bottom
   MeasuredDepth.
 
 </details>
@@ -89,14 +89,14 @@ governance across boundaries. **Build one manifest per dataspace instead.**
 <details>
 <summary>CRS enrichment (developer detail)</summary>
 
-- **Vertical CRS extraction** — EPSG from inline (v2.0) or DOR-resolved (v2.2)
+- **Vertical CRS extraction** - EPSG from inline (v2.0) or DOR-resolved (v2.2)
   definitions.
-- **Local-frame metadata** — all 9 local engineering CRS parameters preserved in
+- **Local-frame metadata** - all 9 local engineering CRS parameters preserved in
   `rddms/localFrame/*` for lossless round-trip.
-- **WKT CRS detection** — non-EPSG systems via WKT string parsing.
-- **Rotated-CRS affine transforms** — correct SpatialArea bounding boxes for
+- **WKT CRS detection** - non-EPSG systems via WKT string parsing.
+- **Rotated-CRS affine transforms** - correct SpatialArea bounding boxes for
   rotated local CRS.
-- **LocalAuthority CRS (v2.2)** — company-managed CRS codes mapped to OSDU
+- **LocalAuthority CRS (v2.2)** - company-managed CRS codes mapped to OSDU
   reference-data IDs.
 
 </details>
@@ -130,11 +130,11 @@ flowchart TD
     ROLLBACK --> RESP
 ```
 
-- **Bounded memory** — H5 staged on disk (multer), arrays sent one at a time in
+- **Bounded memory** - H5 staged on disk (multer), arrays sent one at a time in
   4MB chunks.
-- **Configurable limits** — `RDMS_EPC_MAX_SIZE_MB` (200), `RDMS_H5_MAX_SIZE_MB`
+- **Configurable limits** - `RDMS_EPC_MAX_SIZE_MB` (200), `RDMS_H5_MAX_SIZE_MB`
   (2048), `RDMS_EPC_MAX_OBJECTS` (10000).
-- **Structured feedback** — `warnings[]` and per-phase `timings` in the response;
+- **Structured feedback** - `warnings[]` and per-phase `timings` in the response;
   rollback on >50% array-failure threshold to avoid half-ingested dataspaces.
 
 <details>
@@ -157,17 +157,17 @@ flowchart TD
 ### RESQML Validator (built-in)
 
 A complete RESQML strict-validation engine bundled as an in-process TypeScript
-module — no Python, no separate container, no subprocess.
+module - no Python, no separate container, no subprocess.
 
-- **9 validation layers** — EPC structure, XSD schema (libxmljs2/libxml2), DOR
+- **9 validation layers** - EPC structure, XSD schema (libxmljs2/libxml2), DOR
   integrity, HDF5 references, cross-object consistency, business rules S01–S18,
   PWLS PropertyKind, fesapi compatibility, RDDMS compatibility.
-- **Schema versions** — RESQML 2.0.1 and 2.2 (XSD schemas bundled). 
-- **`ValidatorClient` local mode** — validation runs in-process by default; set
+- **Schema versions** - RESQML 2.0.1 and 2.2 (XSD schemas bundled). 
+- **`ValidatorClient` local mode** - validation runs in-process by default; set
   `RDMS_VALIDATOR_URL` to fall back to an external HTTP validator service.
-- **In-memory validation** — `validateObjects()` accepts XML strings directly
+- **In-memory validation** - `validateObjects()` accepts XML strings directly
   (e.g. from ETP GetDataObjects), no EPC file needed.
-- **Per-layer skip options** — `skip_xsd`, `skip_dor`, `skip_business_rules`,
+- **Per-layer skip options** - `skip_xsd`, `skip_dor`, `skip_business_rules`,
   `skip_fesapi`, `skip_hdf5`, …
 
 <details>
@@ -195,7 +195,7 @@ Without XSD (fast-path), even the 395-object Olympus model validates in under
 ## 3. New Features & REST API
 
 **Highlights:** WITSML store/query, cross-dataspace well search, a GraphQL
-endpoint, and opt-in RDF / linked-data and PWLS SKOS views — all additive, with
+endpoint, and opt-in RDF / linked-data and PWLS SKOS views - all additive, with
 default JSON responses unchanged.
 
 ### REST endpoints
@@ -203,7 +203,7 @@ default JSON responses unchanged.
 | Method | Path | Purpose |
 | --- | --- | --- |
 | POST | `/query/objects/find` | FindDataObjects with full XML content (ETP Protocol 14) |
-| POST | `/query/graph/search` | Batch graph search — merged subgraph for multiple URIs |
+| POST | `/query/graph/search` | Batch graph search - merged subgraph for multiple URIs |
 | POST | `/dataspaces/{id}/epc/upload` | Upload EPC + H5 pair, parse, and ingest with transaction |
 | GET | `/wells?name=&dataspace=&include=` | Cross-dataspace well search with hierarchy resolution |
 | PUT | `/witsml/store` | Store WITSML 2.1/1.4.1 objects as XML or JSON, auto-transaction + channel extraction |
@@ -223,50 +223,50 @@ traversal. Uses the same ETP session pool as REST.
 
 ### Semantic / Linked-Data (non-breaking, opt-in)
 
-All items below are purely additive — default `application/json` responses are
+All items below are purely additive - default `application/json` responses are
 unchanged. New behaviour is opt-in via the `Accept` header or `?format=`. No new
 runtime dependencies.
 
-- **Graph serializations** — the relationship-graph endpoints
+- **Graph serializations** - the relationship-graph endpoints
   (`GET /dataspaces/{id}/resources/all`) now serve **CSV** (`text/csv`,
   RFC-4180 node table) and **GraphML** (`application/graphml+xml`, full
   nodes + edges) in addition to RDF (Turtle / JSON-LD / N-Triples).
-- **Single-object RDF projection** —
+- **Single-object RDF projection** -
   `GET /dataspaces/{id}/resources/{dataObjectType}/{guid}/rdf`, content-negotiated
   (`turtle`, `jsonld`, `ntriples`, `csv`, `graphml`; default Turtle).
-- **Linked-Data metadata** (public, read-only) — `GET /rdf/context`,
+- **Linked-Data metadata** (public, read-only) - `GET /rdf/context`,
   `GET /rdf/ontology`, `GET /rdf/alignment` (RESQML/WITSML → OSDU
   `owl:equivalentClass` crosswalk). Grouped under a **Linked Data** OpenAPI tag.
-- **RFC 7807 errors** — `Accept: application/problem+json` returns problem
+- **RFC 7807 errors** - `Accept: application/problem+json` returns problem
   documents (`type`, `title`, `status`, `detail`, `instance`); otherwise the
   default error shape is unchanged.
 
 ### Operational
 
-- **Converter registry** — `GET /health/converters` lists all registered source
+- **Converter registry** - `GET /health/converters` lists all registered source
   types and target OSDU kinds.
-- **SIGTERM graceful shutdown** — stops accepting requests, rolls back open
+- **SIGTERM graceful shutdown** - stops accepting requests, rolls back open
   transactions, exits within 30s.
-- **SSL config** — `RDMS_ETP_SSL_VERIFY=false` for self-signed certificates.
-- **Retry + array chunking** — exponential backoff and 4MB chunk limit for large
+- **SSL config** - `RDMS_ETP_SSL_VERIFY=false` for self-signed certificates.
+- **Retry + array chunking** - exponential backoff and 4MB chunk limit for large
   array uploads.
 
 ### WITSML
 
-- **Store** (`PUT /witsml/store`) — accepts WITSML 2.1 and 1.4.1 as XML or JSON
+- **Store** (`PUT /witsml/store`) - accepts WITSML 2.1 and 1.4.1 as XML or JSON
   (JSON converted to Energistics XML server-side). Auto-detects plural
   containers, generates deterministic UUIDs, extracts channel data and trajectory
   stations as ETP arrays.
-- **Query** (`POST /witsml/query`) — rich filtering: `objectType`/`objectTypes`,
+- **Query** (`POST /witsml/query`) - rich filtering: `objectType`/`objectTypes`,
   `titleContains`, `uuids`, `modifiedSince` (incremental sync), `relatedTo` +
   `scope` traversal. `skip`/`top` pagination (response carries `count` + `total`)
   and `$format=xml|json`.
-- **Well search** (`GET /wells`) — cross-dataspace search with automatic
+- **Well search** (`GET /wells`) - cross-dataspace search with automatic
   hierarchy resolution (wellbores, logs, trajectories, channelSets).
 
 ### PWLS
 
-- **Catalogue as SKOS** — `GET /pwls/catalog` returns a JSON summary by default,
+- **Catalogue as SKOS** - `GET /pwls/catalog` returns a JSON summary by default,
   or a SKOS `ConceptScheme` via `Accept`/`?format=` (one `skos:Concept` per PWLS
   property, vendor mnemonics as `skos:altLabel`; suppress with `?mnemonics=false`).
 
@@ -277,20 +277,20 @@ runtime dependencies.
 **Highlights:** a new typed `RddmsClient` HTTP/JSON SDK with runnable examples,
 backed by 437 tests.
 
-### TypeScript REST SDK — `RddmsClient`
+### TypeScript REST SDK - `RddmsClient`
 
 New typed HTTP/JSON SDK in [`sdk/`](./sdk/) wrapping the REST API. Unlike the
 low-level `ResqmlClient` (WebSocket/Avro, ETP protocol knowledge required),
-`RddmsClient` talks plain HTTP/JSON — no binary protocols, no XML, no HDF5
+`RddmsClient` talks plain HTTP/JSON - no binary protocols, no XML, no HDF5
 linking.
 
-- **Typed namespaces** — `rddms.dataspaces`, `.resources`, `.arrays`,
+- **Typed namespaces** - `rddms.dataspaces`, `.resources`, `.arrays`,
   `.transactions`, `.query`, `.graph`, `.health`, `.manifest`
-- **`atomicWrite()`** — wraps start transaction → put objects → put arrays →
+- **`atomicWrite()`** - wraps start transaction → put objects → put arrays →
   commit, with auto-rollback on error
-- **Auto-auth** — fetches a dev token from `GET /auth/token` when no static token
+- **Auto-auth** - fetches a dev token from `GET /auth/token` when no static token
   is provided
-- **Zero dependencies** — native `fetch` only
+- **Zero dependencies** - native `fetch` only
 
 See [sdk/README.md](./sdk/README.md) for the full API reference.
 
@@ -327,14 +327,14 @@ Integration tests (require an ETP server): `npm run test:integration`.
 ### REST API documentation (OpenAPI / Swagger)
 
 The interactive Swagger UI (served at the REST API root) is now the single source
-of truth — the static `RestApi.md` has been removed and its content migrated into
+of truth - the static `RestApi.md` has been removed and its content migrated into
 the OpenAPI decorators.
 
-- **Rich descriptions** — every operation documents purpose, required context
+- **Rich descriptions** - every operation documents purpose, required context
   (transaction, dataspace), chunking/batching notes, and inline examples.
-- **Logical tag ordering** — health → auth → read → manifest → query → write →
+- **Logical tag ordering** - health → auth → read → manifest → query → write →
   domain-specific (WITSML, PWLS) → metrics, preserved via a custom `tagsSorter`.
-- **Regenerated specs** — `openapi.json`, `openapi.yaml`, and `swagger.json`
+- **Regenerated specs** - `openapi.json`, `openapi.yaml`, and `swagger.json`
   reflect the enriched descriptions, WITSML `$format` flag, JSON store input, and
   enriched query filters. Suitable for client generation.
 
@@ -342,7 +342,7 @@ the OpenAPI decorators.
 
 ## 5. Optimizations
 
-**Highlights:** the large-array and XML paths are now memory- and GC-bounded —
+**Highlights:** the large-array and XML paths are now memory- and GC-bounded -
 several GB less peak memory on large uploads and 3–5× faster many-array writes.
 
 Memory- and GC-focused improvements to the large-array and XML paths. All are
@@ -353,7 +353,7 @@ internal; no API changes.
 
 | # | Change | Impact |
 | --- | --- | --- |
-| 1 | Chunked Buffer accumulation — array + single `concat` (was O(n²)) | Eliminates ~5 GB intermediate allocations for 50 MB chunked objects |
+| 1 | Chunked Buffer accumulation - array + single `concat` (was O(n²)) | Eliminates ~5 GB intermediate allocations for 50 MB chunked objects |
 | 2 | Direct recursive BigInt converter replaces JSON stringify/parse roundtrip | Avoids double allocation for custom-data fields |
 | 3 | `Set` for key filtering in `simpleJson` (was `Array.includes`) | O(1) lookup per property |
 | 4 | XML builder uses `string[]` + `.join("")` instead of `+=` | Reduces GC pressure for 100KB+ XML |
@@ -361,7 +361,7 @@ internal; no API changes.
 | 6 | EPC validation passes file paths directly | Saves up to 4 GB redundant allocation |
 | 7 | EPC HDF-proxy regex uses `lastIndex` instead of `slice` per match | Eliminates O(n×m) string allocations |
 | 8 | Hoist regex constants out of per-object XML scanning loop | Avoids regex recompilation per object |
-| 9 | Remove `new Uint8Array(h5Data)` copy — pass Buffer to emscripten FS | Saves 1× H5 file size in peak memory |
+| 9 | Remove `new Uint8Array(h5Data)` copy - pass Buffer to emscripten FS | Saves 1× H5 file size in peak memory |
 | 10 | Eliminate `Array.prototype.slice.call(array)` | Saves 1 full array copy per small upload |
 | 11 | `new Array(n)` pre-allocation for chunked slices | Faster allocation for sub-array slicing |
 | 12 | Parallel array uploads with bounded concurrency (default 5) | 3–5× faster for many small arrays |
@@ -400,10 +400,10 @@ These may affect existing consumers.
 | Change | Old behavior | New behavior | Workaround |
 | --- | --- | --- | --- |
 | **Manifest scope** ([!373](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/373)) | Multi-dataspace requests produced one manifest | `POST /manifests/build` returns `400` for >1 dataspace | Build one manifest per dataspace |
-| **WorkProduct emission** | WPCs could be dropped by the DAG | WorkProduct always emitted so WPCs ingest | — |
+| **WorkProduct emission** | WPCs could be dropped by the DAG | WorkProduct always emitted so WPCs ingest | - |
 | **Default manifest filter** ([!311](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/311)) | All RESQML types included | Types **and** properties included by default; filtering opt-in via `typePatterns` and `propertyFilter` (`all`/`canonical`/`none`); CRS always included | Pass `typePatterns` / `propertyFilter` to narrow |
 | **Lineage / PropertySet** | Lineage Activity + PropertySet containers emitted | Dropped by default (dangling-reference sources) | Adjust `excludePatterns` to re-include |
-| **Grid2d routing** | Depth-domain Grid2d + HorizonInterpretation → GenericRepresentation | → StructureMap if kind defined | — |
+| **Grid2d routing** | Depth-domain Grid2d + HorizonInterpretation → GenericRepresentation | → StructureMap if kind defined | - |
 | **DELETE locked dataspace** ([#130](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/issues/130)) | 204 (silent success) | 403 | Unlock before delete |
-| **Protocol negotiation** ([!289](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/289)) | `RDMS_ETP_EXTENDED_PROTOCOLS` env var | Auto-negotiated, env var removed | — |
-| **Dataspace ACL override** ([!207](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/207)) | ETP customData always overrode pre-configured ACLs | Pre-configured ACLs take priority | — |
+| **Protocol negotiation** ([!289](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/289)) | `RDMS_ETP_EXTENDED_PROTOCOLS` env var | Auto-negotiated, env var removed | - |
+| **Dataspace ACL override** ([!207](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/207)) | ETP customData always overrode pre-configured ACLs | Pre-configured ACLs take priority | - |

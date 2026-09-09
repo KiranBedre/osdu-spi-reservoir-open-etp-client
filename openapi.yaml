@@ -1548,7 +1548,7 @@ paths:
 
         **Object identity**: By default the clone is a server-side deep copy
         that **reuses the source object UUIDs**. The two dataspaces are
-        independent stores, so editing the clone never affects the source — but
+        independent stores, so editing the clone never affects the source - but
         the copied objects keep the *same identity* as the originals. That is
         fine for isolated sandbox/scenario work, but the shared UUIDs collide if
         the clone is later merged back or re-ingested into OSDU (the manifest
@@ -1564,7 +1564,7 @@ paths:
         identity to the source.
 
 
-        **Note**: This is a server-side deep copy via ETP — no object or array
+        **Note**: This is a server-side deep copy via ETP - no object or array
         data is transferred through the REST layer (re-identification streams
         array bytes through the gateway).
       operationId: DataspaceMutationsAPI_CloneDataspace
@@ -2336,7 +2336,7 @@ paths:
 
         **List vs graph**: By default this returns only the resource nodes. Set
         `edges=true` to additionally return the relationship **edges** between
-        them (the relationship graph) — this makes the endpoint equivalent to
+        them (the relationship graph) - this makes the endpoint equivalent to
         the deprecated `GET /dataspaces/{id}/graph/all`.
 
 
@@ -3623,7 +3623,7 @@ paths:
       description: >-
         Returns each Energistics **type** present in the dataspace with its
         object count (e.g., `resqml20.obj_IjkGridRepresentation: 12`). This is a
-        type catalog, **not** the resources themselves — use `GET
+        type catalog, **not** the resources themselves - use `GET
         /dataspaces/{id}/resources/all` to list the actual resource nodes, or
         `GET /dataspaces/{id}/resources/{type}` to list resources of one type.
         Use this endpoint to discover what data exists before drilling in.
@@ -7851,7 +7851,7 @@ paths:
     get:
       deprecated: true
       description: >-
-        **Deprecated** — use `GET /dataspaces/{id}/resources/all?edges=true`
+        **Deprecated** - use `GET /dataspaces/{id}/resources/all?edges=true`
         instead, which returns the same nodes-and-edges graph. This route
         remains for M26 backward compatibility.
 
@@ -8693,7 +8693,7 @@ paths:
     get:
       deprecated: true
       description: >-
-        **Deprecated** — use `GET
+        **Deprecated** - use `GET
         /dataspaces/{id}/resources/{type}/{guid}/targets?edges=true` instead,
         which returns the same nodes-and-edges graph. This route remains for M26
         backward compatibility.
@@ -9130,7 +9130,7 @@ paths:
     get:
       deprecated: true
       description: >-
-        **Deprecated** — use `GET
+        **Deprecated** - use `GET
         /dataspaces/{id}/resources/{type}/{guid}/sources?edges=true` instead,
         which returns the same nodes-and-edges graph. This route remains for M26
         backward compatibility.
@@ -11409,7 +11409,7 @@ paths:
             `autoIngest`). Comma-separated list (accept `*`/`?` wildcards) of
             types to drop even if they would otherwise be included, applied
             before every inclusion rule except CRS. When omitted, defaults to
-            `*Activity,*ActivityTemplate` — Activity records reference every
+            `*Activity,*ActivityTemplate` - Activity records reference every
             property they consumed, which become dangling references (and fail
             the OSDU ingestion workflow) when `propertyFilter=canonical`. Pass
             an empty value to disable exclusions.

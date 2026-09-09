@@ -6,7 +6,7 @@ headers {
 script:pre-request {
   // Ensure dataspace vars used by _Setup are always present in CI.
   // Values may be injected at runtime via --env-var (getVar) or defined in the
-  // selected environment file (getEnvVar) — check both.
+  // selected environment file (getEnvVar) - check both.
   // Priority:
   // 1) explicit testDataspaceIdRaw
   // 2) dataspaceIdRaw

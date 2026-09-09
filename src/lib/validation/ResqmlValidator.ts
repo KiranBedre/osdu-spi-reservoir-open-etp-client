@@ -400,7 +400,7 @@ export function validateXmlAgainstXsd(
     const validationErrors = (doc.validationErrors || []).slice(0, 5);
     for (const err of validationErrors) {
         const errStr = typeof err === "string" ? err : err.message || String(err);
-        // Demote ExtraMetadata position errors to warnings — moving ExtraMetadata
+        // Demote ExtraMetadata position errors to warnings - moving ExtraMetadata
         // to the end is intentional (fesapi requirement) even though it violates
         // the strict XSD element sequence for some types.
         const severity = errStr.includes("ExtraMetadata") ? Severity.WARNING : Severity.ERROR;
@@ -882,7 +882,7 @@ export function validatePropertyKindHierarchy(objects: EpcObject[]): ValidationE
         const isDiscrete = obj.objectType.includes("Discrete") || obj.objectType.includes("Categorical");
         const isContinuous = obj.objectType.includes("Continuous");
 
-        // Extract property kind name — try StandardPropertyKind/Kind first (v2.0.1),
+        // Extract property kind name - try StandardPropertyKind/Kind first (v2.0.1),
         // then DOR Title (v2.2)
         let kindName: string | null = null;
 
@@ -955,7 +955,7 @@ export function validateFesapiCompat(
         // Skip non-RESQML objects (e.g. EpcExternalPartReference)
         if (!obj.qualifiedType.startsWith("resqml") && !obj.qualifiedType.startsWith("eml")) continue;
 
-        // Check 1: xsi:type on root element (v2.0.1 only — v2.2 doesn't require it)
+        // Check 1: xsi:type on root element (v2.0.1 only - v2.2 doesn't require it)
         if (isV201) {
             const hasXsiType = obj.xmlString.includes("xsi:type") ||
                 obj.xmlString.includes(`${XSI_NS}}type`);
@@ -1149,7 +1149,7 @@ export function validateRddmsCompat(
             let dorMatch;
             while ((dorMatch = v201DorRe.exec(obj.xmlString)) !== null) {
                 errors.push(makeError(
-                    `v2.2 object contains v2.0.1-style DOR ContentType: ${dorMatch[0].substring(0, 80)}... — server will fail to resolve these references`,
+                    `v2.2 object contains v2.0.1-style DOR ContentType: ${dorMatch[0].substring(0, 80)}... - server will fail to resolve these references`,
                     Severity.ERROR, C,
                     { uuid: obj.uuid, type: obj.objectType }
                 ));
@@ -1193,7 +1193,7 @@ export function validateRddmsCompat(
         );
         if (eprObjects.length > 0) {
             errors.push(makeError(
-                `v2.2 EPC contains ${eprObjects.length} EpcExternalPartReference object(s) — v2.2 uses ExternalDataArrayPart with URI instead`,
+                `v2.2 EPC contains ${eprObjects.length} EpcExternalPartReference object(s) - v2.2 uses ExternalDataArrayPart with URI instead`,
                 Severity.WARNING, C
             ));
         }

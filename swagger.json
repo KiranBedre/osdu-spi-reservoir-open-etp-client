@@ -1991,7 +1991,7 @@
     },
     "/dataspaces/{dataspaceId}/clone": {
       "post": {
-        "description": "Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.\n\n**Prerequisites**:\n- The source dataspace is automatically locked during the clone and unlocked afterwards.\n- The target dataspace (DataspaceId) must not already exist.\n\n**Object identity**: By default the clone is a server-side deep copy that **reuses the source object UUIDs**. The two dataspaces are independent stores, so editing the clone never affects the source — but the copied objects keep the *same identity* as the originals. That is fine for isolated sandbox/scenario work, but the shared UUIDs collide if the clone is later merged back or re-ingested into OSDU (the manifest builder derives each OSDU record id from the object UUID).\n\n**?reidentify** (default `false`): when set to `true`, after the copy every object in the clone is rewritten with brand new UUIDs, remapping the object's own identity, all of its Data Object References (DORs) and its array paths, and re-associating the arrays. Use `reidentify=true` when you need an independently publishable / re-ingestable copy. Leave it `false` (the default) for a fast snapshot that stays linked in identity to the source.\n\n**Note**: This is a server-side deep copy via ETP — no object or array data is transferred through the REST layer (re-identification streams array bytes through the gateway).",
+        "description": "Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.\n\n**Prerequisites**:\n- The source dataspace is automatically locked during the clone and unlocked afterwards.\n- The target dataspace (DataspaceId) must not already exist.\n\n**Object identity**: By default the clone is a server-side deep copy that **reuses the source object UUIDs**. The two dataspaces are independent stores, so editing the clone never affects the source - but the copied objects keep the *same identity* as the originals. That is fine for isolated sandbox/scenario work, but the shared UUIDs collide if the clone is later merged back or re-ingested into OSDU (the manifest builder derives each OSDU record id from the object UUID).\n\n**?reidentify** (default `false`): when set to `true`, after the copy every object in the clone is rewritten with brand new UUIDs, remapping the object's own identity, all of its Data Object References (DORs) and its array paths, and re-associating the arrays. Use `reidentify=true` when you need an independently publishable / re-ingestable copy. Leave it `false` (the default) for a fast snapshot that stays linked in identity to the source.\n\n**Note**: This is a server-side deep copy via ETP - no object or array data is transferred through the REST layer (re-identification streams array bytes through the gateway).",
         "operationId": "DataspaceMutationsAPI_CloneDataspace",
         "parameters": [
           {
@@ -2936,7 +2936,7 @@
     },
     "/dataspaces/{dataspaceId}/resources/all": {
       "get": {
-        "description": "List all resources (data objects) in a dataspace as a **flat list** of nodes (URI, name, type, timestamps).\n\n**List vs graph**: By default this returns only the resource nodes. Set `edges=true` to additionally return the relationship **edges** between them (the relationship graph) — this makes the endpoint equivalent to the deprecated `GET /dataspaces/{id}/graph/all`.\n\n**Linked data**: Send `Accept: text/turtle` or `Accept: application/ld+json` to receive the relationship graph as RDF (edges are always included). ETP resource URIs are used verbatim as RDF subjects.\n\n**Filtering**: Use `dataObjectTypes` to restrict by type (e.g., `resqml20.obj_IjkGridRepresentation`), `storeLastWriteFilter` for incremental sync, and `$filter` for XPath content queries.\n\n**Graph traversal**: Set `depth` > 1 to recursively discover related resources. Combined with `dataObjectTypes`, this enables server-side deep search without N+1 client calls.\n\n**Pagination**: `$skip` and `$top` are applied client-side after fetching all results from ETP.",
+        "description": "List all resources (data objects) in a dataspace as a **flat list** of nodes (URI, name, type, timestamps).\n\n**List vs graph**: By default this returns only the resource nodes. Set `edges=true` to additionally return the relationship **edges** between them (the relationship graph) - this makes the endpoint equivalent to the deprecated `GET /dataspaces/{id}/graph/all`.\n\n**Linked data**: Send `Accept: text/turtle` or `Accept: application/ld+json` to receive the relationship graph as RDF (edges are always included). ETP resource URIs are used verbatim as RDF subjects.\n\n**Filtering**: Use `dataObjectTypes` to restrict by type (e.g., `resqml20.obj_IjkGridRepresentation`), `storeLastWriteFilter` for incremental sync, and `$filter` for XPath content queries.\n\n**Graph traversal**: Set `depth` > 1 to recursively discover related resources. Combined with `dataObjectTypes`, this enables server-side deep search without N+1 client calls.\n\n**Pagination**: `$skip` and `$top` are applied client-side after fetching all results from ETP.",
         "operationId": "ResourcesReadAPI_ListResources",
         "parameters": [
           {
@@ -4475,7 +4475,7 @@
         ]
       },
       "get": {
-        "description": "Returns each Energistics **type** present in the dataspace with its object count (e.g., `resqml20.obj_IjkGridRepresentation: 12`). This is a type catalog, **not** the resources themselves — use `GET /dataspaces/{id}/resources/all` to list the actual resource nodes, or `GET /dataspaces/{id}/resources/{type}` to list resources of one type. Use this endpoint to discover what data exists before drilling in.",
+        "description": "Returns each Energistics **type** present in the dataspace with its object count (e.g., `resqml20.obj_IjkGridRepresentation: 12`). This is a type catalog, **not** the resources themselves - use `GET /dataspaces/{id}/resources/all` to list the actual resource nodes, or `GET /dataspaces/{id}/resources/{type}` to list resources of one type. Use this endpoint to discover what data exists before drilling in.",
         "operationId": "ResourcesReadAPI_ListTypes",
         "parameters": [
           {
@@ -9802,7 +9802,7 @@
     "/dataspaces/{dataspaceId}/graph/all": {
       "get": {
         "deprecated": true,
-        "description": "**Deprecated** — use `GET /dataspaces/{id}/resources/all?edges=true` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nBuild a complete relationship graph for all resources in a dataspace. Returns nodes and edges (relationships between objects).\n\n**Linked data**: Send `Accept: text/turtle` or `Accept: application/ld+json` to receive the graph as RDF.\n\n**depth**: 1 = direct relationships only, N = recursive traversal. Higher values may be slow for large dataspaces.",
+        "description": "**Deprecated** - use `GET /dataspaces/{id}/resources/all?edges=true` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nBuild a complete relationship graph for all resources in a dataspace. Returns nodes and edges (relationships between objects).\n\n**Linked data**: Send `Accept: text/turtle` or `Accept: application/ld+json` to receive the graph as RDF.\n\n**depth**: 1 = direct relationships only, N = recursive traversal. Higher values may be slow for large dataspaces.",
         "operationId": "ResourcesReadAPI_GraphResources",
         "parameters": [
           {
@@ -10808,7 +10808,7 @@
     "/dataspaces/{dataspaceId}/graph/{dataObjectType}/{guid}/targets": {
       "get": {
         "deprecated": true,
-        "description": "**Deprecated** — use `GET /dataspaces/{id}/resources/{type}/{guid}/targets?edges=true` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nGraph of resources referenced by this object, including the relationship edges between them. Same traversal as List Targets but returns edge information.",
+        "description": "**Deprecated** - use `GET /dataspaces/{id}/resources/{type}/{guid}/targets?edges=true` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nGraph of resources referenced by this object, including the relationship edges between them. Same traversal as List Targets but returns edge information.",
         "operationId": "ResourcesReadAPI_GraphTargets",
         "parameters": [
           {
@@ -11348,7 +11348,7 @@
     "/dataspaces/{dataspaceId}/graph/{dataObjectType}/{guid}/sources": {
       "get": {
         "deprecated": true,
-        "description": "**Deprecated** — use `GET /dataspaces/{id}/resources/{type}/{guid}/sources?edges=true` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nGraph of resources that reference this object, including the relationship edges. Same traversal as List Sources but returns edge information.",
+        "description": "**Deprecated** - use `GET /dataspaces/{id}/resources/{type}/{guid}/sources?edges=true` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nGraph of resources that reference this object, including the relationship edges. Same traversal as List Sources but returns edge information.",
         "operationId": "ResourcesReadAPI_GraphSources",
         "parameters": [
           {
@@ -14064,7 +14064,7 @@
             "name": "excludePatterns",
             "required": false,
             "in": "query",
-            "description": "Auto-ingest hard-exclude type patterns (only used with `autoIngest`). Comma-separated list (accept `*`/`?` wildcards) of types to drop even if they would otherwise be included, applied before every inclusion rule except CRS. When omitted, defaults to `*Activity,*ActivityTemplate` — Activity records reference every property they consumed, which become dangling references (and fail the OSDU ingestion workflow) when `propertyFilter=canonical`. Pass an empty value to disable exclusions.",
+            "description": "Auto-ingest hard-exclude type patterns (only used with `autoIngest`). Comma-separated list (accept `*`/`?` wildcards) of types to drop even if they would otherwise be included, applied before every inclusion rule except CRS. When omitted, defaults to `*Activity,*ActivityTemplate` - Activity records reference every property they consumed, which become dangling references (and fail the OSDU ingestion workflow) when `propertyFilter=canonical`. Pass an empty value to disable exclusions.",
             "schema": {
               "type": "string",
               "default": "*Activity,*ActivityTemplate"

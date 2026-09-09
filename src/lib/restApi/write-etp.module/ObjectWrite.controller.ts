@@ -966,7 +966,7 @@ Each object must conform to the Energistics JSON schema for its type and include
             }
           } catch {
             // Non-fatal: if lookup fails, let the array PUT proceed and report its own error
-            logger.debug(`Could not pre-validate container ${cType}(${cUuid}) — lookup unavailable`);
+            logger.debug(`Could not pre-validate container ${cType}(${cUuid}) - lookup unavailable`);
           }
         }
       }

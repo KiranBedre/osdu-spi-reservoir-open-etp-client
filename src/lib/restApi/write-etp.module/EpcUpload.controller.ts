@@ -498,7 +498,7 @@ export default class EpcUploadAPI {
         description:
             "Auto-ingest hard-exclude type patterns (only used with `autoIngest`). Comma-separated list "
             + "(accept `*`/`?` wildcards) of types to drop even if they would otherwise be included, applied before "
-            + "every inclusion rule except CRS. When omitted, defaults to `*Activity,*ActivityTemplate` — Activity "
+            + "every inclusion rule except CRS. When omitted, defaults to `*Activity,*ActivityTemplate` - Activity "
             + "records reference every property they consumed, which become dangling references (and fail the OSDU "
             + "ingestion workflow) when `propertyFilter=canonical`. Pass an empty value to disable exclusions.",
         schema: { type: "string", default: "*Activity,*ActivityTemplate" }
@@ -933,7 +933,7 @@ export default class EpcUploadAPI {
             logger.info(`Found ${h5Refs.length} HDF5 dataset reference(s) in XML`);
 
             // #4: Validate that all referenced EpcExternalPartReference UUIDs exist in the EPC
-            // (skip v2.2 refs where externalPartUuid === objectUuid — no EPR in v2.2)
+            // (skip v2.2 refs where externalPartUuid === objectUuid - no EPR in v2.2)
             const danglingRefs = new Set<string>();
             for (const ref of h5Refs) {
                 if (ref.externalPartUuid === ref.objectUuid) continue; // v2.2: no EPR
@@ -1041,7 +1041,7 @@ export default class EpcUploadAPI {
                     logger.info(`Dataspace '${params.dataspaceId}' ensured (findOrCreate)`);
                 }
             } catch (dsErr) {
-                // Non-fatal — proceed and let the transaction fail if dataspace truly doesn't exist
+                // Non-fatal - proceed and let the transaction fail if dataspace truly doesn't exist
                 logger.warn(`Could not ensure dataspace exists: ${dsErr}`);
             }
 
@@ -1183,7 +1183,7 @@ export default class EpcUploadAPI {
                     // v2.2:   container is the parent RESQML object itself
                     let containerUri: string;
                     if (ref.externalPartUuid === ref.objectUuid) {
-                        // v2.2 — use the parent object's URI
+                        // v2.2 - use the parent object's URI
                         const parentObj = epcObjects.find(o => o.uuid === ref.objectUuid);
                         containerUri = parentObj
                             ? EtpUri.createObjectUri(
@@ -1201,7 +1201,7 @@ export default class EpcUploadAPI {
                                 ref.externalPartUuid
                             ).uri;
                     } else {
-                        // v2.0.1 — container is the EpcExternalPartReference
+                        // v2.0.1 - container is the EpcExternalPartReference
                         containerUri = EtpUri.createObjectUri(
                             params.dataspaceId,
                             "eml",
@@ -1612,9 +1612,9 @@ export default class EpcUploadAPI {
      * Resolve an unregistered kind to a registered substitute so the record is
      * not dropped. Tries, in order:
      *   1. the nearest registered version of the SAME entityType (same major
-     *      first, then highest available) — safe, backward-compatible;
+     *      first, then highest available) - safe, backward-compatible;
      *   2. a registered generic sibling of the same WPC role (Representation /
-     *      Interpretation / Feature / Property) — lossy but keeps the object,
+     *      Interpretation / Feature / Property) - lossy but keeps the object,
      *      recording the original type in `data.Type` (only when generic fallback
      *      is enabled via RDMS_INGEST_GENERIC_FALLBACK, default on).
      * Returns the substitute kind (and generic short-type, if any), or undefined.
@@ -1767,7 +1767,7 @@ export default class EpcUploadAPI {
         let totalPushed = 0;
         const failures: Array<{ id?: string; kind?: string; status: number; error: string }> = [];
 
-        // Deduplicate records by id — Storage API rejects batches with duplicate IDs
+        // Deduplicate records by id - Storage API rejects batches with duplicate IDs
         const seenIds = new Set<string>();
         const uniqueRecords = records.filter((r: any) => {
             const id = r?.id;

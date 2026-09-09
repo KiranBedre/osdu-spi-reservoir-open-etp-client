@@ -1163,7 +1163,7 @@ export default class ResourcesReadAPI {
   })
   @ApiOperation({
     summary: "List resource types in a dataspace.",
-    description: `Returns each Energistics **type** present in the dataspace with its object count (e.g., \`resqml20.obj_IjkGridRepresentation: 12\`). This is a type catalog, **not** the resources themselves — use \`GET /dataspaces/{id}/resources/all\` to list the actual resource nodes, or \`GET /dataspaces/{id}/resources/{type}\` to list resources of one type. Use this endpoint to discover what data exists before drilling in.`,
+    description: `Returns each Energistics **type** present in the dataspace with its object count (e.g., \`resqml20.obj_IjkGridRepresentation: 12\`). This is a type catalog, **not** the resources themselves - use \`GET /dataspaces/{id}/resources/all\` to list the actual resource nodes, or \`GET /dataspaces/{id}/resources/{type}\` to list resources of one type. Use this endpoint to discover what data exists before drilling in.`,
     servers: swaggerServers
   })
   public async ListTypes(
@@ -1243,7 +1243,7 @@ export default class ResourcesReadAPI {
   @ApiOkResponse(resourceResponse)
   @ApiOperation({
     summary: "List all resources in a dataspace",
-    description: `List all resources (data objects) in a dataspace as a **flat list** of nodes (URI, name, type, timestamps).\n\n**List vs graph**: By default this returns only the resource nodes. Set \`edges=true\` to additionally return the relationship **edges** between them (the relationship graph) — this makes the endpoint equivalent to the deprecated \`GET /dataspaces/{id}/graph/all\`.\n\n**Linked data**: Send \`Accept: text/turtle\` or \`Accept: application/ld+json\` to receive the relationship graph as RDF (edges are always included). ETP resource URIs are used verbatim as RDF subjects.\n\n**Filtering**: Use \`dataObjectTypes\` to restrict by type (e.g., \`resqml20.obj_IjkGridRepresentation\`), \`storeLastWriteFilter\` for incremental sync, and \`$filter\` for XPath content queries.\n\n**Graph traversal**: Set \`depth\` > 1 to recursively discover related resources. Combined with \`dataObjectTypes\`, this enables server-side deep search without N+1 client calls.\n\n**Pagination**: \`$skip\` and \`$top\` are applied client-side after fetching all results from ETP.`,
+    description: `List all resources (data objects) in a dataspace as a **flat list** of nodes (URI, name, type, timestamps).\n\n**List vs graph**: By default this returns only the resource nodes. Set \`edges=true\` to additionally return the relationship **edges** between them (the relationship graph) - this makes the endpoint equivalent to the deprecated \`GET /dataspaces/{id}/graph/all\`.\n\n**Linked data**: Send \`Accept: text/turtle\` or \`Accept: application/ld+json\` to receive the relationship graph as RDF (edges are always included). ETP resource URIs are used verbatim as RDF subjects.\n\n**Filtering**: Use \`dataObjectTypes\` to restrict by type (e.g., \`resqml20.obj_IjkGridRepresentation\`), \`storeLastWriteFilter\` for incremental sync, and \`$filter\` for XPath content queries.\n\n**Graph traversal**: Set \`depth\` > 1 to recursively discover related resources. Combined with \`dataObjectTypes\`, this enables server-side deep search without N+1 client calls.\n\n**Pagination**: \`$skip\` and \`$top\` are applied client-side after fetching all results from ETP.`,
     servers: swaggerServers
   })
   public async ListResources(
@@ -1409,7 +1409,7 @@ export default class ResourcesReadAPI {
   @ApiOperation({
     deprecated: true,
     summary: "Full relationship graph for a dataspace (deprecated)",
-    description: `**Deprecated** — use \`GET /dataspaces/{id}/resources/all?edges=true\` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nBuild a complete relationship graph for all resources in a dataspace. Returns nodes and edges (relationships between objects).\n\n**Linked data**: Send \`Accept: text/turtle\` or \`Accept: application/ld+json\` to receive the graph as RDF.\n\n**depth**: 1 = direct relationships only, N = recursive traversal. Higher values may be slow for large dataspaces.`,
+    description: `**Deprecated** - use \`GET /dataspaces/{id}/resources/all?edges=true\` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nBuild a complete relationship graph for all resources in a dataspace. Returns nodes and edges (relationships between objects).\n\n**Linked data**: Send \`Accept: text/turtle\` or \`Accept: application/ld+json\` to receive the graph as RDF.\n\n**depth**: 1 = direct relationships only, N = recursive traversal. Higher values may be slow for large dataspaces.`,
     servers: swaggerServers
   })
   public async GraphResources(
@@ -1844,7 +1844,7 @@ export default class ResourcesReadAPI {
   @ApiOperation({
     deprecated: true,
     summary: "Graph targets (with edges) (deprecated)",
-    description: `**Deprecated** — use \`GET /dataspaces/{id}/resources/{type}/{guid}/targets?edges=true\` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nGraph of resources referenced by this object, including the relationship edges between them. Same traversal as List Targets but returns edge information.`,
+    description: `**Deprecated** - use \`GET /dataspaces/{id}/resources/{type}/{guid}/targets?edges=true\` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nGraph of resources referenced by this object, including the relationship edges between them. Same traversal as List Targets but returns edge information.`,
     servers: swaggerServers
   })
   public async GraphTargets(
@@ -2081,7 +2081,7 @@ export default class ResourcesReadAPI {
   @ApiOperation({
     deprecated: true,
     summary: "Graph sources (with edges) (deprecated)",
-    description: `**Deprecated** — use \`GET /dataspaces/{id}/resources/{type}/{guid}/sources?edges=true\` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nGraph of resources that reference this object, including the relationship edges. Same traversal as List Sources but returns edge information.`,
+    description: `**Deprecated** - use \`GET /dataspaces/{id}/resources/{type}/{guid}/sources?edges=true\` instead, which returns the same nodes-and-edges graph. This route remains for M26 backward compatibility.\n\nGraph of resources that reference this object, including the relationship edges. Same traversal as List Sources but returns edge information.`,
     servers: swaggerServers
   })
   public async GraphSources(
