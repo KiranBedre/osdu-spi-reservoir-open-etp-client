@@ -167,12 +167,6 @@ module - no Python, no separate container, no subprocess.
   (e.g. from ETP GetDataObjects), no EPC file needed.
 - **Per-layer skip options** - `skip_xsd`, `skip_dor`, `skip_business_rules`,
   `skip_fesapi`, `skip_hdf5`, …
-- **DOR-integrity false positives fixed** - valid RESQML 2.2 EPCs no longer fail
-  validation: EML common 2.3 objects (CRS) are now indexed (previously dropped
-  because version `2.3` was unmapped), and references to standard Energistics
-  PropertyKinds (which live in the external PropertyKindDictionary, not the EPC)
-  are recognised via the full standard dictionary rather than a small hardcoded
-  subset. RESQML 2.3.0 is intentionally not accepted (unreleased).
 
 <details>
 <summary>Validator performance across real datasets (4 authoring tools)</summary>
