@@ -1,7 +1,6 @@
 variables:
   #azure
   AZURE_SWAGGER_PATH: api/reservoir-ddms/v2/
-
 # Stub: upstream cimpl-global.yml defines jobs that `extends: .maven`, which is
 # only available for Java services. Define a minimal hidden template so YAML
 # validation passes; the individual cimpl-dev-* jobs are disabled via rules below.
@@ -75,35 +74,3 @@ fossa-analyze:
 # Override: fossa-check-notice fails due to upstream config issues unrelated to this service.
 fossa-check-notice:
   allow_failure: true
-
-# Override: cimpl-check-openapi-spec fails due to missing Java/.maven config for Node service.
-cimpl-check-openapi-spec:
-  allow_failure: true
-
-# Override: cimpl-dev-check-openapi-spec compares the committed spec against the
-# LIVE dev deployment (dev.osdu-main.osdu-cimpl...). That endpoint is not served
-# for this Node/ETP service, so the remote fetch fails and the drift check exits 1.
-# Keep it visible but non-blocking, consistent with cimpl-check-openapi-spec above.
-cimpl-dev-check-openapi-spec:
-  allow_failure: true
-
-# Override: cimpl-standby-test from cloud-providers/cimpl-global.yml extends `.maven`,
-# which is only defined for Java services. open-etp-client is a Node/TypeScript
-# service, so the `extends: .maven` reference fails YAML validation and blocks the
-# whole pipeline. Disable the job here until the upstream template is fixed.
-cimpl-standby-test:
-  rules:
-    - when: never
-
-# Override: cimpl-dev-* jobs also extend `.maven` which is unavailable for Node services.
-cimpl-dev-test:
-  rules:
-    - when: never
-
-cimpl-dev-acceptance-test:
-  rules:
-    - when: never
-
-cimpl-dev-acceptance-test-python:
-  rules:
-    - when: never
