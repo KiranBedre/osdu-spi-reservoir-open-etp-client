@@ -1,6 +1,10 @@
 variables:
   #azure
   AZURE_SWAGGER_PATH: api/reservoir-ddms/v2/
+  CIMPL: "1"
+  CIMPL_STACK: "1"
+  DEV: "1"
+  RUN_POSTMAN_TESTS: "1"
 
 # Stub: upstream cimpl-global.yml defines jobs that `extends: .maven`, which is
 # only available for Java services. Define a minimal hidden template so YAML

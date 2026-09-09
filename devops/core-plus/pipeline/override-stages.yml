@@ -156,4 +156,4 @@ cimpl-dev-backup-check-openapi-spec:
 
 cimpl-prod-check-openapi-spec:
   rules:
-    - when: nevers
+    - when: never
