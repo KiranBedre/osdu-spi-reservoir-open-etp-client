@@ -460,13 +460,18 @@ export const createManifest = async (
         // orphaned and silently skipped by the DAG. The Components array is
         // populated later (see the WPC loop) via
         // `manifests.Data.WorkProduct?.data?.Components?.push(...)`.
-        manifests.Data.WorkProduct = WorkProductManifest(dataspace, context);
-        manifests.Data.WorkProduct.version = 1;
-        currentDataspaces.add(dataspaceId);
+        // Populate the dataspace ACL/legal cache BEFORE constructing the
+        // WorkProduct: WorkProductOSDU stamps its acl/legal from
+        // context.dataspaceACLs at construction time, so this must run first or
+        // the WorkProduct is emitted with empty acl/legal (which fails the
+        // atomic Storage batch and triggers a per-record retry storm).
         if (!context.dataspaceACLs.has(dataspaceUri)) {
           const aclLegal = getACLForDataspace(dataspace);
           context.dataspaceACLs.set(dataspaceUri, aclLegal);
         }
+        manifests.Data.WorkProduct = WorkProductManifest(dataspace, context);
+        manifests.Data.WorkProduct.version = 1;
+        currentDataspaces.add(dataspaceId);
 
         manifests.Data.Datasets = manifests.Data.Datasets ?? [];
         manifests.Data.Datasets.push(EtpDataspaceManifest(dataspace, context));
