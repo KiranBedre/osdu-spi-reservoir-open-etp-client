@@ -578,12 +578,12 @@ describe("XSD Schema Validation", () => {
         if (!hasLibxmljs) return; // skip if libxmljs2 not available
 
         const uuid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa";
-        // Minimal but schema-valid XML is complex — test that XSD loading works
+        // Minimal but schema-valid XML is complex - test that XSD loading works
         const xml = makeResqml201Xml("TriangulatedSetRepresentation", uuid, "Surface",
             "<TrianglePatch><NodeCount>3</NodeCount></TrianglePatch>");
 
         // This may fail XSD validation (minimal XML may not satisfy all XSD constraints)
-        // but should NOT throw — errors should be returned in the array
+        // but should NOT throw - errors should be returned in the array
         const errors = validateXmlAgainstXsd(xml, "2.0.1", uuid, "TriangulatedSetRepresentation");
         expect(Array.isArray(errors)).toBe(true);
     });
@@ -704,7 +704,7 @@ describe("RESQML 2.2: fesapi Compatibility", () => {
 
     it("does not require xsi:type for v2.2", () => {
         const uuid = "11111111-1111-1111-1111-111111111111";
-        // v2.2 XML without xsi:type — should be fine
+        // v2.2 XML without xsi:type - should be fine
         const xml = makeResqml22Xml("BoundaryFeature", uuid, "Fault");
         const obj = makeEpcObj22("BoundaryFeature", uuid, xml);
         const errors = validateFesapiCompat([obj]);

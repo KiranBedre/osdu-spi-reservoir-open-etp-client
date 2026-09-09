@@ -106,7 +106,7 @@ export const MasterDataWellboreManifest = async (
                 context.created.set(wellMasterData.id, wellMasterData);
                 wellSrn = wellMasterData.id + ":";
             } else {
-                // Well already exists in OSDU — construct deterministic SRN for reference
+                // Well already exists in OSDU - construct deterministic SRN for reference
                 wellSrn = new MasterDataWellOSDU(feature, context).id + ":";
             }
         }

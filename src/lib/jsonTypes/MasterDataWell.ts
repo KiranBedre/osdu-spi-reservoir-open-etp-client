@@ -1,7 +1,7 @@
 /**
  * Auto-create master-data--Well from RESQML WellboreFeature.
  *
- * RESQML has no explicit "Well" object — WellboreFeature is the closest
+ * RESQML has no explicit "Well" object - WellboreFeature is the closest
  * equivalent. This converter synthesizes a Well master-data record so that
  * WellboreTrajectory and WellboreInterpretation WPCs have a valid WellID
  * reference in their Wellbore master-data.

@@ -3,9 +3,9 @@
 //
 // Complements the RDF serializers (RdfSerialization.ts) with two widely
 // supported non-RDF representations of the same nodes-and-edges graph:
-//   - CSV  (text/csv)             — a flat node attribute table for
+//   - CSV  (text/csv)             - a flat node attribute table for
 //                                   spreadsheets / pandas.
-//   - GraphML (application/graphml+xml) — full nodes + edges topology for
+//   - GraphML (application/graphml+xml) - full nodes + edges topology for
 //                                   graph tools (Gephi, yEd, Cytoscape).
 // Both are opt-in via `Accept:` or `?format=` and never change the default
 // JSON response.
@@ -91,7 +91,7 @@ const CSV_COLUMNS = [
 
 /**
  * Serialize the graph nodes to a CSV attribute table (one row per resource).
- * Edges are intentionally omitted — use GraphML for full topology.
+ * Edges are intentionally omitted - use GraphML for full topology.
  */
 export const graphToCsv = (graph: RdfGraph): string => {
     const rows: string[] = [CSV_COLUMNS.join(",")];

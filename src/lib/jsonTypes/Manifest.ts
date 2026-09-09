@@ -271,10 +271,10 @@ export function isCanonicalProperty(
  *
  * The result is controlled by two independent dimensions:
  *
- * 1. `typePatterns` — restricts NON-property types. When omitted, all types
+ * 1. `typePatterns` - restricts NON-property types. When omitted, all types
  *    are included. Pass an explicit list (e.g. DEFAULT_DATASPACE_TYPE_PATTERNS)
  *    to restrict to a curated top-level set.
- * 2. `propertyFilter` — controls properties independently of `typePatterns`:
+ * 2. `propertyFilter` - controls properties independently of `typePatterns`:
  *    - "all": include every property
  *    - "canonical": include only properties with standard names (PWLS/OSDU/simulator)
  *    - "none": exclude all properties
@@ -381,7 +381,7 @@ export const createManifest = async (
     // Align stamped kind versions with the live target instance using the
     // request token. The startup init (RestServer) runs unauthenticated and
     // silently no-ops on secured instances, so without this the builder stays on
-    // the static fallback table — producing wrong schema versions and emitting
+    // the static fallback table - producing wrong schema versions and emitting
     // work-product-component types that are absent on the target. Once resolved,
     // getKind()/getKindOrFallback() return registered versions and unknown WPC
     // types fall back to GenericRepresentation.
@@ -1027,7 +1027,7 @@ export const createManifest = async (
     // Deduplicate records by .id before assembling manifest arrays.
     // The generatedSrn Map is keyed by SRN, but the kind override in the
     // primary and reference loops can produce entries with different SRN keys
-    // that share the same record .id — the Storage API rejects duplicate IDs
+    // that share the same record .id - the Storage API rejects duplicate IDs
     // within a single PUT batch.
     const seenRecordIds = new Set<string>();
 
@@ -1111,7 +1111,7 @@ export const createManifest = async (
     }
 
     // Final target-compatibility pass. Some records carry a schema kind that
-    // bypasses getKind() — master-data side-records (e.g. BoundaryFeature) and
+    // bypasses getKind() - master-data side-records (e.g. BoundaryFeature) and
     // reference-data records built via buildReference() hardcode their version.
     // When a live target registry is available, reconcile each record's kind
     // against it:

@@ -105,7 +105,7 @@ describe("Kind Version Consistency", () => {
             it(`${entityType}: converter ${converterVersion} ≤ fallback/resolved`, () => {
                 const resolvedKind = getKind(entityType);
                 if (resolvedKind === undefined) {
-                    // No fallback exists for this type — converter will produce a kind
+                    // No fallback exists for this type - converter will produce a kind
                     // that might not exist on the platform. This is acceptable only if
                     // the routing logic falls back to GenericRepresentation.
                     console.warn(`  ⚠ ${entityType} has no fallback entry (falls back to GenericRepresentation)`);
@@ -121,7 +121,7 @@ describe("Kind Version Consistency", () => {
                     // not have, and its content might include fields not in the fallback schema.
                     console.warn(
                         `  ⚠ ${entityType}: converter=${converterVersion} > fallback=${resolvedVersion}` +
-                        ` — record may be rejected on platforms without ${converterVersion}`
+                        ` - record may be rejected on platforms without ${converterVersion}`
                     );
                 }
 

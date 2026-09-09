@@ -5,7 +5,7 @@
 // (ResourceGraphDto) into linked data (Turtle or JSON-LD) via HTTP content
 // negotiation. ETP resource identifiers are already URIs
 // (eml:///dataspace('x/y')/resqml20.obj_Type(uuid)), so they are used verbatim
-// as RDF subjects — no identifier minting required.
+// as RDF subjects - no identifier minting required.
 // ============================================================================
 
 /** Vocabulary (predicates and classes) minted by this service. */

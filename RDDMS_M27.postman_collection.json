@@ -537,7 +537,7 @@
                   "// The ETP .well-known capabilities endpoint is served by the ETP WebSocket",
                   "// server (…/reservoir-ddms-etp/v2), not the REST gateway. On some preship",
                   "// gateways the Gateway/Istio path rewrite is not yet applied, so a 404 is a",
-                  "// known infrastructure limitation rather than a client bug — accept both.",
+                  "// known infrastructure limitation rather than a client bug - accept both.",
                   "pm.test(\"ETP capabilities reachable (200) or known gateway 404\", function () {",
                   "    pm.expect(pm.response.code).to.be.oneOf([200, 404]);",
                   "});",
@@ -546,7 +546,7 @@
                   "        pm.expect(pm.response.text()).to.match(/etp12\\.energistics\\.org|endpointCapabilities|SupportedProtocols/i);",
                   "    });",
                   "} else {",
-                  "    console.warn(\"ETP .well-known returned 404 — see M27 CIMPL Action Item 1 (gateway rewrite).\");",
+                  "    console.warn(\"ETP .well-known returned 404 - see M27 CIMPL Action Item 1 (gateway rewrite).\");",
                   "}"
                 ]
               }

@@ -36,9 +36,8 @@ class WorkProductOSDU implements WorkProduct {
       ? new Date(Number(dataspace.storeLastWrite / BigInt(1000)))
       : this.createTime;
     const etpUri = new EtpUri(dataspace.uri);
-    this.id = `${
-      context.partition
-    }:work-product--WorkProduct:${context.datasetId(etpUri)}`;
+    this.id = `${context.partition
+      }:work-product--WorkProduct:${context.datasetId(etpUri)}`;
     this.version = 1;
 
     this.data = {
@@ -74,7 +73,7 @@ class WorkProductOSDU implements WorkProduct {
     // dataspaceACLs is keyed by the full dataspace URI
     // (eml:///dataspace('...')), as populated in createManifest, not the bare
     // dataspace path. Looking up by etpUri.dataSpace silently missed, leaving
-    // the WorkProduct with empty acl/legal — which fails the atomic Storage
+    // the WorkProduct with empty acl/legal - which fails the atomic Storage
     // batch and forces a per-record retry storm during autoIngest=records.
     const dataspaceUri = EtpUri.createDataSpaceUri(etpUri.dataSpace).uri;
     const dataspaceLegalACL =

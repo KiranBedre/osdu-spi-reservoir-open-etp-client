@@ -19,7 +19,7 @@ script:post-response {
   if (res.getStatus() === 200) {
     const body = res.getBody();
     if (Array.isArray(body) && body.length > 0) {
-      // Items may be strings or {name, count} objects — normalise to name strings
+      // Items may be strings or {name, count} objects - normalise to name strings
       const names = body.map(t => (typeof t === "object" && t.name) ? t.name : String(t));
       const envType = bru.getEnvVar("dataObjectType");
       const match = envType && names.find(n => n === envType);
