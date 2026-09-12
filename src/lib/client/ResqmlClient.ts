@@ -14,6 +14,7 @@
 // limitations under the License.
 // ============================================================================
 
+import { monitorEventLoopDelay } from "perf_hooks";
 import { v5 as uuidNameSpace, v4 as uuidRandom } from "uuid";
 
 import * as websocket from "websocket";
@@ -501,25 +502,97 @@ export class ResqmlClient {
   public async closeSession(disconnectionWait = 5000): Promise<void> {
     if (this.client.isInSession()) {
       return new Promise((resolve, reject) => {
-        const timer = new Timer(() => reject("timeout"), disconnectionWait);
-        this.client.on("disconnect", () => {
+        const closeOperationId = uuidRandom();
+        const startedAt = Date.now();
+        const eventLoopDelay = monitorEventLoopDelay({ resolution: 20 });
+        const initialState = this.client.getConnectionState();
+        let settled = false;
+
+        const state = () => this.client.getConnectionState();
+        const eventLoopDelayMs = () => {
+          const delay = eventLoopDelay.max / 1_000_000;
+          return Number.isFinite(delay) ? Math.round(delay * 100) / 100 : null;
+        };
+        const cleanup = () => {
           timer.cancel(false);
-          resolve();
-        });
-        this.client.on(
-          "exception",
-          (_, m: Energistics.Etp.v12.Protocol.Core.ProtocolException) => {
-            timer.cancel(false);
-            const err = errorFromProtocolException(m);
-            err.message = `Cannot close session: ${err.message}`;
-            reject(err);
+          eventLoopDelay.disable();
+          this.client.off("disconnect", onDisconnect);
+          this.client.off("exception", onException);
+          this.client.off("error", onError);
+        };
+        const finish = (
+          outcome: "disconnect" | "exception" | "error" | "timeout",
+          error?: Error
+        ) => {
+          if (settled) {
+            return;
           }
+          settled = true;
+          cleanup();
+          const diagnostic = JSON.stringify({
+            event: "etpCloseSession",
+            closeOperationId,
+            outcome,
+            disconnectionWaitMs: disconnectionWait,
+            elapsedMs: Date.now() - startedAt,
+            eventLoopDelayMaxMs: eventLoopDelayMs(),
+            initialReadyState: initialState.readyState,
+            initialSessionActive: initialState.sessionActive,
+            ...state()
+          });
+          if (error) {
+            this.logger.error(diagnostic);
+            reject(error);
+          } else {
+            this.logger.info(diagnostic);
+            resolve();
+          }
+        };
+        const onDisconnect = () => finish("disconnect");
+        const onException = (
+          _: unknown,
+          message: Energistics.Etp.v12.Protocol.Core.ProtocolException
+        ) => {
+          const error = errorFromProtocolException(message);
+          error.message = `Cannot close session: ${error.message}`;
+          finish("exception", error);
+        };
+        const onError = () =>
+          finish("error", new Error("Cannot close session"));
+
+        const timer = new Timer(
+          () =>
+            finish(
+              "timeout",
+              new EtpError(
+                `Timed out waiting ${disconnectionWait}ms for ETP session disconnect`,
+                ErrorCode.ETIMED_OUT
+              )
+            ),
+          disconnectionWait
         );
-        this.client.on("error", () => {
-          timer.cancel(false);
-          reject("Cannot close session");
-        });
-        this.client.closeSession();
+        eventLoopDelay.enable();
+        this.client.on("disconnect", onDisconnect);
+        this.client.on("exception", onException);
+        this.client.on("error", onError);
+        this.logger.debug(
+          JSON.stringify({
+            event: "etpCloseSession",
+            closeOperationId,
+            outcome: "started",
+            disconnectionWaitMs: disconnectionWait,
+            ...state()
+          })
+        );
+        try {
+          this.client.closeSession();
+        } catch (err) {
+          const error =
+            err instanceof Error
+              ? err
+              : new Error(`Cannot close session: ${String(err)}`);
+          finish("error", error);
+        }
       });
     } else {
       return Promise.resolve();
