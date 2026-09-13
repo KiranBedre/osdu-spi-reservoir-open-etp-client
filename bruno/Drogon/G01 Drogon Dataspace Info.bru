@@ -1,0 +1,32 @@
+meta {
+  name: G01 Drogon Dataspace Info
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/info
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (info). Reads dataspace metadata for the pre-seeded Drogon
+  dataspace (maap/drogon201b on preship) before the rich reads below. Read-only.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns a dataspace info object", function () {
+    const body = res.getBody();
+    expect(body, JSON.stringify(body).slice(0, 200)).to.not.be.undefined;
+  });
+}

@@ -1,0 +1,27 @@
+meta {
+  name: G28 Drogon Delete Throwaway Dataspace
+  type: http
+  seq: 28
+}
+
+delete {
+  url: {{host}}/dataspaces/{{drogonThrowawayId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (teardown). Deletes the throwaway dataspace, leaving the shared
+  seeded Drogon dataspace untouched. Accepts 404 if already gone.
+}
+
+tests {
+  test("status is documented (200/204/404)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 204, 404]);
+  });
+}

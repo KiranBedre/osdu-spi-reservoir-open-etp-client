@@ -1,0 +1,31 @@
+meta {
+  name: G25 Drogon Delete Object In Txn
+  type: http
+  seq: 25
+}
+
+delete {
+  url: {{host}}/dataspaces/{{drogonThrowawayId}}/resources/resqml20.obj_LocalDepth3dCrs/{{drogonObjGuid}}?transactionId={{drogonDelTxnId}}
+  body: none
+  auth: none
+}
+
+params:query {
+  transactionId: {{drogonDelTxnId}}
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (delete 2/4). Deletes the committed CRS object inside the delete
+  transaction opened in G24.
+}
+
+tests {
+  test("status is documented (200/204/404/412)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 204, 404, 412]);
+  });
+}

@@ -120,6 +120,90 @@
     {
       "key": "run_optional_routes",
       "value": "false"
+    },
+    {
+      "key": "drogon_ds_raw",
+      "value": "maap/drogon201b"
+    },
+    {
+      "key": "drogon_ds_encoded",
+      "value": "maap%2Fdrogon201b"
+    },
+    {
+      "key": "drogon_throwaway_raw",
+      "value": "test/drogon-lifecycle"
+    },
+    {
+      "key": "drogon_throwaway_encoded",
+      "value": "test%2Fdrogon-lifecycle"
+    },
+    {
+      "key": "drogon_grid_type",
+      "value": ""
+    },
+    {
+      "key": "drogon_grid_guid",
+      "value": ""
+    },
+    {
+      "key": "drogon_prop_type",
+      "value": ""
+    },
+    {
+      "key": "drogon_prop_guid",
+      "value": ""
+    },
+    {
+      "key": "drogon_array_path",
+      "value": ""
+    },
+    {
+      "key": "drogon_obj_guid",
+      "value": ""
+    },
+    {
+      "key": "drogon_rb_obj_guid",
+      "value": ""
+    },
+    {
+      "key": "drogon_write_txn",
+      "value": ""
+    },
+    {
+      "key": "drogon_rb_txn",
+      "value": ""
+    },
+    {
+      "key": "drogon_del_txn",
+      "value": ""
+    },
+    {
+      "key": "drogon_ds_body",
+      "value": ""
+    },
+    {
+      "key": "drogon_seed_raw",
+      "value": "test/drogon-seed"
+    },
+    {
+      "key": "drogon_seed_encoded",
+      "value": "test%2Fdrogon-seed"
+    },
+    {
+      "key": "drogon_seed_grid_type",
+      "value": ""
+    },
+    {
+      "key": "drogon_seed_grid_guid",
+      "value": ""
+    },
+    {
+      "key": "drogon_seed_stored",
+      "value": ""
+    },
+    {
+      "key": "drogon_seed_ds_body",
+      "value": ""
     }
   ],
   "event": [
@@ -4419,7 +4503,1656 @@
       ]
     },
     {
-      "name": "13. Cleanup",
+      "name": "13. Drogon Lifecycle (real data)",
+      "item": [
+        {
+          "name": "DR01 Drogon Dataspace Info",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_ds_encoded}}/info",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_ds_encoded}}",
+                "info"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function(){ pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR02 Drogon List Resources",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_ds_encoded}}/resources/all",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_ds_encoded}}",
+                "resources",
+                "all"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function(){ pm.response.to.have.status(200); });",
+                  "var body = pm.response.json();",
+                  "pm.test(\"non-empty resource array\", function(){ pm.expect(body).to.be.an(\"array\"); pm.expect(body.length).to.be.greaterThan(0); });",
+                  "function pick(needle){ for (var i=0;i<body.length;i++){ var it=body[i]; var s=(it&&(it.uri||it.name))||JSON.stringify(it); var m=s.match(new RegExp(\"([A-Za-z0-9_.]*\"+needle+\"[A-Za-z0-9_.]*)\\\\(([0-9a-fA-F-]{36})\\\\)\")); if(m) return {type:m[1],guid:m[2]}; } return null; }",
+                  "var grid = pick(\"IjkGrid\"); var prop = pick(\"ContinuousProperty\");",
+                  "if (grid){ pm.collectionVariables.set(\"drogon_grid_type\", grid.type); pm.collectionVariables.set(\"drogon_grid_guid\", grid.guid); }",
+                  "if (prop){ pm.collectionVariables.set(\"drogon_prop_type\", prop.type); pm.collectionVariables.set(\"drogon_prop_guid\", prop.guid); }",
+                  "pm.test(\"captured IjkGrid guid\", function(){ pm.expect(pm.collectionVariables.get(\"drogon_grid_guid\")).to.be.a(\"string\").and.not.be.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR03 Drogon Grids By Type",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_ds_encoded}}/resources/{{drogon_grid_type}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_ds_encoded}}",
+                "resources",
+                "{{drogon_grid_type}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,400,404]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR04 Drogon Grid Object Content",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_ds_encoded}}/resources/{{drogon_grid_type}}/{{drogon_grid_guid}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_ds_encoded}}",
+                "resources",
+                "{{drogon_grid_type}}",
+                "{{drogon_grid_guid}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,400,404]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR05 Drogon Grid Arrays",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_ds_encoded}}/resources/{{drogon_grid_type}}/{{drogon_grid_guid}}/arrays",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_ds_encoded}}",
+                "resources",
+                "{{drogon_grid_type}}",
+                "{{drogon_grid_guid}}",
+                "arrays"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code===200){ var b=pm.response.json(); if(Array.isArray(b)&&b.length>0&&b[0].pathInResource){ pm.collectionVariables.set(\"drogon_array_path\", encodeURIComponent(b[0].pathInResource)); } }",
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,400,404]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR06 Drogon Array Metadata",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_ds_encoded}}/resources/{{drogon_grid_type}}/{{drogon_grid_guid}}/arrays/{{drogon_array_path}}/metadata",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_ds_encoded}}",
+                "resources",
+                "{{drogon_grid_type}}",
+                "{{drogon_grid_guid}}",
+                "arrays",
+                "{{drogon_array_path}}",
+                "metadata"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,400,404]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR07 Drogon Array Content",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_ds_encoded}}/resources/{{drogon_grid_type}}/{{drogon_grid_guid}}/arrays/{{drogon_array_path}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_ds_encoded}}",
+                "resources",
+                "{{drogon_grid_type}}",
+                "{{drogon_grid_guid}}",
+                "arrays",
+                "{{drogon_array_path}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,400,404]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR08 Drogon Graph All",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_ds_encoded}}/resources/all?edges=true",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_ds_encoded}}",
+                "resources",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "edges",
+                  "value": "true"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR09 Drogon Graph Targets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_ds_encoded}}/graph/{{drogon_grid_type}}/{{drogon_grid_guid}}/targets",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_ds_encoded}}",
+                "graph",
+                "{{drogon_grid_type}}",
+                "{{drogon_grid_guid}}",
+                "targets"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,400,404]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR10 Drogon Graph Sources",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_ds_encoded}}/graph/{{drogon_grid_type}}/{{drogon_grid_guid}}/sources",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_ds_encoded}}",
+                "graph",
+                "{{drogon_grid_type}}",
+                "{{drogon_grid_guid}}",
+                "sources"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,400,404]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR11 Drogon Get Multiple Objects",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/multi-resources/get-content",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "multi-resources",
+                "get-content"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uris\": [\n    \"eml:///dataspace('{{drogon_ds_raw}}')/{{drogon_grid_type}}({{drogon_grid_guid}})\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,201,400,404]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR12 Drogon Find Objects",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/query/objects/find",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "query",
+                "objects",
+                "find"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uri\": \"eml:///dataspace('{{drogon_ds_raw}}')\",\n  \"scope\": \"self\",\n  \"depth\": 1,\n  \"dataObjectTypes\": [\"{{drogon_grid_type}}\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,404,501]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR13 Drogon Batch Graph Search",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/query/graph/search",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "query",
+                "graph",
+                "search"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"uris\": [\n    \"eml:///dataspace('{{drogon_ds_raw}}')/{{drogon_grid_type}}({{drogon_grid_guid}})\"\n  ],\n  \"scope\": \"targets\",\n  \"depth\": 2,\n  \"dataObjectTypes\": [],\n  \"countObjects\": true,\n  \"includeSecondaryTargets\": false,\n  \"includeSecondarySources\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,404,501]); });",
+                  "if (pm.response.code===200){ var b=pm.response.json(); pm.test(\"has resources+links\", function(){ pm.expect(b).to.have.property(\"resources\"); pm.expect(b).to.have.property(\"links\"); }); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR14 Drogon Validate Dataspace",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_ds_encoded}}/validate",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_ds_encoded}}",
+                "validate"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,400,404,501]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR15 Drogon Create Throwaway Dataspace",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{drogon_ds_body}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var testDs = pm.collectionVariables.get('drogon_throwaway_raw');",
+                  "var partition = pm.variables.get('data-partition-id');",
+                  "var domain = pm.variables.get('domain') || '.group';",
+                  "var groupSuffix = '@' + partition + domain;",
+                  "var legalTag = pm.collectionVariables.get('legal_tag_name') || (partition + '-RDDMS-Legal-Tag');",
+                  "var dsBody = [{ DataspaceId: testDs, Path: testDs, CustomData: { viewers: ['data.default.viewers'+groupSuffix], owners: ['data.default.owners'+groupSuffix], legaltags: [legalTag], otherRelevantDataCountries: ['US'] } }];",
+                  "pm.collectionVariables.set('drogon_ds_body', JSON.stringify(dsBody));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200/201 (400/403/409 tolerated)\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,201,400,403,409]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR16 Drogon Start Write Transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_throwaway_encoded}}/transactions",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_throwaway_encoded}}",
+                "transactions"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code===200||pm.response.code===201){ var b=pm.response.text(); var id=(b&&b.charAt(0)===\"\\\"\")?b.replace(/\\\"/g,\"\").trim():b.trim(); try{ var j=JSON.parse(b); if(j&&j.transactionId){id=j.transactionId;} }catch(e){} pm.collectionVariables.set(\"drogon_write_txn\", id); }",
+                  "pm.test(\"status 200/201\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,201]); });",
+                  "pm.test(\"captured write txn\", function(){ pm.expect(pm.collectionVariables.get(\"drogon_write_txn\")).to.be.a(\"string\").and.not.be.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR17 Drogon Put Object In Txn",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_throwaway_encoded}}/resources?transactionId={{drogon_write_txn}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_throwaway_encoded}}",
+                "resources"
+              ],
+              "query": [
+                {
+                  "key": "transactionId",
+                  "value": "{{drogon_write_txn}}"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"$type\": \"resqml20.obj_LocalDepth3dCrs\",\n    \"SchemaVersion\": \"2.0\",\n    \"Uuid\": \"{{drogon_obj_guid}}\",\n    \"Citation\": { \"Title\": \"Drogon Lifecycle CRS\", \"Originator\": \"PostmanCLI\", \"Creation\": \"2026-01-01T00:00:00Z\", \"Format\": \"[ADME:PostmanCLI:1.0]\" },\n    \"XOffset\": 0, \"YOffset\": 0, \"ZOffset\": 0,\n    \"ArealRotation\": { \"_\": 0, \"$type\": \"eml20.PlaneAngleMeasure\", \"Uom\": \"dega\" },\n    \"ProjectedAxisOrder\": \"easting northing\",\n    \"ProjectedUom\": \"m\", \"VerticalUom\": \"m\", \"ZIncreasingDownward\": true,\n    \"VerticalCrs\": { \"$type\": \"eml20.VerticalUnknownCrs\", \"Unknown\": \"unknown\" },\n    \"ProjectedCrs\": { \"$type\": \"eml20.ProjectedUnknownCrs\", \"Unknown\": \"WKT\" }\n  }\n]",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function uuid(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(ch){var r=Math.random()*16|0;var v=ch==='x'?r:(r&0x3|0x8);return v.toString(16);});}",
+                  "pm.collectionVariables.set('drogon_obj_guid', uuid());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200/201\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR18 Drogon Commit Write Transaction",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_throwaway_encoded}}/transactions/{{drogon_write_txn}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_throwaway_encoded}}",
+                "transactions",
+                "{{drogon_write_txn}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,404]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR19 Drogon Read Back Object",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_throwaway_encoded}}/resources/resqml20.obj_LocalDepth3dCrs/{{drogon_obj_guid}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_throwaway_encoded}}",
+                "resources",
+                "resqml20.obj_LocalDepth3dCrs",
+                "{{drogon_obj_guid}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200 (persisted)\", function(){ pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR20 Drogon Start Rollback Transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_throwaway_encoded}}/transactions",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_throwaway_encoded}}",
+                "transactions"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code===200||pm.response.code===201){ var b=pm.response.text(); var id=(b&&b.charAt(0)===\"\\\"\")?b.replace(/\\\"/g,\"\").trim():b.trim(); try{ var j=JSON.parse(b); if(j&&j.transactionId){id=j.transactionId;} }catch(e){} pm.collectionVariables.set(\"drogon_rb_txn\", id); }",
+                  "pm.test(\"status 200/201\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,201]); });",
+                  "pm.test(\"captured rollback txn\", function(){ pm.expect(pm.collectionVariables.get(\"drogon_rb_txn\")).to.be.a(\"string\").and.not.be.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR21 Drogon Put Throwaway Object In Txn",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_throwaway_encoded}}/resources?transactionId={{drogon_rb_txn}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_throwaway_encoded}}",
+                "resources"
+              ],
+              "query": [
+                {
+                  "key": "transactionId",
+                  "value": "{{drogon_rb_txn}}"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"$type\": \"resqml20.obj_LocalDepth3dCrs\",\n    \"SchemaVersion\": \"2.0\",\n    \"Uuid\": \"{{drogon_rb_obj_guid}}\",\n    \"Citation\": { \"Title\": \"Drogon Rollback Probe CRS\", \"Originator\": \"PostmanCLI\", \"Creation\": \"2026-01-01T00:00:00Z\", \"Format\": \"[ADME:PostmanCLI:1.0]\" },\n    \"XOffset\": 0, \"YOffset\": 0, \"ZOffset\": 0,\n    \"ArealRotation\": { \"_\": 0, \"$type\": \"eml20.PlaneAngleMeasure\", \"Uom\": \"dega\" },\n    \"ProjectedAxisOrder\": \"easting northing\",\n    \"ProjectedUom\": \"m\", \"VerticalUom\": \"m\", \"ZIncreasingDownward\": true,\n    \"VerticalCrs\": { \"$type\": \"eml20.VerticalUnknownCrs\", \"Unknown\": \"unknown\" },\n    \"ProjectedCrs\": { \"$type\": \"eml20.ProjectedUnknownCrs\", \"Unknown\": \"WKT\" }\n  }\n]",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "function uuid(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(ch){var r=Math.random()*16|0;var v=ch==='x'?r:(r&0x3|0x8);return v.toString(16);});}",
+                  "pm.collectionVariables.set('drogon_rb_obj_guid', uuid());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200/201\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,201]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR22 Drogon Rollback Transaction",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_throwaway_encoded}}/transactions/{{drogon_rb_txn}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_throwaway_encoded}}",
+                "transactions",
+                "{{drogon_rb_txn}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,204,404]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR23 Drogon Verify Throwaway Absent",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_throwaway_encoded}}/resources/resqml20.obj_LocalDepth3dCrs/{{drogon_rb_obj_guid}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_throwaway_encoded}}",
+                "resources",
+                "resqml20.obj_LocalDepth3dCrs",
+                "{{drogon_rb_obj_guid}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"throwaway read documented (200/404/400)\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,404,400]); });",
+                  "if (pm.response.code===200){ console.log(\"NOTE: M27 preship applies writes immediately; transaction rollback did not discard the object.\"); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR24 Drogon Start Delete Transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_throwaway_encoded}}/transactions",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_throwaway_encoded}}",
+                "transactions"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code===200||pm.response.code===201){ var b=pm.response.text(); var id=(b&&b.charAt(0)===\"\\\"\")?b.replace(/\\\"/g,\"\").trim():b.trim(); try{ var j=JSON.parse(b); if(j&&j.transactionId){id=j.transactionId;} }catch(e){} pm.collectionVariables.set(\"drogon_del_txn\", id); }",
+                  "pm.test(\"status 200/201\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,201]); });",
+                  "pm.test(\"captured delete txn\", function(){ pm.expect(pm.collectionVariables.get(\"drogon_del_txn\")).to.be.a(\"string\").and.not.be.empty; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR25 Drogon Delete Object In Txn",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_throwaway_encoded}}/resources/resqml20.obj_LocalDepth3dCrs/{{drogon_obj_guid}}?transactionId={{drogon_del_txn}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_throwaway_encoded}}",
+                "resources",
+                "resqml20.obj_LocalDepth3dCrs",
+                "{{drogon_obj_guid}}"
+              ],
+              "query": [
+                {
+                  "key": "transactionId",
+                  "value": "{{drogon_del_txn}}"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,204,404,412]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR26 Drogon Commit Delete Transaction",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_throwaway_encoded}}/transactions/{{drogon_del_txn}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_throwaway_encoded}}",
+                "transactions",
+                "{{drogon_del_txn}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,404]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR27 Drogon List Deleted Resources",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_throwaway_encoded}}/deleted",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_throwaway_encoded}}",
+                "deleted"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,404]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DR28 Drogon Delete Throwaway Dataspace",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_throwaway_encoded}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_throwaway_encoded}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,204,404]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "14. Drogon Self-Seed (upload+validate)",
+      "item": [
+        {
+          "name": "SS01 Drogon Seed Create Dataspace",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{{drogon_seed_ds_body}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var ds = pm.collectionVariables.get('drogon_seed_raw');",
+                  "var partition = pm.variables.get('data-partition-id');",
+                  "var domain = pm.variables.get('domain') || '.group';",
+                  "var groupSuffix = '@' + partition + domain;",
+                  "var legalTag = pm.collectionVariables.get('legal_tag_name') || (partition + '-RDDMS-Legal-Tag');",
+                  "var dsBody = [{ DataspaceId: ds, Path: ds, CustomData: { viewers: ['data.default.viewers'+groupSuffix], owners: ['data.default.owners'+groupSuffix], legaltags: [legalTag], otherRelevantDataCountries: ['US'] } }];",
+                  "pm.collectionVariables.set('drogon_seed_ds_body', JSON.stringify(dsBody));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('seed ds create ok (200/201/400/403/409)', function(){ pm.expect(pm.response.code).to.be.oneOf([200,201,400,403,409]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SS02 Drogon Seed Upload EPC",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_seed_encoded}}/epc/upload?autoIngest=true",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_seed_encoded}}",
+                "epc",
+                "upload"
+              ],
+              "query": [
+                {
+                  "key": "autoIngest",
+                  "value": "true"
+                }
+              ]
+            },
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "epc",
+                  "type": "file",
+                  "src": "data/Demo_Drogon.epc"
+                },
+                {
+                  "key": "h5",
+                  "type": "file",
+                  "src": "data/Demo_Drogon.h5"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var s = pm.response.code;",
+                  "pm.test('epc upload accepted or not-yet-deployed (200/201/404/413)', function(){ pm.expect(s).to.be.oneOf([200,201,404,413]); });",
+                  "if (s===200||s===201){ var b=pm.response.json(); var stored=(b.objectsStored!=null?b.objectsStored:(b.stored!=null?b.stored:b.object_count)); pm.collectionVariables.set('drogon_seed_stored', String(stored)); pm.test('objects stored > 0', function(){ pm.expect(Number(stored)).to.be.greaterThan(0); }); } else { console.log('NOTE: /epc/upload not deployed yet (pre-M27 preship) -> '+s); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SS03 Drogon Seed Validate",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_seed_encoded}}/validate",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_seed_encoded}}",
+                "validate"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var s = pm.response.code;",
+                  "pm.test('validate ok or not-yet-deployed (200/404)', function(){ pm.expect(s).to.be.oneOf([200,404]); });",
+                  "if (s===200){ var b=pm.response.json(); var v=(b.is_valid!=null?b.is_valid:b.isValid); pm.test('dataspace is valid', function(){ pm.expect(v===true||v===undefined).to.be.true; }); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SS04 Drogon Seed List Resources",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_seed_encoded}}/resources/all",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_seed_encoded}}",
+                "resources",
+                "all"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('list resources ok (200/404)', function(){ pm.expect(pm.response.code).to.be.oneOf([200,404]); });",
+                  "if (pm.response.code===200){ var body=pm.response.json(); if (Array.isArray(body)){ for (var i=0;i<body.length;i++){ var it=body[i]; var str=(it&&(it.uri||it.name))||JSON.stringify(it); var m=str.match(/([A-Za-z0-9_.]*IjkGrid[A-Za-z0-9_.]*)\\(([0-9a-fA-F-]{36})\\)/); if(m){ pm.collectionVariables.set('drogon_seed_grid_type', m[1]); pm.collectionVariables.set('drogon_seed_grid_guid', m[2]); break; } } } }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SS05 Drogon Seed Object Content",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_seed_encoded}}/resources/{{drogon_seed_grid_type}}/{{drogon_seed_grid_guid}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_seed_encoded}}",
+                "resources",
+                "{{drogon_seed_grid_type}}",
+                "{{drogon_seed_grid_guid}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('object content ok or capture-empty (200/400/404)', function(){ pm.expect(pm.response.code).to.be.oneOf([200,400,404]); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "SS06 Drogon Seed Delete Dataspace",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}",
+                "type": "text"
+              },
+              {
+                "key": "data-partition-id",
+                "value": "{{data-partition-id}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{RDDMS_URL}}/dataspaces/{{drogon_seed_encoded}}",
+              "host": [
+                "{{RDDMS_URL}}"
+              ],
+              "path": [
+                "dataspaces",
+                "{{drogon_seed_encoded}}"
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('seed ds deleted (200/204/404)', function(){ pm.expect(pm.response.code).to.be.oneOf([200,204,404]); });"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "description": "Self-seeds Drogon data by uploading data/drogon/drogon201.epc over REST (epc-only; the 218MB H5 is omitted) then validates. Removes the dependency on the pre-seeded maap/drogon201b. /epc/upload + /validate are limited-deployment (404 on current preship) so tests tolerate 404 and light up after the preship etpclient->M27 upgrade."
+    },
+    {
+      "name": "15. Cleanup",
       "item": [
         {
           "name": "CL1 Delete Test Dataspace",

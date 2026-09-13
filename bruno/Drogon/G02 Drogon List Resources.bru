@@ -1,0 +1,62 @@
+meta {
+  name: G02 Drogon List Resources
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/all
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    if (Array.isArray(body)) {
+      // Capture the real dataObjectType + guid for an IjkGrid and a
+      // ContinuousProperty straight from the seeded data, so downstream reads
+      // work regardless of RESQML version (2.0 vs 2.2) on this dataspace.
+      function pick(needle) {
+        for (const it of body) {
+          const s = (it && (it.uri || it.name)) || JSON.stringify(it);
+          const m = s.match(new RegExp("([A-Za-z0-9_.]*" + needle + "[A-Za-z0-9_.]*)\\(([0-9a-fA-F-]{36})\\)"));
+          if (m) return { type: m[1], guid: m[2] };
+        }
+        return null;
+      }
+      const grid = pick("IjkGrid");
+      const prop = pick("ContinuousProperty");
+      if (grid) { bru.setVar("drogonGridType", grid.type); bru.setVar("drogonGridGuid", grid.guid); }
+      if (prop) { bru.setVar("drogonPropType", prop.type); bru.setVar("drogonPropGuid", prop.guid); }
+    }
+  }
+}
+
+docs {
+  Drogon lifecycle (list + capture). Flat resource listing of the seeded Drogon
+  dataspace. Dynamically captures an IjkGrid and a ContinuousProperty
+  dataObjectType+guid (version-agnostic) for the object-content, arrays, graph
+  and multi-get reads below. Read-only.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns a non-empty resource array", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("array");
+    expect(body.length).to.be.greaterThan(0);
+  });
+
+  test("captured an IjkGrid guid", function () {
+    expect(bru.getVar("drogonGridGuid"), "grid guid").to.be.a("string").and.not.be.empty;
+  });
+}

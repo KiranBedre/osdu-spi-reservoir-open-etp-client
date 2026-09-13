@@ -1,0 +1,27 @@
+meta {
+  name: G26 Drogon Commit Delete Transaction
+  type: http
+  seq: 26
+}
+
+put {
+  url: {{host}}/dataspaces/{{drogonThrowawayId}}/transactions/{{drogonDelTxnId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (delete 3/4). Commits the delete transaction, making the CRS
+  object removal durable.
+}
+
+tests {
+  test("status is 200 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
+  });
+}

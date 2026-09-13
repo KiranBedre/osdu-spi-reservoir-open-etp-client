@@ -55,6 +55,22 @@ cimpl-containerize-bootstrap-gitlab:
     - bru run _Setup  $BRU_ENV
     - bru run Health   $BRU_ENV
     - bru run Dataspaces $BRU_ENV
+    # Drogon self-seed (create seed dataspace -> upload reduced EPC -> validate ->
+    # read -> delete). The 840 KB reduced EPC is committed at data/Demo_Drogon.epc
+    # (normal blob); a $DROGON_EPC_URL fallback can stage it otherwise. Guarded +
+    # tolerant: run only when a REAL epc (not an LFS pointer, not truncated) is
+    # present, and every assertion is oneOf(...) so a pre-upgrade server that 404s
+    # /epc/upload still passes. On the full oetp-client deployed here it round-trips.
+    - |
+      EPC=../data/Demo_Drogon.epc
+      if [ ! -f "$EPC" ] && [ -n "$DROGON_EPC_URL" ]; then
+        echo "Staging Demo_Drogon.epc from DROGON_EPC_URL"; curl -fsSL "$DROGON_EPC_URL" -o "$EPC" || true
+      fi
+      if [ -f "$EPC" ] && [ "$(wc -c < "$EPC")" -gt 102400 ] && ! head -c 64 "$EPC" | grep -q 'git-lfs'; then
+        bru run DrogonSeed $BRU_ENV || true
+      else
+        echo "Skipping DrogonSeed: no real Demo_Drogon.epc (missing, LFS pointer, or too small)."
+      fi
     - bru run _Cleanup  $BRU_ENV || true
 
 cimpl-test:

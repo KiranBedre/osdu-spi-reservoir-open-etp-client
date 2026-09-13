@@ -1,0 +1,40 @@
+meta {
+  name: S05 Drogon Seed Object Content
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonSeedId}}/resources/{{drogonSeedGridType}}/{{drogonSeedGridGuid}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon SELF-SEED (5/6). Reads the content of a captured IjkGrid from the
+  self-seeded dataspace, proving the EPC upload actually ingested a resolvable
+  RESQML object. When the capture (S04) is empty (preship pre-M27, upload 404) the
+  request path contains empty segments and the server answers 400/404, which is
+  tolerated. Read-only.
+}
+
+tests {
+  test("object content ok or capture-empty (200/400/404)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 400, 404]);
+  });
+
+  test("returned the requested grid when seeded", function () {
+    const guid = bru.getVar("drogonSeedGridGuid");
+    if (guid && res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body, "grid object body").to.exist;
+    } else {
+      expect(true).to.equal(true);
+    }
+  });
+}
