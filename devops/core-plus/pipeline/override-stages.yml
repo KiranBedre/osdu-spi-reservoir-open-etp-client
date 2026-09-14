@@ -88,6 +88,15 @@ cimpl-test:
   extends:
     - .cimpl-variables
     - .cimpl-dev-variables
+  # The upstream base job pins needs:[cimpl-deploy] (prod deploy), which is
+  # rule-excluded on the modern dev path where only cimpl-dev-deploy exists.
+  # Make both optional so the job waits for whichever deploy is present and the
+  # pipeline validates in every context.
+  needs:
+    - job: cimpl-deploy
+      optional: true
+    - job: cimpl-dev-deploy
+      optional: true
   rules:
     - if: '$DISABLE_INTEGRATION_TEST == "true"'
       when: never
