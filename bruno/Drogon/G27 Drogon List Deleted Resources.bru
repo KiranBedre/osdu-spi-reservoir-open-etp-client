@@ -1,0 +1,34 @@
+meta {
+  name: G27 Drogon List Deleted Resources
+  type: http
+  seq: 27
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonThrowawayId}}/deleted
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (delete 4/4). Lists tombstoned resources after the delete commit
+  in G26 (GetDeletedResources). Tolerant of 404 when the server does not surface
+  deleted history.
+}
+
+tests {
+  test("status is documented (200/404)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
+  });
+
+  test("returns an array when 200", function () {
+    if (res.getStatus() === 200) {
+      expect(res.getBody()).to.be.an("array");
+    }
+  });
+}

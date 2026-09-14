@@ -10,7 +10,8 @@ docs/
 .husky/
 
 # Local data and config
-data/
+data/*
+!data/Demo_Drogon.epc
 config.user.env
 test-local-integration.sh
 test-preship-integration.sh
@@ -22,6 +23,8 @@ M27_CI_Reservoir-DDMS_marcus.md
 *.bak
 *.epc
 *.h5
+# ...but keep the committed Drogon self-seed fixture (normal blob, see .gitattributes)
+!data/Demo_Drogon.epc
 
 # Coverage and test reports
 coverage/

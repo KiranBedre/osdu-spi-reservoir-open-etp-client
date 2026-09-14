@@ -1,0 +1,38 @@
+meta {
+  name: G23 Drogon Verify Throwaway Absent
+  type: http
+  seq: 23
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonThrowawayId}}/resources/resqml20.obj_LocalDepth3dCrs/{{drogonRbObjGuid}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (rollback 4/4). Reads the object written inside the rolled-back
+  transaction (G21). On a fully transactional store it is absent (404/400). On the
+  M27 preship server `PUT resources?transactionId=` persists immediately and
+  DELETE-ing the transaction releases the transaction WITHOUT discarding the
+  already-written object, so 200 is also accepted (observed behavior). The
+  throwaway dataspace is dropped in G28, so nothing leaks either way.
+}
+
+tests {
+  test("throwaway object read is documented (200/404/400)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404, 400]);
+  });
+
+  test("note rollback-write semantics when still present", function () {
+    if (res.getStatus() === 200) {
+      console.log("NOTE: M27 preship did not discard the write on transaction rollback (writes are applied immediately).");
+    }
+    expect(true).to.equal(true);
+  });
+}

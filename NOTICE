@@ -55,6 +55,7 @@ The following software have components provided under the terms of this license:
 - bunyan (from https://www.npmjs.com/package/bunyan)
 - class-transformer (from https://github.com/typestack/class-transformer#readme)
 - class-validator (from https://github.com/typestack/class-validator#readme)
+- compression (from https://github.com/expressjs/compression#readme)
 - dataloader (from https://github.com/graphql/dataloader)
 - express (from https://expressjs.com/)
 - fast-xml-parser (from https://github.com/NaturalIntelligence/fast-xml-parser#readme)

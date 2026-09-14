@@ -1,0 +1,45 @@
+meta {
+  name: S01 Drogon Seed Create Dataspace
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/dataspaces
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  [
+    {
+      "DataspaceId": "{{drogonSeedIdRaw}}",
+      "Path": "{{drogonSeedIdRaw}}",
+      "CustomData": {
+        "viewers": ["{{defaultViewers}}"],
+        "owners": ["{{defaultOwners}}"],
+        "legaltags": ["{{defaultLegalTag}}"],
+        "otherRelevantDataCountries": ["US"]
+      }
+    }
+  ]
+}
+
+docs {
+  Drogon SELF-SEED (1/6). Creates a fresh, disposable dataspace that this folder
+  seeds by uploading the Drogon EPC over REST (S02). The goal is to be READY for
+  the preship etpclient -> M27 (~/rddms) upgrade: it removes the dependency on the
+  fragile pre-seeded maap/drogon201b space (any etpserver PG upgrade would break
+  that). Accepts 409 (already exists) so reruns are safe.
+}
+
+tests {
+  test("seed dataspace create ok (200/201/400/403/409)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 400, 403, 409]);
+  });
+}

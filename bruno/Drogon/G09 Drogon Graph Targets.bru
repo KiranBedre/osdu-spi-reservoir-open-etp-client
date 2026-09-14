@@ -1,0 +1,28 @@
+meta {
+  name: G09 Drogon Graph Targets
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/graph/{{drogonGridType}}/{{drogonGridGuid}}/targets
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (graph targets). Traverses the DOR edges the Drogon grid points
+  AT via graph/:type/:guid/targets (deprecated but live in M27). Tolerant of
+  400/404.
+}
+
+tests {
+  test("status is documented (200/400/404)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 400, 404]);
+  });
+}
