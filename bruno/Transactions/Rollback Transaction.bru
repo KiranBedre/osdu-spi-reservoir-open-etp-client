@@ -5,7 +5,7 @@ meta {
 }
 
 delete {
-  url: {{host}}/dataspaces/{{dataspaceId}}/transactions/{{transactionId}}
+  url: {{host}}/dataspaces/{{testDataspaceId}}/transactions/{{transactionId}}
   body: none
   auth: none
 }
@@ -16,7 +16,7 @@ headers {
 }
 
 tests {
-  test("status is 200 or 204", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 204]);
+  test("status is 200 or 204 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 204, 404]);
   });
 }

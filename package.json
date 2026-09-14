@@ -12,7 +12,7 @@
   "scripts": {
     "all": "npm run git:hooks && npm run build && npm run validate",
     "build:dts": "cpy \"src/lib/mlTypes/xmlns/**\" dist/src/lib/mlTypes/xmlns",
-    "build:quick": "git clean -xdff dist && tsc && npm run build:dts",
+    "build:quick": "git clean -xdff dist && tsc && cp -r src/lib/validation/schemas dist/src/lib/validation/ && npm run build:dts",
     "build": "npm run build:quick && npm run openAPI && npm run docs",
     "build:noclean": "npx tsc && npm run build:dts && npm run openAPI && typedoc src",
     "docs": "git clean -xdff docs/ && typedoc src",
@@ -26,7 +26,7 @@
     "docker:compose:start": "npm run docker:compose:base -- up -d -V --force-recreate --remove-orphans",
     "docker:compose:stop": "npm run docker:compose:base -- down --volumes --remove-orphans",
     "test": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit",
-    "test:integration": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit --testPathPattern='TestClient|TestProtocols|TestWitsmlQuery'",
+    "test:integration": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit --testPathPattern='TestClient|TestWitsmlQuery'",
     "test:cov": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit --coverage",
     "test:debug": "npm run env:set -- node --inspect-brk ./node_modules/jest/bin/jest.js --coverage=false --runInBand",
     "test:single": "npm run env:set -- jest --coverage=false --runInBand",
@@ -75,19 +75,28 @@
     "url": "git+https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client"
   },
   "dependencies": {
+    "@apollo/server": "~5.5.1",
+    "@as-integrations/express5": "~1.1.2",
+    "@nestjs/apollo": "~13.4.2",
     "@nestjs/common": "^11.1.19",
     "@nestjs/core": "^11.1.19",
+    "@nestjs/graphql": "~13.4.2",
     "@nestjs/platform-express": "^11.1.19",
     "@nestjs/swagger": "^11.4.2",
+    "adm-zip": "~0.6.0",
     "bunyan": "~1.8.15",
     "class-transformer": "~0.5.1",
     "class-validator": "~0.14.1",
-    "events": "~3.3.0",
+    "compression": "~1.8.1",
+    "dataloader": "~2.2.3",
     "express": "^5.2.1",
     "fast-xml-parser": "~5.7.3",
     "glob": "~10.5.0",
+    "graphql": "~16.14.2",
+    "h5wasm": "~0.10.3",
     "helmet": "~7.0.0",
     "jsonwebtoken": "~9.0.2",
+    "libxmljs2": "~0.37.0",
     "log4js": "~6.9.1",
     "node-fetch": "~2.7.0",
     "prom-client": "~15.1.3",
@@ -95,10 +104,9 @@
     "rxjs": "~7.8.2",
     "sax": "~1.3.0",
     "swagger-ui-express": "~5.0.1",
-    "ts-morph": "~22.0.0",
+    "ts-morph": "~24.0.0",
     "uuid": "~11.1.1",
-    "websocket": "~1.0.35",
-    "xml-js": "~1.6.11"
+    "websocket": "~1.0.35"
   },
   "devDependencies": {
     "@babel/core": "~7.23.9",
@@ -113,18 +121,17 @@
     "@types/jest": "~29.5.14",
     "@types/jsonwebtoken": "~9.0.9",
     "@types/lodash": "~4.14.202",
+    "@types/multer": "~2.2.0",
     "@types/node": "~22.13.14",
     "@types/node-fetch": "~2.6.12",
     "@types/sax": "~1.2.7",
     "@types/semver": "~7.5.8",
-    "@types/superagent": "~4.1.24",
     "@types/supertest": "~2.0.16",
     "@types/swagger-ui-express": "~4.1.8",
     "@types/uuid": "~9.0.8",
     "@types/validator": "~13.11.10",
     "@types/websocket": "~1.0.10",
     "@typescript-eslint/eslint-plugin": "~6.9.1",
-    "adm-zip": "~0.5.17",
     "commander": "~11.1.0",
     "commitizen": "~4.3.1",
     "cpy-cli": "~4.2.0",
@@ -162,14 +169,14 @@
     },
     "lodash": "4.18.1",
     "minimatch": "9.0.7",
-    "js-yaml": "4.1.1",
+    "js-yaml": "4.3.1",
     "cross-spawn": "7.0.5",
     "npm-run-all": {
       "cross-spawn": "7.0.5",
       "minimatch": "3.1.4"
     },
     "test-exclude": {
-      "minimatch": "5.1.6"
+      "minimatch": "5.1.8"
     },
     "execa": {
       "cross-spawn": "7.0.5"
@@ -181,7 +188,7 @@
     "ajv": "8.18.0",
     "jws": "3.2.3",
     "validator": "13.15.22",
-    "form-data": "4.0.4",
+    "form-data": "4.0.6",
     "underscore": "1.13.8",
     "eslint": {
       "ajv": "6.14.0"
@@ -192,12 +199,16 @@
     "flatted": "3.4.2",
     "file-type": "21.3.4",
     "picomatch": "2.3.2",
-    "brace-expansion": "5.0.6",
+    "brace-expansion": "5.0.9",
     "yaml": "2.8.3",
     "fast-xml-builder": "1.1.7",
-    "fast-uri": "3.1.2",
+    "fast-uri": "3.1.6",
+    "shell-quote": "1.9.0",
+    "tar": "7.5.21",
+    "ws": "8.21.0",
     "diff": "9.0.0",
-    "micromatch": "4.0.8"
+    "micromatch": "4.0.8",
+    "browserslist": "4.28.7"
   },
   "publishConfig": {
     "access": "public"
@@ -225,7 +236,8 @@
       "<rootDir>/docs/",
       "<rootDir>/src/__tests__/TestClient.ts",
       "<rootDir>/src/__tests__/TestProtocols.ts",
-      "<rootDir>/src/__tests__/TestWitsmlQuery.ts"
+      "<rootDir>/src/__tests__/TestWitsmlQuery.ts",
+      "<rootDir>/src/__tests__/TestResqmlValidatorDatasets.ts"
     ],
     "testEnvironmentOptions": {
       "url": "http://localhost"
@@ -263,7 +275,7 @@
     "testEnvironment": "node"
   },
   "engines": {
-    "node": ">=20",
+    "node": ">=22",
     "npm": ">=6.13"
   }
 }

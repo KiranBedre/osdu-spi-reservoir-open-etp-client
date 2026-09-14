@@ -14,8 +14,7 @@ export class StructuralOrganizationInterpretationOSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml20.obj_StructuralOrganizationInterpretation>
   >
-  implements StructuralOrganizationInterpretation
-{
+  implements StructuralOrganizationInterpretation {
   public data: Data = {};
 
   constructor(
@@ -44,7 +43,7 @@ export class StructuralOrganizationInterpretationOSDU
         const srn = await StructuralOrganizationInterpretationOSDU.dorToSrn(
           ReservoirDMSUrl, h.Horizon, client, context
         );
-        if (srn) horizonIds.push(srn + ":");
+        if (srn) horizonIds.push(srn);
       }
     }
     const topIds = await this.resolveDorArray(
@@ -99,7 +98,7 @@ export class StructuralOrganizationInterpretationOSDU
       const srn = await StructuralOrganizationInterpretationOSDU.dorToSrn(
         uri, dor, client, context
       );
-      if (srn) results.push(srn + ":");
+      if (srn) results.push(srn);
     }
     return results;
   }

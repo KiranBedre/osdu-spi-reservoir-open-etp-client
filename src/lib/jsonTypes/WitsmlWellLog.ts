@@ -18,8 +18,7 @@ import { Data, WellLog, Curves } from "./Generated/work-product-component/WellLo
  */
 export class WitsmlWellLogOSDU
   extends ResqmlWorkProductComponent<SimpleJson<witsml21.Log>>
-  implements WellLog
-{
+  implements WellLog {
   public data: Data = {};
 
   constructor(xml: SimpleJson<witsml21.Log>, context: OSDUContext) {
@@ -94,13 +93,13 @@ export class WitsmlWellLogOSDU
           LogCurveMainFamilyID: undefined
         };
 
-        // Resolve property kind — prefer ChannelPropertyKind.Title, then PWLS mnemonic lookup
+        // Resolve property kind - prefer ChannelPropertyKind.Title, then PWLS mnemonic lookup
         const pkTitle: string | undefined =
           ch.ChannelPropertyKind?.Title ?? ch.ChannelPropertyKind?.Uuid;
 
         if (pkTitle && isKnownPwlsProperty(pkTitle)) {
           curve.LogCurveMainFamilyID = context.addReferenceData(
-            "CurveMainFamily",
+            "LogCurveMainFamily",
             pkTitle
           );
         } else {
@@ -108,13 +107,13 @@ export class WitsmlWellLogOSDU
           const resolved = getPropertyFromMnemonic(mnemonic);
           if (resolved) {
             curve.LogCurveMainFamilyID = context.addReferenceData(
-              "CurveMainFamily",
+              "LogCurveMainFamily",
               resolved
             );
           } else if (pkTitle) {
             // Fallback: use raw property kind title
             curve.LogCurveMainFamilyID = context.addReferenceData(
-              "CurveMainFamily",
+              "LogCurveMainFamily",
               pkTitle
             );
           }

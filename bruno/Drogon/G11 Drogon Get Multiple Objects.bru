@@ -1,0 +1,37 @@
+meta {
+  name: G11 Drogon Get Multiple Objects
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{host}}/dataspaces/multi-resources/get-content
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "uris": [
+      "eml:///dataspace('{{drogonDataspaceIdRaw}}')/{{drogonGridType}}({{drogonGridGuid}})"
+    ]
+  }
+}
+
+docs {
+  Drogon lifecycle (multi get-content). Batch-reads object content for the Drogon
+  grid uri (built from the captured type+guid) in a single call. Tolerant of
+  400/404.
+}
+
+tests {
+  test("status is documented (200/201/400/404)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 400, 404]);
+  });
+}

@@ -1,0 +1,27 @@
+meta {
+  name: S06 Drogon Seed Delete Dataspace
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{host}}/dataspaces/{{drogonSeedId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon SELF-SEED (6/6). Deletes the disposable self-seeded dataspace so the run
+  leaves no residue (and reruns start clean). Tolerates 404 if S01 never created it.
+}
+
+tests {
+  test("seed dataspace deleted (200/204/404)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 204, 404]);
+  });
+}

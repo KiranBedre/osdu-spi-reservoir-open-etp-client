@@ -12,7 +12,7 @@ import {
 } from "./Generated/master-data/CollaborationProject.1.0.0";
 
 /**
- * S5: CollaborationProject — maps an ETP dataspace to an OSDU
+ * S5: CollaborationProject - maps an ETP dataspace to an OSDU
  * master-data--CollaborationProject record.
  *
  * The dataspace IS the collaboration namespace: temporary/WIP objects live
@@ -117,10 +117,10 @@ class CollaborationProjectOSDU implements CollaborationProject {
 /**
  * Create a CollaborationProject manifest record from an ETP dataspace.
  *
- * @param dataspace — The ETP dataspace object
- * @param context — OSDU context (partition, ACLs, etc.)
- * @param collaborationId — The deterministic UUID for this collaboration
- * @param isLocked — Whether the dataspace is currently locked
+ * @param dataspace - The ETP dataspace object
+ * @param context - OSDU context (partition, ACLs, etc.)
+ * @param collaborationId - The deterministic UUID for this collaboration
+ * @param isLocked - Whether the dataspace is currently locked
  */
 export const CollaborationProjectManifest = (
   dataspace: Energistics.Etp.v12.Datatypes.Object.Dataspace,

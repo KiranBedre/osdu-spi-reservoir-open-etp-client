@@ -18,8 +18,7 @@ import {
  */
 export class MasterDataBoundaryFeature22OSDU
   extends ResqmlResource<SimpleJson<resqml22.BoundaryFeature>>
-  implements MasterDataBoundaryFeature
-{
+  implements MasterDataBoundaryFeature {
   public data: MasterDataBoundaryFeatureData = {};
 
   constructor(xml: SimpleJson<resqml22.BoundaryFeature>, context: OSDUContext) {
@@ -47,7 +46,7 @@ export class MasterDataBoundaryFeature22OSDU
       ],
 
       FeatureName: xml.Citation?.Title,
-      BoundaryFeatureTypeID: undefined,
+      BoundaryFeatureTypeID: undefined, // v2.2 BoundaryFeature has no subtype; classification comes from interpretation
       Description: xml.Citation?.Description,
 
       ExtensionProperties: undefined

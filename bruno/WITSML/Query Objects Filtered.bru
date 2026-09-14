@@ -1,0 +1,43 @@
+meta {
+  name: Query Objects Filtered
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{host}}/witsml/query
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "dataspace": "{{dataspaceIdRaw}}",
+    "objectTypes": ["Well", "Wellbore"],
+    "titleContains": "well",
+    "modifiedSince": "2020-01-01T00:00:00.000Z",
+    "skip": 0,
+    "top": 25
+  }
+}
+
+tests {
+  test("status is 200 or 400 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 400, 404]);
+  });
+
+  test("response has pagination envelope", function () {
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body).to.have.property("total");
+      expect(body).to.have.property("count");
+      expect(body.objects).to.be.an("array");
+      expect(body.objects.length).to.be.at.most(25);
+    }
+  });
+}

@@ -14,7 +14,7 @@ compile-and-unit-test:
     expire_in: 15 days
   script:
     - apk update && apk upgrade && apk add --no-cache python3 && ln -sf python3 /usr/bin/python
-    - apk add --update docker docker-compose make g++ nodejs-current npm git
+    - apk add --update docker docker-compose make g++ nodejs npm git
     - npm ci
     - npm run build
     - tar -czvf dist.tgz dist node_modules package*

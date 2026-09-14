@@ -1,0 +1,34 @@
+meta {
+  name: G06 Drogon Array Metadata
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonGridType}}/{{drogonGridGuid}}/arrays/{{drogonArrayPath}}/metadata
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (array metadata). Reads array metadata (dimensions, element
+  type, transport) for the array path captured in G05 - the GetDataArrayMetadata
+  path. Tolerant of 400/404.
+}
+
+tests {
+  test("status is documented (200/400/404)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 400, 404]);
+  });
+
+  test("metadata has array shape when 200", function () {
+    if (res.getStatus() === 200) {
+      expect(res.getBody(), "array metadata").to.be.an("object");
+    }
+  });
+}

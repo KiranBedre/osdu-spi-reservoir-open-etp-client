@@ -21,8 +21,7 @@ import {
  */
 export class ActivityTemplate23OSDU
   extends ResqmlResource<SimpleJson<eml23.ActivityTemplate>>
-  implements ActivityTemplate
-{
+  implements ActivityTemplate {
   public data: Data = { Parameters: [] };
 
   constructor(xml: SimpleJson<eml23.ActivityTemplate>, context: OSDUContext) {
@@ -54,7 +53,7 @@ export class ActivityTemplate23OSDU
         ? [p.DataObjectContentType]
         : undefined;
 
-      // Map DefaultValue[] — OSDU takes single AbstractActivityParameter
+      // Map DefaultValue[] - OSDU takes single AbstractActivityParameter
       let defaultValue: any = undefined;
       if (p.DefaultValue && p.DefaultValue.length > 0) {
         const dv = p.DefaultValue[0] as any;

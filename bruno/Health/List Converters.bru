@@ -17,7 +17,8 @@ tests {
 
   test("returns converter list", function () {
     const body = res.getBody();
-    expect(body).to.be.an("array");
-    expect(body.length).to.be.greaterThan(0);
+    // Server may return array or {count, items}
+    const items = Array.isArray(body) ? body : (body.items || []);
+    expect(items.length || body.count).to.be.greaterThan(0);
   });
 }

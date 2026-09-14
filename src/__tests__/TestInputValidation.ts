@@ -30,7 +30,7 @@ import { UrisDto } from "../lib/restApi/read-etp.module/MultiObject.controller";
 // ManifestInputDto
 // ---------------------------------------------------------------------------
 
-describe("ManifestInputDto — uris field", () => {
+describe("ManifestInputDto - uris field", () => {
   it("accepts a valid uris array", async () => {
     const dto = new ManifestInputDto();
     dto.uris = ["eml:///dataspace('demo/Volve')/resqml20.obj_Grid(5d27775e-5c7f-4786-a048-9a303fa1165a)"];
@@ -60,7 +60,7 @@ describe("ManifestInputDto — uris field", () => {
   });
 });
 
-describe("ManifestInputDto — typePatterns field", () => {
+describe("ManifestInputDto - typePatterns field", () => {
   it("accepts omitted typePatterns (optional)", async () => {
     const dto = new ManifestInputDto();
     dto.uris = ["eml:///dataspace('demo/Volve')"];
@@ -92,7 +92,7 @@ describe("ManifestInputDto — typePatterns field", () => {
 // CreateTransactionDto
 // ---------------------------------------------------------------------------
 
-describe("CreateTransactionDto — TimeoutPeriod field", () => {
+describe("CreateTransactionDto - TimeoutPeriod field", () => {
   it("accepts omitted TimeoutPeriod (optional)", async () => {
     const dto = new CreateTransactionDto();
     const errors = await validate(dto);
@@ -141,7 +141,7 @@ describe("CreateTransactionDto — TimeoutPeriod field", () => {
   });
 });
 
-describe("CreateTransactionDto — Retries field", () => {
+describe("CreateTransactionDto - Retries field", () => {
   it("accepts omitted Retries (optional)", async () => {
     const dto = new CreateTransactionDto();
     const errors = await validate(dto);
@@ -185,7 +185,7 @@ describe("CreateTransactionDto — Retries field", () => {
 // UrisDto
 // ---------------------------------------------------------------------------
 
-describe("UrisDto — uris field", () => {
+describe("UrisDto - uris field", () => {
   it("accepts a valid uris array", async () => {
     const dto = new UrisDto();
     dto.uris = ["eml:///dataspace('demo/Volve')/resqml20.obj_Grid(5d27775e-5c7f-4786-a048-9a303fa1165a)"];
@@ -280,7 +280,7 @@ describe("Dimensions validation guard", () => {
 // ---------------------------------------------------------------------------
 // CustomData Object.keys enumeration (DataspaceWrite.controller.ts)
 // Validates that `for (const e of Object.keys(obj))` only visits own
-// enumerable properties — not inherited ones as `for (const e in obj)` would.
+// enumerable properties - not inherited ones as `for (const e in obj)` would.
 // ---------------------------------------------------------------------------
 
 describe("CustomData Object.keys enumeration", () => {

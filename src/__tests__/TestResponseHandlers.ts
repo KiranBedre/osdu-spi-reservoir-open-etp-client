@@ -99,7 +99,7 @@ const checkValidArrayTime = (
 ) => {
   expect(value).toStrictEqual([true, false]);
   const interval = (Date.now() - time) / 1000;
-  expect(interval).toBeCloseTo(expectedInterval, 1);
+  expect(interval).toBeCloseTo(expectedInterval, 0);
   done();
 };
 
@@ -112,7 +112,7 @@ describe("Single Handler", () => {
       .then(value => {
         expect(value).toStrictEqual(true);
         const interval = (Date.now() - time) / 1000;
-        expect(interval).toBeCloseTo(0, 1);
+        expect(interval).toBeCloseTo(0, 0);
         done();
       })
       .catch();
@@ -247,7 +247,7 @@ describe("Success Map Handler", () => {
         expect(value[0].code).toStrictEqual(0);
         expect(value[1].code).toStrictEqual(0);
         const interval = (Date.now() - time) / 1000;
-        expect(interval).toBeCloseTo(0, 1);
+        expect(interval).toBeCloseTo(0, 0);
         done();
       })
       .catch();

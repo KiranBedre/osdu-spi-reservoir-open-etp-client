@@ -1,0 +1,28 @@
+meta {
+  name: G22 Drogon Rollback Transaction
+  type: http
+  seq: 22
+}
+
+delete {
+  url: {{host}}/dataspaces/{{drogonThrowawayId}}/transactions/{{drogonRbTxnId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (rollback 3/4). Rolls the transaction back by DELETE-ing it,
+  discarding the throwaway object written in G21. (Commit is PUT on the same
+  route; DELETE is the rollback verb.)
+}
+
+tests {
+  test("status is documented (200/204/404)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 204, 404]);
+  });
+}

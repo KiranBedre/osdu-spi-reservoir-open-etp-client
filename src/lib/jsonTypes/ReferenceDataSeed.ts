@@ -5,7 +5,7 @@
  * converters emit via addReferenceData(). Seeded once per partition on first
  * manifest build so that createMissingReferences is not needed for standard vocabulary.
  *
- * Only types actually used by converters are included — not the full XSD universe.
+ * Only types actually used by converters are included - not the full XSD universe.
  */
 
 import logging from "../common/Logging";
@@ -111,7 +111,7 @@ export const RESQML_REFERENCE_DATA: Record<string, string[]> = {
     "ApparentDepth",
     "MeasuredDepth",
   ],
-  CurveMainFamily: [
+  LogCurveMainFamily: [
     "absorbed dose",
     "amplitude",
     "density",
@@ -209,7 +209,7 @@ export async function seedReferenceDataIfNeeded(
         }
       }
     } catch {
-      // Search failure — conservative: skip these, they'll be created by createMissingReferences
+      // Search failure - conservative: skip these, they'll be created by createMissingReferences
     }
   }
 

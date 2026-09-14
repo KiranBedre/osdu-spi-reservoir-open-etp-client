@@ -1,0 +1,40 @@
+meta {
+  name: G20 Drogon Start Rollback Transaction
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonThrowawayId}}/transactions
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  if (res.getStatus() === 200 || res.getStatus() === 201) {
+    const body = res.getBody();
+    const txId = typeof body === "string" ? body.trim().replace(/"/g, "") : (body && body.transactionId);
+    if (txId) bru.setVar("drogonRbTxnId", txId);
+  }
+}
+
+docs {
+  Drogon lifecycle (rollback 1/4). Opens a second transaction used purely to
+  exercise rollback (G21 adds a throwaway object, G22 rolls it back, G23 asserts
+  absence).
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("captured rollback transactionId", function () {
+    expect(bru.getVar("drogonRbTxnId"), "rollback txn id").to.be.a("string").and.not.be.empty;
+  });
+}

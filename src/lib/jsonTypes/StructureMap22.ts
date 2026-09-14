@@ -13,11 +13,12 @@ import {
 import { FrameOfReferenceMetaDataItem } from "./Generated/manifest/Manifest.1.0.0";
 
 /**
- * Extract StructureMap information from a depth-domain Resqml 2.2 Grid2dRepresentation.
+ * Extract StructureMap information from a Resqml 2.2 Grid2dRepresentation.
  *
- * A StructureMap is a regular 2D grid surface in depth domain (as opposed to
- * SeismicHorizon which is time-domain on a seismic lattice). Typical use case:
- * exported horizon surfaces from Petrel / RMS where Z is depth below datum.
+ * A StructureMap is a regular 2D grid surface with a HorizonInterpretation,
+ * NOT on a seismic lattice. Handles both depth and time domain - DomainTypeID
+ * is set dynamically from CRS. Typical use case: exported horizon surfaces
+ * from Petrel / RMS.
  *
  * @export
  * @class StructureMap22OSDU
@@ -38,8 +39,8 @@ export class StructureMap22OSDU
   }
 
   /**
-   * Check if a Grid2d qualifies as a StructureMap (depth-domain surface with
-   * horizon interpretation, NOT on a seismic lattice).
+   * Check if a Grid2d qualifies as a StructureMap (surface with
+   * horizon interpretation, NOT on a seismic lattice). Both depth and time domain.
    *
    * @static
    * @param {SimpleJson<resqml22.Grid2dRepresentation>} xml
@@ -162,7 +163,7 @@ export class StructureMap22OSDU
         const dir0 = dim0.Direction;
         const dir1 = dim1.Direction;
         // Spacing value: for DoubleConstantArray the step size is Spacing.Value;
-        // the direction vector may be a unit vector — actual step = spacing * |dir|.
+        // the direction vector may be a unit vector - actual step = spacing * |dir|.
         const sp0 = (dim0.Spacing as any)?.Value ?? 1;
         const sp1 = (dim1.Spacing as any)?.Value ?? 1;
         this.data.BinWidthOnIaxis = Math.sqrt(

@@ -1,303 +1,276 @@
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-
-- [@osdu/open-etp-client](#osduopen-etp-client)
-  - [Setup](#setup)
-    - [Installation](#installation)
-  - [Contributing](#contributing)
-    - [Integrate with your tools](#integrate-with-your-tools)
-    - [Collaborate with your team](#collaborate-with-your-team)
-    - [Build](#build)
-  - [Tests](#tests)
-    - [Set up a local ETP Server using Docker images](#set-up-a-local-etp-server-using-docker-images)
-  - [Code style and validation](#code-style-and-validation)
-    - [Linter and prettier](#linter-and-prettier)
-    - [Validation](#validation)
-  - [Changelog](#changelog)
-    - [Create a package](#create-a-package)
-    - [Publishing](#publishing)
-  - [Usage](#usage)
-    - [XML JSON Utils](#xml-json-utils)
-    - [Rest API](#rest-api)
-    - [Examples](#examples)
-  - [Partitioning](#partitioning)
-
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
 # @osdu/open-etp-client
 
-This library is a client for connecting to ETP servers, serving RESQML data. It provides one main `ResqmlClient` class, which allows to easily perform the main tasks expected from a RESQML ETP client.
-This client is able to get data from a server and send data to it. The exchanges try to optimize the size of messages as negotiated between client and server.
-The data can be obtained as XML string or Javascript objects.
-Most classes functions return promises, allowing to easily chain requests.
+REST and GraphQL gateway and SDK for [OpenETPServer](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-server). Bridges HTTP/JSON consumers to the binary Avro ETP 1.2 protocol - dataspace management, RESQML/WITSML/PRODML object access, data array streaming, OSDU manifest generation, EPC upload, and well search.
 
-## Documentation
-
-| Document | Description |
-|----------|-------------|
-| [CHANGELOG](./CHANGELOG.M27.md) | All changes vs upstream Emerson open-etp-client |
-| [REST API Reference](./RestApi.md) | Developer guide for the REST API with workflow recipes and ETP protocol context |
-| [RESQML → OSDU Guide](./ResqmlOsduGuide.md) | How to populate RESQML metadata for lossless OSDU manifest roundtrips |
-
-## Setup
-
-### Installation
-
-OSDU gitlab does not contain a NPM repository and OSDU has no domain inside NPM.org repository. Until either of this solution is available, the library has to be built manually, using the process described below in the [Build](#build) section.
-
-[Here](devops/azure/README.md) are the instructions to deploy on Azure.
-
-## Contributing
-
-### Integrate with your tools
-
-- [ ] [Set up project integrations](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/settings/integrations)
-
-### Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Automatically merge when pipeline succeeds](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-### Build
-
-1. Clone it:
-
-   ```sh
-   git clone https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client.git
-   ```
-
-2. Configure
-
-   Copy the `config.user.env.sample` file located at the root of the repository to `config.user.env` file.
-   Edit the new file and fill the requested values. Make sure the specified [partition mode](#partitioning) is correct.
-   Note: this can be used to override default values located in `config.default.env` file.
-
-3. Install / Build
-
-   You can use the traditional npm commands to build the package:
-   `npm install && npm run build`.
-
-But also the custom script: `npm run all`.
-
-This script performs the different steps:
-
-- Dependencies installation
-- Git hooks installation
-- Build
-- Validation (linter, prettier and tests)
-
-## Tests
-
-To run all unit tests:
-
-```sh
-npm run test
+```mermaid
+graph LR
+    A["Consumers<br/>(apps, CI, Swagger)"] <-->|"REST / GraphQL<br/>HTTP · JSON · GQL"| B["open-etp-client<br/>(this service)<br/>NestJS · :8003"]
+    B <-->|"Binary Avro ETP 1.2<br/>WebSocket frames"| C["open-etp-server<br/>(C++ binary)<br/>:9004 → PG"]
+    B -.->|"OSDU APIs (optional)"| D["Schema Service - Kind version resolution<br/>Storage Service - Manifest ingestion<br/>CRS Service - Coordinate transforms"]
 ```
 
-You can specify patterns to run a subset of the tests:
+| Document                                                                                                                                 | Description                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [REST SDK](./sdk/README.md)                                                                                                              | **Typed TypeScript SDK** - API reference, examples, quick start    |
+| [Release Notes](./ReleaseNotes.md)                                                                                                       | Features, interfaces, and behavioral changes per milestone         |
+| [Swagger UI](http://localhost:8003/Reservoir/v2/)                                                                                        | Interactive endpoint reference (served by the running application) |
+| [RESQML → OSDU Guide](./ResqmlOsduGuide.md)                                                                                              | Populating RESQML metadata for lossless OSDU roundtrips            |
+| [OpenETPServer](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-server/-/blob/main/README.md) | C++ ETP server: build, deploy, telemetry                           |
+
+---
+
+## Quick Start
 
 ```sh
-npm run test pattern1 pattern2 ...
+# 1. Clone and install for standalone deployment/testing
+git clone https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client.git
+cd open-etp-client
+npm install && npm run build
+
+# 2. Configure
+cp config.user.env.sample config.user.env
+# Edit config.user.env - set RDMS_ETP_HOST, RDMS_ETP_PORT, etc.
+
+# 3. Start ETP server (Docker) + REST API
+npm run docker:compose:start    # OpenETPServer + PostgreSQL on :9004
+npm run start                   # REST API on :8003
 ```
 
-Run tests sequentially and disable coverage:
+Open [http://localhost:8003/Reservoir/v2/](http://localhost:8003/Reservoir/v2/) for Swagger UI.
+
+### Configuration
+
+Set values in `config.user.env` (overrides `config.default.env`):
+
+| Variable                   | Default         | Description                                                      |
+| -------------------------- | --------------- | ---------------------------------------------------------------- |
+| `RDMS_ETP_HOST`            | `localhost`     | ETP server hostname                                              |
+| `RDMS_ETP_PORT`            | `9004`          | ETP server port                                                  |
+| `RDMS_ETP_PROTOCOL`        | `ws`            | `ws` or `wss`                                                    |
+| `RDMS_REST_PORT`           | `8003`          | REST API listen port                                             |
+| `RDMS_REST_ROOT_PATH`      | `/Reservoir/v2` | REST API base path                                               |
+| `RDMS_DATA_PARTITION_MODE` | `single`        | `single` or `multipartition` - see [Partitioning](#partitioning) |
+| `RDMS_ETP_SSL_VERIFY`      | `true`          | Set `false` for self-signed certs                                |
+| `RDMS_OSDU_URL`            | -               | OSDU platform URL (enables Schema Service, CRS lookups)          |
+| `OSDU_MILESTONE`           | -               | Schema milestone hint (`M26`, `M27`, `M28`) - auto-resolved via Schema Service |
+
+---
+
+## API Reference
+
+### REST API
+
+Interactive Swagger UI at the configured root path. Includes full endpoint descriptions, workflow examples, and try-it-out.
+
+| Category         | Key endpoints                                                             |
+| ---------------- | ------------------------------------------------------------------------- |
+| **Health**       | Liveness, readiness, server info, converter registry                      |
+| **Dataspaces**   | CRUD, clone, lock/unlock                                                  |
+| **Resources**    | List, get, validate, graph traversal (sources/targets)                    |
+| **Data Arrays**  | Array metadata, content, upload with chunking                             |
+| **Query**        | FindObjects, batch graph search                                           |
+| **Write**        | PutDataObjects, DeleteDataObjects (requires transaction)                  |
+| **Transactions** | Start, commit, rollback                                                   |
+| **EPC Upload**   | Upload EPC + H5 file pair with auto-transaction and diagnostics           |
+| **Manifest**     | OSDU manifest generation from ETP dataspaces                              |
+| **Wells**        | Cross-dataspace well search with hierarchy resolution                     |
+| **WITSML**       | Store/query WITSML 2.1 and 1.4.1 XML objects                              |
+| **PWLS**         | Curve mnemonic resolution and validation                                  |
+
+### GraphQL API
+
+Available at `/graphql` (with Playground in development mode). Same data as REST with field-level selection and DataLoader batching.
+
+Query types: `dataspaces`, `resources`, `graph`, `objectContent`, `arrayMetadata`.
+
+### TypeScript REST SDK - `RddmsClient`
+
+The `RddmsClient` class provides a **typed HTTP/JSON SDK** for the REST API. No ETP protocol knowledge, no binary framing, no XML - just typed method calls.
+
+```typescript
+import { RddmsClient } from "./sdk";
+
+const rddms = new RddmsClient({
+  baseUrl: "http://localhost:8080/api/reservoir-ddms/v2",
+  partitionId: "dev"
+});
+
+// Atomic write: transaction → put objects → put arrays → commit (auto-rollback on error)
+await rddms.atomicWrite("demo/test", [crs, hdfProxy, pointSet], [coordArray]);
+
+// Read back
+const types = await rddms.resources.types("demo/test");
+const arr = await rddms.arrays.get(
+  "demo/test",
+  containerType,
+  containerUuid,
+  arrayPath
+);
+```
+
+See [sdk/README.md](./sdk/README.md) for the full API reference and [src/examples/sdk/](./src/examples/sdk/) for runnable examples.
+
+### TypeScript Library (low-level)
+
+The `ResqmlClient` class talks raw ETP 1.2 binary protocol over WebSocket - you manage connections, Avro frame encoding, session negotiation, and multi-part message assembly. See [src/examples/](./src/examples/).
+
+> **When to use which?**
+
+```mermaid
+flowchart TD
+    Q["Choose client"] --> A1{"Large arrays?<br/>> 100k floats"}
+    A1 -->|Yes| A2{"Need streaming<br/>or real-time push?"}
+    A2 -->|Yes| ETP["ResqmlClient<br/>(ETP WebSocket)"]
+    A2 -->|No| UPLOAD["EPC Upload endpoint<br/>or ResqmlClient"]
+    A1 -->|No| A3{"Need direct protocol<br/>control?"}
+    A3 -->|Yes| ETP
+    A3 -->|No| SDK["RddmsClient<br/>(REST SDK)"]
+```
+
+#### Performance: SDK vs Direct ETP vs fesapi/pyetp
+
+| Operation                     | SDK (REST/JSON)  | Direct ETP (ResqmlClient) | fesapi (C++) |  pyetp  |
+| ----------------------------- | :--------------: | :-----------------------: | :----------: | :-----: |
+| Metadata (list, get, graph)   |      ~20 ms      |          ~15 ms           |    ~12 ms    | ~17 ms  |
+| atomicWrite (2 objects)       |      ~44 ms      |          ~30 ms           |    ~25 ms    | ~35 ms  |
+| atomicWrite (1000 objects)³   |     ~180 ms      |          ~120 ms          |    ~80 ms    | ~150 ms |
+| 100k float array read         |     ~200 ms      |          ~50 ms           |    ~30 ms    | ~80 ms  |
+| 1M float array read           |       ~2 s       |          ~300 ms          |   ~150 ms    | ~500 ms |
+| 1GB float array (125M floats) | **impractical**¹ |          ~50 s²           |    ~25 s     |  ~80 s  |
+
+¹ JSON text for 125M floats is ~2.5 GB - exceeds Node.js heap and HTTP chunking limits. Use EPC upload or direct ETP for arrays this size.
+² ETP chunks at 4 MB (~250 chunks for 1 GB). Throughput is ~20 MB/s over WebSocket with Avro framing.
+³ Object writes scale sub-linearly: the gateway batches 100 objects per ETP message, so 1000 objects = 10 ETP messages inside 1 HTTP call + fixed transaction overhead (~22 ms). Not 500× the 2-object time.
+
+For **metadata operations**, the SDK adds ~5–8 ms overhead per call - negligible for application use (ETP server + PG query time dominates). For **large array I/O** (>100k floats), JSON serialization becomes the bottleneck (~5–7× slower than binary Avro). For array-heavy workflows (seismic grids, simulation results), use the EPC upload endpoint or direct ETP.
+
+---
+
+## Deployment
+
+### Docker Compose (local)
 
 ```sh
-npm run test:single pattern1 pattern2 ...
+npm run docker:compose:start    # OpenETPServer + PostgreSQL
+npm run start                   # REST API against Docker ETP server
 ```
 
-### Set up a local ETP Server using Docker images
+### Azure (AKS)
 
-This is a more native way to run the REST server using the Docker images we produce on GitLab. It is a Linux server, and installation and updates are faster and closer to the real deployment.
+See [devops/azure/README.md](devops/azure/README.md) for Helm chart and Azure DevOps pipeline setup.
 
-[See image](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-server/container_registry)
+### Production notes
 
-Once the server is set up, run (or copy-paste to terminal):
+- ETP server and client are **separate containers** - deploy with shared network
+- OpenETPServer requires **PostgreSQL** (stores XML metadata and HDF5 arrays)
+- Configure `RDMS_OSDU_URL` for Schema Service kind resolution; falls back to static versions (data-definitions aligned) if unavailable
+- Health endpoints (`/health/liveness`, `/health/readiness`) are Kubernetes-ready
+- SIGTERM triggers graceful shutdown: stops accepting requests, rolls back open transactions, exits within 30s
 
-1. `npm run docker:login` only once to access the ACR
-2. `npm run docker:update` to update to the latest version (download, install)
-3. `npm run docker:compose:start` to run the servers:
-   - eml etp12 (aka OpenEtpServer) is available on `localhost:9004`
+---
 
-## Code style and validation
+## Architecture
 
-### Linter and prettier
+### ETP Protocols
 
-The source code is analyzed (see _.eslintrc.json_ file for configuration) with [eslint](https://eslint.org) and formatted with [prettier](https://prettier.io/).
+All protocols are **auto-negotiated** at session open. Unsupported endpoints return 501.
 
-The CI relies on those to validate code. Each tool can be run separately:
+| Protocol         | ID  | Purpose                                                      |
+| ---------------- | --- | ------------------------------------------------------------ |
+| Core             | 0   | Session management                                           |
+| Discovery        | 3   | Resource enumeration, graph traversal                        |
+| Store            | 4   | Get/Put/Delete data objects                                  |
+| DataArray        | 9   | Array read/write with chunking                               |
+| Transaction      | 18  | Start/commit/rollback                                        |
+| Dataspace        | 24  | Create/delete/lock dataspaces                                |
+| SupportedTypes   | 25  | Type enumeration                                             |
+| StoreQuery       | 14  | FindDataObjects with content → `POST /query/objects/find`    |
+
+---
+
+## Testing
+
+### Unit tests
 
 ```sh
-npm run lint
-npm run prettier
+npm run test                              # all (parallel, with coverage)
+npm run test pattern1 pattern2            # subset by pattern
+npm run test:single pattern1              # sequential, no coverage (debugging)
 ```
 
-Or with the validate script mentioned below.
+### Integration tests
 
-For developers, these tools can be used to automatically fix the code:
+Require a running ETP server:
 
 ```sh
-npm run lint:fix
-npm run prettier:write
+npm run test:integration                  # TestClient + TestProtocols + TestWitsmlQuery
 ```
 
-Those checks are performed inside the provided git `pre-commit` hook using `lint-staged`.
+### Bruno API tests
 
-### Validation
-
-A custom script allows you to run in parallel linter, prettier, and tests:
+The `bruno/` folder contains a [Bruno](https://www.usebruno.com/) collection for REST API testing. Environments: Local, Azure, CI.
 
 ```sh
-npm run validate
+npx bru run bruno/ --env Local            # headless CLI run
 ```
 
-Developers can also run the all-in-one fix variant, which will run both tslint and prettier in auto-fix mode as described above.
+Manual workflow: run `_Setup/` requests → test individual endpoints → run `_Cleanup/`.
+
+### Local ETP Server (Docker)
 
 ```sh
-npm run validate:fix
+npm run docker:login               # once, for ACR access
+npm run docker:update              # pull latest images
+npm run docker:compose:start       # OpenETPServer on localhost:9004
 ```
 
-## Changelog
+---
 
-Recently Updated? Please read the changelog.
+## Reference
 
-### Create a package
+### Partitioning
 
-You can create a package with your changes for testing it in an application:
+Two modes (same as [ETP server](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-server/-/blob/main/README.md#partition-modes)):
 
-- Create a package
+- **Single-partition** - client handles one partition, does not transmit `data-partition-id` to server
+- **Multi-partition** - expects `data-partition-id` header in REST requests, forwards to server
 
-  After running the build, you can run `npm pack`.
+Set `RDMS_DATA_PARTITION_MODE` in config.
 
-  You will now have a `osdu-open-etp-client-x.x.x.tgz` archive in the root folder, which can be installed.
+### Schema Version Support
 
-- Install it locally in a client code
+Manifest builder resolves OSDU kind versions at startup:
 
-  ```sh
-  npm i /path/to/osdu-open-etp-client/osdu-open-etp-client-x.x.x.tgz
-  ```
+1. **Schema Service query** - queries OSDU Schema Service for latest published versions (auto-adapts to M26/M27/M28+)
+2. **Static fallback** - built-in `FALLBACK_KINDS` map (aligned with [data-definitions master](https://community.opengroup.org/osdu/data/data-definitions/-/tree/master/E-R)) if service unavailable
+
+No configuration needed - adapts automatically to the target platform.
+
+---
+
+## Development
+
+### Code style
+
+```sh
+npm run lint                  # eslint analysis
+npm run prettier              # formatting check
+npm run validate              # lint + prettier + tests in parallel
+npm run lint:fix              # auto-fix lint issues
+npm run prettier:write        # auto-fix formatting
+```
+
+Pre-commit hook runs `lint-staged` automatically.
+
+### Packaging
+
+```sh
+npm run build && npm pack     # creates osdu-open-etp-client-x.x.x.tgz
+npm i /path/to/osdu-open-etp-client-x.x.x.tgz   # install in another project
+```
 
 ### Publishing
 
-To publish a new version of the library, please follow these instructions:
-
-1. Update package version in `package.json` and update `package-lock.json` with `npm i`
-2. Update the changelog (`CHANGELOG.md` file)
-3. Create a PR with message "Bump version to v[new\_version]" (for example: "Bump
-   version to v0.4.2")
-4. Send the PR => the new version will be automatically published when the PR will be approved and completed
-
-## Usage
-
-- `openSession()` and `closeSession()` connect/disconnect to the server and create a new session.
-
-In order to discover and get data from a server the following methods are available:
-
-- `getDataspaces()` to get the list of projects/dataspace available
-- `getDataspaceTypes()` to get the list of types available in a project
-- `getDataObjects()` to get data objects directly from the messages, it will typically contains the row server message with XML string content.
-- `getObjects()` to get the object resulting from XML translation into javascript, data object references and data array are not resolved
-- `getResolvedObjects()` get the full objects resulting from the XML translation into Javascript, where data object references and data array are resolved and replaced. This may result in very large objects.
-
-ETP protocol handlers are available for advanced queries:
-
-- `discovery` / `discoveryQuery` — FindResources (Protocol 3/13)
-- `growingObject` — GetPartsMetadata, GetPartsByRange (Protocol 6)
-- `channelSubscribe` — GetChannelMetadata (Protocol 21)
-
-It is also possible to create and delete projects using:
-
-- `createProjects()`
-- `deleteProjects()`
-
-It is possible to send objects as XML strings using:
-
-- `putDataObjects()`
-
-Several methods are available to get/send arrays, array metadata and subarrays with:
-
-- `getDataArray()` will try to find the best strategy to download an array according to its size
-- `putDataArray()` will try to find the best strategy to send an array according to its size
-
-When an array is too large to fit in memory, the method visitDataArrayValues can be used to visit the values of an array extracted from its subarrays. (see example_statistics)
-
-`startTransaction()`, `commitTransaction()` and `rollbackTransaction()` are available to manage transaction in order to send data in a consistent state.
-
-This is especially important when sending data to a server.
-
-`subscribeNotifications()` and `unSubscribeNotifications()` allow to be notified of changes in the server.
-
-### XML JSON Utils
-
-As part of the conversion from XML to typescript, there is also some capabilities to perform analysis on typescript types with implementation for RESQML schema based types. The two main capabilities are:
-
-- Check that a given typescript object is conforming to a RESQML interface built from the initial XSD schemas
-- [Creation](./src/examples/createGQLSchema.ts) of GraphQL schemas from typescript interface.
-
-The class `ResqmlTypeUtils` amd `WitsmlTypeUtils` implement the RESQML and WITSML type tools, and simply encapsulates the loading of resqml interfaces are. It is also possible to redefine the base class `InterfaceTypeUtils` and pre-load other files.
-
-### Rest API
-
-A [REST server](./src/lib/restApi/RestServer.ts) exposes a REST API using an ETP server as backend, with interactive documentation via Swagger UI at the configured root path (e.g., `http://localhost:8080/api/reservoir-ddms/v2/`).
-
-**Endpoint categories:**
-
-| Tag | Description |
-|-----|-------------|
-| **Resources** | Dataspace CRUD, object discovery, graph traversal, data arrays |
-| **Query & Growing Objects** | Deep search (Discovery/Store protocols), growing object range queries, channel metadata |
-| **Wells** | Cross-dataspace well search with hierarchy resolution (wellbores, logs, trajectories) |
-| **WITSML** | WITSML XML query and object listing from dataspaces |
-| **Write** | PutDataObjects, DeleteDataObjects, array upload via ETP Store protocol |
-| **Transactions** | ETP transaction lifecycle (start, commit, rollback) |
-| **Manifest** | OSDU manifest generation from ETP dataspaces (`POST /manifests/build`) |
-| **Authentication** | Token info and session management |
-| **Health** | Liveness, readiness, converter registry, PWLS status |
-| **PWLS** | PWLS unit/curve catalog lookups (resolve, validate, catalog) |
-
-The REST API can also be used to create the manifest information corresponding to entities stored in the RDMS using (/manifests/build). It will use the information accessible through storage and coordinate system APIs, to resolve references and provide mapping information.
-
-### Examples
-
-Full examples for both graph and direct request chain are available under [src/examples/](./src/examples/):
-
-- [Example1](./src/examples/Example1.ts) shows how to get the resource graph or getting the resources individually
-- [ExampleObject](./src/examples/ExampleObject.ts) shows the different options to get and check individual RESQML objects
-- [Statistics](./src/examples/ExampleStatistics.ts) shows how to compute the statistics of data arrays when working with large projects
-
-## Partitioning
-
-There are two modes of how the ETP client handles partitions. They are the same as [those of the ETP server](../open-etp-server/README.md#partition-modes).
-
-In the **single-partition mode**, the ETP Client deals with a specific partition and does not transmit it to the server.
-
-The **multi-partition mode** allows you to work with several partitions. The ETP Client expects the data partition specified in the `data-partition-id` header in REST requests and transmits the value to the server.
-
-Specify the partition mode in the [config](config.default.env#L34) before building.
-
-## Schema Version Support
-
-The manifest builder emits OSDU schema kinds whose versions are resolved at startup:
-
-1. **Schema Service query** — on boot, `initSchemaVersions()` queries the OSDU Schema Service for the latest published kind versions (M27+).
-2. **Static fallback** — if the Schema Service is unavailable (401, timeout, or no `RDMS_OSDU_URL`), a built-in `FALLBACK_KINDS` map provides M27 versions (e.g., `WellLog:1.3.0`, `Well:1.2.0`).
-
-No configuration is required — the service adapts automatically to whatever versions the target platform supports.
-
-## Extended ETP Protocol Support
-
-The following ETP protocols are **auto-negotiated** during session establishment:
-
-| Protocol | ID | REST endpoints |
-|---|---|---|
-| DiscoveryQuery | 13 | `POST /query/resources/find` |
-| StoreQuery | 14 | (used internally) |
-| GrowingObject | 6 | `POST /query/growing/metadata`, `POST /query/growing/range` |
-| ChannelSubscribe | 21 | `POST /query/channels/metadata` |
-
-The client always requests all protocols. The ETP server responds with which ones it supports (`OpenSession.supportedProtocols`). If an endpoint is called but the server did not negotiate that protocol, the REST API returns **501 Not Implemented** with a descriptive message.
-
-No environment variable is needed to enable or disable these protocols.
+1. Update version in `package.json` + `npm i` to sync lock file
+2. Update `CHANGELOG.md`
+3. Create MR "Bump version to vX.Y.Z"

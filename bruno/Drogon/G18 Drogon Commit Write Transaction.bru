@@ -1,0 +1,27 @@
+meta {
+  name: G18 Drogon Commit Write Transaction
+  type: http
+  seq: 18
+}
+
+put {
+  url: {{host}}/dataspaces/{{drogonThrowawayId}}/transactions/{{drogonWriteTxnId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (write 4/14). Commits the write transaction, making the CRS
+  object durable on the throwaway dataspace.
+}
+
+tests {
+  test("status is 200 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
+  });
+}

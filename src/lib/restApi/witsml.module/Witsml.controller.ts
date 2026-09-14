@@ -18,9 +18,7 @@ import {
   BadRequestException,
   Body,
   Controller,
-  Get,
   HttpCode,
-  Param,
   Post,
   Put,
   Query,
@@ -33,6 +31,7 @@ import {
   ApiBody,
   ApiDefaultResponse,
   ApiForbiddenResponse,
+  ApiGoneResponse,
   ApiHeader,
   ApiInternalServerErrorResponse,
   ApiNotAcceptableResponse,
@@ -40,6 +39,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiProperty,
+  ApiPropertyOptional,
   ApiQuery,
   ApiTags,
   ApiTooManyRequestsResponse,
@@ -51,6 +51,7 @@ import {
   IsOptional,
   IsString,
   IsArray,
+  IsNumber,
   Matches,
   MaxLength
 } from "class-validator";
@@ -77,9 +78,11 @@ import {
   extractToken,
   httpErrorFromEtpError,
   patternString,
+  sliceArray,
   swaggerServers,
   partitionPattern,
-  transactionIdQueryParam
+  transactionIdQueryParam,
+  webSocketSessionTerminatedSchema
 } from "../ControllerUtils";
 
 import { XMLBuilder } from "../../mlTypes/Json2Xml";
@@ -105,13 +108,23 @@ class WitsmlStoreDto {
   @MaxLength(256)
   dataspace!: string;
 
-  @ApiProperty({
-    description: "WITSML 2.1 or EnergyML Common v2 XML document(s) to store",
+  @ApiPropertyOptional({
+    description: "WITSML 2.1 or EnergyML Common v2 XML document(s) to store. Provide either `xml` or `json`.",
     example: `<Well xmlns="http://www.energistics.org/energyml/data/witsmlv2">...</Well>`
   })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  xml!: string;
+  xml?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Array of Energistics/WITSML objects in JSON form (each with `$type` and `Uuid`). " +
+      "Alternative to `xml`; converted to Energistics XML server-side before storing.",
+    type: [Object]
+  })
+  @IsOptional()
+  @IsArray()
+  json?: Record<string, unknown>[];
 }
 
 class WitsmlQueryDto {
@@ -125,14 +138,126 @@ class WitsmlQueryDto {
   @MaxLength(256)
   dataspace!: string;
 
-  @ApiProperty({
-    description: "Filter by ETP object type name (case-insensitive). Omit to return all objects. Common values: Well, Wellbore, WellLog, Trajectory, ChannelSet, WellboreGeology",
-    required: false,
+  @ApiPropertyOptional({
+    description: "Filter by a single ETP object type name (case-insensitive). Common values: Well, Wellbore, WellLog, Trajectory, ChannelSet, WellboreGeology",
     example: "Well"
   })
   @IsOptional()
   @IsString()
   objectType?: string;
+
+  @ApiPropertyOptional({
+    description: "Filter by several object type names at once (case-insensitive). Combined with `objectType` if both are given.",
+    type: [String],
+    example: ["Well", "Wellbore"]
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  objectTypes?: string[];
+
+  @ApiPropertyOptional({
+    description: "Case-insensitive substring filter on the object title/name.",
+    example: "31/2-1"
+  })
+  @IsOptional()
+  @IsString()
+  titleContains?: string;
+
+  @ApiPropertyOptional({
+    description: "Return only objects whose UUID is in this list.",
+    type: [String]
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  uuids?: string[];
+
+  @ApiPropertyOptional({
+    description: "ISO 8601 timestamp - only return objects changed at or after this time (incremental sync).",
+    example: "2026-01-01T00:00:00.000Z"
+  })
+  @IsOptional()
+  @IsString()
+  modifiedSince?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Traverse relationships from a given object instead of listing the whole dataspace. " +
+      "Accepts a bare UUID (resolved within the dataspace) or a full ETP object URI. " +
+      "Use with `scope` to pick direction (e.g. all Wellbores/Logs under a Well).",
+    example: "a1b2c3d4-0000-0000-0000-000000000000"
+  })
+  @IsOptional()
+  @IsString()
+  relatedTo?: string;
+
+  @ApiPropertyOptional({
+    description: "Relationship direction when `relatedTo` is set.",
+    enum: ["self", "sources", "targets", "sourcesOrSelf", "targetsOrSelf"],
+    default: "targets"
+  })
+  @IsOptional()
+  @IsString()
+  scope?: string;
+
+  @ApiPropertyOptional({
+    description: "Number of results to skip (pagination).",
+    example: 0
+  })
+  @IsOptional()
+  @IsNumber()
+  skip?: number;
+
+  @ApiPropertyOptional({
+    description: "Maximum number of results to return (pagination).",
+    example: 100
+  })
+  @IsOptional()
+  @IsNumber()
+  top?: number;
+
+  @ApiPropertyOptional({
+    description: "Return format for object content: `xml` (raw Energistics XML, default) or `json` (parsed object).",
+    enum: ["xml", "json"],
+    default: "xml"
+  })
+  @IsOptional()
+  @IsString()
+  format?: string;
+}
+
+/** Map a scope string to an ETP ContextScopeKind (defaults to targets). */
+function witsmlScopeKind(
+  scope?: string
+): Energistics.Etp.v12.Datatypes.Object.ContextScopeKind {
+  const Kind = Energistics.Etp.v12.Datatypes.Object.ContextScopeKind;
+  switch (scope) {
+    case "self":
+      return Kind.self;
+    case "sources":
+      return Kind.sources;
+    case "sourcesOrSelf":
+      return Kind.sourcesOrSelf;
+    case "targetsOrSelf":
+      return Kind.targetsOrSelf;
+    default:
+      return Kind.targets;
+  }
+}
+
+/** Convert an ETP micro/epoch timestamp to ISO string, or null. */
+function microsToIso(lastChanged: unknown): string | null {
+  if (!lastChanged) {
+    return null;
+  }
+  try {
+    return new Date(
+      Number(BigInt(lastChanged as string | number | bigint) / BigInt(1000))
+    ).toISOString();
+  } catch {
+    return null;
+  }
 }
 
 // ─── WITSML XML Parser Utilities ─────────────────────────────────────────────
@@ -235,7 +360,7 @@ function parseWitsmlXml(xmlInput: string): ParsedWitsmlObject[] {
 
   if (!UUID_REGEX.test(uuid)) {
     throw new BadRequestException(
-      `Invalid UUID "${uuid}" — ETP requires standard UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)`
+      `Invalid UUID "${uuid}" - ETP requires standard UUID format (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)`
     );
   }
 
@@ -316,7 +441,7 @@ function wrapAs21(
   // Detect version from container namespace
   const isWitsml21 = containerXml.includes("energistics.org/energyml/data/witsmlv2");
   if (isWitsml21) {
-    // Already 2.1 format — just ensure uuid attribute
+    // Already 2.1 format - just ensure uuid attribute
     let xml = originalChildXml;
     if (!xml.match(/\buuid\s*=\s*"/)) {
       xml = xml.replace(/(<[\w:]+)/, `$1 uuid="${uuid}"`);
@@ -455,7 +580,7 @@ function extractChannelArrays(xml: string): ChannelArray[] {
   while ((m = dataRowRegex.exec(xml)) !== null) {
     const content = m[1].trim();
     // Skip MnemonicList-like rows (all text, no numbers)
-    if (content.length > 0 && /[\d.\-]/.test(content)) {
+    if (content.length > 0 && /[\d.-]/.test(content)) {
       rawRows.push(content);
     }
   }
@@ -486,7 +611,7 @@ function extractChannelArrays(xml: string): ChannelArray[] {
             values[row * dim + d] = d < cell.length ? cell[d] : NaN;
           }
         } else {
-          // Missing row — fill with NaN
+          // Missing row - fill with NaN
           for (let d = 0; d < dim; d++) {
             values[row * dim + d] = NaN;
           }
@@ -593,20 +718,22 @@ function injectExternalArrayRefs(
 
 // ─── Controller ──────────────────────────────────────────────────────────────
 
-@ApiTags("Wells")
+@ApiTags("WITSML")
 @Controller("witsml")
-@ApiBearerAuth("access-token")
+@ApiBearerAuth("HTTPBearer")
 @UseGuards(HasBearerGuard("jwt"))
 @ApiHeader({
   name: "data-partition-id",
+  description: "Data partition id (ex. 'osdu')",
   required: true,
-  schema: { type: "string", pattern: patternString(partitionPattern) }
+  schema: { type: "string", example: "osdu", pattern: patternString(partitionPattern) }
 })
 @UseGuards(HasDataPartitionGuard())
 @ApiUnauthorizedResponse(errorMessageSchema("Unauthorized", 401))
 @ApiForbiddenResponse(errorMessageSchema("Forbidden", 403))
 @ApiNotAcceptableResponse(errorMessageSchema("Not acceptable response", 406))
 @ApiTooManyRequestsResponse(errorMessageSchema("Too many requests", 429))
+@ApiGoneResponse(webSocketSessionTerminatedSchema())
 @ApiInternalServerErrorResponse(errorMessageSchema("Unknown Error", 500))
 @ApiDefaultResponse(errorMessageSchema("Unknown Error", 500))
 export default class WitsmlController {
@@ -614,35 +741,82 @@ export default class WitsmlController {
    * Store WITSML 2.1 XML objects via ETP PutDataObjects.
    *
    * If transactionId is provided, uses the existing transactional session
-   * (caller is responsible for commit/rollback — mirrors ObjectWrite pattern).
+   * (caller is responsible for commit/rollback - mirrors ObjectWrite pattern).
    * If transactionId is NOT provided, creates an internal transaction for
    * convenience (start → put → commit in a single request).
    */
   @Put("store")
   @HttpCode(200)
   @ApiOperation({
-    summary: "Store WITSML 2.1 objects",
+    summary: "Store WITSML 2.1 objects (XML or JSON)",
     description:
-      "Parse WITSML 2.1 XML and store as ETP data objects in the specified dataspace. " +
-      "If no transactionId is provided, automatically wraps the write in a transaction. " +
-      "If transactionId is provided, uses the existing transaction (caller commits).",
+      "Store WITSML 2.1 (or 1.4.1 container) objects as ETP data objects. Provide the payload as `xml` or as a `json` array of Energistics objects (each with `$type` and `Uuid`). " +
+      "If no transactionId is provided, automatically wraps the write in a transaction (start → put → commit).\n\n" +
+      "**Key features**:\n" +
+      "- **XML or JSON input**: Send raw WITSML/EnergyML XML in `xml`, or an array of parsed objects in `json` (converted to XML server-side)\n" +
+      "- **WITSML 1.4.1 support**: Detects plural container wrappers (`<wells>`, `<logs>`, etc.) and splits into individual WITSML 2.1 objects with deterministic UUID v5 from uid\n" +
+      "- **Channel data extraction**: Automatically extracts `<logData><data>` rows (1.4.1) or ChannelSet data (2.1) as separate ETP data arrays\n" +
+      "- **Trajectory support**: Extracts MD/Inclination/Azimuth from `<trajectoryStation>` elements as arrays\n" +
+      "- **Auto-transaction**: If no `transactionId` is provided, the write is wrapped in an internal transaction. If provided, the caller manages commit/rollback.",
     servers: swaggerServers
   })
   @ApiBody({ type: WitsmlStoreDto })
-  @ApiOkResponse({ description: "Objects stored successfully" })
+  @ApiOkResponse({
+    description: "Objects stored successfully",
+    schema: {
+      type: "object",
+      properties: {
+        success: { type: "boolean", example: true },
+        stored: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              objectType: { type: "string", example: "Well" },
+              uuid: { type: "string", example: "a1b2c3d4-0000-0000-0000-000000000000" },
+              title: { type: "string", example: "31/2-1" }
+            }
+          }
+        },
+        arraysStored: { type: "integer", description: "Number of channel/trajectory data arrays extracted and stored", example: 0 }
+      }
+    }
+  })
   @ApiQuery(transactionIdQueryParam)
   async putWitsmlObjects(
     @Body() body: WitsmlStoreDto,
     @Req() request: express.Request,
     @Query("transactionId") transactionId?: string
   ) {
-    const { dataspace, xml } = body;
+    const { dataspace, xml, json } = body;
     let c: ResqmlClient | undefined;
 
     try {
-      const parsedObjects = parseWitsmlXml(xml);
+      let parsedObjects: ParsedWitsmlObject[];
+      if (json && json.length > 0) {
+        // JSON input: convert each Energistics/WITSML object to XML, then reuse
+        // the same XML parsing + array-extraction pipeline.
+        const builder = new XMLBuilder();
+        parsedObjects = json.flatMap(obj => {
+          const objXml = builder.JSONtoEnergistics(
+            JSON.stringify(obj, bigIntToString)
+          );
+          if (!objXml) {
+            throw new BadRequestException(
+              `Invalid or unsupported object: missing/invalid $type${(obj as any)?.Uuid ? ` for ${(obj as any).Uuid}` : ""}`
+            );
+          }
+          return parseWitsmlXml(objXml);
+        });
+      } else if (xml) {
+        parsedObjects = parseWitsmlXml(xml);
+      } else {
+        throw new BadRequestException(
+          "Provide either 'xml' or 'json' in the request body"
+        );
+      }
       if (parsedObjects.length === 0) {
-        throw new BadRequestException("No valid WITSML objects found in XML");
+        throw new BadRequestException("No valid WITSML objects found in input");
       }
 
       c = await createSession(
@@ -738,7 +912,7 @@ export default class WitsmlController {
           await c.rollbackTransaction(txId).catch(() => { });
         }
         throw new BadRequestException(
-          "PutDataObjects failed — check UUID format (must be valid UUID) and dataspace existence"
+          "PutDataObjects failed - check UUID format (must be valid UUID) and dataspace existence"
         );
       }
 
@@ -804,28 +978,75 @@ export default class WitsmlController {
   }
 
   /**
-   * Query WITSML objects from a dataspace, optionally filtered by type.
+   * Query WITSML objects from a dataspace with rich filtering.
    */
   @Post("query")
   @HttpCode(200)
   @ApiOperation({
-    summary: "Query WITSML objects with full XML content",
+    summary: "Query WITSML objects with filters (XML or JSON)",
     description:
-      "Retrieves all WITSML 2.1 / EnergyML objects from a dataspace, returning the full XML body for each. " +
-      "Optionally filter by object type (Well, Wellbore, WellLog, Trajectory, etc.).\n\n" +
-      "**Use case**: Fetch raw WITSML XML for external processing, validation, or conversion.\n\n" +
-      "**Note**: For large dataspaces this may return significant data. " +
-      "Use `objectType` filter to limit results. For metadata-only listing, use `GET /witsml/{dataspaceId}/objects` instead.",
+      "Retrieves WITSML 2.1 / EnergyML objects from a dataspace, returning the full content of each.\n\n" +
+      "**Format**: Set `format` to `xml` (raw Energistics XML, default) or `json` (parsed object).\n\n" +
+      "**Filters** (all optional, combinable):\n" +
+      "- `objectType` / `objectTypes` - restrict to one or several type names (Well, Wellbore, WellLog, ...)\n" +
+      "- `titleContains` - case-insensitive substring match on the title/name\n" +
+      "- `uuids` - return only a specific set of objects\n" +
+      "- `modifiedSince` - ISO timestamp for incremental sync\n" +
+      "- `relatedTo` + `scope` - traverse relationships from a given object (e.g. all Wellbores/Logs under a Well) using a bare UUID or full ETP URI\n" +
+      "- `skip` / `top` - pagination\n\n" +
+      "The response includes `total` (matches before pagination) and `count` (returned in this page).\n\n" +
+      "**Note**: For metadata-only listing, use the generic `GET /dataspaces/{dataspaceId}/resources/all` endpoint instead.",
     servers: swaggerServers
   })
   @ApiBody({ type: WitsmlQueryDto })
-  @ApiOkResponse({ description: "Object array with full XML content and metadata (uri, objectType, uuid, name, xml, lastChanged)" })
+  @ApiQuery({ name: "$format", required: false, enum: ["xml", "json"], description: "Output encoding; overrides the body `format` field. `xml` (default) returns raw Energistics XML in each object's `xml`; `json` returns the parsed object in `content`." })
+  @ApiOkResponse({
+    description: "Paged object array plus count (this page) and total (all matches before pagination)",
+    schema: {
+      type: "object",
+      properties: {
+        objects: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              uri: { type: "string", example: "eml:///dataspace('test/witsml')/witsml21.Well(a1b2c3d4-...)" },
+              objectType: { type: "string", example: "Well" },
+              uuid: { type: "string", example: "a1b2c3d4-0000-0000-0000-000000000000" },
+              name: { type: "string", example: "31/2-1" },
+              xml: { type: "string", nullable: true, description: "Raw Energistics XML (present when format=xml)" },
+              content: { type: "object", nullable: true, description: "Parsed object (present when format=json)" },
+              lastChanged: { type: "string", format: "date-time", nullable: true }
+            }
+          }
+        },
+        count: { type: "integer", description: "Objects returned in this page", example: 1 },
+        total: { type: "integer", description: "Total matches before skip/top pagination", example: 1 }
+      }
+    }
+  })
   @ApiNotFoundResponse({ description: "Dataspace not found or not accessible" })
   async queryWitsmlObjects(
     @Body() body: WitsmlQueryDto,
-    @Req() request: express.Request
+    @Req() request: express.Request,
+    @Query("$format") formatQuery?: string
   ) {
-    const { dataspace, objectType } = body;
+    const {
+      dataspace,
+      objectType,
+      objectTypes,
+      titleContains,
+      uuids,
+      modifiedSince,
+      relatedTo,
+      scope,
+      skip,
+      top
+    } = body;
+    const format =
+      (formatQuery ?? body.format ?? "xml").toLowerCase() === "json"
+        ? "json"
+        : "xml";
     let c: ResqmlClient | undefined;
 
     try {
@@ -835,126 +1056,110 @@ export default class WitsmlController {
       );
 
       const dataspaceUri = `eml:///dataspace('${dataspace}')`;
+      const Kind = Energistics.Etp.v12.Datatypes.Object.ContextScopeKind;
 
-      // Get the table of contents for the dataspace
-      const resources = await c.getResources(
-        dataspaceUri,
-        Energistics.Etp.v12.Datatypes.Object.ContextScopeKind.targets
-      );
-
-      // Filter by object type if specified
-      let filtered = resources;
-      if (objectType) {
-        const typeLC = objectType.toLowerCase();
-        filtered = resources.filter(r => {
-          const etpUri = new EtpUri(r.uri);
-          return etpUri.objectType?.toLowerCase() === typeLC;
-        });
+      // Determine the starting resource set: either relationship traversal from
+      // a given object, or the full dataspace table of contents.
+      let resources;
+      if (relatedTo) {
+        let relUri = relatedTo;
+        if (!relatedTo.startsWith("eml:")) {
+          // Resolve a bare UUID to its full URI within the dataspace.
+          const all = await c.getResources(dataspaceUri, Kind.targets);
+          const match = all.find(
+            r => new EtpUri(r.uri).uuid?.toLowerCase() === relatedTo.toLowerCase()
+          );
+          if (!match) {
+            await c.closeSession();
+            return { objects: [], count: 0, total: 0 };
+          }
+          relUri = match.uri;
+        }
+        resources = await c.getResources(relUri, witsmlScopeKind(scope));
+      } else {
+        resources = await c.getResources(dataspaceUri, Kind.targets);
       }
 
-      // Fetch full data objects
-      if (filtered.length === 0) {
+      // Build the (case-insensitive) type filter set.
+      const typeFilter = new Set<string>();
+      if (objectType) {
+        typeFilter.add(objectType.toLowerCase());
+      }
+      (objectTypes ?? []).forEach(t => typeFilter.add(t.toLowerCase()));
+
+      let filtered = resources;
+      if (typeFilter.size > 0) {
+        filtered = filtered.filter(r => {
+          const t = new EtpUri(r.uri).objectType?.toLowerCase();
+          return t !== undefined && typeFilter.has(t);
+        });
+      }
+      if (uuids && uuids.length > 0) {
+        const uuidSet = new Set(uuids.map(u => u.toLowerCase()));
+        filtered = filtered.filter(r => {
+          const u = new EtpUri(r.uri).uuid?.toLowerCase();
+          return u !== undefined && uuidSet.has(u);
+        });
+      }
+      if (titleContains) {
+        const needle = titleContains.toLowerCase();
+        filtered = filtered.filter(r =>
+          (r.name ?? "").toLowerCase().includes(needle)
+        );
+      }
+      if (modifiedSince) {
+        const ts = Date.parse(modifiedSince);
+        if (!isNaN(ts)) {
+          const tsMicros = BigInt(ts) * BigInt(1000);
+          filtered = filtered.filter(
+            r => r.lastChanged != null && BigInt(r.lastChanged) >= tsMicros
+          );
+        }
+      }
+
+      const total = filtered.length;
+      const windowed = sliceArray(skip, top, filtered);
+
+      if (windowed.length === 0) {
         await c.closeSession();
-        return { objects: [], count: 0 };
+        return { objects: [], count: 0, total };
       }
 
-      const uris = filtered.map(r => r.uri);
-      const dataObjects = await c.getDataObjects(uris);
-      await c.closeSession();
+      const uris = windowed.map(r => r.uri);
 
-      const results = dataObjects
-        .filter(obj => obj !== null)
-        .map(obj => {
-          const etpUri = new EtpUri(obj!.resource.uri);
-          return {
-            uri: obj!.resource.uri,
-            objectType: etpUri.objectType,
-            uuid: etpUri.uuid,
-            name: obj!.resource.name,
-            xml: byteToString(obj!.data),
-            lastChanged: obj!.resource.lastChanged
-              ? new Date(
-                Number(BigInt(obj!.resource.lastChanged) / BigInt(1000))
-              ).toISOString()
-              : null
-          };
-        });
-
-      return { objects: results, count: results.length };
-    } catch (err) {
-      await c?.closeSession();
-      throw httpErrorFromEtpError(err);
-    }
-  }
-
-  /**
-   * Get WITSML objects by type from a dataspace (convenience GET endpoint).
-   */
-  @Get(":dataspaceId/objects")
-  @ApiOperation({
-    summary: "List WITSML objects in a dataspace (metadata only)",
-    description:
-      "Returns a lightweight listing of all objects in a dataspace without fetching XML content. " +
-      "Use `type` query parameter to filter by WITSML object type.\n\n" +
-      "**dataspaceId format**: URL-encoded dataspace path, e.g., `test%2Fwitsml` for `test/witsml`.\n\n" +
-      "**Difference from POST /witsml/query**: This endpoint returns only metadata (uri, name, type, timestamp) " +
-      "and is much faster for large dataspaces. Use POST /witsml/query when you need the full XML body.",
-    servers: swaggerServers
-  })
-  @ApiQuery({
-    name: "type",
-    required: false,
-    description: "Filter by ETP object type name (case-insensitive). Examples: Well, Wellbore, WellLog, Trajectory, ChannelSet",
-    schema: { type: "string" },
-    example: "Well"
-  })
-  @ApiOkResponse({ description: "Object metadata array (uri, objectType, uuid, name, lastChanged) with count" })
-  async listWitsmlObjects(
-    @Param("dataspaceId") dataspaceId: string,
-    @Query("type") objectType: string | undefined,
-    @Req() request: express.Request
-  ) {
-    let c: ResqmlClient | undefined;
-    try {
-      c = await createSession(
-        extractToken(request),
-        extractDataPartitionId(request)
-      );
-
-      const dataspaceUri = `eml:///dataspace('${dataspaceId}')`;
-      const resources = await c.getResources(
-        dataspaceUri,
-        Energistics.Etp.v12.Datatypes.Object.ContextScopeKind.targets
-      );
-
-      let filtered = resources;
-      if (objectType) {
-        const typeLC = objectType.toLowerCase();
-        filtered = resources.filter(r => {
-          const etpUri = new EtpUri(r.uri);
-          return etpUri.objectType?.toLowerCase() === typeLC;
-        });
-      }
-
-      await c.closeSession();
-
-      return {
-        objects: filtered.map(r => {
+      let objects;
+      if (format === "json") {
+        const parsed = await c.getObjects(uris);
+        objects = windowed.map((r, i) => {
           const etpUri = new EtpUri(r.uri);
           return {
             uri: r.uri,
             objectType: etpUri.objectType,
             uuid: etpUri.uuid,
             name: r.name,
-            lastChanged: r.lastChanged
-              ? new Date(
-                Number(BigInt(r.lastChanged) / BigInt(1000))
-              ).toISOString()
-              : null
+            content: parsed[i] ?? null,
+            lastChanged: microsToIso(r.lastChanged)
           };
-        }),
-        count: filtered.length
-      };
+        });
+      } else {
+        const dataObjects = await c.getDataObjects(uris);
+        objects = windowed.map((r, i) => {
+          const etpUri = new EtpUri(r.uri);
+          const o = dataObjects[i];
+          return {
+            uri: r.uri,
+            objectType: etpUri.objectType,
+            uuid: etpUri.uuid,
+            name: r.name,
+            xml: o ? byteToString(o.data) : null,
+            lastChanged: microsToIso(r.lastChanged)
+          };
+        });
+      }
+
+      await c.closeSession();
+
+      return { objects, count: objects.length, total };
     } catch (err) {
       await c?.closeSession();
       throw httpErrorFromEtpError(err);

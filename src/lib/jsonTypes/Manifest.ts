@@ -7,18 +7,27 @@ import type { IResqmlDataObject } from "../client/ResqmlClient";
 import logging from "../common/Logging";
 const logger = logging.getLogger("EtpClient");
 
-import { getKindOrFallback } from "./MilestoneKinds";
+import {
+  ensureSchemaVersions,
+  getKind,
+  getKindOrFallback,
+  isSchemaRegistered
+} from "./MilestoneKinds";
 import {
   DataspaceLegalACL,
   OSDUContext,
   OSDUResourceType
 } from "./OsduContext";
 import ResqmlOSDU, { EtpDataspaceManifest } from "./ResqmlOsdu";
+import { WorkProductManifest } from "./WorkProduct";
 import {
   CollaborationProjectManifest,
   deriveCollaborationId
 } from "./CollaborationProject";
-import { getPropertyTypeIDFromResqmlAlias, PropertyTypesIds } from "./PropertyTypes";
+import {
+  getPropertyTypeIDFromResqmlAlias,
+  PropertyTypesIds
+} from "./PropertyTypes";
 import { isKnownPwlsProperty } from "./PwlsCurveCatalog";
 
 import { ErrorCode, EtpError } from "../common/EtpTypes";
@@ -107,14 +116,14 @@ const getACLForDataspace = (
 };
 
 /**
- * Default type patterns applied when indexing entire dataspaces without
- * explicit typePatterns. Focuses on discovery-worthy types (features,
- * interpretations, representations, wells) and excludes bulk properties
- * to avoid manifest bloat. Properties with canonical OSDU names are
- * included automatically via a secondary filter (see createManifest).
+ * Curated type-pattern preset covering discovery-worthy types (features,
+ * interpretations, representations, wells) while excluding bulk properties.
  *
- * Pass ["*"] to index all types, or ["*Property", ...DEFAULT_DATASPACE_TYPE_PATTERNS]
- * to include ALL properties regardless of name.
+ * NOTE: This is no longer the default. When no `typePatterns` are supplied,
+ * manifests now include ALL types (see createManifest). This preset remains
+ * exported as an opt-in filter that callers can pass explicitly to reproduce
+ * the older, narrower behavior. Properties with canonical OSDU names are still
+ * included automatically via a secondary filter (see createManifest).
  */
 export const DEFAULT_DATASPACE_TYPE_PATTERNS: string[] = [
   "*Feature",
@@ -126,8 +135,29 @@ export const DEFAULT_DATASPACE_TYPE_PATTERNS: string[] = [
   "witsml21.*"
 ];
 
+/**
+ * Types that reference other data objects but carry little standalone
+ * discovery value and frequently introduce referential-integrity noise when
+ * combined with property filtering (e.g. Activity records reference every
+ * property they consumed; with `propertyFilter="canonical"` those references
+ * become dangling). Excluded by default on the auto-ingest path so the emitted
+ * manifest stays self-consistent for the OSDU ingestion workflow (Airflow DAG).
+ */
+export const DEFAULT_INGEST_EXCLUDE_PATTERNS: string[] = [
+  "*Activity", // resqml20.obj_Activity / eml23.Activity
+  "*ActivityTemplate", // resqml20.obj_ActivityTemplate / eml23.ActivityTemplate
+  "*PropertySet" // resqml20.obj_PropertySet -> PersistedCollection (pure grouping container)
+];
+
 /** Property type pattern for secondary filter matching */
 const PROPERTY_TYPE_PATTERN = /Property$/i;
+
+/**
+ * Essential dependency types that are ALWAYS included in a manifest,
+ * regardless of any `typePatterns` filter. CRS objects are referenced by
+ * representations for spatial context, so they must never be filtered out.
+ */
+const ALWAYS_INCLUDE_PATTERN = /Crs$/i;
 
 /**
  * Common reservoir-simulation property name abbreviations.
@@ -136,25 +166,74 @@ const PROPERTY_TYPE_PATTERN = /Property$/i;
  */
 const RESSIM_PROPERTY_NAMES = new Set([
   // Porosity & net-to-gross
-  "poro", "porosity", "ntg", "multpv",
+  "poro",
+  "porosity",
+  "ntg",
+  "multpv",
   // Permeability
-  "permx", "permy", "permz", "permxy", "permyz", "permzx",
-  "perm", "kx", "ky", "kz",
+  "permx",
+  "permy",
+  "permz",
+  "permxy",
+  "permyz",
+  "permzx",
+  "perm",
+  "kx",
+  "ky",
+  "kz",
   // Saturations
-  "sw", "sg", "so", "swat", "sgas", "soil",
-  "swl", "swu", "sgl", "sgu", "sowcr", "sogcr", "swcr", "sgcr",
+  "sw",
+  "sg",
+  "so",
+  "swat",
+  "sgas",
+  "soil",
+  "swl",
+  "swu",
+  "sgl",
+  "sgu",
+  "sowcr",
+  "sogcr",
+  "swcr",
+  "sgcr",
   // Region numbers
-  "satnum", "eqlnum", "fipnum", "pvtnum", "imbnum", "actnum",
-  "endnum", "rocknum", "fluxnum",
+  "satnum",
+  "eqlnum",
+  "fipnum",
+  "pvtnum",
+  "imbnum",
+  "actnum",
+  "endnum",
+  "rocknum",
+  "fluxnum",
   // Transmissibility & multipliers
-  "tranx", "trany", "tranz", "multx", "multy", "multz",
-  "multx-", "multy-", "multz-", "multregt",
+  "tranx",
+  "trany",
+  "tranz",
+  "multx",
+  "multy",
+  "multz",
+  "multx-",
+  "multy-",
+  "multz-",
+  "multregt",
   // Pressure & depth
-  "pressure", "depth", "tops", "dz", "dx", "dy",
+  "pressure",
+  "depth",
+  "tops",
+  "dz",
+  "dx",
+  "dy",
   // Rock mechanics
-  "young", "poisson", "biot",
+  "young",
+  "poisson",
+  "biot",
   // Common output / init
-  "rporv", "porv", "fipoil", "fipgas", "fipwat",
+  "rporv",
+  "porv",
+  "fipoil",
+  "fipgas",
+  "fipwat"
 ]);
 
 /** Property filter mode for manifest generation */
@@ -172,7 +251,10 @@ export type PropertyFilter = "canonical" | "none" | "all";
  * - A known PWLS v4 standard property name (875 entries)
  * - An OSDU PropertyType from the reference-data manifest
  */
-export function isCanonicalProperty(dataObjectType: string, name: string): boolean {
+export function isCanonicalProperty(
+  dataObjectType: string,
+  name: string
+): boolean {
   if (!PROPERTY_TYPE_PATTERN.test(dataObjectType)) return false;
   if (!name) return false;
   // Check common simulator abbreviations (case-insensitive)
@@ -185,19 +267,91 @@ export function isCanonicalProperty(dataObjectType: string, name: string): boole
 }
 
 /**
+ * Decide whether a dataspace resource should be included in a manifest.
+ *
+ * The result is controlled by two independent dimensions:
+ *
+ * 1. `typePatterns` - restricts NON-property types. When omitted, all types
+ *    are included. Pass an explicit list (e.g. DEFAULT_DATASPACE_TYPE_PATTERNS)
+ *    to restrict to a curated top-level set.
+ * 2. `propertyFilter` - controls properties independently of `typePatterns`:
+ *    - "all": include every property
+ *    - "canonical": include only properties with standard names (PWLS/OSDU/simulator)
+ *    - "none": exclude all properties
+ *
+ * Essential dependency types (e.g. CRS) are ALWAYS included, regardless of
+ * either dimension. This yields the supported preset combinations:
+ *   - all types + all properties (default)
+ *   - all types, no properties            (propertyFilter="none")
+ *   - all types + canonical properties    (propertyFilter="canonical")
+ *   - curated top-level, no properties    (typePatterns=DEFAULT_..., propertyFilter="none")
+ *
+ * @param {string} dataObjectType Energistics data-object type (e.g. "resqml20.obj_ContinuousProperty")
+ * @param {string} name Resource name (Citation.Title exposed via ETP Discovery)
+ * @param {string[]} [typePatterns] Optional type patterns (accept `*` and `?` wildcards) restricting non-property types. When omitted, all types match.
+ * @param {PropertyFilter} [propertyFilter] Property inclusion mode (default "all").
+ * @param {string[]} [excludePatterns] Optional type patterns (accept `*` and `?` wildcards) that HARD-exclude matching types (properties included). Applied before every other rule except the always-include set (CRS).
+ * @return {boolean} true if the resource should be included
+ */
+export function manifestFilterMatches(
+  dataObjectType: string,
+  name: string,
+  typePatterns?: string[],
+  propertyFilter: PropertyFilter = "all",
+  excludePatterns?: string[]
+): boolean {
+  // Essential dependency types (CRS, ...) are never filtered out.
+  if (ALWAYS_INCLUDE_PATTERN.test(dataObjectType)) return true;
+
+  // Hard exclusions win over every inclusion rule below (except CRS above).
+  if (excludePatterns && excludePatterns.length > 0) {
+    for (const p of compilePatterns(excludePatterns)) {
+      if (dataObjectType.match(p)) return false;
+    }
+  }
+
+  // Properties are gated solely by propertyFilter, independent of typePatterns.
+  if (PROPERTY_TYPE_PATTERN.test(dataObjectType)) {
+    if (propertyFilter === "none") return false;
+    if (propertyFilter === "all") return true;
+    // "canonical": include only properties with standard names
+    return isCanonicalProperty(dataObjectType, name);
+  }
+
+  // Non-property types: default include all; an empty filter also means "all".
+  const effectivePatterns = typePatterns ?? ["*"];
+  if (effectivePatterns.length === 0) return true;
+  for (const p of compilePatterns(effectivePatterns)) {
+    if (dataObjectType.match(p)) return true;
+  }
+  return false;
+}
+
+/** Compile `*`/`?` wildcard type patterns into RegExp matchers. */
+function compilePatterns(patterns: string[]): RegExp[] {
+  return patterns.map(
+    t => new RegExp(t.replaceAll("*", "\\w*").replaceAll("?", "\\w?"))
+  );
+}
+
+/**
  * Create a manifest for a list of uris
  *
  * @param {ResqmlClient} client linked to ETP server
  * @param {URI[]} uris List of URIS to add as work product components
  * @param {OSDUContext} context OSDU related information
  * @param {string[]} [typePatterns] Optional list of type patterns to filter the URIs.
- *   When undefined, DEFAULT_DATASPACE_TYPE_PATTERNS is used for dataspace-level URIs.
- *   Pass ["*"] to index all types.
+ *   When undefined, ALL types are included (filtering is opt-in). Pass an explicit
+ *   pattern list (e.g. DEFAULT_DATASPACE_TYPE_PATTERNS) to restrict results.
+ *   CRS objects are always included regardless of the filter.
  * @param {number} [maxManifestSize] Optional maximum size of the manifest in MB, default is 1000
- * @param {PropertyFilter} [propertyFilter] Controls property inclusion:
- *   - "canonical" (default): include properties with standard names (PWLS, OSDU, simulator)
+ * @param {PropertyFilter} [propertyFilter] Controls property inclusion (independent of typePatterns):
+ *   - "all" (default): include all properties regardless of name
+ *   - "canonical": include only properties with standard names (PWLS, OSDU, simulator)
  *   - "none": exclude all properties
- *   - "all": include all properties regardless of name
+ * @param {string[]} [excludePatterns] Optional type patterns that HARD-exclude matching
+ *   types (e.g. DEFAULT_INGEST_EXCLUDE_PATTERNS to drop Activity records that would
+ *   otherwise emit dangling references). CRS is always kept regardless.
  * @return {Promise<Manifest>}
  */
 export const createManifest = async (
@@ -206,17 +360,40 @@ export const createManifest = async (
   context: OSDUContext,
   typePatterns?: string[],
   maxManifestSize: number = 1000,
-  propertyFilter: PropertyFilter = "canonical"
+  propertyFilter: PropertyFilter = "all",
+  excludePatterns?: string[]
 ): Promise<Manifest> => {
   if (uris.length === 0) {
     return Promise.reject("No URI provided");
   }
   try {
     const tManifestStart = Date.now();
+    // Per-build tally of ETP object types that never reach the manifest, so the
+    // otherwise-silent "omit" filters produce an actionable list instead of a
+    // blind spot. `skippedNoConverter` = no converter registered for the type;
+    // `skippedConverterUndefined` = a converter matched but chose to skip the
+    // object (returned undefined). Emitted once at the end of the build.
+    const skippedNoConverter = new Map<string, number>();
+    const skippedConverterUndefined = new Map<string, number>();
+    const bumpSkip = (m: Map<string, number>, key: string): void => {
+      m.set(key, (m.get(key) ?? 0) + 1);
+    };
+    // Align stamped kind versions with the live target instance using the
+    // request token. The startup init (RestServer) runs unauthenticated and
+    // silently no-ops on secured instances, so without this the builder stays on
+    // the static fallback table - producing wrong schema versions and emitting
+    // work-product-component types that are absent on the target. Once resolved,
+    // getKind()/getKindOrFallback() return registered versions and unknown WPC
+    // types fall back to GenericRepresentation.
+    try {
+      await ensureSchemaVersions(osduUrl, context.bearer, context.partition);
+    } catch {
+      // Keep the static fallback table if resolution fails.
+    }
     try {
       await registerDMS(context);
     } catch {
-      // Ignore registration errors — continue without DMS registration
+      // Ignore registration errors - continue without DMS registration
     }
     logger.info(`[perf] registerDMS: ${Date.now() - tManifestStart}ms`);
     const manifests: Manifest = {
@@ -231,11 +408,6 @@ export const createManifest = async (
 
     const allUris = new Set<string>();
 
-    const effectivePatterns = typePatterns ?? DEFAULT_DATASPACE_TYPE_PATTERNS;
-    const matchPatterns: RegExp[] = effectivePatterns.map(
-      t => new RegExp(t.replaceAll("*", "\\w*").replaceAll("?", "\\w?"))
-    );
-
     for (const uri of uris) {
       const etpUri = new EtpUri(uri);
       if (!etpUri.isValid) {
@@ -247,24 +419,16 @@ export const createManifest = async (
         let dataspaceUris = await client.getDataspaceResources(
           dataspaceUri.uri
         );
-        if (matchPatterns.length > 0) {
-          dataspaceUris = dataspaceUris.filter(f => {
-            const u: EtpUri = new EtpUri(f.uri);
-            for (const p of matchPatterns) {
-              if (u.dataObjectType.match(p)) {
-                return true;
-              }
-            }
-            // Property inclusion based on propertyFilter setting
-            if (PROPERTY_TYPE_PATTERN.test(u.dataObjectType)) {
-              if (propertyFilter === "none") return false;
-              if (propertyFilter === "all") return true;
-              // "canonical": include only properties with standard names
-              return isCanonicalProperty(u.dataObjectType, f.name);
-            }
-            return false;
-          });
-        }
+        dataspaceUris = dataspaceUris.filter(f => {
+          const u: EtpUri = new EtpUri(f.uri);
+          return manifestFilterMatches(
+            u.dataObjectType,
+            f.name,
+            typePatterns,
+            propertyFilter,
+            excludePatterns
+          );
+        });
         dataspaceUris.forEach(r => allUris.add(r.uri));
       } else {
         allUris.add(etpUri.uri);
@@ -289,17 +453,25 @@ export const createManifest = async (
           continue;
         }
 
-        // Create WorkProduct
-        // manifests.Data.WorkProduct = WorkProductManifest(
-        //   dataspaces[0],
-        //   context
-        // );
-        // manifests.Data.WorkProduct.version = 1;
-        currentDataspaces.add(dataspaceId);
+        // Create WorkProduct. The DAG-based OSDU ingestion workflow
+        // (Osdu_ingest) is WorkProduct-centric: it walks the WorkProduct's
+        // Components array to discover and ingest the associated
+        // WorkProductComponents. Without an emitted WorkProduct the WPCs are
+        // orphaned and silently skipped by the DAG. The Components array is
+        // populated later (see the WPC loop) via
+        // `manifests.Data.WorkProduct?.data?.Components?.push(...)`.
+        // Populate the dataspace ACL/legal cache BEFORE constructing the
+        // WorkProduct: WorkProductOSDU stamps its acl/legal from
+        // context.dataspaceACLs at construction time, so this must run first or
+        // the WorkProduct is emitted with empty acl/legal (which fails the
+        // atomic Storage batch and triggers a per-record retry storm).
         if (!context.dataspaceACLs.has(dataspaceUri)) {
           const aclLegal = getACLForDataspace(dataspace);
           context.dataspaceACLs.set(dataspaceUri, aclLegal);
         }
+        manifests.Data.WorkProduct = WorkProductManifest(dataspace, context);
+        manifests.Data.WorkProduct.version = 1;
+        currentDataspaces.add(dataspaceId);
 
         manifests.Data.Datasets = manifests.Data.Datasets ?? [];
         manifests.Data.Datasets.push(EtpDataspaceManifest(dataspace, context));
@@ -345,12 +517,10 @@ export const createManifest = async (
     for (const dataspaceUri of context.dataspaceACLs.keys()) {
       const dsEtpUri = new EtpUri(dataspaceUri);
       const collabId = deriveCollaborationId(dsEtpUri.dataSpace);
-      const dsInfo = await client
-        .getDataspaceInfo([dataspaceUri])
-        .then(
-          ds => (ds.length === 1 ? ds[0] : undefined),
-          () => undefined
-        );
+      const dsInfo = await client.getDataspaceInfo([dataspaceUri]).then(
+        ds => (ds.length === 1 ? ds[0] : undefined),
+        () => undefined
+      );
       if (dsInfo) {
         const cpRecord = CollaborationProjectManifest(
           dsInfo,
@@ -358,7 +528,7 @@ export const createManifest = async (
           collabId
         ) as any;
 
-        // Check if CP already exists in OSDU — version bump for consistency
+        // Check if CP already exists in OSDU - version bump for consistency
         const existingVersion = await context
           .getOSDUResourceVersion(cpRecord.id)
           .catch(() => undefined);
@@ -401,33 +571,57 @@ export const createManifest = async (
       const BATCH_SIZE = 50;
       while (tmpUris.length > 0) {
         const batch = tmpUris.splice(0, BATCH_SIZE);
-        logger.info(`[perf] Fetching batch of ${batch.length} URIs from ${dataspace}, first: ${batch[0]?.substring(batch[0].lastIndexOf('/'))}`);
+        logger.info(
+          `[perf] Fetching batch of ${batch.length
+          } URIs from ${dataspace}, first: ${batch[0]?.substring(
+            batch[0].lastIndexOf("/")
+          )}`
+        );
         try {
           const t1 = Date.now();
-          const arr = await client.getResolvedObjects(
-            batch,
-            objects,
-            false
-          );
+          const arr = await client.getResolvedObjects(batch, objects, false);
           const batchNulls = arr.filter(o => o === null).length;
-          logger.info(`[perf] Batch result: ${arr.length} items, ${batchNulls} nulls, objects map size=${objects.size}, took ${Date.now() - t1}ms`);
+          logger.info(
+            `[perf] Batch result: ${arr.length
+            } items, ${batchNulls} nulls, objects map size=${objects.size
+            }, took ${Date.now() - t1}ms`
+          );
           if (batchNulls > 0 && batchNulls === arr.length) {
             // Try single fetch to diagnose
             const testUri = batch[0];
-            logger.warn(`[debug] All nulls! Trying single getObjects for: ${testUri}`);
+            logger.warn(
+              `[debug] All nulls! Trying single getObjects for: ${testUri}`
+            );
             const singleMap = new Map<string, any>();
-            const single = await client.getResolvedObjects([testUri], singleMap, false);
-            logger.warn(`[debug] Single result: ${single.length} items, null=${single[0] === null}, singleMap size=${singleMap.size}`);
+            const single = await client.getResolvedObjects(
+              [testUri],
+              singleMap,
+              false
+            );
+            logger.warn(
+              `[debug] Single result: ${single.length} items, null=${single[0] === null
+              }, singleMap size=${singleMap.size}`
+            );
           }
           resolvedObjects = resolvedObjects.concat(arr);
         } catch (e: any) {
-          logger.error(`getResolvedObjects failed for batch: ${batch.map(u => u.substring(u.lastIndexOf('/') + 1)).join(', ')} — ${e?.message ?? e}`);
+          logger.error(
+            `getResolvedObjects failed for batch: ${batch
+              .map(u => u.substring(u.lastIndexOf("/") + 1))
+              .join(", ")} - ${e?.message ?? e}`
+          );
         }
       }
 
       const nullCount = resolvedObjects.filter(o => o === null).length;
-      const noTypeCount = resolvedObjects.filter(o => o !== null && o?.$type === undefined).length;
-      logger.info(`Resolved ${resolvedObjects.length} objects for dataspace ${dataspace} in ${Date.now() - t0}ms (null=${nullCount}, noType=${noTypeCount})`);
+      const noTypeCount = resolvedObjects.filter(
+        o => o !== null && o?.$type === undefined
+      ).length;
+      logger.info(
+        `Resolved ${resolvedObjects.length
+        } objects for dataspace ${dataspace} in ${Date.now() - t0
+        }ms (null=${nullCount}, noType=${noTypeCount})`
+      );
 
       const tConvert = Date.now();
       for (let i = 0; i < resolvedObjects.length; i++) {
@@ -450,7 +644,7 @@ export const createManifest = async (
 
         const c = ResqmlOSDU.get(etpUri.dataObjectType);
         if (c === undefined) {
-          logger.warn(`No converter for type: ${etpUri.dataObjectType} (from $type=${resObj.$type})`);
+          bumpSkip(skippedNoConverter, etpUri.dataObjectType);
           continue;
         }
         try {
@@ -463,7 +657,34 @@ export const createManifest = async (
           );
           const convertMs = Date.now() - tObj;
           if (convertMs > 200) {
-            logger.warn(`[perf] Slow converter: ${etpUri.dataObjectType} took ${convertMs}ms`);
+            logger.warn(
+              `[perf] Slow converter: ${etpUri.dataObjectType} took ${convertMs}ms`
+            );
+          }
+          // Override record.kind with the dynamically resolved version.
+          // The converter constructor hardcodes a compile-time version, but the
+          // platform may have a different version registered. The resolved kind
+          // from the registry ensures the record references a schema version
+          // that actually exists on the target platform.
+          // Also fix record.id prefix when the converter uses a different
+          // resource type than the schema (e.g. WPC base class for master-data schemas).
+          if (res !== undefined) {
+            const resolvedKind = c.osduKind(resolvedObjects[i]!);
+            if (resolvedKind) {
+              res.kind = resolvedKind;
+              // Ensure record.id uses the correct resource-type--Entity prefix
+              const kindParts = resolvedKind.split(":");
+              // kindParts = ["osdu", "wks", "resource-type--Entity", "X.Y.Z"]
+              const typeEntity = kindParts[2]; // e.g. "master-data--BHARun"
+              if (typeEntity && res.id) {
+                const idParts = res.id.split(":");
+                // idParts = ["partition", "old-type--Entity", "uuid"]
+                if (idParts.length >= 3) {
+                  idParts[1] = typeEntity;
+                  res.id = idParts.join(":");
+                }
+              }
+            }
           }
           const dataspaceUri = EtpUri.createDataSpaceUri(etpUri.dataSpace).uri;
           const aclLegal = context.dataspaceACLs.get(dataspaceUri);
@@ -517,15 +738,31 @@ export const createManifest = async (
           }
         } catch (convErr: any) {
           // Converter failed for this object - skip it
-          logger.error(`Converter failed for ${etpUri.dataObjectType} (${resObj.Uuid}): ${convErr?.message ?? convErr}`);
+          logger.error(
+            `Converter failed for ${etpUri.dataObjectType} (${resObj.Uuid}): ${convErr?.message ?? convErr
+            }`
+          );
           continue;
         }
       }
-      logger.info(`[perf] Convert ${resolvedObjects.length} objects: ${Date.now() - tConvert}ms`);
+      logger.info(
+        `[perf] Convert ${resolvedObjects.length} objects: ${Date.now() - tConvert
+        }ms`
+      );
     }
 
-    // A3: Auto-generate lineage Activity record for this manifest build
-    if (context.created.size > 0 && context.generateLineageActivity !== false) {
+    // A3: Auto-generate lineage Activity record for this manifest build.
+    // Suppressed when the caller excludes the Activity type (e.g. auto-ingest
+    // defaults to excluding "*Activity"), keeping the manifest consistent with
+    // the requested filter instead of injecting a synthetic Activity.
+    const lineageSuppressed =
+      !!excludePatterns?.length &&
+      compilePatterns(excludePatterns).some(p => "Activity".match(p));
+    if (
+      context.created.size > 0 &&
+      context.generateLineageActivity !== false &&
+      !lineageSuppressed
+    ) {
       const outputIds: string[] = [];
       context.created.forEach((_, id) => {
         if (!id.includes("reference-data") && !id.includes("master-data")) {
@@ -553,7 +790,11 @@ export const createManifest = async (
               DataObjectParameter: `${id}:`
             })),
             SoftwareSpecifications: [{ SoftwareName: "RDDMS", Version: "1.0" }],
-            ActivityTemplateID: `${context.partition}:master-data--ActivityTemplate:RDDMSManifestBuild:`,
+            // ActivityTemplateID intentionally omitted: no matching
+            // master-data--ActivityTemplate record is emitted, so referencing
+            // one would create a dangling reference that fails OSDU referential
+            // integrity (the OSDU Activity schema makes this field optional).
+            ActivityTemplateID: undefined,
             ParentActivityID: undefined,
             ParentProjectID: undefined,
             PriorActivityIDs: undefined
@@ -572,7 +813,9 @@ export const createManifest = async (
           }
         }
         context.created.set(activityId, activityRecord);
-        logger.info(`A3: Auto-generated lineage Activity ${activityUuid} with ${outputIds.length} output(s)`);
+        logger.info(
+          `A3: Auto-generated lineage Activity ${activityUuid} with ${outputIds.length} output(s)`
+        );
       }
     }
 
@@ -593,7 +836,9 @@ export const createManifest = async (
     const processedSrn = new Set<string>();
     if (context.createMissingReferences) {
       while (missingSrn.length > 0) {
-        logger.info(`[perf] Reference resolution wave: ${missingSrn.length} missing SRNs`);
+        logger.info(
+          `[perf] Reference resolution wave: ${missingSrn.length} missing SRNs`
+        );
 
         // 1. Identify which URIs need fetching (not already in objects cache)
         const toResolve: { srn: string; uri: string; etpUri: EtpUri }[] = [];
@@ -607,6 +852,7 @@ export const createManifest = async (
           const etpUri = new EtpUri(objUri);
           const c = ResqmlOSDU.get(etpUri.dataObjectType);
           if (c === undefined) {
+            bumpSkip(skippedNoConverter, etpUri.dataObjectType);
             unknownSrn.add(k);
             continue;
           }
@@ -628,32 +874,72 @@ export const createManifest = async (
               logger.warn(`[perf] Batch ETP fetch failed: ${e?.message ?? e}`);
             }
           }
-          logger.info(`[perf] Fetched ${toResolve.length} objects in ${Date.now() - t0}ms`);
+          logger.info(
+            `[perf] Fetched ${toResolve.length} objects in ${Date.now() - t0}ms`
+          );
         }
 
         // 3. Convert all missing refs (objects now in cache)
         for (const k of missingSrn) {
           if (unknownSrn.has(k)) continue;
           const objUri = context.srnToUri.get(k);
-          if (!objUri) { unknownSrn.add(k); continue; }
+          if (!objUri) {
+            unknownSrn.add(k);
+            continue;
+          }
           const etpUri = new EtpUri(objUri);
           const c = ResqmlOSDU.get(etpUri.dataObjectType);
-          if (!c) { unknownSrn.add(k); continue; }
+          if (!c) {
+            bumpSkip(skippedNoConverter, etpUri.dataObjectType);
+            unknownSrn.add(k);
+            continue;
+          }
 
           const obj = objects.get(objUri);
-          if (!obj) { unknownSrn.add(k); continue; }
+          if (!obj) {
+            unknownSrn.add(k);
+            continue;
+          }
 
           try {
             const res = await c.convert(objUri, obj, context, client);
+            // Override record.kind with resolved version (same as primary loop)
+            if (res !== undefined) {
+              const resolvedKind = c.osduKind(obj);
+              if (resolvedKind) {
+                res.kind = resolvedKind;
+                const kindParts = resolvedKind.split(":");
+                const typeEntity = kindParts[2];
+                if (typeEntity && res.id) {
+                  const idParts = res.id.split(":");
+                  if (idParts.length >= 3) {
+                    idParts[1] = typeEntity;
+                    res.id = idParts.join(":");
+                  }
+                }
+              }
+            }
             const srn = context.uriToSrn(objUri, obj);
-            if (srn === undefined || res === undefined || res.id === undefined) {
+            if (res === undefined) {
+              bumpSkip(skippedConverterUndefined, etpUri.dataObjectType);
+            }
+            if (
+              srn === undefined ||
+              res === undefined ||
+              res.id === undefined
+            ) {
               unknownSrn.add(k);
             } else {
-              const dataspaceUri = EtpUri.createDataSpaceUri(etpUri.dataSpace).uri;
+              const dataspaceUri = EtpUri.createDataSpaceUri(
+                etpUri.dataSpace
+              ).uri;
               const aclLegal = context.dataspaceACLs.get(dataspaceUri);
               if (aclLegal !== undefined && res !== undefined) {
                 res.acl = aclLegal?.acl ?? { owners: [], viewers: [] };
-                res.legal = aclLegal?.legal ?? { legaltags: [], otherRelevantDataCountries: [] };
+                res.legal = aclLegal?.legal ?? {
+                  legaltags: [],
+                  otherRelevantDataCountries: []
+                };
               }
               generatedSrn.set(`${srn}`, res);
             }
@@ -671,22 +957,35 @@ export const createManifest = async (
       }
     }
 
-    // Cascade-remove WPCs whose references could not be resolved.
+    // Cascade-remove records whose references could not be resolved.
     // Skip in best-effort mode (createMissingReferences=true): unresolvable
     // reference-data (UnitOfMeasure, PropertyKind, etc.) is expected to be
     // supplied by the platform and should not invalidate successfully-built WPCs.
+    //
+    // There is no explicit origin->target edge list, so derive the edges from
+    // the serialized records: a record whose JSON embeds the SRN of an
+    // unresolved (unknown) object depends on it and must be dropped too. Removal
+    // makes the origin itself unresolved, so repeat to a fixpoint (transitive
+    // cascade).
     if (!context.createMissingReferences) {
-      let edges = context.edges.filter(e =>
-        unknownSrn.has(e.target.slice(0, -1))
-      );
-      while (edges.length > 0) {
-        unknownSrn.clear();
-        edges.forEach(e => {
-          if (generatedSrn.delete(e.origin)) {
-            unknownSrn.add(e.origin);
+      const recordJson = new Map<string, string>();
+      generatedSrn.forEach((rec, srn) => {
+        recordJson.set(srn, JSON.stringify(rec));
+      });
+      let frontier: string[] = Array.from(unknownSrn);
+      while (frontier.length > 0) {
+        const removed: string[] = [];
+        recordJson.forEach((json, srn) => {
+          if (!generatedSrn.has(srn)) {
+            return;
+          }
+          if (frontier.some(bad => bad.length > 0 && json.includes(bad))) {
+            generatedSrn.delete(srn);
+            unknownSrn.add(srn);
+            removed.push(srn);
           }
         });
-        edges = context.edges.filter(e => unknownSrn.has(e.target.slice(0, -1)));
+        frontier = removed;
       }
     }
 
@@ -697,8 +996,50 @@ export const createManifest = async (
       }
     });
 
+    // Backfill ACL/legal on any record that slipped through the per-object
+    // stamping in the conversion loops. Master-data records synthesized as a
+    // side-effect inside other converters (e.g. Well / Wellbore / BoundaryFeature)
+    // are added straight to context.created and never receive the dataspace ACL,
+    // so Storage rejects them ("acl.viewers / legaltags / otherRelevantDataCountries
+    // cannot be empty"). Use the dataspace ACL as the backfill source; records that
+    // already carry a non-empty ACL keep their own.
+    const fallbackAclLegal = context.dataspaceACLs.values().next().value as
+      | DataspaceLegalACL
+      | undefined;
+    if (fallbackAclLegal !== undefined) {
+      for (const [, rec] of generatedSrn) {
+        if (rec === undefined) continue;
+        const aclEmpty =
+          rec.acl === undefined ||
+          ((rec.acl.viewers?.length ?? 0) === 0 &&
+            (rec.acl.owners?.length ?? 0) === 0);
+        const legalEmpty =
+          rec.legal === undefined || (rec.legal.legaltags?.length ?? 0) === 0;
+        if (aclEmpty && fallbackAclLegal.acl !== undefined) {
+          rec.acl = fallbackAclLegal.acl;
+        }
+        if (legalEmpty && fallbackAclLegal.legal !== undefined) {
+          rec.legal = fallbackAclLegal.legal;
+        }
+      }
+    }
+
+    // Deduplicate records by .id before assembling manifest arrays.
+    // The generatedSrn Map is keyed by SRN, but the kind override in the
+    // primary and reference loops can produce entries with different SRN keys
+    // that share the same record .id - the Storage API rejects duplicate IDs
+    // within a single PUT batch.
+    const seenRecordIds = new Set<string>();
+
     for (const res of generatedSrn) {
       const id: string = res[0];
+      const recordId: string | undefined = res[1]?.id;
+      if (recordId && seenRecordIds.has(recordId)) {
+        continue; // skip duplicate record
+      }
+      if (recordId) {
+        seenRecordIds.add(recordId);
+      }
       if (id.includes("master-data")) {
         manifests.MasterData.push(res[1] as GenericMasterData);
       } else if (id.includes("reference-data")) {
@@ -769,6 +1110,142 @@ export const createManifest = async (
       });
     }
 
+    // Final target-compatibility pass. Some records carry a schema kind that
+    // bypasses getKind() - master-data side-records (e.g. BoundaryFeature) and
+    // reference-data records built via buildReference() hardcode their version.
+    // When a live target registry is available, reconcile each record's kind
+    // against it:
+    //   - version drift      -> rewrite to the registered version (id is
+    //                           unaffected; the version is not part of the SRN)
+    //   - absent WPC type     -> fall back to GenericRepresentation
+    //   - absent ref/md type  -> drop the record (soft SRN references become
+    //                           dangling, which OSDU tolerates)
+    // In standalone/local mode isSchemaRegistered() returns true for everything,
+    // so this pass is a no-op there.
+    if (osduUrl && osduUrl !== "http://localhost") {
+      const bearer = context.bearer;
+      const partition = context.partition;
+      const categoryOf = (kind: string): string =>
+        (kind.split(":")[2] ?? "").split("--")[0];
+      const entityOf = (kind: string): string =>
+        (kind.split(":")[2] ?? "").split("--")[1] ?? "";
+      const rewriteKindAndId = (rec: any, newKind: string): void => {
+        rec.kind = newKind;
+        const typeSeg = newKind.split(":")[2];
+        if (typeSeg && typeof rec.id === "string") {
+          const idParts = rec.id.split(":");
+          if (idParts.length >= 3) {
+            idParts[1] = typeSeg;
+            rec.id = idParts.join(":");
+          }
+        }
+      };
+      const resolveKind = async (kind: string): Promise<string | undefined> => {
+        if (await isSchemaRegistered(kind, osduUrl, bearer, partition)) {
+          return kind;
+        }
+        const cat = categoryOf(kind);
+        // 1) version drift: registered version for the same entity type
+        const byEntity = getKind(entityOf(kind));
+        if (
+          byEntity &&
+          byEntity !== kind &&
+          categoryOf(byEntity) === cat &&
+          (await isSchemaRegistered(byEntity, osduUrl, bearer, partition))
+        ) {
+          return byEntity;
+        }
+        // 2) absent work-product-component -> GenericRepresentation
+        if (cat === "work-product-component") {
+          const generic = getKind("GenericRepresentation");
+          if (
+            generic &&
+            (await isSchemaRegistered(generic, osduUrl, bearer, partition))
+          ) {
+            return generic;
+          }
+        }
+        // 3) absent reference-data / master-data -> drop
+        return undefined;
+      };
+      const normalizeArray = async (
+        arr: any[] | undefined
+      ): Promise<{ kept: any[]; remapped: number; dropped: number }> => {
+        const kept: any[] = [];
+        let remapped = 0;
+        let dropped = 0;
+        for (const rec of arr ?? []) {
+          if (!rec?.kind) {
+            kept.push(rec);
+            continue;
+          }
+          const target = await resolveKind(rec.kind);
+          if (target === undefined) {
+            dropped++;
+            continue;
+          }
+          if (target !== rec.kind) {
+            rewriteKindAndId(rec, target);
+            remapped++;
+          }
+          kept.push(rec);
+        }
+        return { kept, remapped, dropped };
+      };
+
+      const mdRes = await normalizeArray(manifests.MasterData);
+      manifests.MasterData = mdRes.kept;
+      const rdRes = await normalizeArray(manifests.ReferenceData);
+      manifests.ReferenceData = rdRes.kept;
+      let wpcRemapped = 0;
+      let wpcDropped = 0;
+      if (manifests.Data?.WorkProductComponents) {
+        const wpcRes = await normalizeArray(
+          manifests.Data.WorkProductComponents
+        );
+        manifests.Data.WorkProductComponents = wpcRes.kept;
+        wpcRemapped = wpcRes.remapped;
+        wpcDropped = wpcRes.dropped;
+        // Resync the WorkProduct's Components list with the (possibly
+        // remapped/dropped) WPC ids. normalizeArray may rewrite a WPC's id
+        // when its kind is remapped (e.g. WellboreInterpretation ->
+        // GenericRepresentation) or drop it entirely, which would otherwise
+        // leave the Components array pointing at stale/dangling ids and break
+        // the WorkProduct-centric DAG ingestion.
+        if (manifests.Data?.WorkProduct?.data) {
+          manifests.Data.WorkProduct.data.Components = wpcRes.kept
+            .filter(rec => typeof (rec as { id?: unknown }).id === "string")
+            .map(rec => `${(rec as { id: string }).id}:`);
+        }
+      }
+      logger.info(
+        `[schema-compat] MasterData(remap=${mdRes.remapped},drop=${mdRes.dropped}) ` +
+        `ReferenceData(remap=${rdRes.remapped},drop=${rdRes.dropped}) ` +
+        `WorkProductComponents(remap=${wpcRemapped},drop=${wpcDropped})`
+      );
+    }
+
+    // Actionable summary of ETP object types that were omitted from the
+    // manifest by the converter-registry / converter-skip filters. Sorted by
+    // frequency so the highest-value missing converters surface first.
+    if (skippedNoConverter.size > 0 || skippedConverterUndefined.size > 0) {
+      const fmt = (m: Map<string, number>): string =>
+        Array.from(m.entries())
+          .sort((a, b) => b[1] - a[1])
+          .map(([t, n]) => `${t}×${n}`)
+          .join(", ");
+      const sum = (m: Map<string, number>): number =>
+        Array.from(m.values()).reduce((a, b) => a + b, 0);
+      logger.info(
+        `[skip] no-converter=${sum(skippedNoConverter)} [${fmt(
+          skippedNoConverter
+        )}] ` +
+        `converter-skipped=${sum(skippedConverterUndefined)} [${fmt(
+          skippedConverterUndefined
+        )}]`
+      );
+    }
+
     if (manifests.MasterData.length === 0) {
       manifests.MasterData = undefined;
     }
@@ -793,7 +1270,10 @@ export const createManifest = async (
     logger.error("Manifest creation failed:", err?.message || err);
     logger.error("Stack:", err?.stack);
     return Promise.reject(
-      new EtpError("Manifest creation failed: " + (err?.message || "unknown"), ErrorCode.EINVALID_STATE)
+      new EtpError(
+        "Manifest creation failed: " + (err?.message || "unknown"),
+        ErrorCode.EINVALID_STATE
+      )
     );
   }
 };

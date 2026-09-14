@@ -11,7 +11,11 @@
     "forceConsistentCasingInFileNames": true,
     "inlineSources": true,
     "jsx": "react",
-    "lib": ["es2022", "esnext.disposable", "dom"],
+    "lib": [
+      "es2022",
+      "esnext.disposable",
+      "dom"
+    ],
     "module": "commonjs",
     "moduleResolution": "node",
     // kept for now
@@ -21,7 +25,11 @@
     "sourceMap": true,
     "strict": true,
     "target": "es2022",
-    "typeRoots": ["./node_modules/@types", "./@types"]
+    "skipLibCheck": true,
+    "typeRoots": [
+      "./node_modules/@types",
+      "./@types"
+    ]
   },
   "exclude": [
     "node_modules",
@@ -30,6 +38,8 @@
     "coverage",
     "commitlint.config.js",
     "devops",
+    "sdk",
+    "src/examples/sdk",
     "tests"
   ],
   "typedocOptions": {

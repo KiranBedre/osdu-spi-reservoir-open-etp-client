@@ -1,0 +1,22 @@
+meta {
+  name: CL1 Delete Test Dataspace
+  type: http
+  seq: 1
+}
+
+delete {
+  url: {{host}}/dataspaces/{{testDataspaceId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+tests {
+  test("status is 200 or 204 (404/412 = not found or never created)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 204, 404, 412]);
+  });
+}

@@ -41,7 +41,12 @@ export default class MetricsController {
 
   @Get()
   @ApiOkResponse({ description: "Success", type: String })
-  @ApiOperation({ security: [], servers: swaggerServers })
+  @ApiOperation({
+    summary: "Prometheus metrics.",
+    description: "Returns all collected metrics in Prometheus text exposition format. Includes HTTP request counts, response latencies, ETP session statistics, and error rates. Scrape this endpoint with a Prometheus server or use `curl` for ad-hoc inspection.",
+    security: [],
+    servers: swaggerServers
+  })
   public metrics(): Promise<string> {
     logger.info("Fetching metrics...");
     return this.metricsProvider.metrics;

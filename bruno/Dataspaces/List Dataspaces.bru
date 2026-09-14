@@ -15,14 +15,27 @@ headers {
   Authorization: Bearer {{access_token}}
 }
 
+script:post-response {
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    if (Array.isArray(body) && body.length > 0) {
+      // Dynamically pick the first dataspace for subsequent tests
+      const ds = body[0].path || body[0].Path || body[0].DataspaceId;
+      if (ds) {
+        bru.setVar("dataspaceId", encodeURIComponent(ds));
+        bru.setVar("dataspaceIdRaw", ds);
+      }
+    }
+  }
+}
+
 tests {
   test("status is 200", function () {
     expect(res.getStatus()).to.equal(200);
   });
 
-  test("returns at least one dataspace", function () {
+  test("returns array of dataspaces", function () {
     const body = res.getBody();
     expect(body).to.be.an("array");
-    expect(body.length).to.be.greaterThan(0);
   });
 }

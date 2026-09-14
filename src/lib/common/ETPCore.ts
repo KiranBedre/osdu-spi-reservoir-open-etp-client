@@ -38,6 +38,28 @@ export interface IPromiseTimeMap {
   initialTime: Integer64;
 }
 
+export interface IConnectionState {
+  readyState: "CONNECTING" | "OPEN" | "CLOSING" | "CLOSED" | "UNKNOWN";
+  sessionActive: boolean;
+}
+
+const readyStateName = (
+  readyState?: number
+): IConnectionState["readyState"] => {
+  switch (readyState) {
+    case 0:
+      return "CONNECTING";
+    case 1:
+      return "OPEN";
+    case 2:
+      return "CLOSING";
+    case 3:
+      return "CLOSED";
+    default:
+      return "UNKNOWN";
+  }
+};
+
 /// Base class for either a server or client, implements common core functionality
 export class ETPCore extends EventEmitter {
   public traceCalls: boolean;
@@ -86,8 +108,7 @@ export class ETPCore extends EventEmitter {
 
   /// Close the current Session. Other party should respond by closing the socket.
   public closeSession(): void {
-    const closed = this.sessionId.every(v => v === 0);
-    if (!closed) {
+    if (this.hasActiveSession()) {
       this.logTrace(`Session closure requested.`);
       this.send(
         this.createFinalMessageHeader(
@@ -145,8 +166,19 @@ export class ETPCore extends EventEmitter {
     return (
       this.connection != null &&
       this.connection.readyState === 1 &&
-      this.sessionId !== EtpUri.invalidGuid()
+      this.hasActiveSession()
     );
+  }
+
+  public getConnectionState(): IConnectionState {
+    return {
+      readyState: readyStateName(this.connection?.readyState),
+      sessionActive: this.hasActiveSession()
+    };
+  }
+
+  private hasActiveSession(): boolean {
+    return this.sessionId.some(value => value !== 0);
   }
 
   /// Handle a parsed message. Overloaded in all handlers.  Includes default handling for common messages
@@ -337,7 +369,7 @@ export class ETPCore extends EventEmitter {
     // Guard against a previously-open WebSocket that has been closed (or is
     // closing) by the peer. Without this check, `this.connection.send(data)`
     // would throw a raw "cannot call send() while not connected" transport
-    // error from W3CWebSocket — which the REST layer used to wrap as an
+    // error from W3CWebSocket - which the REST layer used to wrap as an
     // opaque HTTP 500 (see WI 70414 cascade). Surface a typed error instead
     // so callers learn the session is gone (mapped to HTTP 410 Gone by
     // httpErrorFromEtpError). The `connection == null` case retains its

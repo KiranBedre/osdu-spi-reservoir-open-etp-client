@@ -14,4 +14,9 @@ tests {
   test("status is 200", function () {
     expect(res.getStatus()).to.equal(200);
   });
+
+  test("returns version info", function () {
+    const body = res.getBody();
+    expect(body).to.have.property("version");
+  });
 }
