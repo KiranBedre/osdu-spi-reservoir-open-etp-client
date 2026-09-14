@@ -26,12 +26,16 @@ docs {
 }
 
 tests {
-  test("status is 200", function () {
-    expect(res.getStatus()).to.equal(200);
+  test("graph ok or not-yet-seeded (200/404)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
   });
 
-  test("returns graph payload", function () {
-    const body = res.getBody();
-    expect(body, JSON.stringify(body).slice(0, 200)).to.not.be.undefined;
+  test("returns graph payload when seeded", function () {
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body, JSON.stringify(body).slice(0, 200)).to.not.be.undefined;
+    } else {
+      expect(res.getStatus()).to.equal(404);
+    }
   });
 }

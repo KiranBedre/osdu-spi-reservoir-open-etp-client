@@ -21,15 +21,7 @@ headers {
 
 body:multipart-form {
   epc: @file(../data/Demo_Drogon.epc)
-}
-
-script:post-response {
-  const s = res.getStatus();
-  if (s === 200 || s === 201) {
-    const b = res.getBody() || {};
-    const stored = b.objectsStored ?? b.stored ?? b.object_count;
-    if (stored != null) bru.setVar("drogonSeedStored", String(stored));
-  }
+  h5: @file(../data/Demo_Drogon.h5)
 }
 
 docs {
@@ -48,20 +40,13 @@ docs {
   Bruno resolves @file() relative to the collection root (bruno/), so the paths
   are ../data/Demo_Drogon.epc and ../data/Demo_Drogon.h5. For remote CI runs this
   reduced fixture must be staged for the runner (it is git-ignored locally).
-}
 
-tests {
-  test("epc upload accepted or not-yet-deployed (200/201/404/413)", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 201, 404, 413]);
-  });
-
-  test("objects were stored when upload is deployed", function () {
-    const s = res.getStatus();
-    if (s === 200 || s === 201) {
-      const stored = Number(bru.getVar("drogonSeedStored") || "0");
-      expect(stored, "objectsStored").to.be.greaterThan(0);
-    } else {
-      expect([404, 413]).to.include(s);
-    }
-  });
+  IMPORTANT - NO tests/script blocks on purpose: the Bruno CLI JS sandbox
+  (quickjs-emscripten) aborts at runtime disposal (assertion list_empty(gc_obj_list)
+  in JS_FreeRuntime) whenever a request that carries large multipart file buffers
+  also runs ANY JS block (tests OR script). With the 45 MB H5 that abort is fatal
+  and fails the whole run, even though the upload itself succeeds. So this request
+  is intentionally assertion-free; upload verification is done downstream by S03
+  (validate), S04 (list resources) and S05 (object content), which inspect server
+  state rather than the request body and therefore carry no large buffers.
 }
