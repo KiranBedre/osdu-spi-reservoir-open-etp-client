@@ -77,10 +77,28 @@ cimpl-test:
   tags: ["osdu-small"]
   stage: integration
   image: node:20-alpine
-  allow_failure: true
+  # Real merge gate (no allow_failure): the REST->ETP proxy round-trip must pass.
+  # Extends .cimpl-dev-variables so it targets the freshly-deployed dev env
+  # (dev.osdu-main.osdu-cimpl...) with the same host/token as cimpl-dev-deploy,
+  # not the dev1 default that .cimpl-variables alone would resolve to.
+  # The upstream base job only includes on the legacy $CIMPL_LEGACY path; add
+  # the modern $CIMPL_STACK/$DEV path (mirroring cimpl-dev-deploy) so the job is
+  # actually scheduled in the trusted pipeline.
   retry: 1
   extends:
     - .cimpl-variables
+    - .cimpl-dev-variables
+  rules:
+    - if: '$DISABLE_INTEGRATION_TEST == "true"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH =~ /^release/'
+      when: never
+    - if: '$CI_COMMIT_TAG'
+      when: never
+    - if: '$CIMPL_STACK == "1" && $DEV == "1"'
+      when: on_success
+    - if: '$CIMPL_LEGACY == "1" && $CIMPL_INT_TEST_TYPE != "python"'
+      when: on_success
   script:
     - !reference [.cimpl_bruno_tests, script]
 
