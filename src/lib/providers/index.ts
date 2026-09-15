@@ -20,3 +20,4 @@ export { Config, ConfigFactory } from "./Config";
 
 export * as azure from "./azure";
 export * as google from "./google";
+export * as aws from "./aws";
