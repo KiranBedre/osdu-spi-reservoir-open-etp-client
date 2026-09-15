@@ -106,45 +106,7 @@ cimpl-containerize-bootstrap-gitlab:
       --env-var "testDataspaceId=test-ci-postman"
       || exit $?
 
-cimpl-dev-test-postman:
-  tags: ["osdu-small"]
-  stage: integration
-  image: community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-cimpl/image-for-postman-tests/osdu-cimpl-image-for-postman:df5a6d3c
-  allow_failure: true
-  retry: 1
-  extends:
-    - .cimpl-dev-variables
-  script:
-    - !reference [.cimpl_postman_tests, script]
-  rules:
-    - if: '$CIMPL == "1" && $RUN_POSTMAN_TESTS == "1"'
-      when: on_success
-    - when: never
-
-
 # osdu-main overrides
-
-cimpl-dev-test:
-  tags: ["osdu-small"]
-  stage: integration
-  image: node:20-alpine
-  allow_failure: true
-  retry: 1
-  extends:
-    - .cimpl-dev-variables
-  script:
-    - !reference [.cimpl_bruno_tests, script]
-
-cimpl-dev-backup-test:
-  tags: ["osdu-small"]
-  stage: integration
-  image: node:20-alpine
-  allow_failure: true
-  retry: 1
-  extends:
-    - .cimpl-dev-backup-variables
-  script:
-    - !reference [.cimpl_bruno_tests, script]
 
 cimpl-prod-test:
   tags: ["osdu-small"]
@@ -156,20 +118,3 @@ cimpl-prod-test:
     - .cimpl-prod-variables
   script:
     - !reference [.cimpl_bruno_tests, script]
-
-# Disable the cimpl-check-openapi-spec job as this is a WebSocket ETP server and has no OpenAPI spec
-cimpl-check-openapi-spec:
-  rules:
-    - when: never
-
-cimpl-dev-check-openapi-spec:
-  rules:
-    - when: never
-
-cimpl-dev-backup-check-openapi-spec:
-  rules:
-    - when: never
-
-cimpl-prod-check-openapi-spec:
-  rules:
-    - when: never
