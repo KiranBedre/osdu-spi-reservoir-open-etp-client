@@ -1,0 +1,30 @@
+meta {
+  name: Export Resources CSV
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{host}}/dataspaces/{{dataspaceId}}/resources/all?format=csv
+  body: none
+  auth: none
+}
+
+params:query {
+  format: csv
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+  Accept: text/csv
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  test("content-type is CSV", function () {
+    expect(res.getHeader("content-type") || "").to.include("text/csv");
+  });
+}

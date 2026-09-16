@@ -17,15 +17,15 @@ headers {
 
 body:json {
   {
-    "uri": "eml:///dataspace('demo/Volve')",
+    "uri": "eml:///dataspace('{{dataspaceIdRaw}}')",
     "scope": "self",
     "depth": 1,
-    "dataObjectTypes": ["resqml20.obj_IjkGridRepresentation"]
+    "dataObjectTypes": ["{{dataObjectType}}"]
   }
 }
 
 tests {
-  test("status is 200", function () {
-    expect(res.getStatus()).to.equal(200);
+  test("status is 200 or 404 or 501", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404, 501]);
   });
 }

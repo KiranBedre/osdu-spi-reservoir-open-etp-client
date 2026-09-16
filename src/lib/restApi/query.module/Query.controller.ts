@@ -30,7 +30,9 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiDefaultResponse,
+  ApiExcludeEndpoint,
   ApiForbiddenResponse,
+  ApiGoneResponse,
   ApiHeader,
   ApiInternalServerErrorResponse,
   ApiNotAcceptableResponse,
@@ -75,9 +77,9 @@ import {
   httpErrorFromEtpError,
   partitionPattern,
   patternString,
-  requireProtocol,
   toDate,
-  toJSonCustomData
+  toJSonCustomData,
+  webSocketSessionTerminatedSchema
 } from "../ControllerUtils";
 
 import Logging from "../../common/Logging";
@@ -112,7 +114,7 @@ class FindResourcesDto {
   dataObjectTypes?: string[];
 
   @ApiPropertyOptional({
-    description: "Graph traversal depth (1 = immediate children, 2+ = recursive, 0 = unlimited — use with caution)",
+    description: "Graph traversal depth (1 = immediate children, 2+ = recursive, 0 = unlimited - use with caution)",
     default: 1
   })
   @IsOptional()
@@ -120,7 +122,7 @@ class FindResourcesDto {
   depth?: number;
 
   @ApiPropertyOptional({
-    description: "ISO 8601 timestamp — only return resources modified after this time. Useful for incremental sync."
+    description: "ISO 8601 timestamp - only return resources modified after this time. Useful for incremental sync."
   })
   @IsOptional()
   @IsString()
@@ -135,57 +137,6 @@ class FindDataObjectsDto extends FindResourcesDto {
   @IsOptional()
   @IsString()
   format?: string;
-}
-
-class GrowingObjectPartsDto {
-  @ApiProperty({
-    description: "URI of the growing object (WellLog, MudLog, etc.)",
-    example: "eml:///dataspace('test/witsml')/witsml21.WellboreGeology(uuid)"
-  })
-  @IsNotEmpty()
-  @IsString()
-  uri!: string;
-}
-
-class GetPartsByRangeDto {
-  @ApiProperty({
-    description: "URI of the growing object"
-  })
-  @IsNotEmpty()
-  @IsString()
-  uri!: string;
-
-  @ApiProperty({
-    description: "Start index value. For depth-indexed objects: meters (e.g., 2500.0). For time-indexed: microseconds since epoch."
-  })
-  @IsNotEmpty()
-  @IsNumber()
-  startIndex!: number;
-
-  @ApiProperty({
-    description: "End index value. Same unit as startIndex (meters for depth, microseconds for time)."
-  })
-  @IsNotEmpty()
-  @IsNumber()
-  endIndex!: number;
-
-  @ApiPropertyOptional({
-    description: "Include parts overlapping the range boundary",
-    default: false
-  })
-  @IsOptional()
-  @IsBoolean()
-  includeOverlapping?: boolean;
-}
-
-class ChannelMetadataDto {
-  @ApiProperty({
-    description: "URI of the object containing channels (e.g., WellLog)",
-    example: "eml:///dataspace('test/drogon')/witsml21.WellLog(uuid)"
-  })
-  @IsNotEmpty()
-  @IsString()
-  uri!: string;
 }
 
 class GraphSearchDto {
@@ -273,117 +224,30 @@ function scopeFromString(
   }
 }
 
-const swaggerServers = [{ url: "" }];
+// Per-operation server override removed - inherits the global relative-path server.
+const swaggerServers: any = undefined;
 
 // ── Controller ───────────────────────────────────────────────────────────────
 
 @Controller("query")
-@ApiTags("Query & Growing Objects")
-@ApiBearerAuth("access-token")
+@ApiTags("Query")
+@ApiBearerAuth("HTTPBearer")
 @UseGuards(HasBearerGuard("jwt"))
 @ApiHeader({
   name: "data-partition-id",
+  description: "Data partition id (ex. 'osdu')",
   required: true,
-  schema: { type: "string", pattern: patternString(partitionPattern) }
+  schema: { type: "string", example: "osdu", pattern: patternString(partitionPattern) }
 })
 @UseGuards(HasDataPartitionGuard())
 @ApiUnauthorizedResponse(errorMessageSchema("Unauthorized", 401))
 @ApiForbiddenResponse(errorMessageSchema("Forbidden", 403))
 @ApiNotAcceptableResponse(errorMessageSchema("Not acceptable response", 406))
 @ApiTooManyRequestsResponse(errorMessageSchema("Too many requests", 429))
+@ApiGoneResponse(webSocketSessionTerminatedSchema())
 @ApiInternalServerErrorResponse(errorMessageSchema("Unknown Error", 500))
 @ApiDefaultResponse(errorMessageSchema("Unknown Error", 500))
 export default class QueryController {
-  /**
-   * Find resources matching search criteria using DiscoveryQuery protocol.
-   * Returns resource metadata (URI, name, type, timestamps) without object body.
-   */
-  @Post("resources/find")
-  @HttpCode(200)
-  @ApiOperation({
-    summary: "Find resources by context and scope (ETP Discovery Protocol 3)",
-    description: `Search for resources within a dataspace or below a specific object URI. Returns resource metadata (URI, name, timestamps, relationship counts) without loading full XML content.
-
-**When to use**: Resource enumeration, OSDU search integration, checking what exists before fetching content.
-
-**uri format**: \`eml:///dataspace('path/to/ds')\` for dataspace root, or a full object URI to search below a specific object.
-
-**scope**: Controls graph traversal direction — 'targets' follows relationships forward (parent→child), 'sources' follows backwards.
-
-**depth**: 1 = direct children only, 2+ = recursive. Use 0 for unlimited (caution: may return large results).`,
-    servers: swaggerServers
-  })
-  @ApiOkResponse({
-    description: "Matching resources",
-    schema: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          uri: { type: "string" },
-          name: { type: "string" },
-          sourceCount: { type: "number" },
-          targetCount: { type: "number" },
-          lastChanged: { type: "string" },
-          storeLastWrite: { type: "string" },
-          activeStatus: { type: "string" }
-        }
-      }
-    }
-  })
-  @ApiBody({ type: FindResourcesDto })
-  public async findResources(
-    @Body() body: FindResourcesDto,
-    @Req() request?: express.Request
-  ) {
-    let c;
-    try {
-      c = await createSession(
-        extractToken(request),
-        extractDataPartitionId(request)
-      );
-      requireProtocol(c, Energistics.Etp.v12.Datatypes.Protocol.DiscoveryQuery);
-
-      const context: Energistics.Etp.v12.Datatypes.Object.ContextInfo = {
-        uri: body.uri,
-        depth: body.depth ?? 1,
-        dataObjectTypes: body.dataObjectTypes || [],
-        navigableEdges:
-          Energistics.Etp.v12.Datatypes.Object.RelationshipKind.Primary,
-        includeSecondaryTargets: false,
-        includeSecondarySources: false
-      };
-
-      const storeLastWriteFilter = body.modifiedSince
-        ? BigInt(new Date(body.modifiedSince).getTime() * 1000)
-        : null;
-
-      const resources = await c.discoveryQuery.findResources(
-        context,
-        scopeFromString(body.scope),
-        storeLastWriteFilter
-      );
-
-      return resources.map(r => ({
-        uri: r.uri,
-        name: r.name,
-        sourceCount: r.sourceCount,
-        targetCount: r.targetCount,
-        lastChanged: r.lastChanged
-          ? new Date(Number(r.lastChanged) / 1000).toISOString()
-          : null,
-        storeLastWrite: r.storeLastWrite
-          ? new Date(Number(r.storeLastWrite) / 1000).toISOString()
-          : null,
-        activeStatus: r.activeStatus
-      }));
-    } catch (err) {
-      throw httpErrorFromEtpError(err);
-    } finally {
-      await c?.closeSession();
-    }
-  }
-
   /**
    * Find data objects with full XML/JSON content using StoreQuery protocol.
    */
@@ -395,13 +259,26 @@ export default class QueryController {
 
 **When to use**: Bulk data export, OSDU Storage ingestion, or when you need the actual XML content (not just metadata).
 
-**Performance**: More expensive than POST /query/resources/find — fetches full object bodies. For large result sets, prefer resource discovery first, then selective GetDataObjects via the /graph/{type}/{guid} endpoints.
+**Performance**: Fetches full object bodies. For large result sets, consider selective GetDataObjects via the /graph/{type}/{guid} endpoints.
 
-**modifiedSince**: ISO timestamp filter — only returns objects written after this time. Useful for incremental sync.`,
+**modifiedSince**: ISO timestamp filter - only returns objects written after this time. Useful for incremental sync.`,
     servers: swaggerServers
   })
   @ApiOkResponse({
-    description: "Matching data objects with content"
+    description: "Matching data objects with full content (array; empty array if nothing matches)",
+    schema: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          uri: { type: "string", example: "eml:///dataspace('demo/model')/resqml20.obj_IjkGridRepresentation(0c8a1e2f-...)" },
+          name: { type: "string", example: "Grid_1" },
+          format: { type: "string", enum: ["xml", "json"], example: "xml" },
+          data: { type: "string", nullable: true, description: "Full object body as text (XML or JSON per format)" },
+          lastChanged: { type: "string", format: "date-time", nullable: true, example: "2026-06-02T12:00:00.000Z" }
+        }
+      }
+    }
   })
   @ApiBody({ type: FindDataObjectsDto })
   public async findDataObjects(
@@ -473,15 +350,15 @@ export default class QueryController {
   @HttpCode(200)
   @ApiOperation({
     summary: "Batch graph search across multiple URIs (Discovery Protocol 3)",
-    description: `Build a merged subgraph for multiple resource URIs in a single session.
-    For each URI, traverses the relationship graph with the given scope and depth,
-    then merges all discovered nodes and edges into a deduplicated result.
+    description: `Build a merged, deduplicated subgraph for multiple resource URIs in a single ETP session.
 
-    This is significantly more efficient than calling GET /graph/{type}/{guid}/targets
-    for each URI individually, as it reuses a single ETP session.
+For each URI, traverses the relationship graph with the given scope and depth, then merges all discovered nodes and edges into a single result.
 
-    Designed for deep search scenarios where a consumer (e.g., GraphQL) needs
-    to discover properties, representations, and interpretations for many objects at once.`,
+**Why use this**: Without batch search, deep search across N objects requires N+ individual REST calls. This endpoint does it in one call, reusing a single ETP session.
+
+**Performance**: For very large batches (>100 URIs), split into chunks - URIs are processed sequentially within the session. Depth values > 100 may timeout depending on server configuration.
+
+**Best-effort**: If traversal fails for one URI, remaining URIs are still processed and partial results returned.`,
     servers: swaggerServers
   })
   @ApiOkResponse({
@@ -579,7 +456,7 @@ export default class QueryController {
           logger.warn(
             `Graph search failed for URI ${uri}: ${err}`
           );
-          // Continue with remaining URIs — best effort
+          // Continue with remaining URIs - best effort
         }
       }
 
@@ -600,144 +477,6 @@ export default class QueryController {
           path: e.path
         }))
       };
-    } catch (err) {
-      throw httpErrorFromEtpError(err);
-    } finally {
-      await c?.closeSession();
-    }
-  }
-
-  /**
-   * Get metadata about parts of a growing object.
-   */
-  @Post("growing/metadata")
-  @HttpCode(200)
-  @ApiOperation({
-    summary: "Get parts metadata for a growing object (ETP GrowingObject Protocol 6)",
-    description: `Retrieve metadata about the parts/segments of a growing object (WellLog, MudLog, Trajectory).
-
-**Returns**: Available index ranges, part UIDs, and part metadata. Use this to discover what depth/time intervals exist before calling POST /query/growing/range.
-
-**Typical workflow**: 1) Find object URI via /query/resources/find → 2) Get parts metadata here → 3) Fetch specific range via /query/growing/range.`,
-    servers: swaggerServers
-  })
-  @ApiBody({ type: GrowingObjectPartsDto })
-  public async getPartsMetadata(
-    @Body() body: GrowingObjectPartsDto,
-    @Req() request?: express.Request
-  ) {
-    let c;
-    try {
-      c = await createSession(
-        extractToken(request),
-        extractDataPartitionId(request)
-      );
-      requireProtocol(c, Energistics.Etp.v12.Datatypes.Protocol.GrowingObject);
-      const metadata = await c.growingObject.getPartsMetadata(body.uri);
-      return metadata;
-    } catch (err) {
-      throw httpErrorFromEtpError(err);
-    } finally {
-      await c?.closeSession();
-    }
-  }
-
-  /**
-   * Get parts of a growing object within an index range.
-   */
-  @Post("growing/range")
-  @HttpCode(200)
-  @ApiOperation({
-    summary: "Get parts by index range (ETP GrowingObject Protocol 6)",
-    description: `Retrieve data from a growing object (WellLog, MudLog, Trajectory) within a specified index range.
-
-**Index values**: Provide start and end as numeric values. For depth-indexed objects, values are in meters. For time-indexed objects, values are in microseconds since epoch.
-
-**includeOverlapping**: When true, includes parts that partially overlap the requested range boundaries (useful for continuous curves).
-
-**Note**: The unit of measure is currently fixed to meters (\`m\`). Time-indexed growing objects should use microsecond epoch values.`,
-    servers: swaggerServers
-  })
-  @ApiBody({ type: GetPartsByRangeDto })
-  public async getPartsByRange(
-    @Body() body: GetPartsByRangeDto,
-    @Req() request?: express.Request
-  ) {
-    let c;
-    try {
-      c = await createSession(
-        extractToken(request),
-        extractDataPartitionId(request)
-      );
-      requireProtocol(c, Energistics.Etp.v12.Datatypes.Protocol.GrowingObject);
-
-      const startIndex = new Energistics.Etp.v12.Datatypes.IndexValue();
-      startIndex.item = { _double: body.startIndex, __keyName: "_double" };
-      const endIndex = new Energistics.Etp.v12.Datatypes.IndexValue();
-      endIndex.item = { _double: body.endIndex, __keyName: "_double" };
-      const indexInterval: Energistics.Etp.v12.Datatypes.Object.IndexInterval = {
-        startIndex,
-        endIndex,
-        uom: "m",
-        depthDatum: ""
-      };
-
-      const parts = await c.growingObject.getPartsByRange(
-        body.uri,
-        indexInterval,
-        body.includeOverlapping ?? false
-      );
-
-      return parts.map(p => ({
-        uid: p.uid,
-        data: p.data ? Buffer.from(p.data).toString("utf-8") : null
-      }));
-    } catch (err) {
-      throw httpErrorFromEtpError(err);
-    } finally {
-      await c?.closeSession();
-    }
-  }
-
-  /**
-   * Get channel (curve) metadata for a data object.
-   */
-  @Post("channels/metadata")
-  @HttpCode(200)
-  @ApiOperation({
-    summary: "Get channel metadata (ETP ChannelSubscribe Protocol 21)",
-    description: `Discover available channels (curves/mnemonics) for a WellLog, ChannelSet, or similar object.
-
-**Returns**: Channel names, units of measure (UOM), data kinds (float, int, string), index descriptions, and channel status.
-
-**When to use**: Before streaming channel data or calling growing object range queries — lets you know what mnemonics exist and their measurement units.
-
-**Example flow**: Find WellLog URI → Get channel metadata here → Subscribe to specific channels via ETP streaming, or fetch ranges via POST /query/growing/range.`,
-    servers: swaggerServers
-  })
-  @ApiBody({ type: ChannelMetadataDto })
-  public async getChannelMetadata(
-    @Body() body: ChannelMetadataDto,
-    @Req() request?: express.Request
-  ) {
-    let c;
-    try {
-      c = await createSession(
-        extractToken(request),
-        extractDataPartitionId(request)
-      );
-      requireProtocol(c, Energistics.Etp.v12.Datatypes.Protocol.ChannelSubscribe);
-      const metadata = await c.channelSubscribe.getChannelMetadata(body.uri);
-      return metadata.map(ch => ({
-        channelId: ch.id,
-        channelName: ch.channelName,
-        uom: ch.uom,
-        dataKind: ch.dataKind,
-        channelClassUri: ch.channelClassUri,
-        status: ch.status,
-        source: ch.source,
-        indexes: ch.indexes
-      }));
     } catch (err) {
       throw httpErrorFromEtpError(err);
     } finally {

@@ -111,9 +111,8 @@ describe("Valid data partition", () => {
 
 export const checkServerAvailability: () => Promise<boolean> = async () => {
   const prot = etpServerProtocol === "wss" ? https : http;
-  const url = `${
-    etpServerProtocol === "wss" ? "https" : "http"
-  }://${etpServerHost}:${etpServerPort}${etpServerPath}/.well-known/etp-server-capabilities?GetVersion=etp12.energistics.org`;
+  const url = `${etpServerProtocol === "wss" ? "https" : "http"
+    }://${etpServerHost}:${etpServerPort}${etpServerPath}/.well-known/etp-server-capabilities?GetVersion=etp12.energistics.org`;
   return new Promise(resolve => {
     try {
       const req = prot.get(url, response => {
@@ -210,11 +209,11 @@ const createLargeContent = (
             <eml:Title xsi:type="eml:DescriptionString">Local Depth CRS</eml:Title>
             <eml:Originator xsi:type="eml:NameString">mike.king</eml:Originator>
             <eml:Creation xsi:type="xsd:dateTime">2023-01-18T14:24:00Z</eml:Creation>
-            <eml:Format xsi:type="eml:DescriptionString">Roxar Software Solutions AS</eml:Format>
+            <eml:Format xsi:type="eml:DescriptionString">RESQML Modeling Application</eml:Format>
           </eml:Citation>`;
   for (let i = 0; i < count; i++) {
     xmlContent += `<resqml2:ExtraMetadata xsi:type="resqml2:NameValuePair">
-        <resqml2:Name xsi:type="xsd:string">pdgm/dx/resqml/test${i}</resqml2:Name>
+        <resqml2:Name xsi:type="xsd:string">app/resqml/test${i}</resqml2:Name>
         <resqml2:Value xsi:type="xsd:string">ENERGISTICS</resqml2:Value>
       </resqml2:ExtraMetadata>`;
   }
@@ -484,9 +483,8 @@ describe("Resource Graph", () => {
   });
 
   it("Wrong session", async () => {
-    const wrongEtpServerUrl = `${etpServerProtocol}://${etpServerHost}:${
-      +etpServerPort + 1
-    }${etpServerPath}/`;
+    const wrongEtpServerUrl = `${etpServerProtocol}://${etpServerHost}:${+etpServerPort + 1
+      }${etpServerPath}/`;
     client.setCallsTraceability(true);
     let thrown = false;
     try {
@@ -1307,6 +1305,102 @@ describe("OSDU Dataspaces", () => {
     expect(thrown).toBeFalsy();
   });
 
+  it("Clone dataspace preserves UUIDs, reidentify mints new ones", async () => {
+    const cc = new ResqmlClient();
+    cc.setCallsTraceability(true);
+    await cc.openSession(etpServerUrl, jwt, testDataPartitionId);
+    let thrown = false;
+
+    const plainCopy = "eml:///dataspace('Clone/plain')";
+    const reidCopy = "eml:///dataspace('Clone/reidentify')";
+    const uuidSet = (resources: { uri: string }[]): Set<string> =>
+      new Set(
+        resources
+          .map(r => new EtpUri(r.uri).uuid.toLowerCase())
+          .filter(u => u.length > 0)
+      );
+
+    try {
+      const projects = await cc.getDataspaces();
+      expect(projects).toBeTruthy();
+      if (projects == null) {
+        await cc.closeSession();
+        return;
+      }
+
+      // Pick a source dataspace that actually has objects to copy.
+      let source: string | undefined;
+      let sourceResources: Awaited<
+        ReturnType<typeof cc.getDataspaceResources>
+      > = [];
+      for (const p of projects) {
+        const res = await cc.getDataspaceResources(p.uri);
+        if (res.length > 0) {
+          source = p.uri;
+          sourceResources = res;
+          break;
+        }
+      }
+      if (!source) {
+        // No seeded data on this server: nothing meaningful to validate.
+        await cc.closeSession();
+        return;
+      }
+      const sourceUuids = uuidSet(sourceResources);
+
+      // Clean up any leftovers from a previous run.
+      await cc.deleteDataspaces([plainCopy]).catch(() => undefined);
+      await cc.deleteDataspaces([reidCopy]).catch(() => undefined);
+
+      // --- Default clone: UUID-preserving deep copy ---
+      expect(await cc.lockDataspaces([source])).toBeTruthy();
+      expect(
+        await cc.cloneDataspace("Clone/plain", "Clone/plain", source, new Map())
+      ).toBeTruthy();
+      expect(await cc.unlockDataspaces([source])).toBeTruthy();
+
+      const plainResources = await cc.getDataspaceResources(plainCopy);
+      // Same objects, same identities.
+      expect(plainResources.length).toBe(sourceResources.length);
+      expect([...uuidSet(plainResources)].sort()).toStrictEqual(
+        [...sourceUuids].sort()
+      );
+
+      // --- Reidentify clone: same objects, brand new identities ---
+      expect(await cc.lockDataspaces([source])).toBeTruthy();
+      expect(
+        await cc.cloneDataspace(
+          "Clone/reidentify",
+          "Clone/reidentify",
+          source,
+          new Map(),
+          true
+        )
+      ).toBeTruthy();
+      expect(await cc.unlockDataspaces([source])).toBeTruthy();
+
+      const reidResources = await cc.getDataspaceResources(reidCopy);
+      const reidUuids = uuidSet(reidResources);
+      // Same number of objects...
+      expect(reidResources.length).toBe(sourceResources.length);
+      // ...but none of the source UUIDs survive.
+      for (const u of reidUuids) {
+        expect(sourceUuids.has(u)).toBe(false);
+      }
+      expect(reidUuids.size).toBe(sourceUuids.size);
+
+      // Cleanup
+      expect(await cc.deleteDataspaces([plainCopy])).toBeTruthy();
+      expect(await cc.deleteDataspaces([reidCopy])).toBeTruthy();
+    } catch (err) {
+      thrown = true;
+      logger.error("Clone/reidentify test failed", err);
+      await cc.unlockDataspaces([reidCopy]).catch(() => undefined);
+    }
+    await cc.closeSession();
+    expect(thrown).toBeFalsy();
+  });
+
   it("Resources import", async () => {
     const c3 = new ResqmlClient();
     c3.setCallsTraceability(true);
@@ -1443,7 +1537,7 @@ describe("Rest API Transaction 2.0.1 Workflow", () => {
           Originator: "dalsaab",
           Creation: new Date("2021-09-02T07:57:28.000Z"),
           Format:
-            "Paradigm SKUA-GOCAD 22 Alpha 1 Build:20210830-0200 (id: origin/master|56050|1fb1cf919c2|20210827-1108) for Linux_x64_2.17_gcc91",
+            "RESQML Modeling Application v1.0 for Linux_x64",
           Editor: "dalsaab",
           LastUpdate: new Date("2021-09-06T13:30:24.000Z")
         },
@@ -1490,12 +1584,12 @@ describe("Rest API Transaction 2.0.1 Workflow", () => {
           Originator: "user1",
           Creation: new Date("2019-01-08T13:41:25.000Z"),
           Format:
-            "Paradigm SKUA-GOCAD 22 Alpha 1 Build:20210830-0200 (id: origin/master|56050|1fb1cf919c2|20210827-1108) for Linux_x64_2.17_gcc91",
+            "RESQML Modeling Application v1.0 for Linux_x64",
           $type: "eml20.Citation"
         },
         ExtraMetadata: [
           {
-            Name: "pdgm/dx/resqml/creatorGroup",
+            Name: "app/resqml/creatorGroup",
             Value: "Interpreters",
             $type: "resqml20.NameValuePair"
           }
@@ -1908,25 +2002,25 @@ describe("Rest API Transaction 2.2 Workflow", () => {
         }
       };
       const binGridInterpretation: SimpleJson<Resqml22.GenericFeatureInterpretation> =
-        {
-          $type: "resqml22.GenericFeatureInterpretation",
-          SchemaVersion: "2.2",
-          Uuid: "97816427-6ef6-4776-b21c-5b93c8a6310a",
-          Citation: {
-            $type: "eml23.Citation",
-            Title: "Seismic lattice Interp",
-            Originator: "philippe",
-            Creation: new Date("2024-02-06T10:53:01.000Z"),
-            Format: "F2I-CONSULTING:FESAPI Example:3.0.0.0"
-          },
-          Domain: "depth",
-          InterpretedFeature: {
-            $type: "eml23.DataObjectReference",
-            Uuid: "eb6a5e97-4d86-4809-b136-051f34cfcb51",
-            QualifiedType: "resqml22.SeismicLatticeFeature",
-            Title: "Seismic lattice"
-          }
-        };
+      {
+        $type: "resqml22.GenericFeatureInterpretation",
+        SchemaVersion: "2.2",
+        Uuid: "97816427-6ef6-4776-b21c-5b93c8a6310a",
+        Citation: {
+          $type: "eml23.Citation",
+          Title: "Seismic lattice Interp",
+          Originator: "philippe",
+          Creation: new Date("2024-02-06T10:53:01.000Z"),
+          Format: "F2I-CONSULTING:FESAPI Example:3.0.0.0"
+        },
+        Domain: "depth",
+        InterpretedFeature: {
+          $type: "eml23.DataObjectReference",
+          Uuid: "eb6a5e97-4d86-4809-b136-051f34cfcb51",
+          QualifiedType: "resqml22.SeismicLatticeFeature",
+          Title: "Seismic lattice"
+        }
+      };
 
       const binGrid: SimpleJson<Resqml22.Grid2dRepresentation> = {
         $type: "resqml22.Grid2dRepresentation",

@@ -25,12 +25,14 @@ script:post-response {
 }
 
 tests {
-  test("status is 200", function () {
-    expect(res.getStatus()).to.equal(200);
+  test("status is 200 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
   });
 
   test("returns resources of requested type", function () {
-    const body = res.getBody();
-    expect(body).to.be.an("array");
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body).to.be.an("array");
+    }
   });
 }

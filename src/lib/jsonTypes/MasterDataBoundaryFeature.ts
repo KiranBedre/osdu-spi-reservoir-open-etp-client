@@ -22,8 +22,7 @@ import {
  */
 export class MasterDataBoundaryFeatureOSDU
   extends ResqmlResource<SimpleJson<resqml20.obj_BoundaryFeature>>
-  implements MasterDataBoundaryFeature
-{
+  implements MasterDataBoundaryFeature {
   public data: MasterDataBoundaryFeatureData = {};
 
   constructor(
@@ -54,7 +53,14 @@ export class MasterDataBoundaryFeatureOSDU
       ],
 
       FeatureName: xml.Citation?.Title,
-      BoundaryFeatureTypeID: undefined,
+      BoundaryFeatureTypeID:
+        xml.$type === "resqml20.obj_GeneticBoundaryFeature"
+          ? context.addReferenceData("BoundaryFeatureType", "Horizon")
+          : xml.$type === "resqml20.obj_TectonicBoundaryFeature"
+            ? context.addReferenceData("BoundaryFeatureType", "Fault")
+            : xml.$type === "resqml20.obj_FluidBoundaryFeature"
+              ? context.addReferenceData("BoundaryFeatureType", "Fluid Boundary")
+              : undefined,
       Description: xml.Citation?.Description,
 
       ExtensionProperties: undefined
@@ -85,7 +91,7 @@ export const MasterDataBoundaryFeatureManifest = async (
   if (instance.id && context.bearer) {
     const existingVersion = await context.getOSDUResourceVersion(instance.id);
     if (existingVersion) {
-      // Record already exists — do not duplicate
+      // Record already exists - do not duplicate
       return undefined;
     }
   }

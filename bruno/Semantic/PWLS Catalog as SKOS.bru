@@ -1,0 +1,24 @@
+meta {
+  name: PWLS Catalog as SKOS
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{host}}/pwls/catalog
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: text/turtle
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  test("is a SKOS concept scheme", function () {
+    expect(res.getBody()).to.include("skos:ConceptScheme");
+  });
+}

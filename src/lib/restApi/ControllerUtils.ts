@@ -71,7 +71,7 @@ import {
   EtpSessionTerminatedError
 } from "../common/EtpTypes";
 
-import { bigIntToString } from "../mlTypes/XmlJsonUtil";
+import { convertBigInts } from "../mlTypes/XmlJsonUtil";
 
 import { ApiProperty, ApiQueryOptions } from "@nestjs/swagger";
 import { IsUUID, Matches, MaxLength } from "class-validator";
@@ -85,7 +85,9 @@ export const swaggerUIUrl = `${restApiMainUrl}:${restApiPort}${restApiRoutePath}
 
 export const serverUIUrl = `${restApiMainUrl}:${openApiPort}${restApiServerPath}`;
 
-export const swaggerServers = [{ url: serverUIUrl, description: "API server" }];
+// No per-operation server override - all operations inherit the global
+// relative-path server declared via .addServer() in App.ts.
+export const swaggerServers: any = undefined;
 
 let userInfo: string;
 
@@ -98,6 +100,7 @@ const etpClients = new Map<
     timeoutId: NodeJS.Timeout;
     pingIntervalId: NodeJS.Timeout;
     timeoutPeriod: number;
+    dataspaceUri: string;
     onDisconnect: (
       connection?: unknown,
       closeCode?: number,
@@ -301,7 +304,7 @@ export const toJSonCustomData = (
               obj[key] = v;
             }
           } else {
-            obj[key] = JSON.parse(JSON.stringify(v, bigIntToString));
+            obj[key] = convertBigInts(v);
           }
         }
       }
@@ -583,8 +586,7 @@ export const HasDataPartitionGuard: () => CanActivate = () => {
  * @implements {PipeTransform<number>}
  */
 export class OptionalParseBoolPipe
-  implements PipeTransform<string | boolean, Promise<boolean | undefined>>
-{
+  implements PipeTransform<string | boolean, Promise<boolean | undefined>> {
   transform(value: string | boolean | undefined): Promise<boolean | undefined> {
     if (value === undefined) {
       Promise.resolve(undefined);
@@ -603,8 +605,7 @@ export class OptionalParseBoolPipe
  * @implements {PipeTransform<number>}
  */
 export class OptionalParseIntPipe
-  implements PipeTransform<string | number, Promise<number | undefined>>
-{
+  implements PipeTransform<string | number, Promise<number | undefined>> {
   transform(value: number | string | undefined): Promise<number | undefined> {
     if (value === undefined) {
       return Promise.resolve(undefined);
@@ -624,8 +625,7 @@ export class OptionalParseIntPipe
  * @implements {PipeTransform<string[]>}
  */
 export class OptionalParseIntArrayPipe
-  implements PipeTransform<string | string[]>
-{
+  implements PipeTransform<string | string[]> {
   transform(
     value: string | string[] | undefined
   ): Promise<number[] | number | undefined> {
@@ -644,8 +644,7 @@ export class OptionalParseIntArrayPipe
  * @implements {PipeTransform<number>}
  */
 export class OptionalParseDatePipe
-  implements PipeTransform<Date | string, Promise<Date | undefined>>
-{
+  implements PipeTransform<Date | string, Promise<Date | undefined>> {
   transform(value: Date | string | undefined): Promise<Date | undefined> {
     if (value === undefined) {
       return Promise.resolve(undefined);
@@ -662,7 +661,7 @@ export class OptionalParseDatePipe
   }
 }
 
-export const dataspaceNamePattern = /^[^/]+\/[^/]+$/;
+export const dataspaceNamePattern = /^[^/]+(\/[^/]+)?$/;
 
 /*
  * Describe parameters to find resources in a dataspace
@@ -779,25 +778,6 @@ export const getSchemasForType = (
     : { ...values[0], additionalProperties: false };
 };
 
-const protocolNames: Record<number, string> = {
-  [Energistics.Etp.v12.Datatypes.Protocol.DiscoveryQuery]: "DiscoveryQuery (13)",
-  [Energistics.Etp.v12.Datatypes.Protocol.StoreQuery]: "StoreQuery (14)",
-  [Energistics.Etp.v12.Datatypes.Protocol.GrowingObject]: "GrowingObject (6)",
-  [Energistics.Etp.v12.Datatypes.Protocol.ChannelSubscribe]: "ChannelSubscribe (21)"
-};
-
-/**
- * Throw 501 if the ETP server did not negotiate the given protocol.
- */
-export const requireProtocol = (client: ResqmlClient, protocolId: number): void => {
-  if (!client.isProtocolSupported(protocolId)) {
-    const name = protocolNames[protocolId] ?? `Protocol ${protocolId}`;
-    throw new NotImplementedException(
-      `ETP server does not support ${name}`
-    );
-  }
-};
-
 /*!
  * Create and open a session, and return the client
  *
@@ -844,7 +824,7 @@ export const createSession = async (
       .openSession(etpServerUrl, jwt, dataPartitionId, userInfo)
       .catch(err => {
         // EtpError comes from a ProtocolException sent back by the ETP
-        // server (errorFromProtocolException) — its message is an
+        // server (errorFromProtocolException) - its message is an
         // application-level, sanitized string (e.g. "Partition X not
         // found", "User has no permissions") that is safe and useful to
         // surface to the client. Pass it through unchanged.
@@ -893,14 +873,23 @@ export const createTransaction = async (
   const c = new ResqmlClient(options);
   return c
     .openSession(etpServerUrl, jwt, dataPartitionId)
-    .then(() =>
-      c.startTransaction(
+    .then(async () => {
+      // Validate the dataspace exists before starting a transaction (#78)
+      const info = await c.getDataspaceInfo([dataspace]);
+      if (!info || info.length === 0 || info[0] === null) {
+        await c.closeSession();
+        throw new EtpError(
+          `Dataspace not found: ${dataspace}`,
+          ErrorCode.ENOT_FOUND
+        );
+      }
+      return c.startTransaction(
         false,
         [dataspace],
         `Creating transaction for dataspace ${dataspace}`,
         retries
-      )
-    )
+      );
+    })
     .then(id => {
       const idString = EtpUri.uuidByteArrayToString(id);
 
@@ -939,12 +928,13 @@ export const createTransaction = async (
         }, timeoutPeriod * 1000),
         pingIntervalId,
         timeoutPeriod,
+        dataspaceUri: dataspace,
         onDisconnect
       });
       return idString;
     })
     .catch(err => {
-      // EtpError carries a server-sent ProtocolException message — safe and
+      // EtpError carries a server-sent ProtocolException message - safe and
       // useful to surface (e.g. "Cannot start transaction, too many write
       // transactions", "Partition X not found"). Pass through unchanged.
       if (isEtpError(err)) {
@@ -954,7 +944,7 @@ export const createTransaction = async (
         });
         throw err;
       }
-      // Non-EtpError = raw transport / sync throw — sanitize log and return
+      // Non-EtpError = raw transport / sync throw - sanitize log and return
       // generic message to the client.
       logger.error("[ETP] Failed to create transaction session", {
         err: sanitizeErrorForLog(err)
@@ -1098,6 +1088,32 @@ export const rollbackTransaction = (transactionId: string): Promise<boolean> =>
   finalizeTransaction(transactionId, "rollback");
 
 /**
+ * Validate that a transaction belongs to the given dataspace.
+ * Throws 404 if the transaction doesn't exist, or 400 if the dataspaceId
+ * doesn't match the transaction's actual dataspace.
+ */
+export const validateTransactionDataspace = (
+  transactionId: string,
+  dataspaceId: string
+): void => {
+  throwIfTerminated(transactionId);
+  const t = etpClients.get(transactionId);
+  if (t === undefined) {
+    throw new EtpError(
+      `Transaction ${transactionId} does not exists`,
+      ErrorCode.ENOT_FOUND
+    );
+  }
+  const expectedUri = EtpUri.createDataSpaceUri(dataspaceId).uri;
+  if (t.dataspaceUri !== expectedUri) {
+    throw new EtpError(
+      `Transaction ${transactionId} does not belong to dataspace ${dataspaceId}`,
+      ErrorCode.EINVALID_ARGUMENT
+    );
+  }
+};
+
+/**
  * Create the string part of etp uri based on REST query
  *
  * @param {QueryInput} query
@@ -1138,7 +1154,7 @@ const getContext = (
 
   const navigable: Energistics.Etp.v12.Datatypes.Object.RelationshipKind =
     Energistics.Etp.v12.Datatypes.Object.RelationshipKind[
-      context.navigableEdges || "Both"
+    context.navigableEdges || "Both"
     ];
 
   return {
@@ -1419,7 +1435,7 @@ export const httpErrorFromEtpError = (
 
   // Node.js system errors (ECONNREFUSED, ETIMEDOUT, etc.) raised by axios /
   // ws / http when a dependent service is unreachable or slow. These are not
-  // server bugs — they indicate an upstream/transport problem, so map them to
+  // server bugs - they indicate an upstream/transport problem, so map them to
   // 502 / 504 instead of 500 so monitoring distinguishes "my service broke"
   // from "a dependency broke".
   if (error && typeof error === "object" && "code" in error) {
@@ -1457,11 +1473,11 @@ export const httpErrorFromEtpError = (
     }
   }
   // Non-EtpError, non-HttpException: this is a genuine server fault
-  // (TypeError, RangeError, library bug, etc.) — return 500, not 400.
+  // (TypeError, RangeError, library bug, etc.) - return 500, not 400.
   // Log the full error (including stack) server-side for triage; only
   // surface the message to the client. Callers upstream (createSession,
   // extractToken, etc.) are responsible for not stuffing secrets into
-  // Error.message — they wrap raw errors before re-throwing.
+  // Error.message - they wrap raw errors before re-throwing.
   logger.error(
     context
       ? `Unhandled error while making request (${context}):`

@@ -285,7 +285,7 @@ describe("CRS Fix 3: localFrame metadata in return value", () => {
       mockClient, "eml:///dataspace('test')", points, crs as any, context
     );
 
-    // Reconstruct CRS from localFrame — verify lossless
+    // Reconstruct CRS from localFrame - verify lossless
     const lf = result.localFrame!;
     expect(lf["rddms/localFrame/xOffset"]).toBe(originalXOffset);
     expect(lf["rddms/localFrame/yOffset"]).toBe(originalYOffset);
@@ -334,7 +334,7 @@ describe("CRS Fix 4: WKT CRS detection and persistableReferenceCrs", () => {
       mockClient, "eml:///dataspace('test')", points, crs as any, context
     );
 
-    // Should NOT set WKT — the heuristic should reject non-WKT strings
+    // Should NOT set WKT - the heuristic should reject non-WKT strings
     expect(result.FrameOfReferenceCRS.persistableReference).toBe("");
   });
 
@@ -436,7 +436,7 @@ describe("Bug #130: Error propagation (no swallowing ProtocolException)", () => 
     const mockError = { errorCode: 27, message: "No permission to modify locked space" };
 
     const deleteDataspaceFixed = async () => {
-      // Fixed version: no .catch() — errors propagate
+      // Fixed version: no .catch() - errors propagate
       throw mockError;
     };
 
@@ -451,7 +451,7 @@ describe("Bug #130: Error propagation (no swallowing ProtocolException)", () => 
 });
 
 // ============================================================================
-// S1: Default Type Filter — Manifest Reduction 🧪
+// S1: Default Type Filter - Manifest Reduction 🧪
 // ============================================================================
 describe("S1: Default type filter patterns", () => {
   // Test the glob matching logic used by DEFAULT_DATASPACE_TYPE_PATTERNS
@@ -511,7 +511,7 @@ describe("S1: Default type filter patterns", () => {
 });
 
 // ============================================================================
-// A2: StructureMap Routing — Grid2d Kind Selection ⚠️ 🧪
+// A2: StructureMap Routing - Grid2d Kind Selection ⚠️ 🧪
 // ============================================================================
 import { StructureMapOSDU } from "../lib/jsonTypes/StructureMap";
 import { StructureMap22OSDU } from "../lib/jsonTypes/StructureMap22";
@@ -588,10 +588,10 @@ describe("A2: Grid2d routing logic", () => {
     expect(Grid2dToOsduKind(xml as any)).toContain("SeismicHorizon");
   });
 
-  it("Grid2d with FaultInterpretation → NOT StructureMap (property map scenario)", () => {
+  it("Grid2d with FaultInterpretation → GenericBinGrid (preserves grid geometry)", () => {
     const xml = makeGrid2d20({ interpType: "obj_FaultInterpretation" });
     expect(StructureMapOSDU.matchType(xml as any)).toBe(false);
-    expect(Grid2dToOsduKind(xml as any)).toContain("GenericRepresentation");
+    expect(Grid2dToOsduKind(xml as any)).toContain("GenericBinGrid");
   });
 
   it("Grid2d with no interpretation → GenericBinGrid", () => {
@@ -600,10 +600,10 @@ describe("A2: Grid2d routing logic", () => {
     expect(Grid2dToOsduKind(xml as any)).toContain("GenericBinGrid");
   });
 
-  it("Grid2d with GenericFeatureInterpretation → NOT StructureMap (property/DEM)", () => {
+  it("Grid2d with GenericFeatureInterpretation → GenericBinGrid (preserves grid geometry)", () => {
     const xml = makeGrid2d20({ interpType: "obj_GenericFeatureInterpretation" });
     expect(StructureMapOSDU.matchType(xml as any)).toBe(false);
-    expect(Grid2dToOsduKind(xml as any)).toContain("GenericRepresentation");
+    expect(Grid2dToOsduKind(xml as any)).toContain("GenericBinGrid");
   });
 
   // v2.2 equivalents
@@ -613,10 +613,10 @@ describe("A2: Grid2d routing logic", () => {
     expect(Grid2dToOsduKind22(xml as any)).toContain("StructureMap");
   });
 
-  it("v2.2: Grid2d with GeobodyInterpretation → NOT StructureMap", () => {
+  it("v2.2: Grid2d with GeobodyInterpretation → GenericBinGrid (not GenericRepresentation)", () => {
     const xml = makeGrid2d22({ qualifiedType: "resqml22.GeobodyInterpretation" });
     expect(StructureMap22OSDU.matchType(xml as any)).toBe(false);
-    expect(Grid2dToOsduKind22(xml as any)).toContain("GenericRepresentation");
+    expect(Grid2dToOsduKind22(xml as any)).toContain("GenericBinGrid");
   });
 
   it("v2.2: Grid2d with no interpretation → GenericBinGrid", () => {

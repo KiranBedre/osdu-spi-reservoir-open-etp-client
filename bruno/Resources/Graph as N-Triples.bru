@@ -1,0 +1,50 @@
+meta {
+  name: Graph as N-Triples (RDF)
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{host}}/dataspaces/{{dataspaceId}}/resources/all?edges=true&format=ntriples
+  body: none
+  auth: none
+}
+
+params:query {
+  edges: true
+  format: ntriples
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  N-Triples serialization of the dataspace relationship graph. The explicit
+  `?format=ntriples` query value selects the RDF format without an `Accept`
+  header (it also overrides `Accept`). Each line is a full-IRI triple ending
+  in ` .`, suitable for streaming bulk-load into a triple store. Alias values
+  `nt` and `n-triples` are also accepted; `Accept: application/n-triples`
+  works too.
+}
+
+tests {
+  test("status is 200 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
+  });
+
+  test("responds with N-Triples when 200", function () {
+    if (res.getStatus() === 200) {
+      const ct = res.getHeader("content-type") || "";
+      expect(ct).to.include("application/n-triples");
+      expect(res.getBody()).to.be.a("string");
+    }
+  });
+
+  test("exposes an ETag for conditional GETs", function () {
+    if (res.getStatus() === 200) {
+      expect(res.getHeader("etag")).to.be.a("string");
+    }
+  });
+}

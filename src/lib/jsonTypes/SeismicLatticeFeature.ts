@@ -28,8 +28,7 @@ const RESQML20_Grid2DRepresentation = "resqml20.obj_Grid2dRepresentation";
  */
 export class SeismicLatticeFeatureOSDU
   extends ResqmlResource<SimpleJson<resqml20.obj_SeismicLatticeFeature>>
-  implements SeismicAcquisitionSurvey
-{
+  implements SeismicAcquisitionSurvey {
   public data: Data = {};
 
   public meta?: FrameOfReferenceMetaDataItem[];
@@ -54,20 +53,23 @@ export class SeismicLatticeFeatureOSDU
   ): { easting: number; northing: number } {
     let easting = Wgs84Coordinates?.length ? Wgs84Coordinates[0][0] : 0;
     let northing = Wgs84Coordinates?.length ? Wgs84Coordinates[0][1] : 0;
+    const c0 = easting;
+    const c1 = northing;
     if (crs.ProjectedAxisOrder === "northing easting") {
-      easting = northing;
-      northing = easting;
+      easting = c1;
+      northing = c0;
     } else if (crs.ProjectedAxisOrder === "southing westing") {
-      easting = -northing;
-      northing = -easting;
+      easting = -c1;
+      northing = -c0;
     } else if (crs.ProjectedAxisOrder === "northing westing") {
-      easting = northing;
-      northing = -easting;
+      easting = -c1;
+      northing = c0;
     } else if (crs.ProjectedAxisOrder === "westing northing") {
-      easting = -easting;
+      easting = -c0;
+      northing = c1;
     } else if (crs.ProjectedAxisOrder === "westing southing") {
-      easting = -easting;
-      northing = -northing;
+      easting = -c0;
+      northing = -c1;
     }
     return { easting, northing };
   }
@@ -112,10 +114,10 @@ export class SeismicLatticeFeatureOSDU
       grid2dResource.length === 0
         ? undefined
         : await ResqmlResource.getObjects(
-            client,
-            [grid2dResource[0].uri],
-            context
-          );
+          client,
+          [grid2dResource[0].uri],
+          context
+        );
     if (grid2ds && grid2ds.length > 0) {
       const grid2d =
         grid2ds[0] as SimpleJson<resqml20.obj_Grid2dRepresentation>;
@@ -148,12 +150,12 @@ export class SeismicLatticeFeatureOSDU
 
       const uOffsetLen = Math.sqrt(
         u.Offset.Coordinate1 * u.Offset.Coordinate1 +
-          u.Offset.Coordinate2 * u.Offset.Coordinate2
+        u.Offset.Coordinate2 * u.Offset.Coordinate2
       );
 
       const vOffsetLen = Math.sqrt(
         v.Offset.Coordinate1 * v.Offset.Coordinate1 +
-          v.Offset.Coordinate2 * v.Offset.Coordinate2
+        v.Offset.Coordinate2 * v.Offset.Coordinate2
       );
 
       const [ux, uy] = [

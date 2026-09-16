@@ -165,8 +165,6 @@ export class OSDUContext {
 
   public technicalAssurances?: ITechnicalAssurance[];
 
-  public edges: { origin: string; target: string }[] = [];
-
   constructor(
     partition: string,
     submitter: string,
@@ -201,9 +199,8 @@ export class OSDUContext {
     if (value === undefined) {
       return undefined;
     }
-    const ref = `${
-      this.partition
-    }:reference-data--${referenceType}:${encodeURIComponent(value)}:`;
+    const ref = `${this.partition
+      }:reference-data--${referenceType}:${encodeURIComponent(value)}:`;
     if (referenceType !== "PropertyType" || PropertyTypesIds.has(value)) {
       // Do not create reference for Standards Resqml PropertyTypes
       this.references.add(ref);
@@ -513,7 +510,7 @@ export class OSDUContext {
             }
           }
         } catch {
-          // Treat search failure as "not found" — conservative
+          // Treat search failure as "not found" - conservative
         }
       })
     );

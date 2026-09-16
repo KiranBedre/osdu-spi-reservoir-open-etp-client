@@ -369,13 +369,14 @@ const getObjectDataArrays = async (
     let message = "";
 
     const concatMessage = (err: string) => (message += `${err} `);
-    while (arrayList.length > 0) {
+    const depth = c.messageQueueDepth();
+    for (let i = 0; i < arrayList.length; i += depth) {
       // Limit concurrent requests to what server can handle
-      const sp = arrayList.splice(0, c.messageQueueDepth());
+      const sp = arrayList.slice(i, i + depth);
       await Promise.all(
         sp.map(v => c.getDataArrayMetadata(v.uid.uri, v.uid.pathInResource))
       )
-        .then(a => arrays.push(...a))
+        .then(a => { for (const item of a) arrays.push(item); })
         .catch(concatMessage);
     }
     if (message !== "") {
@@ -385,14 +386,14 @@ const getObjectDataArrays = async (
     return filteredArrays.map(a =>
       a
         ? {
-            uid: a.uid,
-            dimensions: a.dimensions,
-            arrayType: toArrayTypeString(a.logicalArrayType),
-            preferredSubarrayDimensions: a.preferredSubarrayDimensions,
-            storeLastWrite: a.storeLastWrite,
-            storeCreated: a.storeCreated,
-            customData: toJSonCustomData(a.customData)
-          }
+          uid: a.uid,
+          dimensions: a.dimensions,
+          arrayType: toArrayTypeString(a.logicalArrayType),
+          preferredSubarrayDimensions: a.preferredSubarrayDimensions,
+          storeLastWrite: a.storeLastWrite,
+          storeCreated: a.storeCreated,
+          customData: toJSonCustomData(a.customData)
+        }
         : null
     );
   } finally {
@@ -504,7 +505,7 @@ const partitionId = process.env.DATA_PARTITION_ID ?? "data-partition-id";
  * @export
  * @class DataArrayReadAPI
  */
-@ApiBearerAuth("access-token")
+@ApiBearerAuth("HTTPBearer")
 @UseGuards(HasBearerGuard("jwt"))
 @ApiHeader({
   name: "data-partition-id",
@@ -529,8 +530,8 @@ const partitionId = process.env.DATA_PARTITION_ID ?? "data-partition-id";
 @Controller("/dataspaces/:dataspaceId/resources/:dataObjectType/:guid")
 export default class DataArrayReadAPI {
   @ApiOperation({
-    summary: "Get the description of all arrays.",
-    description: `Get the description of a all the arrays (Type and dimensions) referenced by a data object.`,
+    summary: "List all arrays for an object",
+    description: `List all data arrays (type, dimensions, path) referenced by a data object. Use this to discover what numeric data is attached before fetching content.\n\n**Common array types**: Well log curves, grid cell properties (porosity, permeability), seismic traces, point coordinates.`,
     servers: swaggerServers
   })
   @Get("arrays")
@@ -572,8 +573,8 @@ export default class DataArrayReadAPI {
 
   @Get("arrays/:pathInResource/metadata")
   @ApiOperation({
-    summary: "Get the description of an array.",
-    description: `Returns type and dimension of the array.`,
+    summary: "Get array metadata (type, dimensions)",
+    description: `Returns data type (Float64Array, Int32Array, etc.) and dimensions for a specific array. Use to check size before fetching content.`,
     servers: swaggerServers
   })
   @ApiQuery(versionQueryParam)
@@ -612,9 +613,9 @@ export default class DataArrayReadAPI {
       c = undefined;
       return d
         ? {
-            ...d,
-            customData: toJSonCustomData(d.customData)
-          }
+          ...d,
+          customData: toJSonCustomData(d.customData)
+        }
         : null;
     } catch (err) {
       if (!transactionId) {
@@ -633,9 +634,8 @@ export default class DataArrayReadAPI {
    */
   @Get("arrays/:pathInResource")
   @ApiOperation({
-    summary: "Get the content of an array.",
-    description: `For large arrays, it is recommended to use starts and counts and get array by slices. 
-      Note that starts and counts need to be used together or not at all.`,
+    summary: "Get array content",
+    description: `Retrieve the numeric data of an array. For large arrays, use \`starts\` and \`counts\` to fetch slices (subarrays) instead of the full dataset.\n\n**starts/counts**: Must be used together. Each is a comma-separated list matching the array dimensions (e.g., \`starts=0,0&counts=100,3\` for first 100 rows × 3 columns).\n\n**format**: \`json\` (default) returns a number array; \`base64\` returns a base64-encoded binary string (more efficient for large transfers).\n\n**Chunking**: The ETP layer automatically chunks large arrays (~10 MB per WebSocket message) and reassembles on the server side.`,
     servers: swaggerServers
   })
   @ApiQuery(versionQueryParam)

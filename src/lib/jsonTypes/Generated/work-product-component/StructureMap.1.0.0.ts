@@ -1,5 +1,5 @@
 // StructureMap.1.0.0
-// OSDU M27 schema — A structure map (representation) is a support for properties
+// OSDU M27 schema - A structure map (representation) is a support for properties
 // based on a GenericBinGrid. Consequently, its type is always a Regular2DGrid.
 // It is often associated to some Z values either in depth or time domain.
 // Source kind: osdu:wks:work-product-component--StructureMap:1.0.0
@@ -85,7 +85,7 @@ export interface Data {
    */
   BinWidthOnJaxis?: number;
   /**
-   * Describes the domain of the map — depth, time, or mixed.
+   * Describes the domain of the map - depth, time, or mixed.
    */
   DomainTypeID?: string;
   /**

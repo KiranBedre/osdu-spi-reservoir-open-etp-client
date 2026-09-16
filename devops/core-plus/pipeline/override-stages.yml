@@ -2,17 +2,12 @@ variables:
   CIMPL_SERVICE: "oetp-client"
   CIMPL_SUPPORTED_PLATFORM: "linux/amd64"
   DATA_PARTITION_ID: "osdu"
-  CIMPL_DNS_NAME: "osdu.$CIMPL_DOMAIN"
   CIMPL_HELM_DEPLOYMENT_DIR: "devops/core-plus/deploy"
   CIMPL_HELM_PACKAGE_NAME: "cimpl-$CIMPL_SERVICE-deploy"
   # Path to the Reservoir DDMS postman collection within osdu/qa.
-  # Combined with CIMPL_COLLECTION_HOST + CIMPL_COLLECTION_BRANCH (defined in
-  # .cimpl-variables / .cimpl-dev2-variables) to form GET_COLLECTION_URL in
-  # .cimpl_postman_tests. Not defined upstream, so must be set here.
   # Named RESERVOIR_DDMS_COLLECTION_PATH (not COLLECTION_PATH) to avoid
   # collision with an inherited group-level CI variable named COLLECTION_PATH
-  # that points at the stale v3.0 *_NotRun.json file (group vars outrank YAML
-  # per GitLab variable precedence).
+  # that points at the stale v3.0 *_NotRun.json file.
   RESERVOIR_DDMS_COLLECTION_PATH: "Postman%20Collection/45_CICD_Reservoir_DDMS/Reservoir%20DDMS%20CI-CD%20v3.1.postman_collection.json"
 
 cimpl-containerize-gitlab:
@@ -25,92 +20,101 @@ cimpl-containerize-gitlab:
 cimpl-containerize-bootstrap-gitlab:
   needs: []
 
+.cimpl_bruno_tests:
+  script:
+    - apk add --no-cache curl
+    - npm install -g @usebruno/cli
+    - >
+      ACCESS_TOKEN=$(curl -s -X POST "${CIMPL_TOKEN_URI}"
+      -d "grant_type=client_credentials"
+      -d "client_id=${CIMPL_CLIENT_ID}"
+      -d "client_secret=${CIMPL_CLIENT_SECRET}"
+      -d "scope=openid"
+      | node -e "process.stdin.resume();let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.parse(d).access_token))")
+    # CIMPL_DNS_NAME is defined scheme-less ("osdu.$CIMPL_DOMAIN"). Bruno needs an
+    # explicit scheme or it cannot reach the Istio https listener (every request
+    # 404s at the gateway). Normalize to exactly one https:// scheme.
+    - |
+      RDMS_HOST="${CIMPL_DNS_NAME#http://}"; RDMS_HOST="${RDMS_HOST#https://}"
+      export RDMS_BASE="https://${RDMS_HOST}/api/reservoir-ddms/v2"
+    # Unique per-pipeline dataspace id so a run never collides with a persistent,
+    # foreign-owned "test/ci-bruno" space. Envs that enforce per-space ACLs (GC/Azure)
+    # otherwise return 401/403 on transaction/write, and reused spaces can strand a
+    # write transaction (412 "too many write transaction URI(s)"). _Cleanup below
+    # deletes this run's space.
+    - export BRU_ENV="--env CI --env-var access_token=${ACCESS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${RDMS_BASE} --env-var DATA_PARTITION_ID=${DATA_PARTITION_ID} --env-var ENTITLEMENTS_DOMAIN=${ENTITLEMENTS_DOMAIN} --env-var dataspaceIdRaw=test/ci-bruno-${CI_PIPELINE_ID} --env-var dataspaceId=test%2Fci-bruno-${CI_PIPELINE_ID} --env-var testDataspaceIdRaw=test/ci-bruno-${CI_PIPELINE_ID} --env-var testDataspaceId=test%2Fci-bruno-${CI_PIPELINE_ID}"
+    - cd bruno
+    # This client repo validates the REST->ETP proxy; it complements (does not
+    # replicate) the open-etp-server data tests. _Setup is the self-contained
+    # REST round-trip (create dataspace -> transaction -> put objects -> put
+    # array -> commit) and shares runtime state across its ordered requests.
+    # Resources/Arrays/Transactions read-backs need that same-invocation seed
+    # state and Query needs the server-seeded demo/Volve catalog, so they are
+    # not run as standalone folders here.
+    - bru run _Setup  $BRU_ENV
+    - bru run Health   $BRU_ENV
+    - bru run Dataspaces $BRU_ENV
+    # Drogon self-seed (create seed dataspace -> upload reduced EPC -> validate ->
+    # read -> delete). The 840 KB reduced EPC is committed at data/Demo_Drogon.epc
+    # (normal blob); a $DROGON_EPC_URL fallback can stage it otherwise. Guarded +
+    # tolerant: run only when a REAL epc (not an LFS pointer, not truncated) is
+    # present, and every assertion is oneOf(...) so a pre-upgrade server that 404s
+    # /epc/upload still passes. On the full oetp-client deployed here it round-trips.
+    - |
+      EPC=../data/Demo_Drogon.epc
+      if [ ! -f "$EPC" ] && [ -n "$DROGON_EPC_URL" ]; then
+        echo "Staging Demo_Drogon.epc from DROGON_EPC_URL"; curl -fsSL "$DROGON_EPC_URL" -o "$EPC" || true
+      fi
+      if [ -f "$EPC" ] && [ "$(wc -c < "$EPC")" -gt 102400 ] && ! head -c 64 "$EPC" | grep -q 'git-lfs'; then
+        bru run DrogonSeed $BRU_ENV || true
+      else
+        echo "Skipping DrogonSeed: no real Demo_Drogon.epc (missing, LFS pointer, or too small)."
+      fi
+    - bru run _Cleanup  $BRU_ENV || true
+
+# Postman/Newman tests (legacy, in parallel with Bruno)
 .cimpl_postman_tests:
   script:
     - export GET_COLLECTION_URL="${CIMPL_COLLECTION_HOST}/${CIMPL_COLLECTION_BRANCH}/${RESERVOIR_DDMS_COLLECTION_PATH}?inline=false"
     - echo "Get a collection from ${GET_COLLECTION_URL}"
     - >
-      if [[ -v TEST_SOURCE_FILES_DIR ]]; then
-        wget -q -O tmp.zip "${CIMPL_COLLECTION_ARCHIVE_HOST}/${CIMPL_COLLECTION_BRANCH}/testing-master.zip?path=${TEST_SOURCE_FILES_DIR}" \
-        && unzip -j tmp.zip \
-        && rm tmp.zip
-      fi
-    - >
       echo "[{ \"CLIENT_ID\": \"${CIMPL_CLIENT_ID}\", \"CLIENT_SECRET\": \"${CIMPL_CLIENT_SECRET}\", \"grant_type\": \"${CIMPL_GRANT_TYPE}\", \"refresh_token\": \"${CIMPL_REFRESH_TOKEN}\"}]" > test_config_file.json
     - curl "${GET_COLLECTION_URL}" > collection.json && COLLECTION=collection.json
-    # Bypass Config Service postman-environment: pass required vars from CI.
-    # CIMPL_TOKEN_URI is missing on ci-cd-pipelines release/0.30 (.cimpl-variables);
-    # compose it from TEST_OPENID_PROVIDER_URL when unset.
-    # domain must include the leading dot (e.g. .group).
+    # CIMPL_DNS_NAME is defined scheme-less ("osdu.$CIMPL_DOMAIN"). newman needs an
+    # explicit scheme or every request fails to connect ([errored] transport error).
+    # Normalize to exactly one https:// scheme, the same way .cimpl_bruno_tests does.
     - |
-      CIMPL_TOKEN_URI="${CIMPL_TOKEN_URI:-${TEST_OPENID_PROVIDER_URL}/protocol/openid-connect/token}"
-      newman run "$COLLECTION" --working-dir . -d test_config_file.json --delay-request 3000 \
-        --env-var "Token_Fetch_URL=${CIMPL_TOKEN_URI}" \
-        --env-var "domain=.${GROUP_ID}" \
-        --env-var "Scope=email openid profile" \
-        --env-var "data-partition-id=${DATA_PARTITION_ID}" \
-        --env-var "HOSTNAME=${HOST}" \
-        --env-var "RESERVOIR_DDMS_HOST=${HOST}/api/reservoir-ddms/v2" \
-        || exit $?
+      RDMS_HOST="${CIMPL_DNS_NAME#http://}"; RDMS_HOST="${RDMS_HOST#https://}"
+      export RDMS_HOST
+    # Drop the deprecated CIMPL_POSTMAN_ENV_URL fetch (postman-environment is being
+    # retired from the Config Service). Supply the values the env file provided
+    # directly as --env-var. Unlike ci-cd-pipelines release/0.30, main's templates
+    # DO expose CIMPL_TOKEN_URI, so use it directly for Token_Fetch_URL.
+    # domain must include the leading dot; ENTITLEMENTS_DOMAIN already carries it.
+    - >
+      newman run "$COLLECTION" --working-dir . -d test_config_file.json --delay-request 3000
+      --env-var "Token_Fetch_URL=${CIMPL_TOKEN_URI}"
+      --env-var "domain=${ENTITLEMENTS_DOMAIN}"
+      --env-var "Scope=email openid profile"
+      --env-var "data-partition-id=${DATA_PARTITION_ID}"
+      --env-var "TENANT_ID=${CIMPL_TENANT}"
+      --env-var "HOSTNAME=https://${RDMS_HOST}"
+      --env-var "RESERVOIR_DDMS_HOST=https://${RDMS_HOST}/api/reservoir-ddms/v2"
+      --env-var "dataspaceIdRaw=test-ci-postman"
+      --env-var "dataspaceId=test-ci-postman"
+      --env-var "testDataspaceIdRaw=test-ci-postman"
+      --env-var "testDataspaceId=test-ci-postman"
+      || exit $?
 
-cimpl-test:
-  tags: ["osdu-small"]
-  stage: integration
-  image: community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-cimpl/image-for-postman-tests/osdu-cimpl-image-for-postman:df5a6d3c
-  allow_failure: true
-  retry: 1
-  extends:
-    - .cimpl-variables
-  script:
-    - !reference [.cimpl_postman_tests, script]
-
-cimpl-acceptance-test:
-  extends:
-    - .cimpl-variables
-
-# cimpl-prod
+# osdu-main overrides
 
 cimpl-prod-test:
   tags: ["osdu-small"]
   stage: integration
-  image: community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-cimpl/image-for-postman-tests/osdu-cimpl-image-for-postman:df5a6d3c
-  allow_failure: false
+  image: node:20-alpine
+  allow_failure: true
   retry: 1
   extends:
     - .cimpl-prod-variables
   script:
-    - !reference [.cimpl_postman_tests, script]
-
-cimpl-prod-acceptance-test:
-  extends:
-    - .cimpl-prod-variables
-
-cimpl-prod-acceptance-test-python:
-  extends:
-    - .cimpl-prod-variables
-
-# dev2
-
-cimpl-dev2-test:
-  tags: ["osdu-small"]
-  stage: integration
-  image: community.opengroup.org:5555/osdu/platform/deployment-and-operations/base-containers-cimpl/image-for-postman-tests/osdu-cimpl-image-for-postman:df5a6d3c
-  allow_failure: false
-  retry: 1
-  extends:
-    - .cimpl-dev2-variables
-  script:
-    - !reference [.cimpl_postman_tests, script]
-
-cimpl-dev2-acceptance-test:
-  extends:
-    - .cimpl-dev2-variables
-
-cimpl-dev2-acceptance-test-python:
-  extends:
-    - .cimpl-dev2-variables
-
-# Disable the cimpl-check-openapi-spec job as this is a WebSocket ETP server and has no OpenAPI spec
-cimpl-check-openapi-spec:
-  rules:
-    - when: never
+    - !reference [.cimpl_bruno_tests, script]

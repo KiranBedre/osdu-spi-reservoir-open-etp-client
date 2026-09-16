@@ -1,5 +1,5 @@
 // GenericBinGrid.1.0.0
-// OSDU M27 schema — A generic 2D regular bin grid definition.
+// OSDU M27 schema - A generic 2D regular bin grid definition.
 // Used for Grid2dRepresentation objects that have no associated interpretation
 // (e.g. isochore maps, DEM surfaces, generic depth/time grids).
 // Source kind: osdu:wks:work-product-component--GenericBinGrid:1.0.0
@@ -69,7 +69,7 @@ export interface Data {
     BinWidthOnIaxis?: number;
     /** Bin width along the J (slowest) axis in CRS units. */
     BinWidthOnJaxis?: number;
-    /** Domain type — depth, time, or mixed. */
+    /** Domain type - depth, time, or mixed. */
     DomainTypeID?: string;
     /** Extension properties for additional metadata. */
     ExtensionProperties?: Record<string, any>;

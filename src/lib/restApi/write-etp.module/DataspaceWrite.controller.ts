@@ -23,6 +23,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Query,
   Req,
   UseGuards
 } from "@nestjs/common";
@@ -41,6 +42,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiProperty,
+  ApiQuery,
   ApiTags,
   ApiTooManyRequestsResponse
 } from "@nestjs/swagger";
@@ -78,6 +80,7 @@ import {
   extractToken,
   getSchemasForType,
   httpErrorFromEtpError,
+  OptionalParseBoolPipe,
   patternString,
   swaggerServers,
   partitionPattern,
@@ -142,7 +145,7 @@ const partitionId = process.env.DATA_PARTITION_ID ?? "data-partition-id";
  * @export
  * @class DataspaceMutationsAPI
  */
-@ApiBearerAuth("access-token")
+@ApiBearerAuth("HTTPBearer")
 @UseGuards(HasBearerGuard("jwt"))
 @ApiHeader({
   name: "data-partition-id",
@@ -171,9 +174,10 @@ export default class DataspaceMutationsAPI {
    * @memberof DataspaceMutationsAPI
    */
   @Post("")
+  @HttpCode(200)
   @ApiOperation({
-    summary: "Create new dataspaces.",
-    description: `Create new dataspaces.`,
+    summary: "Create new dataspaces",
+    description: `Create one or more new dataspaces. Use path-style names (e.g., \`projectA/Scenario1\`) for organization.\n\n**CustomData**: Attach OSDU-relevant metadata (viewers, owners, legal tags) as key-value pairs. These are stored as ETP resource custom data and used during manifest generation.`,
     servers: swaggerServers
   })
   @ApiBody({
@@ -296,9 +300,10 @@ export default class DataspaceMutationsAPI {
    * @memberof DataspaceMutationsAPI
    */
   @Post(":dataspaceId/clone")
+  @HttpCode(200)
   @ApiOperation({
-    summary: "Duplicate a dataspace.",
-    description: `Duplicate a dataspace.`,
+    summary: "Clone (duplicate) a dataspace",
+    description: `Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.\n\n**Prerequisites**:\n- The source dataspace is automatically locked during the clone and unlocked afterwards.\n- The target dataspace (DataspaceId) must not already exist.\n\n**Object identity**: By default the clone is a server-side deep copy that **reuses the source object UUIDs**. The two dataspaces are independent stores, so editing the clone never affects the source - but the copied objects keep the *same identity* as the originals. That is fine for isolated sandbox/scenario work, but the shared UUIDs collide if the clone is later merged back or re-ingested into OSDU (the manifest builder derives each OSDU record id from the object UUID).\n\n**?reidentify** (default \`false\`): when set to \`true\`, after the copy every object in the clone is rewritten with brand new UUIDs, remapping the object's own identity, all of its Data Object References (DORs) and its array paths, and re-associating the arrays. Use \`reidentify=true\` when you need an independently publishable / re-ingestable copy. Leave it \`false\` (the default) for a fast snapshot that stays linked in identity to the source.\n\n**Note**: This is a server-side deep copy via ETP - no object or array data is transferred through the REST layer (re-identification streams array bytes through the gateway).`,
     servers: swaggerServers
   })
   @ApiBody({
@@ -328,9 +333,17 @@ export default class DataspaceMutationsAPI {
       pattern: patternString(dataspaceUriPattern)
     }
   })
+  @ApiQuery({
+    name: "reidentify",
+    required: false,
+    type: Boolean,
+    description:
+      "When true, mint new UUIDs for every object in the clone and remap all references/arrays so the copy is an independent, re-ingestable dataset. Defaults to false (the clone reuses the source object UUIDs)."
+  })
   public async CloneDataspace(
     @Param() params: FindInDataSpaceParams,
     @Body() requestBody: DataspaceDto,
+    @Query("reidentify", OptionalParseBoolPipe) reidentify = false,
     @Req() request?: express.Request
   ): Promise<string> {
     if (
@@ -376,25 +389,37 @@ export default class DataspaceMutationsAPI {
         extractDataPartitionId(request)
       );
       const uri = EtpUri.createDataSpaceUri(params.dataspaceId).uri;
-      const dataspaces = await c.cloneDataspace(
-        requestBody.DataspaceId,
-        requestBody.Path ?? requestBody.DataspaceId,
-        uri,
-        customData
-      );
-      await c.closeSession();
-      // Null out the client so the catch block doesn't try to close it a
-      // second time if we throw NotFoundException below.
-      c = undefined;
-      if (!dataspaces) {
-        // cloneDataspace returns falsy when the source dataspace cannot be
-        // resolved or copied. Surface this as a 404 with the source identifier
-        // instead of a generic 500 so the client can react appropriately.
-        throw new NotFoundException({
-          description: `Source dataspace ${params.dataspaceId} not found or not clonable`
-        });
+
+      // Lock the source dataspace before cloning (ETP requires it read-only)
+      await c.lockDataspaces([uri]);
+      try {
+        const dataspaces = await c.cloneDataspace(
+          requestBody.DataspaceId,
+          requestBody.Path ?? requestBody.DataspaceId,
+          uri,
+          customData,
+          reidentify
+        );
+        if (!dataspaces) {
+          throw new NotFoundException({
+            description: `Source dataspace ${params.dataspaceId} not found or not clonable`
+          });
+        }
+        return EtpUri.createDataSpaceUri(requestBody.DataspaceId).uri;
+      } finally {
+        // Always unlock the source dataspace, even if clone fails
+        try {
+          await c.unlockDataspaces([uri]);
+        } catch (unlockErr) {
+          logger.error("Failed to unlock source dataspace after clone:", unlockErr);
+        }
+        try {
+          await c.closeSession();
+        } catch {
+          // ignore close errors
+        }
+        c = undefined;
       }
-      return EtpUri.createDataSpaceUri(requestBody.DataspaceId).uri;
     } catch (err) {
       try {
         await c?.closeSession();
@@ -415,8 +440,8 @@ export default class DataspaceMutationsAPI {
   @ApiNoContentResponse()
   @HttpCode(204)
   @ApiOperation({
-    summary: "Delete existing dataspace.",
-    description: `Delete existing dataspace.`,
+    summary: "Delete a dataspace",
+    description: `Delete a dataspace and all its contents. Returns 403 if the dataspace is locked - unlock it first.`,
     servers: swaggerServers
   })
   public async DeleteDataspace(

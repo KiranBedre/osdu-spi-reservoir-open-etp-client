@@ -97,12 +97,12 @@ describe("Manifest Conversion", () => {
     expect(osdu.data.ValueCount).toEqual(7);
     expect(
       osdu.data.ExtensionProperties &&
-        osdu.data.ExtensionProperties["test1/test2"]
+      osdu.data.ExtensionProperties["test1/test2"]
     ).toEqual("test1");
     expect(osdu.tags && osdu.tags.tag1).toEqual("tag1");
     expect(
       osdu.data.ExtensionProperties &&
-        osdu.data.ExtensionProperties["tags/tag1/tag2"]
+      osdu.data.ExtensionProperties["tags/tag1/tag2"]
     ).toEqual("tag2");
   });
 });
@@ -354,7 +354,7 @@ describe("RESQML 2.2 Converter Registration", () => {
     },
     {
       type: "resqml22.GeobodyBoundaryInterpretation",
-      kind: "osdu:wks:work-product-component--GeobodyBoundaryInterpretation:1.1.0"
+      kind: "osdu:wks:work-product-component--GeobodyBoundaryInterpretation:1.2.0"
     },
     {
       type: "resqml22.GeobodyInterpretation",

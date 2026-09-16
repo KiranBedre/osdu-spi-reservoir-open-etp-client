@@ -176,6 +176,28 @@ export function getLoadedMnemonicCount(): number {
 }
 
 /**
+ * Get all loaded mnemonic → PWLS property mappings.
+ * Read-only snapshot for exports (e.g. the SKOS concept scheme).
+ */
+export function getMnemonicEntries(): Array<[string, string]> {
+  return [...mnemonicMap.entries()];
+}
+
+/**
+ * Get all known PWLS property names with their EML QuantityClass.
+ * Read-only snapshot for exports.
+ */
+export function getPropertyEntries(): Array<{
+  property: string;
+  quantityClass: string;
+}> {
+  return [...propertyMap.values()].map(e => ({
+    property: e.property,
+    quantityClass: e.quantityClass
+  }));
+}
+
+/**
  * Check if any vendor catalog has been loaded.
  */
 export function hasVendorCatalog(): boolean {

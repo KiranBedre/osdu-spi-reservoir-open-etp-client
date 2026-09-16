@@ -461,15 +461,27 @@ export class BinaryWriter {
             }
           } else if (itemType === "double") {
             this.require(dat.length * 8);
-            for (const d of dat) {
-              this.buffer.writeDoubleLE(d as number, this._index);
-              this._index += 8;
+            if (dat instanceof Float64Array) {
+              // Fast path: copy raw LE bytes directly (avoids per-element writeDoubleLE)
+              Buffer.from(dat.buffer, dat.byteOffset, dat.byteLength).copy(this.buffer, this._index);
+              this._index += dat.byteLength;
+            } else {
+              for (const d of dat) {
+                this.buffer.writeDoubleLE(d as number, this._index);
+                this._index += 8;
+              }
             }
           } else if (itemType === "float") {
             this.require(dat.length * 4);
-            for (const d of dat) {
-              this.buffer.writeFloatLE(d as number, this._index);
-              this._index += 4;
+            if (dat instanceof Float32Array) {
+              // Fast path: copy raw LE bytes directly (avoids per-element writeFloatLE)
+              Buffer.from(dat.buffer, dat.byteOffset, dat.byteLength).copy(this.buffer, this._index);
+              this._index += dat.byteLength;
+            } else {
+              for (const d of dat) {
+                this.buffer.writeFloatLE(d as number, this._index);
+                this._index += 4;
+              }
             }
           } else if (itemType === "long") {
             this.require(dat.length * 8);

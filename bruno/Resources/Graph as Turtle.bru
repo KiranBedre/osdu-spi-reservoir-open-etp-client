@@ -1,0 +1,43 @@
+meta {
+  name: Graph as Turtle (RDF)
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{host}}/dataspaces/{{dataspaceId}}/resources/all?edges=true
+  body: none
+  auth: none
+}
+
+params:query {
+  edges: true
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+  Accept: text/turtle
+}
+
+docs {
+  Content-negotiated RDF view of the dataspace relationship graph.
+  Sending `Accept: text/turtle` returns the nodes-and-edges graph as Turtle
+  instead of JSON. ETP resource URIs are used verbatim as RDF subjects;
+  relationships are emitted as `rddms:references`.
+}
+
+tests {
+  test("status is 200 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
+  });
+
+  test("responds with Turtle when 200", function () {
+    if (res.getStatus() === 200) {
+      const ct = res.getHeader("content-type") || "";
+      expect(ct).to.include("text/turtle");
+      expect(res.getBody()).to.be.a("string");
+      expect(res.getBody()).to.include("@prefix rddms:");
+    }
+  });
+}

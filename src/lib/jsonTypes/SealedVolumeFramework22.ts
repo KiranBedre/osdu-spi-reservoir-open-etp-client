@@ -14,8 +14,7 @@ export class SealedVolumeFramework22OSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml22.SealedVolumeFrameworkRepresentation>
   >
-  implements SealedVolumeFramework
-{
+  implements SealedVolumeFramework {
   public data: Data = {};
 
   constructor(
@@ -41,7 +40,7 @@ export class SealedVolumeFramework22OSDU
         const srn = await SealedVolumeFramework22OSDU.dorToSrn(
           ReservoirDMSUrl, dor, client, context
         );
-        if (srn) repIds.push(srn + ":");
+        if (srn) repIds.push(srn);
       }
     }
 

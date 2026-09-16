@@ -92,7 +92,7 @@ interface _AbstractColorMap extends eml._AbstractObject {
   BelowMinColor?: HsvColor;
   NullColor?: HsvColor;
 }
-export interface AbstractColorMap extends _AbstractColorMap {}
+export interface AbstractColorMap extends _AbstractColorMap { }
 
 /** Description of the geometry of a column layer grid, e.g., parity and pinch, together with its supporting topology.
  *
@@ -128,7 +128,7 @@ interface _AbstractColumnLayerGridGeometry extends _AbstractGridGeometry {
   SplitNodePatch?: SplitNodePatch;
 }
 export interface AbstractColumnLayerGridGeometry
-  extends _AbstractColumnLayerGridGeometry {}
+  extends _AbstractColumnLayerGridGeometry { }
 
 /** Abstract class that includes IJK grids and unstructured column layer grids. All column layer grids have a layer index K=1,...,NK or K0=0,...,NK-1.
  *
@@ -139,7 +139,7 @@ interface _AbstractColumnLayerGridRepresentation
   Nk: eml.PositiveLong;
 }
 export interface AbstractColumnLayerGridRepresentation
-  extends _AbstractColumnLayerGridRepresentation {}
+  extends _AbstractColumnLayerGridRepresentation { }
 
 /** The parent class of an atomic, linear, or surface geologic contact description.
  *
@@ -151,14 +151,14 @@ interface _AbstractContactInterpretationPart extends BaseType {
   PartOf?: eml.DataObjectReference;
 }
 export interface AbstractContactInterpretationPart
-  extends _AbstractContactInterpretationPart {}
+  extends _AbstractContactInterpretationPart { }
 
 /** Something that has physical existence at some point during the exploration, development, production or abandonment of a reservoir. For example: It can be a boundary, a rock volume, a basin area, but also extends to a drilled well, a drilling rig, an injected or produced fluid, or a 2D, 3D, or 4D seismic survey.
  * Features are divided into these categories: geologic or technical. */
 interface _AbstractFeature extends eml._AbstractObject {
   IsWellKnown: boolean;
 }
-export interface AbstractFeature extends _AbstractFeature {}
+export interface AbstractFeature extends _AbstractFeature { }
 
 /** The main class that contains all of the other feature interpretations included in an interpreted model. */
 interface _AbstractFeatureInterpretation extends eml._AbstractObject {
@@ -168,7 +168,7 @@ interface _AbstractFeatureInterpretation extends eml._AbstractObject {
   InterpretedFeature: eml.DataObjectReference;
 }
 export interface AbstractFeatureInterpretation
-  extends _AbstractFeatureInterpretation {}
+  extends _AbstractFeatureInterpretation { }
 
 /** The main class that defines the relationships between the stratigraphic units and provides the stratigraphic hierarchy of the Earth.
  *
@@ -178,14 +178,14 @@ interface _AbstractGeologicUnitOrganizationInterpretation
   AscendingOrderingCriteria: OrderingCriteria;
 }
 export interface AbstractGeologicUnitOrganizationInterpretation
-  extends _AbstractGeologicUnitOrganizationInterpretation {}
+  extends _AbstractGeologicUnitOrganizationInterpretation { }
 
 /** The base class for all geometric values, which is always associated with a representation. */
 interface _AbstractGeometry extends BaseType {
   LocalCrs: eml.DataObjectReference;
   TimeIndex?: eml.TimeIndex;
 }
-export interface AbstractGeometry extends _AbstractGeometry {}
+export interface AbstractGeometry extends _AbstractGeometry { }
 
 /** Some general attributes for graphical information applied on some particular indexable elements. */
 interface _AbstractGraphicalInformationForIndexableElement extends BaseType {
@@ -207,13 +207,13 @@ interface _AbstractGraphicalInformationForIndexableElement extends BaseType {
   OverwriteColorAlpha?: boolean;
 }
 export interface AbstractGraphicalInformationForIndexableElement
-  extends _AbstractGraphicalInformationForIndexableElement {}
+  extends _AbstractGraphicalInformationForIndexableElement { }
 
 /** Grid geometry described by means of points attached to nodes and additional optional points which may be attached to other indexable elements of the grid representation. */
 interface _AbstractGridGeometry extends _PointGeometry {
   AdditionalGridPoints?: AdditionalGridPoints[];
 }
-export interface AbstractGridGeometry extends _AbstractGridGeometry {}
+export interface AbstractGridGeometry extends _AbstractGridGeometry { }
 
 /** Abstract class for all grid representations. */
 interface _AbstractGridRepresentation extends _AbstractRepresentation {
@@ -222,7 +222,7 @@ interface _AbstractGridRepresentation extends _AbstractRepresentation {
   ParentWindow?: AbstractParentWindow;
 }
 export interface AbstractGridRepresentation
-  extends _AbstractGridRepresentation {}
+  extends _AbstractGridRepresentation { }
 
 /** The main class used to group features into meaningful units as a step in working towards the goal of building an earth model (the organization of all other organizations in RESQML).
  * An organization interpretation:
@@ -237,35 +237,35 @@ interface _AbstractOrganizationInterpretation
   ContactInterpretation?: AbstractContactInterpretationPart[];
 }
 export interface AbstractOrganizationInterpretation
-  extends _AbstractOrganizationInterpretation {}
+  extends _AbstractOrganizationInterpretation { }
 
 /** Defines an array of parametric lines.
  *
  * The array size is obtained from context. In the current schema, this may be as simple as a 1D array (#Lines=count) or a 2D array #Lines = NIL x NJL for an IJK grid representation. */
-interface _AbstractParametricLineArray extends BaseType {}
+interface _AbstractParametricLineArray extends BaseType { }
 export interface AbstractParametricLineArray
-  extends _AbstractParametricLineArray {}
+  extends _AbstractParametricLineArray { }
 
 /** The abstract class for defining a single parametric line. */
-interface _AbstractParametricLineGeometry extends _AbstractGeometry {}
+interface _AbstractParametricLineGeometry extends _AbstractGeometry { }
 export interface AbstractParametricLineGeometry
-  extends _AbstractParametricLineGeometry {}
+  extends _AbstractParametricLineGeometry { }
 
 /** Parent window specification, organized according to the topology of the parent grid. In addition to a window specification, for grids with I, J, and/or K coordinates, the parentage construction includes a regridding description that covers grid refinement, coarsening, or any combination of the two. */
 interface _AbstractParentWindow extends BaseType {
   CellOverlap?: CellOverlap;
 }
-export interface AbstractParentWindow extends _AbstractParentWindow {}
+export interface AbstractParentWindow extends _AbstractParentWindow { }
 
 /** The abstract class for all geometric values defined by planes. */
-interface _AbstractPlaneGeometry extends _AbstractGeometry {}
-export interface AbstractPlaneGeometry extends _AbstractPlaneGeometry {}
+interface _AbstractPlaneGeometry extends _AbstractGeometry { }
+export interface AbstractPlaneGeometry extends _AbstractPlaneGeometry { }
 
 /** The abstract class of 3D points implemented in a single fashion for the schema. Abstraction allows a variety of instantiations for efficiency or to implicitly provide additional geometric information about a data-object. For example, parametric points can be used to implicitly define a wellbore trajectory using an underlying parametric line, by the specification of the control points along the parametric line.
  *
  * The dimensionality of the array of 3D points is based on context within an instance. */
-interface _AbstractPoint3dArray extends BaseType {}
-export interface AbstractPoint3dArray extends _AbstractPoint3dArray {}
+interface _AbstractPoint3dArray extends BaseType { }
+export interface AbstractPoint3dArray extends _AbstractPoint3dArray { }
 
 /** Base class for storing all property values on representations, except current geometry location.
  * Values attached to a given element can be either a scalar or a vector. The size of the vector is constant on all elements, and it is assumed that all elements of the vector have identical property types and share the same unit of measure. */
@@ -286,7 +286,7 @@ interface _AbstractProperty extends eml._AbstractObject {
   /** The count of value in one dimension for each indexable element. It is ordered as the values are ordered in the data set. REMINDER: First (left) given dimension is slowest and last (right) given dimension is fastest. The top XML element is slower than the bottom. */
   ValueCountPerIndexableElement: eml.PositiveLong[];
 }
-export interface AbstractProperty extends _AbstractProperty {}
+export interface AbstractProperty extends _AbstractProperty { }
 
 /** The parent class of all specialized digital descriptions, which may provide a representation of any kind of representable object such as interpretations, technical features, or WITSML wellbores. It may be either of these:
  * - based on a topology and contains the geometry of this digital description.
@@ -301,14 +301,14 @@ interface _AbstractRepresentation extends eml._AbstractObject {
   /** BUSINESS RULE: The data object represented by the representation is either an interpretation or a technical feature. */
   RepresentedObject?: eml.DataObjectReference;
 }
-export interface AbstractRepresentation extends _AbstractRepresentation {}
+export interface AbstractRepresentation extends _AbstractRepresentation { }
 
 /** Parent class that is used to associate horizon and fault representations to seismic 2D and seismic 3D technical features. It stores a 1-to-1 mapping between geometry coordinates (usually X, Y, Z) and trace or inter-trace positions on a seismic survey. */
 interface _AbstractSeismicCoordinates extends BaseType {
   SeismicSupport: eml.DataObjectReference;
 }
 export interface AbstractSeismicCoordinates
-  extends _AbstractSeismicCoordinates {}
+  extends _AbstractSeismicCoordinates { }
 
 /** Location of the line used in a 2D seismic acquisition.
  *
@@ -322,16 +322,16 @@ interface _AbstractSeismicLineFeature extends _AbstractSeismicSurveyFeature {
   TraceLabels?: eml.StringExternalArray;
 }
 export interface AbstractSeismicLineFeature
-  extends _AbstractSeismicLineFeature {}
+  extends _AbstractSeismicLineFeature { }
 
 /** An organization of seismic lines. For the context of RESQML, a seismic survey does not refer to any vertical dimension information, but only areally at shot point locations or common midpoint gathers. The seismic traces, if needed by reservoir models, are transferred in an industry standard format such as SEGY.
  * RESQML supports these basic types of seismic surveys:
  * - seismic lattice (organization of the traces for the 3D acquisition and processing phases).
  * - seismic line (organization of the traces for the 2D acquisition and processing phases).
  * Additionally, these seismic lattices and seismic lines can be aggregated into sets. */
-interface _AbstractSeismicSurveyFeature extends _AbstractTechnicalFeature {}
+interface _AbstractSeismicSurveyFeature extends _AbstractTechnicalFeature { }
 export interface AbstractSeismicSurveyFeature
-  extends _AbstractSeismicSurveyFeature {}
+  extends _AbstractSeismicSurveyFeature { }
 
 /** Parent class of the sealed and non-sealed contact elements. */
 interface _AbstractSurfaceFrameworkContact extends BaseType {
@@ -340,7 +340,7 @@ interface _AbstractSurfaceFrameworkContact extends BaseType {
   Index: eml.NonNegativeLong;
 }
 export interface AbstractSurfaceFrameworkContact
-  extends _AbstractSurfaceFrameworkContact {}
+  extends _AbstractSurfaceFrameworkContact { }
 
 /** Parent class for a sealed or non-sealed surface framework representation. Each one instantiates a representation set representation.
  *
@@ -350,7 +350,7 @@ interface _AbstractSurfaceFrameworkRepresentation
   ContactIdentity?: ContactIdentity[];
 }
 export interface AbstractSurfaceFrameworkRepresentation
-  extends _AbstractSurfaceFrameworkRepresentation {}
+  extends _AbstractSurfaceFrameworkRepresentation { }
 
 /** Parent class of structural surface representations, which can be bounded by an outer ring and has inner rings. These surfaces may consist of one or more patches. */
 interface _AbstractSurfaceRepresentation extends _AbstractRepresentation {
@@ -358,15 +358,15 @@ interface _AbstractSurfaceRepresentation extends _AbstractRepresentation {
   SurfaceRole: SurfaceRole;
 }
 export interface AbstractSurfaceRepresentation
-  extends _AbstractSurfaceRepresentation {}
+  extends _AbstractSurfaceRepresentation { }
 
 /** Objects that exist by the action of humans. Examples include: wells and all they may contain, seismic surveys (surface, permanent water bottom), or injected fluid volumes. Because the decision to deploy such equipment is the result of studies or decisions by humans, technical features are usually not subject to the same kind of large changes in interpretation as geologic features. However, they are still subject to measurement error and other sources of uncertainty, and so still can be considered as subject to “interpretation”. */
-interface _AbstractTechnicalFeature extends _AbstractFeature {}
-export interface AbstractTechnicalFeature extends _AbstractTechnicalFeature {}
+interface _AbstractTechnicalFeature extends _AbstractFeature { }
+export interface AbstractTechnicalFeature extends _AbstractTechnicalFeature { }
 
 /** The abstract superclass for all RESQML time intervals. The super class that contains all types of intervals considered in geolog, including  those based on chronostratigraphy, the duration of geological events, and time intervals used in reservoir simulation (e.g., time step). */
-interface _AbstractTimeInterval extends BaseType {}
-export interface AbstractTimeInterval extends _AbstractTimeInterval {}
+interface _AbstractTimeInterval extends BaseType { }
+export interface AbstractTimeInterval extends _AbstractTimeInterval { }
 
 /** Abstract class for truncated IJK grids and truncated unstructured column layer grids. Each column layer grid class must have a defined geometry in which cells are truncated and additional split cells are defined. */
 interface _AbstractTruncatedColumnLayerGridRepresentation
@@ -376,7 +376,7 @@ interface _AbstractTruncatedColumnLayerGridRepresentation
   TruncationCellPatch: TruncationCellPatch;
 }
 export interface AbstractTruncatedColumnLayerGridRepresentation
-  extends _AbstractTruncatedColumnLayerGridRepresentation {}
+  extends _AbstractTruncatedColumnLayerGridRepresentation { }
 
 /** Base class for property values. Each derived element provides specific property values, including point property in support of geometries. */
 interface _AbstractValuesProperty extends _AbstractProperty {
@@ -384,7 +384,7 @@ interface _AbstractValuesProperty extends _AbstractProperty {
   /** If the rep has no explicit patch, use only 1 ValuesForPatch.  If the rep has > 1 explicit patch, use as many ValuesforPatch as patches of the rep. The ordering of ValuesForPatch matches the ordering of the patches in the xml document of the representation. */
   ValuesForPatch: eml.AbstractValueArray[];
 }
-export interface AbstractValuesProperty extends _AbstractValuesProperty {}
+export interface AbstractValuesProperty extends _AbstractValuesProperty { }
 
 /** Used to activate and deactivate the referencing object at the times indicated.
  *
@@ -396,7 +396,7 @@ interface _Activation extends BaseType {
   ActivationToggleIndices: eml.AbstractIntegerArray;
   TimeSeries: eml.DataObjectReference;
 }
-export interface Activation extends _Activation {}
+export interface Activation extends _Activation { }
 
 /** Geometry given by means of points attached to additional elements of a grid. */
 interface _AdditionalGridPoints extends BaseType {
@@ -405,7 +405,7 @@ interface _AdditionalGridPoints extends BaseType {
   /** Used to remove ambiguity in geometry attachment, if the attachment element is not sufficient. Usually required for subnodes and for the general purpose grid, but not otherwise. */
   RepresentationPatchIndex?: eml.NonNegativeLong;
 }
-export interface AdditionalGridPoints extends _AdditionalGridPoints {}
+export interface AdditionalGridPoints extends _AdditionalGridPoints { }
 
 /** Additional grid topology and/or patches, if required, for indexable elements that otherwise do not have their topology defined within the grid representation. For example, column edges need to be defined if you want to have an enumeration for the faces of a column layer grid, but not otherwise. */
 interface _AdditionalGridTopology extends BaseType {
@@ -417,7 +417,7 @@ interface _AdditionalGridTopology extends BaseType {
   UnstructuredColumnEdges?: UnstructuredColumnEdges;
   UnstructuredSubnodeTopology?: UnstructuredSubnodeTopology;
 }
-export interface AdditionalGridTopology extends _AdditionalGridTopology {}
+export interface AdditionalGridTopology extends _AdditionalGridTopology { }
 
 /** Used for continuous properties and property kinds and for geometry. In the latter case, we need to point to the representation. */
 interface _AlphaInformation extends eml._AbstractGraphicalInformation {
@@ -436,7 +436,7 @@ interface _AlphaInformation extends eml._AbstractGraphicalInformation {
   /** Especially useful for vector property and for geometry. */
   ValueVectorIndex?: number;
 }
-export interface AlphaInformation extends _AlphaInformation {}
+export interface AlphaInformation extends _AlphaInformation { }
 
 /** Allows definition of an alternate cell indexing for a representation. If defined, this alternate cell indexing is the only one to rely on when referencing the representation cells. The alternate cell indices must come from existing grid representations. Because this alternate indexing requires a lot of extra work for software readers to process, use only when no other solution is acceptable. */
 interface _AlternateCellIndex extends BaseType {
@@ -448,7 +448,7 @@ interface _AlternateCellIndex extends BaseType {
   GridIndex: eml.AbstractIntegerArray;
   OriginalGrids: eml.DataObjectReference[];
 }
-export interface AlternateCellIndex extends _AlternateCellIndex {}
+export interface AlternateCellIndex extends _AlternateCellIndex { }
 
 /** Used for properties and property kinds and for geometry. In the latter case, we need to point to the representation. */
 interface _AnnotationInformation extends eml._AbstractGraphicalInformation {
@@ -457,13 +457,13 @@ interface _AnnotationInformation extends eml._AbstractGraphicalInformation {
   /** Especially useful for vector property and for geometry. */
   ValueVectorIndices: string[];
 }
-export interface AnnotationInformation extends _AnnotationInformation {}
+export interface AnnotationInformation extends _AnnotationInformation { }
 
 /** The main class for data describing an opinion of the contact between two geologic feature-interpretations.
  * - A contact interpretation between two surface geological boundaries is usually a line.
  * - A contact interpretation between two volumes (rock feature-interpretation) is usually a surface.
  *
- * This class allows you to build a formal sentence—in the pattern of subject-verb-direct object—which is used to describe the construction of a node, line, or surface contact. It is also possible to attach a primary and a secondary qualifier to the subject and to the direct object.
+ * This class allows you to build a formal sentence-in the pattern of subject-verb-direct object-which is used to describe the construction of a node, line, or surface contact. It is also possible to attach a primary and a secondary qualifier to the subject and to the direct object.
  *
  * For more information, see the RESQML Technical Usage Guide.
  *
@@ -482,7 +482,7 @@ interface _BinaryContactInterpretationPart
   Verb: ContactVerb;
 }
 export interface BinaryContactInterpretationPart
-  extends _BinaryContactInterpretationPart {}
+  extends _BinaryContactInterpretationPart { }
 
 /** The information that allows you to locate, on one or several grids (existing or planned), the intersection of volume (cells) and surface (faces) elements with a wellbore trajectory (existing or planned). */
 interface _BlockedWellboreRepresentation extends _WellboreFrameRepresentation {
@@ -501,17 +501,17 @@ interface _BooleanArrayFromDiscretePropertyArray
   Value: number;
 }
 export interface BooleanArrayFromDiscretePropertyArray
-  extends _BooleanArrayFromDiscretePropertyArray {}
+  extends _BooleanArrayFromDiscretePropertyArray { }
 
 /** Information specific to one Boolean property.
  * Used to capture a choice between 2 and only 2 possible values/states for each indexable element of a data object, for example, identifying active cells of a grid.. */
-interface _BooleanProperty extends _AbstractValuesProperty {}
-export interface BooleanProperty extends _BooleanProperty {}
+interface _BooleanProperty extends _AbstractValuesProperty { }
+export interface BooleanProperty extends _BooleanProperty { }
 
 /** An interface between two objects, such as horizons and faults. It is a surface object.
  * A RockVolumeFeature is a geological feature (which is the general concept that refers to the various categories of geological objects that exist in the natural world).
  * For example: the stratigraphic boundaries, the =geobody boundaries or the fluid boundaries that are present before production. To simplify the hierarchy of concepts, the geological feature is not represented in the RESQML design. */
-interface _BoundaryFeature extends _AbstractFeature {}
+interface _BoundaryFeature extends _AbstractFeature { }
 export interface BoundaryFeature extends _BoundaryFeature {
   $type: "resqml22.BoundaryFeature";
 }
@@ -542,7 +542,7 @@ interface _BoundaryFeatureInterpretationPlusItsRank extends BaseType {
   StratigraphicRank?: eml.NonNegativeLong;
 }
 export interface BoundaryFeatureInterpretationPlusItsRank
-  extends _BoundaryFeatureInterpretationPlusItsRank {}
+  extends _BoundaryFeatureInterpretationPlusItsRank { }
 
 /** A mapping from cells to fluid phase unit interpretation to describe the initial hydrostatic fluid column. */
 interface _CellFluidPhaseUnits extends BaseType {
@@ -555,7 +555,7 @@ interface _CellFluidPhaseUnits extends BaseType {
   PhaseUnitIndices: eml.JaggedArray;
   RockFluidOrganizationInterpretation: eml.DataObjectReference;
 }
-export interface CellFluidPhaseUnits extends _CellFluidPhaseUnits {}
+export interface CellFluidPhaseUnits extends _CellFluidPhaseUnits { }
 
 /** Optional cell volume overlap information between the current grid (the child) and the parent grid. Use this data-object when the child grid has an explicitly defined geometry, and these relationships cannot be inferred from the regrid descriptions. */
 interface _CellOverlap extends BaseType {
@@ -567,7 +567,7 @@ interface _CellOverlap extends BaseType {
    * BUSINESS RULE: Length of array must equal 2 x overlapCount. */
   ParentChildCellPairs: eml.AbstractIntegerArray;
 }
-export interface CellOverlap extends _CellOverlap {}
+export interface CellOverlap extends _CellOverlap { }
 
 /** Parent window for ANY grid indexed as if it were an unstructured cell grid, i.e., using a 1D index. */
 interface _CellParentWindow extends _AbstractParentWindow {
@@ -577,7 +577,7 @@ interface _CellParentWindow extends _AbstractParentWindow {
   CellIndices: eml.AbstractIntegerArray;
   ParentGridRepresentation: eml.DataObjectReference;
 }
-export interface CellParentWindow extends _CellParentWindow {}
+export interface CellParentWindow extends _CellParentWindow { }
 
 /** Used to indicate that all cells are of a uniform topology, i.e., have the same number of nodes per cell. This information is supplied by the RESQML writer to indicate the complexity of the grid geometry, as an aide to the RESQML reader.
  *
@@ -600,7 +600,7 @@ interface _CmpLineFeature extends _AbstractSeismicLineFeature {
   NearestShotPointIndices: eml.AbstractIntegerArray;
   ShotPointLineFeature?: eml.DataObjectReference;
 }
-export interface CmpLineFeature extends _CmpLineFeature {}
+export interface CmpLineFeature extends _CmpLineFeature { }
 
 /** Used for properties and property kinds and for geometry. In the latter case, we need to point to the representation. */
 interface _ColorInformation extends eml._AbstractGraphicalInformation {
@@ -614,13 +614,13 @@ interface _ColorInformation extends eml._AbstractGraphicalInformation {
   /** Especially useful for vectorial property and for geometry. */
   ValueVectorIndex?: number;
 }
-export interface ColorInformation extends _ColorInformation {}
+export interface ColorInformation extends _ColorInformation { }
 
 /** A container for color maps. */
 interface _ColorMapDictionary extends eml._AbstractObject {
   ColorMap?: AbstractColorMap[];
 }
-export interface ColorMapDictionary extends _ColorMapDictionary {}
+export interface ColorMapDictionary extends _ColorMapDictionary { }
 
 /** Used to construct a column layer grid patch based upon multiple unstructured column-layer and IJK grids that share a layering scheme.
  *
@@ -632,7 +632,7 @@ interface _ColumnLayerGpGrid extends BaseType {
   Nk: eml.NonNegativeLong;
   UnstructuredColumnLayerGpGridPatch?: UnstructuredColumnLayerGpGridPatch[];
 }
-export interface ColumnLayerGpGrid extends _ColumnLayerGpGrid {}
+export interface ColumnLayerGpGrid extends _ColumnLayerGpGrid { }
 
 /** Parent window for any column-layer grid indexed as if it were an unstructured column layer grid, i.e., IJ columns are replaced by a column index. */
 interface _ColumnLayerParentWindow extends _AbstractParentWindow {
@@ -647,7 +647,7 @@ interface _ColumnLayerParentWindow extends _AbstractParentWindow {
   OmitParentCells?: eml.AbstractIntegerArray;
   ParentColumnLayerGridRepresentation: eml.DataObjectReference;
 }
-export interface ColumnLayerParentWindow extends _ColumnLayerParentWindow {}
+export interface ColumnLayerParentWindow extends _ColumnLayerParentWindow { }
 
 /** Definition of the indexing for the split coordinate lines. When present, this indexing contributes to the coordinate line nodes. */
 interface _ColumnLayerSplitCoordinateLines extends BaseType {
@@ -664,14 +664,14 @@ interface _ColumnLayerSplitCoordinateLines extends BaseType {
   PillarIndices: eml.AbstractIntegerArray;
 }
 export interface ColumnLayerSplitCoordinateLines
-  extends _ColumnLayerSplitCoordinateLines {}
+  extends _ColumnLayerSplitCoordinateLines { }
 
 /** This data-object consists of the unstructured cell finite elements subnode topology plus the column subnodes. */
 interface _ColumnLayerSubnodeTopology extends _SubnodeTopology {
   ColumnSubnodePatch?: ColumnSubnodePatch[];
 }
 export interface ColumnLayerSubnodeTopology
-  extends _ColumnLayerSubnodeTopology {}
+  extends _ColumnLayerSubnodeTopology { }
 
 /** Used to indicate that all columns are of a uniform topology, i.e., have the same number of faces per column. This information is supplied by the RESQML writer to indicate the complexity of the grid geometry, as an aide to the RESQML reader.
  *
@@ -688,7 +688,7 @@ interface _ColumnSubnodePatch extends _SubnodePatch {
   /** Number of subnodes per object, with a different number in each column of the grid. */
   SubnodeCountPerObject: eml.AbstractIntegerArray;
 }
-export interface ColumnSubnodePatch extends _ColumnSubnodePatch {}
+export interface ColumnSubnodePatch extends _ColumnSubnodePatch { }
 
 /** Information specific to one comment property.
  * Used to capture comments or annotations associated with a given element type in a data-object, for example, associating comments on the specific location of a well path. */
@@ -696,7 +696,7 @@ interface _CommentProperty extends _AbstractValuesProperty {
   /** Identify the language (e.g., US English or French) of the string. It is recommended that language names conform to ISO 639. */
   Language?: eml.String64;
 }
-export interface CommentProperty extends _CommentProperty {}
+export interface CommentProperty extends _CommentProperty { }
 
 /** For each connection in the grid connection set representation, zero, one or more feature-interpretations. The use of a jagged array allows multiple interpretations for each connection, e.g., to represent multiple faults discretized onto a single connection. Note: Feature-interpretations are not restricted to faults, so that a connection may also represent a horizon or geobody boundary, for example. */
 interface _ConnectionInterpretations extends BaseType {
@@ -704,7 +704,7 @@ interface _ConnectionInterpretations extends BaseType {
   /** Indices for the interpretations for each connection, if any. The use of a RESQML jagged array allows zero or more than one interpretation to be associated with a single connection. */
   InterpretationIndices: eml.JaggedArray;
 }
-export interface ConnectionInterpretations extends _ConnectionInterpretations {}
+export interface ConnectionInterpretations extends _ConnectionInterpretations { }
 
 /** A reference to either a geologic feature interpretation or a frontier feature.
  *
@@ -713,7 +713,7 @@ interface _ContactElement extends eml._DataObjectReference {
   Qualifier?: ContactSide;
   SecondaryQualifier?: ContactMode;
 }
-export interface ContactElement extends _ContactElement {}
+export interface ContactElement extends _ContactElement { }
 
 /** Indicates identity between two (or more) contacts. For possible types of identities, see IdentityKind. */
 interface _ContactIdentity extends BaseType {
@@ -725,7 +725,7 @@ interface _ContactIdentity extends BaseType {
   /** The kind of contact identity. Must be one of the enumerations in IdentityKind. */
   IdentityKind: IdentityKind;
 }
-export interface ContactIdentity extends _ContactIdentity {}
+export interface ContactIdentity extends _ContactIdentity { }
 
 /** An optional second qualifier that may be used when describing binary contact interpretation parts. (See also BinaryContactInterpretationPart and the RESQML Technical Usage Guide.) */
 export type ContactMode = "conformable" | "extended" | "unconformable";
@@ -740,13 +740,13 @@ interface _ContactPatch extends BaseType {
   /** The ordered list of nodes (identified by their global index) in the supporting representation, which constitutes the contact patch. */
   SupportingRepresentationNodes: eml.AbstractIntegerArray;
 }
-export interface ContactPatch extends _ContactPatch {}
+export interface ContactPatch extends _ContactPatch { }
 
 /** Used when the contact already exists as a top-level element representation. */
 interface _ContactReference extends _AbstractSurfaceFrameworkContact {
   Representation: eml.DataObjectReference;
 }
-export interface ContactReference extends _ContactReference {}
+export interface ContactReference extends _ContactReference { }
 
 /** Enumeration that specifies the location of the contacts, chosen from the attributes listed below. For example, if you specify contact between a horizon and a fault, you can specify if the contact is on the foot wall side or the hanging wall side of the fault, and if the fault is splitting both sides of a horizon or the older side only.
  *
@@ -791,7 +791,7 @@ interface _ContinuousColorMapEntry extends BaseType {
   /** The double value to be associated with a particular color. */
   Index: number;
 }
-export interface ContinuousColorMapEntry extends _ContinuousColorMapEntry {}
+export interface ContinuousColorMapEntry extends _ContinuousColorMapEntry { }
 
 /** Most common type of property used for storing rock or fluid attributes; all are represented as doubles.
  * Statistics about values such as maximum and minimum can be found in the statistics of each ValueForPatch.
@@ -822,7 +822,7 @@ interface _ContourLineSetInformation extends eml._AbstractGraphicalInformation {
   /** Especially useful for vectorial property and for geometry. */
   ValueVectorIndex?: number;
 }
-export interface ContourLineSetInformation extends _ContourLineSetInformation {}
+export interface ContourLineSetInformation extends _ContourLineSetInformation { }
 
 /** Occurs only if a correction has been applied on the survey wellbore. */
 interface _CorrectionInformation extends BaseType {
@@ -836,7 +836,7 @@ interface _CorrectionInformation extends BaseType {
    * If not used, enter zero. */
   CorrectionTimeShift?: number;
 }
-export interface CorrectionInformation extends _CorrectionInformation {}
+export interface CorrectionInformation extends _CorrectionInformation { }
 
 /** Identifies a frontier or boundary in the earth model that is not a geological feature but an arbitrary geographic/geometric surface used to delineate the boundary of the model. */
 interface _CulturalFeature extends _AbstractTechnicalFeature {
@@ -870,7 +870,7 @@ interface _DefaultGraphicalInformation
   ViewerKind: ViewerKindExt;
 }
 export interface DefaultGraphicalInformation
-  extends _DefaultGraphicalInformation {}
+  extends _DefaultGraphicalInformation { }
 
 export type DepositionalEnvironmentKind =
   | "continental"
@@ -1061,7 +1061,7 @@ interface _DiscreteColorMapEntry extends BaseType {
   /** The integer value to be associated with a particular color. */
   index: number;
 }
-export interface DiscreteColorMapEntry extends _DiscreteColorMapEntry {}
+export interface DiscreteColorMapEntry extends _DiscreteColorMapEntry { }
 
 /** Contains discrete integer values; typically used to store any type of index.
  * Statistics about values such as maximum and minimum can be found in the statistics of each ValueForPatch. */
@@ -1069,7 +1069,7 @@ interface _DiscreteProperty extends _AbstractValuesProperty {
   CategoryLookup?: eml.DataObjectReference;
   $type: "resqml22.DiscreteProperty";
 }
-export interface DiscreteProperty extends _DiscreteProperty {}
+export interface DiscreteProperty extends _DiscreteProperty { }
 
 export type DisplaySpace = "device" | "model";
 interface _DisplaySpace extends eml._TypeEnum {
@@ -1095,7 +1095,7 @@ interface _EarthModelInterpretation extends _AbstractFeatureInterpretation {
   Structure?: eml.DataObjectReference[];
   WellboreInterpretationSet?: eml.DataObjectReference[];
 }
-export interface EarthModelInterpretation extends _EarthModelInterpretation {}
+export interface EarthModelInterpretation extends _EarthModelInterpretation { }
 
 /** Describes edges that are not linked to any other edge. Because edges do not have indices, a consecutive pair of nodes is used to identify each edge.
  *
@@ -1105,7 +1105,7 @@ interface _EdgePatch extends BaseType {
    * It points to an HDF5 dataset, which must be a 2D array of non-negative integers with dimensions 2 x numSplitEdges. */
   SplitEdges: eml.AbstractIntegerArray;
 }
-export interface EdgePatch extends _EdgePatch {}
+export interface EdgePatch extends _EdgePatch { }
 
 /** The graphical patterns that an edge can support. */
 export type EdgePattern = "dashed" | "dotted" | "solid" | "wavy";
@@ -1130,7 +1130,7 @@ interface _Edges extends BaseType {
    * Count = 2 x EdgeCount */
   NodesPerEdge: eml.AbstractIntegerArray;
 }
-export interface Edges extends _Edges {}
+export interface Edges extends _Edges { }
 
 /** Indicates the nature of the relationship between 2 or more representations, specifically if they are partially or totally identical. For possible types of relationships, see IdentityKind.
  * Commonly used to identify contacts between representations in model descriptions. May also be used to relate the components of a grid (e.g., pillars) to those of a structural framework. */
@@ -1146,13 +1146,13 @@ interface _ElementIdentity extends BaseType {
   Representation: eml.DataObjectReference;
   ToTimeIndex?: eml.TimeIndex;
 }
-export interface ElementIdentity extends _ElementIdentity {}
+export interface ElementIdentity extends _ElementIdentity { }
 
 /** Index into the indexable elements selected. */
 interface _ElementIndices extends BaseType {
   SupportingRepresentationIndex?: eml.AbstractIntegerArray;
 }
-export interface ElementIndices extends _ElementIndices {}
+export interface ElementIndices extends _ElementIndices { }
 
 /** A general term for designating a boundary feature intepretation that corresponds to a discontinuity having a tectonic origin, identified at mapping or outcrop scale. Fault may designate true faults but also thrust surfaces. A thrust surface  is specified as a FaultInterpretation whose FaultThrow kind is “thrust” and which has the attributes: is Listric = 0, MaximumThrow = 0. */
 interface _FaultInterpretation extends _BoundaryFeatureInterpretation {
@@ -1179,7 +1179,7 @@ interface _FaultThrow extends BaseType {
   HasOccurredDuring?: AbstractTimeInterval;
   Throw: ThrowKindExt[];
 }
-export interface FaultThrow extends _FaultThrow {}
+export interface FaultThrow extends _FaultThrow { }
 
 /** A boundary (usually a plane or a set of planes) separating two fluid phases, such as a gas-oil contact (GOC), a water-oil contact (WOC), a gas-oil contact (GOC), or others. For types, see FluidContact. */
 interface _FluidBoundaryInterpretation extends _BoundaryFeatureInterpretation {
@@ -1203,8 +1203,8 @@ interface _FluidContact extends eml._TypeEnum {
 }
 
 /** This represents a boundary between two intervals where at least one side of the boundary is a fluid. */
-interface _FluidIntervalBoundary extends _MarkerBoundary {}
-export interface FluidIntervalBoundary extends _FluidIntervalBoundary {}
+interface _FluidIntervalBoundary extends _MarkerBoundary { }
+export interface FluidIntervalBoundary extends _FluidIntervalBoundary { }
 
 /** The various fluids a well marker can indicate. */
 export type FluidMarker =
@@ -1221,7 +1221,7 @@ interface _FluidMarker extends eml._TypeEnum {
 /** An interpretation of a feature that is not specialized. For example, use it when the specialized type of the associated feature is not known.
  * For example, to set up a StructuralOrganizationInterpretation you must reference the interpretations of each feature you want to include. These features must include FrontierFeatures which have no interpretations because they are technical features. For consistency of design of the StructuralOrganizationInterpretation, create a GenericFeatureInterpretation for each FrontierFeature. */
 interface _GenericFeatureInterpretation
-  extends _AbstractFeatureInterpretation {}
+  extends _AbstractFeatureInterpretation { }
 export interface GenericFeatureInterpretation
   extends _GenericFeatureInterpretation {
   $type: "resqml22.GenericFeatureInterpretation";
@@ -1233,7 +1233,7 @@ interface _GeneticBoundaryBasedTimeInterval extends _AbstractTimeInterval {
   ChronoTop: eml.DataObjectReference;
 }
 export interface GeneticBoundaryBasedTimeInterval
-  extends _GeneticBoundaryBasedTimeInterval {}
+  extends _GeneticBoundaryBasedTimeInterval { }
 
 /** Contains the data describing an opinion about the characterization of a geobody BoundaryFeature, and it includes the attribute boundary relation. */
 interface _GeobodyBoundaryInterpretation
@@ -1251,7 +1251,7 @@ export interface GeobodyBoundaryInterpretation
 }
 
 /** A volume of rock that is identified based on some specific attribute, like its mineral content or other physical characteristic. Unlike stratigraphic or phase units, there is no associated time or fluid content semantic. */
-interface _GeobodyInterpretation extends _GeologicUnitInterpretation {}
+interface _GeobodyInterpretation extends _GeologicUnitInterpretation { }
 export interface GeobodyInterpretation extends _GeobodyInterpretation {
   $type: "resqml22.GeobodyInterpretation";
 }
@@ -1269,7 +1269,7 @@ interface _GeologicTimeBasedTimeInterval extends _AbstractTimeInterval {
   Start: eml.GeologicTime;
 }
 export interface GeologicTimeBasedTimeInterval
-  extends _GeologicTimeBasedTimeInterval {}
+  extends _GeologicTimeBasedTimeInterval { }
 
 /** The main class for data describing an opinion of an originally continuous rock volume individualized in view of some characteristic property (e.g., physical, chemical, temporal) defined by GeologicUnitComposition and/or GeologicUnitMaterialImplacement, which can have a 3D defined shape. BUSINESS RULE: The data object reference (of type "interprets") must reference only a rock volume feature.
  * In an earth model, a geological unit interrupted by faults may consist of several disconnected rock volumes. */
@@ -1293,7 +1293,7 @@ interface _GeologicUnitMaterialEmplacement extends eml._TypeEnum {
   _: GeologicUnitMaterialEmplacement;
 }
 
-/** A local Interpretation—it could be along a well, on a 2D map, or on a 2D section or on a part of the global volume of an earth model—of a succession of rock feature elements.
+/** A local Interpretation-it could be along a well, on a 2D map, or on a 2D section or on a part of the global volume of an earth model-of a succession of rock feature elements.
  * The stratigraphic column rank interpretation composing a stratigraphic occurrence can be ordered by the criteria listed in OrderingCriteria.
  * Note: When the chosen ordering criterion is not age but measured depth along a well trajectory, the semantics of the name of this class could be inconsistent semantics. In this case:
  * - When faults are present, the observed succession may show repetition of a stratigraphic succession composed of a series of units each younger than the one below it.
@@ -1305,7 +1305,7 @@ interface _GeologicUnitOccurrenceInterpretation
   IsOccurrenceOf?: eml.DataObjectReference;
 }
 export interface GeologicUnitOccurrenceInterpretation
-  extends _GeologicUnitOccurrenceInterpretation {}
+  extends _GeologicUnitOccurrenceInterpretation { }
 
 /** General purpose (GP) grid representation, which includes and/or extends the features from all other grid representations. This general purpose representation is included in the schema for research and/or advanced modeling purposes, but is not expected to be used for routine data transfer. */
 interface _GpGridRepresentation extends _AbstractGridRepresentation {
@@ -1322,7 +1322,7 @@ interface _Graph2dRepresentation extends _AbstractRepresentation {
   Geometry: PointGeometry;
   isDirected: boolean;
 }
-export interface Graph2dRepresentation extends _Graph2dRepresentation {}
+export interface Graph2dRepresentation extends _Graph2dRepresentation { }
 
 /** Graphical information for edges. */
 interface _GraphicalInformationForEdges
@@ -1336,7 +1336,7 @@ interface _GraphicalInformationForEdges
   UseInterpolationBetweenNodes?: boolean;
 }
 export interface GraphicalInformationForEdges
-  extends _GraphicalInformationForEdges {}
+  extends _GraphicalInformationForEdges { }
 
 /** Graphical information for faces. */
 interface _GraphicalInformationForFaces
@@ -1348,7 +1348,7 @@ interface _GraphicalInformationForFaces
   UseInterpolationBetweenNodes?: boolean;
 }
 export interface GraphicalInformationForFaces
-  extends _GraphicalInformationForFaces {}
+  extends _GraphicalInformationForFaces { }
 
 /** Graphical information for nodes. */
 interface _GraphicalInformationForNodes
@@ -1363,7 +1363,7 @@ interface _GraphicalInformationForNodes
   Symbol?: NodeSymbolExt;
 }
 export interface GraphicalInformationForNodes
-  extends _GraphicalInformationForNodes {}
+  extends _GraphicalInformationForNodes { }
 
 /** Graphical information for volumes. */
 interface _GraphicalInformationForVolumes
@@ -1372,7 +1372,7 @@ interface _GraphicalInformationForVolumes
   UseInterpolationBetweenNodes?: boolean;
 }
 export interface GraphicalInformationForVolumes
-  extends _GraphicalInformationForVolumes {}
+  extends _GraphicalInformationForVolumes { }
 
 /** Graphical information for the whole data object. */
 interface _GraphicalInformationForWholeObject
@@ -1383,7 +1383,7 @@ interface _GraphicalInformationForWholeObject
   DisplayTitle?: boolean;
 }
 export interface GraphicalInformationForWholeObject
-  extends _GraphicalInformationForWholeObject {}
+  extends _GraphicalInformationForWholeObject { }
 
 /** Representation based on a 2D grid. For definitions of slowest and fastest axes of the array, see Grid2dPatch. */
 interface _Grid2dRepresentation extends _AbstractSurfaceRepresentation {
@@ -1459,7 +1459,7 @@ export interface HorizonInterpretation extends _HorizonInterpretation {
 interface _HorizontalPlaneGeometry extends _AbstractPlaneGeometry {
   Coordinate: number;
 }
-export interface HorizontalPlaneGeometry extends _HorizontalPlaneGeometry {}
+export interface HorizontalPlaneGeometry extends _HorizontalPlaneGeometry { }
 
 /** See https://en.wikipedia.org/wiki/HSL_and_HSV */
 interface _HsvColor extends BaseType {
@@ -1474,7 +1474,7 @@ interface _HsvColor extends BaseType {
   /** Value of the color in the HSV model. */
   Value: number;
 }
-export interface HsvColor extends _HsvColor {}
+export interface HsvColor extends _HsvColor { }
 
 /** Enumeration of the identity kinds for the element identities (ElementIdentity). */
 export type IdentityKind =
@@ -1501,7 +1501,7 @@ interface _IjGaps extends BaseType {
   /** Number of split pillars in the model. Count must be positive. */
   SplitPillarCount: eml.PositiveLong;
 }
-export interface IjGaps extends _IjGaps {}
+export interface IjGaps extends _IjGaps { }
 
 /** Used to specify IJK grid patch(es) within a general purpose grid.
  *
@@ -1518,7 +1518,7 @@ interface _IjkGpGridPatch extends BaseType {
   RadialGridIsComplete?: boolean;
   TruncationCellPatch?: TruncationCellPatch;
 }
-export interface IjkGpGridPatch extends _IjkGpGridPatch {}
+export interface IjkGpGridPatch extends _IjkGpGridPatch { }
 
 /** Explicit geometry definition for the cells of the IJK grid.
  *
@@ -1528,7 +1528,7 @@ interface _IjkGridGeometry extends _AbstractColumnLayerGridGeometry {
   GridIsRighthanded: boolean;
   IjGaps?: IjGaps;
 }
-export interface IjkGridGeometry extends _IjkGridGeometry {}
+export interface IjkGridGeometry extends _IjkGridGeometry { }
 
 /** Grid whose topology is characterized by structured column indices (I,J) and a layer index, K.
  *
@@ -1564,11 +1564,11 @@ interface _IjkParentWindow extends _AbstractParentWindow {
   KRegrid: Regrid;
   /** List of parent cells that are to be retained at their original resolution and are not to be included within a local grid. The "omit" allows non-rectangular local grids to be specified.
    *
-   * 0-based indexing follows NI x NJ x NK relative to the parent window cell count—not to the parent grid. */
+   * 0-based indexing follows NI x NJ x NK relative to the parent window cell count-not to the parent grid. */
   OmitParentCells?: eml.AbstractIntegerArray;
   ParentIjkGridRepresentation: eml.DataObjectReference;
 }
-export interface IjkParentWindow extends _IjkParentWindow {}
+export interface IjkParentWindow extends _IjkParentWindow { }
 
 /** Color domain/model for interpolation. */
 export type InterpolationDomain = "hsv" | "rgb";
@@ -1598,7 +1598,7 @@ interface _IntervalGridCells extends BaseType {
    * BUSINESS RULE: Size of array = 2 * IntervalCount */
   LocalFacePairPerCellIndices: eml.AbstractIntegerArray;
 }
-export interface IntervalGridCells extends _IntervalGridCells {}
+export interface IntervalGridCells extends _IntervalGridCells { }
 
 /** Refinement and/or coarsening per interval.
  *
@@ -1623,7 +1623,7 @@ interface _Intervals extends BaseType {
    * 2.) For the given parentIndex, the total count of parent cells should not extend beyond the boundary of the parent grid. */
   ParentCountPerInterval: eml.AbstractIntegerArray;
 }
-export interface Intervals extends _Intervals {}
+export interface Intervals extends _Intervals { }
 
 /** A mapping from intervals to stratigraphic units for representations (grids or wellbore frames). Since a single interval may corresponds to several units, the mapping is done using a jagged array. */
 interface _IntervalStratigraphicUnits extends BaseType {
@@ -1642,7 +1642,7 @@ interface _IntervalStratigraphicUnits extends BaseType {
   UnitIndices: eml.JaggedArray;
 }
 export interface IntervalStratigraphicUnits
-  extends _IntervalStratigraphicUnits {}
+  extends _IntervalStratigraphicUnits { }
 
 /** Enumeration used to specify if the direction of the coordinate lines is uniquely defined for a grid. If not uniquely defined, e.g., for over-turned reservoirs, then indicate that the K direction is not monotonic. */
 export type KDirection = "down" | "up" | "not monotonic";
@@ -1663,7 +1663,7 @@ interface _KGaps extends BaseType {
    * BUSINESS RULE: gapCount must be consistent with the number of gaps specified by the gapAfterLayer array. */
   GapAfterLayer: eml.AbstractBooleanArray;
 }
-export interface KGaps extends _KGaps {}
+export interface KGaps extends _KGaps { }
 
 /** Indicates the various roles that a polyline topology can have in a representation. */
 export type LineRole =
@@ -1693,7 +1693,7 @@ interface _LocalGridSet extends eml._AbstractObject {
   Activation?: Activation;
   ChildGrid: eml.DataObjectReference[];
 }
-export interface LocalGridSet extends _LocalGridSet {}
+export interface LocalGridSet extends _LocalGridSet { }
 
 /** Represent interval limits associated with Witsml:WellMarkers. */
 interface _MarkerBoundary extends BaseType {
@@ -1707,13 +1707,13 @@ interface _MarkerBoundary extends BaseType {
   MarkerSet?: eml.DataObjectReference;
   Qualifier?: string;
 }
-export interface MarkerBoundary extends _MarkerBoundary {}
+export interface MarkerBoundary extends _MarkerBoundary { }
 
 interface _MarkerInterval extends BaseType {
   Interpretation?: eml.DataObjectReference[];
   Organization?: eml.DataObjectReference;
 }
-export interface MarkerInterval extends _MarkerInterval {}
+export interface MarkerInterval extends _MarkerInterval { }
 
 /** Different types of measured depths. */
 export type MdDomain = "driller" | "logger";
@@ -1728,11 +1728,11 @@ interface _MinMax extends BaseType {
   /** The minimum value of the interval. */
   Minimum: number;
 }
-export interface MinMax extends _MinMax {}
+export interface MinMax extends _MinMax { }
 
 /** The explicit description of the relationships between geologic features, such as rock features (e.g. stratigraphic units, geobodies, phase unit) and boundary features (e.g., genetic, tectonic, and fluid boundaries). In general, this concept is usually called an “earth model”, but it is not called that in RESQML. In RESQML, model is not to be confused with the concept of earth model organization interpretation. */
-interface _Model extends _AbstractFeature {}
-export interface Model extends _Model {}
+interface _Model extends _AbstractFeature { }
+export interface Model extends _Model { }
 
 /** Describes multiple interface contacts of geologic feature-interpretations (compared to a binary contact). A composition of several contact interpretations. */
 interface _MultipleContactInterpretationPart
@@ -1741,7 +1741,7 @@ interface _MultipleContactInterpretationPart
   With: eml.NonNegativeLong[];
 }
 export interface MultipleContactInterpretationPart
-  extends _MultipleContactInterpretationPart {}
+  extends _MultipleContactInterpretationPart { }
 
 /** Standardized symbols for node visualization. */
 export type NodeSymbol =
@@ -1768,7 +1768,7 @@ interface _NonSealedContact extends _AbstractSurfaceFrameworkContact {
   Geometry?: AbstractGeometry;
   Patches?: ContactPatch[];
 }
-export interface NonSealedContact extends _NonSealedContact {}
+export interface NonSealedContact extends _NonSealedContact { }
 
 /** A collection of contact representations parts, which are a list of contact patches with no identity. This collection of contact representations is completed by a set of representations gathered at the representation set representation level. */
 interface _NonSealedSurfaceFrameworkRepresentation
@@ -1795,7 +1795,7 @@ interface _OverlapVolume extends BaseType {
   /** Units of measure for the overlapVolume. */
   VolumeUom: eml.VolumeUom;
 }
-export interface OverlapVolume extends _OverlapVolume {}
+export interface OverlapVolume extends _OverlapVolume { }
 
 /** Defines an array of parametric lines of multiple kinds.
  * For more information, see the RESQML Technical Usage Guide.
@@ -1864,7 +1864,7 @@ interface _ParametricLineArray extends _AbstractParametricLineArray {
    * If a tangent vector is missing, then it is computed in the same fashion as for a natural cubic spline. Specifically, to obtain the tangent at internal knots, the control points are fit by a quadratic function with the two adjacent control points. At edge knots, the second derivative vanishes. */
   TangentVectors?: AbstractPoint3dArray;
 }
-export interface ParametricLineArray extends _ParametricLineArray {}
+export interface ParametricLineArray extends _ParametricLineArray { }
 
 /** The parametric line extracted from an existing representation.
  *
@@ -1878,7 +1878,7 @@ interface _ParametricLineFromRepresentationGeometry
   SupportingRepresentation: eml.DataObjectReference;
 }
 export interface ParametricLineFromRepresentationGeometry
-  extends _ParametricLineFromRepresentationGeometry {}
+  extends _ParametricLineFromRepresentationGeometry { }
 
 /** The lattice array of parametric lines extracted from an existing representation.
  *
@@ -1897,7 +1897,7 @@ interface _ParametricLineFromRepresentationLatticeArray
   SupportingRepresentation: eml.DataObjectReference;
 }
 export interface ParametricLineFromRepresentationLatticeArray
-  extends _ParametricLineFromRepresentationLatticeArray {}
+  extends _ParametricLineFromRepresentationLatticeArray { }
 
 /** Defines a parametric line of any kind.
  *
@@ -1926,7 +1926,7 @@ interface _ParametricLineGeometry extends _AbstractParametricLineGeometry {
    * If a tangent vector is missing, then it is computed in the same fashion as for a natural cubic spline. Specifically, to obtain the tangent at internal knots, the control points are fit by a quadratic function with the two adjacent control points. At edge knots, the second derivative vanishes. */
   TangentVectors?: AbstractPoint3dArray;
 }
-export interface ParametricLineGeometry extends _ParametricLineGeometry {}
+export interface ParametricLineGeometry extends _ParametricLineGeometry { }
 
 /** Used to specify the intersections between parametric lines. This information is purely geometric and is not required for the evaluation of the parametric point locations on these lines. The information required for that purpose is stored in the parametric points array. */
 interface _ParametricLineIntersections extends BaseType {
@@ -1942,7 +1942,7 @@ interface _ParametricLineIntersections extends BaseType {
   ParameterValuePairs: eml.AbstractValueArray;
 }
 export interface ParametricLineIntersections
-  extends _ParametricLineIntersections {}
+  extends _ParametricLineIntersections { }
 
 /** Defines the boundaries of an indexed patch. These boundaries are outer and inner rings. */
 interface _PatchBoundaries extends BaseType {
@@ -1951,7 +1951,7 @@ interface _PatchBoundaries extends BaseType {
   /** The XML index of the referenced patch inside this representation. */
   ReferencedPatch: eml.NonNegativeLong;
 }
-export interface PatchBoundaries extends _PatchBoundaries {}
+export interface PatchBoundaries extends _PatchBoundaries { }
 
 /** The enumeration of the possible rock fluid unit phases in a hydrostatic column.
  * The seal is considered here as a part (the coverage phase) of a hydrostatic column. */
@@ -1987,7 +1987,7 @@ interface _Point2dExternalArray extends _AbstractPoint3dArray {
   /** Reference to an HDF5 2D dataset of XY points. The 2 coordinates are stored sequentially in HDF5, i.e., a multi-dimensional array of points is stored as a 2 x ... HDF5 array. */
   Coordinates: eml.ExternalDataArray;
 }
-export interface Point2dExternalArray extends _Point2dExternalArray {}
+export interface Point2dExternalArray extends _Point2dExternalArray { }
 
 /** Defines a point using coordinates in 3D space. */
 interface _Point3d extends BaseType {
@@ -1998,14 +1998,14 @@ interface _Point3d extends BaseType {
   /** Either Z or T coordinate */
   Coordinate3: number;
 }
-export interface Point3d extends _Point3d {}
+export interface Point3d extends _Point3d { }
 
 /** An array of explicit XYZ points stored as three coordinates in an HDF5 dataset. */
 interface _Point3dExternalArray extends _AbstractPoint3dArray {
   /** Reference to an HDF5 3D dataset of XYZ points. The 3 coordinates are stored sequentially in HDF5, i.e., a multi-dimensional array of points is stored as a 3 x ... HDF5 array. */
   Coordinates: eml.ExternalDataArray;
 }
-export interface Point3dExternalArray extends _Point3dExternalArray {}
+export interface Point3dExternalArray extends _Point3dExternalArray { }
 
 /** A lattice array of points extracted from an existing representation.
  *
@@ -2018,7 +2018,7 @@ interface _Point3dFromRepresentationLatticeArray extends _AbstractPoint3dArray {
   SupportingRepresentation: eml.DataObjectReference;
 }
 export interface Point3dFromRepresentationLatticeArray
-  extends _Point3dFromRepresentationLatticeArray {}
+  extends _Point3dFromRepresentationLatticeArray { }
 
 /** Describes a lattice array of points obtained by sampling from along a multi-dimensional lattice. Each dimension of the lattice can be uniformly or irregularly spaced. */
 interface _Point3dLatticeArray extends _AbstractPoint3dArray {
@@ -2030,7 +2030,7 @@ interface _Point3dLatticeArray extends _AbstractPoint3dArray {
   /** The origin location of the lattice given as XYZ coordinates. */
   Origin: Point3d;
 }
-export interface Point3dLatticeArray extends _Point3dLatticeArray {}
+export interface Point3dLatticeArray extends _Point3dLatticeArray { }
 
 /** Defines the size and sampling in each dimension (direction) of the point 3D lattice array. Sampling can be uniform or irregular. */
 interface _Point3dLatticeDimension extends BaseType {
@@ -2039,7 +2039,7 @@ interface _Point3dLatticeDimension extends BaseType {
   /** A lattice of N offset points is described by a spacing array of size N-1. The offset between points is given by the spacing value multiplied by the offset vector. For example, the first offset is 0. The second offset is the first spacing * offset. The second offset is (first spacing + second spacing) * offset, etc. */
   Spacing: eml.AbstractFloatingPointArray;
 }
-export interface Point3dLatticeDimension extends _Point3dLatticeDimension {}
+export interface Point3dLatticeDimension extends _Point3dLatticeDimension { }
 
 /** A parametric specification of an array of XYZ points. */
 interface _Point3dParametricArray extends _AbstractPoint3dArray {
@@ -2064,7 +2064,7 @@ interface _Point3dParametricArray extends _AbstractPoint3dArray {
    * Size = (NKL+1) x truncatedLineCount */
   TruncatedLineIndices?: eml.AbstractIntegerArray;
 }
-export interface Point3dParametricArray extends _Point3dParametricArray {}
+export interface Point3dParametricArray extends _Point3dParametricArray { }
 
 /** An array of points defined by applying a Z value on top of an existing array of points, XYZ, where Z is ignored. Used in these cases:
  * - in 2D for defining geometry of one patch of a 2D grid representation.
@@ -2075,14 +2075,14 @@ interface _Point3dZValueArray extends _AbstractPoint3dArray {
   /** The values for Z coordinates */
   ZValues: eml.AbstractFloatingPointArray;
 }
-export interface Point3dZValueArray extends _Point3dZValueArray {}
+export interface Point3dZValueArray extends _Point3dZValueArray { }
 
 /** The geometry of a set of points defined by their location in the local CRS, with optional seismic coordinates. */
 interface _PointGeometry extends _AbstractGeometry {
   Points: AbstractPoint3dArray;
   SeismicCoordinates?: AbstractSeismicCoordinates;
 }
-export interface PointGeometry extends _PointGeometry {}
+export interface PointGeometry extends _PointGeometry { }
 
 /** A representation that consists of one or more node patches. Each node patch is an array of XYZ coordinates for the 3D points. There is no implied linkage between the multiple patches. */
 interface _PointSetRepresentation extends _AbstractRepresentation {
@@ -2097,7 +2097,7 @@ interface _PointsProperty extends _AbstractProperty {
   /** Geometric points (or vectors) to be attached to the specified indexable elements. */
   PointsForPatch: AbstractPoint3dArray[];
 }
-export interface PointsProperty extends _PointsProperty {}
+export interface PointsProperty extends _PointsProperty { }
 
 /** A representation made up of a single polyline or "polygonal chain", which may be closed or not.
  *
@@ -2152,7 +2152,7 @@ interface _PolylineSetPatch extends BaseType {
    * etc. */
   NodeCountPerPolyline: eml.AbstractIntegerArray;
 }
-export interface PolylineSetPatch extends _PolylineSetPatch {}
+export interface PolylineSetPatch extends _PolylineSetPatch { }
 
 /** A representation made up of a set of polylines or a set of polygonal chains (for more information, see PolylineRepresentation).
  *
@@ -2179,7 +2179,7 @@ interface _Regrid extends BaseType {
   InitialIndexOnParentGrid: eml.NonNegativeLong;
   Intervals?: Intervals;
 }
-export interface Regrid extends _Regrid {}
+export interface Regrid extends _Regrid { }
 
 /** Indicates the nature of the relationship between 2 or more representations, specifically if they are partially or totally identical. For possible types of relationships, see IdentityKind. */
 interface _RepresentationIdentity extends BaseType {
@@ -2188,13 +2188,13 @@ interface _RepresentationIdentity extends BaseType {
   /** Number of elements within each representation for which a representation identity is specified. */
   IdenticalElementCount: eml.PositiveLong;
 }
-export interface RepresentationIdentity extends _RepresentationIdentity {}
+export interface RepresentationIdentity extends _RepresentationIdentity { }
 
 /** A collection of representation identities. */
 interface _RepresentationIdentitySet extends eml._AbstractObject {
   RepresentationIdentity: RepresentationIdentity[];
 }
-export interface RepresentationIdentitySet extends _RepresentationIdentitySet {}
+export interface RepresentationIdentitySet extends _RepresentationIdentitySet { }
 
 /** The parent class of the framework representations. It is used to group together individual representations to represent a “bag” of representations. If the individual representations are all of the same, then you can indicate that the set is homogenous.
  * These “bags” do not imply any geologic consistency. For example, you can define a set of wellbore frames, a set of wellbore trajectories, a set of blocked wellbores.
@@ -2214,9 +2214,9 @@ export interface RepresentationSetRepresentation
  *
  * A reservoir compartment may or may not be in contact with other reservoir compartments. */
 interface _ReservoirCompartmentInterpretation
-  extends _GeologicUnitInterpretation {}
+  extends _GeologicUnitInterpretation { }
 export interface ReservoirCompartmentInterpretation
-  extends _ReservoirCompartmentInterpretation {}
+  extends _ReservoirCompartmentInterpretation { }
 
 /** A geologic unit or formation located within a reservoir compartment. */
 interface _ReservoirCompartmentUnitInterpretation extends BaseType {
@@ -2225,7 +2225,7 @@ interface _ReservoirCompartmentUnitInterpretation extends BaseType {
   ReservoirCompartment: ReservoirCompartmentInterpretation;
 }
 export interface ReservoirCompartmentUnitInterpretation
-  extends _ReservoirCompartmentUnitInterpretation {}
+  extends _ReservoirCompartmentUnitInterpretation { }
 
 /** This class describes the organization of geological reservoir, i.e., of an interconnected network of porous and permeable rock units, containing an accumulation of economic fluids, such as oil and gas.
  * A reservoir is normally enveloped by rock and fluid barriers and contains a single natural pressure system. */
@@ -2234,7 +2234,7 @@ interface _RockFluidOrganizationInterpretation
   RockFluidUnit?: eml.DataObjectReference[];
 }
 export interface RockFluidOrganizationInterpretation
-  extends _RockFluidOrganizationInterpretation {}
+  extends _RockFluidOrganizationInterpretation { }
 
 /** A type of rock fluid feature-interpretation, this class identifies a rock fluid unit interpretation by its phase. */
 interface _RockFluidUnitInterpretation extends _GeologicUnitInterpretation {
@@ -2248,7 +2248,7 @@ export interface RockFluidUnitInterpretation
 /** A continuous portion of rock material bounded by definite rock boundaries. It is a volume object.
  * Some of these rock volumes are “static”, while others are “dynamic”. Reservoir fluids are dynamic because their properties, geometries, and quantities may change over time during the course of field production.
  * A RockVolume feature is a geological feature--which is the general concept that refers to the various categories of geological objects that exist in the natural world, for example, the rock volume or the fluids that are present before production. The geological feature is not represented in the RESQML design. */
-interface _RockVolumeFeature extends _AbstractFeature {}
+interface _RockVolumeFeature extends _AbstractFeature { }
 export interface RockVolumeFeature extends _RockVolumeFeature {
   $type: "resqml22.RockVolumeFeature";
 }
@@ -2262,7 +2262,7 @@ interface _SealedContact extends _AbstractSurfaceFrameworkContact {
   IdentityKind: IdentityKind;
   Patches: ContactPatch[];
 }
-export interface SealedContact extends _SealedContact {}
+export interface SealedContact extends _SealedContact { }
 
 /** A collection of contact representations parts, which are a list of contact patches and their identities. This collection of contact representations is completed by a set of representations gathered at the representation set representation level. */
 interface _SealedSurfaceFrameworkRepresentation
@@ -2297,7 +2297,7 @@ interface _Seismic2dCoordinates extends _AbstractSeismicCoordinates {
    * BUSINESS RULE: Sequence must be in the same order as the previous one. */
   VerticalCoordinates?: eml.AbstractFloatingPointArray;
 }
-export interface Seismic2dCoordinates extends _Seismic2dCoordinates {}
+export interface Seismic2dCoordinates extends _Seismic2dCoordinates { }
 
 /** The feature of this representation should be the same survey feature as the associated PolylineRepresentation represents..
  *
@@ -2323,7 +2323,7 @@ interface _Seismic2dPostStackRepresentation extends _AbstractRepresentation {
   TraceSampling: eml.FloatingPointLatticeArray;
 }
 export interface Seismic2dPostStackRepresentation
-  extends _Seismic2dPostStackRepresentation {}
+  extends _Seismic2dPostStackRepresentation { }
 
 /** The 1-to-1 mapping between geometry coordinates (usually X, Y, Z or X, Y, TWT) and trace or inter-trace positions on a seismic lattice. */
 interface _Seismic3dCoordinates extends _AbstractSeismicCoordinates {
@@ -2337,7 +2337,7 @@ interface _Seismic3dCoordinates extends _AbstractSeismicCoordinates {
    * BUSINESS RULE: Sequence must be in the same order as the two previous ones. */
   VerticalCoordinates?: eml.AbstractFloatingPointArray;
 }
-export interface Seismic3dCoordinates extends _Seismic3dCoordinates {}
+export interface Seismic3dCoordinates extends _Seismic3dCoordinates { }
 
 /** The feature of this representation should be the same survey feature as the associated Grid2Representation represents.
  *
@@ -2392,13 +2392,13 @@ export interface SeismicLatticeFeature extends _SeismicLatticeFeature {
 }
 
 /** An unordered set of several seismic lattices. Generally, it has no direct interpretation or representation. */
-interface _SeismicLatticeSetFeature extends _AbstractSeismicSurveyFeature {}
+interface _SeismicLatticeSetFeature extends _AbstractSeismicSurveyFeature { }
 export interface SeismicLatticeSetFeature extends _SeismicLatticeSetFeature {
   $type: "resqml22.SeismicLatticeSetFeature";
 }
 
 /** An unordered set of several seismic lines. Generally, it has no direct interpretation or representation. */
-interface _SeismicLineSetFeature extends _AbstractSeismicSurveyFeature {}
+interface _SeismicLineSetFeature extends _AbstractSeismicSurveyFeature { }
 export interface SeismicLineSetFeature extends _SeismicLineSetFeature {
   $type: "resqml22.SeismicLineSetFeature";
 }
@@ -2477,14 +2477,14 @@ export type Shape3dExt = string;
 type _Shape3dExt = Primitive._string;
 
 /** Location of a single line of shot points in a 2D seismic acquisition. */
-interface _ShotPointLineFeature extends _AbstractSeismicLineFeature {}
-export interface ShotPointLineFeature extends _ShotPointLineFeature {}
+interface _ShotPointLineFeature extends _AbstractSeismicLineFeature { }
+export interface ShotPointLineFeature extends _ShotPointLineFeature { }
 
 /** The geometry of a single point defined by its location in the local CRS. */
 interface _SinglePointGeometry extends _AbstractGeometry {
   Point3d: Point3d;
 }
-export interface SinglePointGeometry extends _SinglePointGeometry {}
+export interface SinglePointGeometry extends _SinglePointGeometry { }
 
 /** Used for properties and property kinds and for geometry. In the latter case, we need to point to the representation. */
 interface _SizeInformation extends eml._AbstractGraphicalInformation {
@@ -2496,7 +2496,7 @@ interface _SizeInformation extends eml._AbstractGraphicalInformation {
   /** Especially useful for vectorial property and for geometry. */
   ValueVectorIndex?: number;
 }
-export interface SizeInformation extends _SizeInformation {}
+export interface SizeInformation extends _SizeInformation { }
 
 /** Column edges are needed to construct the indices for the cell faces for column-layer grids. For split column-layer grids, the column edge indices must be defined explicitly. Column edges are not required to describe the lowest order grid geometry, but may be required for higher order geometries or properties. */
 interface _SplitColumnEdges extends BaseType {
@@ -2507,7 +2507,7 @@ interface _SplitColumnEdges extends BaseType {
   /** Parent unsplit column edge index for each of the split column edges. Used to implicitly define split face indexing. */
   ParentColumnEdgeIndices: eml.AbstractIntegerArray;
 }
-export interface SplitColumnEdges extends _SplitColumnEdges {}
+export interface SplitColumnEdges extends _SplitColumnEdges { }
 
 /** If split nodes are used in the construction of a column-layer grid and indexable elements of kind edges are referenced, then the grid edges need to be re-defined.
  *
@@ -2520,7 +2520,7 @@ interface _SplitEdges extends BaseType {
   /** Parent unsplit edge index for each of the additional split edges. */
   ParentEdgeIndices: eml.AbstractIntegerArray;
 }
-export interface SplitEdges extends _SplitEdges {}
+export interface SplitEdges extends _SplitEdges { }
 
 /** Optional construction used to introduce additional faces created by split nodes. Used to represent complex geometries, e.g., for stair-step grids and reverse faults. */
 interface _SplitFaces extends BaseType {
@@ -2532,7 +2532,7 @@ interface _SplitFaces extends BaseType {
   ParentFaceIndices: eml.AbstractIntegerArray;
   SplitEdges?: SplitEdges;
 }
-export interface SplitFaces extends _SplitFaces {}
+export interface SplitFaces extends _SplitFaces { }
 
 /** Optional construction used to introduce additional nodes on coordinate lines. Used to represent complex geometries, e.g., for stair-step grids and reverse faults.
  *
@@ -2546,7 +2546,7 @@ interface _SplitNodePatch extends BaseType {
   ParentNodeIndices: eml.AbstractIntegerArray;
   SplitFaces?: SplitFaces;
 }
-export interface SplitNodePatch extends _SplitNodePatch {}
+export interface SplitNodePatch extends _SplitNodePatch { }
 
 /** A global interpretation of the stratigraphy, which can be made up of several ranks of stratigraphic unit interpretations.
  *
@@ -2578,7 +2578,7 @@ interface _StratigraphicIntervalBoundary extends _MarkerBoundary {
   ContactConformableBelow?: boolean;
 }
 export interface StratigraphicIntervalBoundary
-  extends _StratigraphicIntervalBoundary {}
+  extends _StratigraphicIntervalBoundary { }
 
 /** Interpretation of the stratigraphic role of a picked horizon (chrono, litho or bio).
  * Here the word “role” is a business term which doesn’t correspond to an entity dependent from an external property but simply characterizes a kind of horizon. */
@@ -2710,14 +2710,14 @@ interface _SubnodePatch extends BaseType {
   NodeWeightsPerSubnode: eml.AbstractValueArray;
   SubnodeNodeObject: SubnodeNodeObject;
 }
-export interface SubnodePatch extends _SubnodePatch {}
+export interface SubnodePatch extends _SubnodePatch { }
 
 /** Finite element subnode topology for an unstructured cell can be either variable or uniform, but not columnar. */
 interface _SubnodeTopology extends BaseType {
   UniformSubnodePatch?: UniformSubnodePatch[];
   VariableSubnodePatch?: VariableSubnodePatch[];
 }
-export interface SubnodeTopology extends _SubnodeTopology {}
+export interface SubnodeTopology extends _SubnodeTopology { }
 
 /** An ordered list of indexable elements and/or indexable element pairs of an existing representation.
  * Because the representation concepts of topology, geometry, and property values are separate in RESQML, it is now possible to select a range of nodes, edges, faces, or volumes (cell) indices from the topological support of an existing representation to define a sub-representation.
@@ -2729,7 +2729,7 @@ interface _SubRepresentation extends _AbstractRepresentation {
   IndexableElement: eml.IndexableElement;
   SubRepresentationPatch: SubRepresentationPatch[];
 }
-export interface SubRepresentation extends _SubRepresentation {}
+export interface SubRepresentation extends _SubRepresentation { }
 
 /** Each sub-representation patch has its own list of representation indices, drawn from the supporting representation.
  *
@@ -2738,7 +2738,7 @@ interface _SubRepresentationPatch extends BaseType {
   Indices: eml.AbstractIntegerArray;
   SupportingRepresentation: eml.DataObjectReference;
 }
-export interface SubRepresentationPatch extends _SubRepresentationPatch {}
+export interface SubRepresentationPatch extends _SubRepresentationPatch { }
 
 /** Indicates the various roles that a surface topology can have. */
 export type SurfaceRole = "map" | "pick";
@@ -2750,7 +2750,7 @@ interface _SurfaceRole extends eml._TypeEnum {
 interface _ThreePoint3d extends BaseType {
   Point3d: Point3d[];
 }
-export interface ThreePoint3d extends _ThreePoint3d {}
+export interface ThreePoint3d extends _ThreePoint3d { }
 
 /** Enumeration that characterizes the type of discontinuity corresponding to a fault. */
 export type ThrowKind =
@@ -2771,7 +2771,7 @@ type _ThrowKindExt = Primitive._string;
 interface _TiltedPlaneGeometry extends _AbstractPlaneGeometry {
   Plane: ThreePoint3d[];
 }
-export interface TiltedPlaneGeometry extends _TiltedPlaneGeometry {}
+export interface TiltedPlaneGeometry extends _TiltedPlaneGeometry { }
 
 /** Patch made of triangles, where the number of triangles is given by the patch count.
  * BUSINESS RULE: Within a patch, all the triangles must be contiguous.
@@ -2788,7 +2788,7 @@ interface _TrianglePatch extends BaseType {
   /** The triangles are a 2D array of non-negative integers with the dimensions 3 x numTriangles. */
   Triangles: eml.AbstractIntegerArray;
 }
-export interface TrianglePatch extends _TrianglePatch {}
+export interface TrianglePatch extends _TrianglePatch { }
 
 /** A representation based on set of triangulated mesh patches, which gets its geometry from a 1D array of points.
  *
@@ -2857,7 +2857,7 @@ interface _TruncationCellPatch extends BaseType {
   /** Number of additional nodes required for the truncation construction. Must be positive. Uses a separate enumeration and does not increase the number of nodes, except as noted below. */
   TruncationNodeCount: eml.PositiveLong;
 }
-export interface TruncationCellPatch extends _TruncationCellPatch {}
+export interface TruncationCellPatch extends _TruncationCellPatch { }
 
 /** Business rule: */
 interface _TvdInformation extends BaseType {
@@ -2878,14 +2878,14 @@ interface _TvdInformation extends BaseType {
   TvdDatum: number;
   TvdReference: eml.DataObjectReference;
 }
-export interface TvdInformation extends _TvdInformation {}
+export interface TvdInformation extends _TvdInformation { }
 
 /** Use this subnode construction if the number of subnodes is the same for every object, e.g., 3 subnodes per edge for all edges. */
 interface _UniformSubnodePatch extends _SubnodePatch {
   /** Number of subnodes per object, with the same number for each of this data-object kind in the grid. */
   SubnodeCountPerObject: eml.PositiveLong;
 }
-export interface UniformSubnodePatch extends _UniformSubnodePatch {}
+export interface UniformSubnodePatch extends _UniformSubnodePatch { }
 
 /** Column edges are used to construct the index for faces. For unstructured column-layer grids, the column edge indices must be defined explicitly. Column edges are not required to describe lowest order grid geometry, but may be needed for higher order geometries or properties. */
 interface _UnstructuredColumnEdges extends BaseType {
@@ -2894,7 +2894,7 @@ interface _UnstructuredColumnEdges extends BaseType {
   /** Definition of the column edges in terms of the pillars-per-column edge. Pillar count per edge is usually 2, but the list-of-lists construction is used to allow column edges to be defined by more than 2 pillars. */
   PillarsPerColumnEdge: eml.JaggedArray;
 }
-export interface UnstructuredColumnEdges extends _UnstructuredColumnEdges {}
+export interface UnstructuredColumnEdges extends _UnstructuredColumnEdges { }
 
 /** Used to specify unstructured column-layer grid patch(es) within a general purpose grid.
  *
@@ -2906,7 +2906,7 @@ interface _UnstructuredColumnLayerGpGridPatch extends BaseType {
   UnstructuredColumnCount: eml.NonNegativeLong;
 }
 export interface UnstructuredColumnLayerGpGridPatch
-  extends _UnstructuredColumnLayerGpGridPatch {}
+  extends _UnstructuredColumnLayerGpGridPatch { }
 
 /** Description of the geometry of an unstructured column-layer grid, e.g., parity and pinch, together with its supporting topology.
  *
@@ -2929,7 +2929,7 @@ interface _UnstructuredColumnLayerGridGeometry
   UnstructuredColumnEdges?: UnstructuredColumnEdges;
 }
 export interface UnstructuredColumnLayerGridGeometry
-  extends _UnstructuredColumnLayerGridGeometry {}
+  extends _UnstructuredColumnLayerGridGeometry { }
 
 /** Grid whose topology is characterized by an unstructured column index and a layer index, K.
  *
@@ -2941,7 +2941,7 @@ interface _UnstructuredColumnLayerGridRepresentation
   Geometry?: UnstructuredColumnLayerGridGeometry;
 }
 export interface UnstructuredColumnLayerGridRepresentation
-  extends _UnstructuredColumnLayerGridRepresentation {}
+  extends _UnstructuredColumnLayerGridRepresentation { }
 
 /** Used to specify unstructured cell grid patch(es) within a general purpose grid.
  *
@@ -2951,7 +2951,7 @@ interface _UnstructuredGpGridPatch extends BaseType {
   /** Number of unstructured cells. Degenerate case (count=0) is allowed for GPGrid. */
   UnstructuredCellCount: eml.NonNegativeLong;
 }
-export interface UnstructuredGpGridPatch extends _UnstructuredGpGridPatch {}
+export interface UnstructuredGpGridPatch extends _UnstructuredGpGridPatch { }
 
 /** Description of the geometry of an unstructured cell grid, which includes geometric characteristics, e.g., cell face parity, and supporting topology.
  *
@@ -2975,7 +2975,7 @@ interface _UnstructuredGridGeometry extends _AbstractGridGeometry {
   UnstructuredGridHingeNodeFaces?: UnstructuredGridHingeNodeFaces;
   UnstructuredSubnodeTopology?: UnstructuredSubnodeTopology;
 }
-export interface UnstructuredGridGeometry extends _UnstructuredGridGeometry {}
+export interface UnstructuredGridGeometry extends _UnstructuredGridGeometry { }
 
 /** Hinge nodes define a triangulated interpolation on a cell face. In practice, they arise on the K faces of column layer cells and are used to add additional geometric resolution to the shape of the cell. The specification of triangulated interpolation also uniquely defines the interpolation schema on the cell face, and hence the cell volume.
  *
@@ -2993,7 +2993,7 @@ interface _UnstructuredGridHingeNodeFaces extends BaseType {
   FaceIndices: eml.AbstractIntegerArray;
 }
 export interface UnstructuredGridHingeNodeFaces
-  extends _UnstructuredGridHingeNodeFaces {}
+  extends _UnstructuredGridHingeNodeFaces { }
 
 /** Unstructured grid representation characterized by a cell count, and potentially nothing else. Both the oldest and newest simulation formats are based on this format. */
 interface _UnstructuredGridRepresentation extends _AbstractGridRepresentation {
@@ -3003,7 +3003,7 @@ interface _UnstructuredGridRepresentation extends _AbstractGridRepresentation {
   OriginalCellIndex?: AlternateCellIndex;
 }
 export interface UnstructuredGridRepresentation
-  extends _UnstructuredGridRepresentation {}
+  extends _UnstructuredGridRepresentation { }
 
 /** If edge subnodes are used, then edges must be defined. If cell subnodes are used, nodes per cell must be defined. */
 interface _UnstructuredSubnodeTopology extends _SubnodeTopology {
@@ -3011,7 +3011,7 @@ interface _UnstructuredSubnodeTopology extends _SubnodeTopology {
   NodesPerCell?: eml.JaggedArray;
 }
 export interface UnstructuredSubnodeTopology
-  extends _UnstructuredSubnodeTopology {}
+  extends _UnstructuredSubnodeTopology { }
 
 /** If the number of subnodes per data-object are variable for each data-object, use this subnode construction. */
 interface _VariableSubnodePatch extends _SubnodePatch {
@@ -3020,7 +3020,7 @@ interface _VariableSubnodePatch extends _SubnodePatch {
   /** Number of subnodes per selected data-object. */
   SubnodeCountPerSelectedObject: eml.AbstractIntegerArray;
 }
-export interface VariableSubnodePatch extends _VariableSubnodePatch {}
+export interface VariableSubnodePatch extends _VariableSubnodePatch { }
 
 /** Standardized kinds of viewers. */
 export type ViewerKind = "3d" | "base map" | "section" | "well correlation";
@@ -3042,7 +3042,7 @@ interface _VoidageGroupInterpretation
   Stratigraphy?: eml.DataObjectReference;
 }
 export interface VoidageGroupInterpretation
-  extends _VoidageGroupInterpretation {}
+  extends _VoidageGroupInterpretation { }
 
 /** The volume within a shell. */
 interface _VolumeRegion extends BaseType {
@@ -3050,7 +3050,7 @@ interface _VolumeRegion extends BaseType {
   InternalShells?: VolumeShell[];
   Represents: eml.DataObjectReference;
 }
-export interface VolumeRegion extends _VolumeRegion {}
+export interface VolumeRegion extends _VolumeRegion { }
 
 /** The shell or envelope of a geologic unit. It is a collection of macro faces. Each macro face is defined by a triplet of values, each value being at the same index in the three arrays contained in this class. */
 interface _VolumeShell extends BaseType {
@@ -3061,7 +3061,7 @@ interface _VolumeShell extends BaseType {
   /** Each index identifies the side of the macro face. */
   SideIsPlus: eml.BooleanExternalArray;
 }
-export interface VolumeShell extends _VolumeShell {}
+export interface VolumeShell extends _VolumeShell { }
 
 /** May refer to one of these:
  * wellbore. A unique, oriented path from the bottom of a drilled borehole to the surface of the earth. The path must not overlap or cross itself.
@@ -3124,7 +3124,7 @@ interface _WellboreTrajectoryParentIntersection extends BaseType {
   ParentTrajectory: eml.DataObjectReference;
 }
 export interface WellboreTrajectoryParentIntersection
-  extends _WellboreTrajectoryParentIntersection {}
+  extends _WellboreTrajectoryParentIntersection { }
 
 /** Representation of a wellbore trajectory.
  *

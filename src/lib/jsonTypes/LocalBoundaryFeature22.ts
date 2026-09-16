@@ -10,12 +10,14 @@ import {
   LocalBoundaryFeature
 } from "./Generated/work-product-component/LocalBoundaryFeature.1.2.0";
 
-import { MasterDataBoundaryFeature22Manifest } from "./MasterDataBoundaryFeature22";
+import {
+  MasterDataBoundaryFeature22Manifest,
+  MasterDataBoundaryFeature22OSDU
+} from "./MasterDataBoundaryFeature22";
 
 export class LocalBoundaryFeature22OSDU
   extends ResqmlWorkProductComponent<SimpleJson<resqml22.BoundaryFeature>>
-  implements LocalBoundaryFeature
-{
+  implements LocalBoundaryFeature {
   public data: Data = {};
 
   constructor(xml: SimpleJson<resqml22.BoundaryFeature>, context: OSDUContext) {
@@ -24,7 +26,8 @@ export class LocalBoundaryFeature22OSDU
 
   public async initData(
     ReservoirDMSUrl: string,
-    xml: SimpleJson<resqml22.BoundaryFeature>
+    xml: SimpleJson<resqml22.BoundaryFeature>,
+    boundaryFeatureID?: string
   ): Promise<LocalBoundaryFeature22OSDU> {
     const context = this.__context;
     if (context === undefined) {
@@ -36,10 +39,11 @@ export class LocalBoundaryFeature22OSDU
       ...(await this.AbstractWorkProductComponent(xml, context)),
 
       /**
-       * When populated, the boundary feature has a wider scope and allows boundary feature
+       * Links this model-local boundary feature to its abstract
+       * master-data--BoundaryFeature, enabling boundary feature
        * correlations across models.
        */
-      BoundaryFeatureID: undefined,
+      BoundaryFeatureID: boundaryFeatureID,
 
       ExtensionProperties: undefined
     };
@@ -63,5 +67,16 @@ export const LocalBoundaryFeature22Manifest = async (
     context.created.set(masterData.id, masterData);
   }
 
-  return new LocalBoundaryFeature22OSDU(xml, context).initData(uri, xml);
+  // Link the WPC back to its master-data--BoundaryFeature. The SRN is deterministic
+  // from the RESQML UUID, so it resolves whether the master-data record was just
+  // created or already existed in OSDU. The trailing ":" is the SRN version separator.
+  const boundaryFeatureID =
+    (masterData?.id ?? new MasterDataBoundaryFeature22OSDU(xml, context).id) +
+    ":";
+
+  return new LocalBoundaryFeature22OSDU(xml, context).initData(
+    uri,
+    xml,
+    boundaryFeatureID
+  );
 };

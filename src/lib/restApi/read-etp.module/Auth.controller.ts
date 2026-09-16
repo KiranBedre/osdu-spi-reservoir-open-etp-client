@@ -82,8 +82,8 @@ export default class Authentication {
   })
   @ApiOkResponse({ description: "Success", type: TokenDto })
   @ApiOperation({
-    summary: "Get authentication token.",
-    description: `Temporary: Give access to authentication token.`,
+    summary: "Get a default JWT token (local development only).",
+    description: `Returns a pre-built JWT token for local development and testing. In production, obtain a bearer token from your identity provider (Azure AD, Google IAM, etc.) instead.`,
     security: [],
     servers: swaggerServers
   })

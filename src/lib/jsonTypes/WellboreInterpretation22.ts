@@ -4,6 +4,7 @@ import type { SimpleJson } from "../mlTypes/XmlJsonUtil";
 
 import { OSDUContext } from "./OsduContext";
 import { ResqmlWorkProductComponent } from "./WorkProductComponent";
+import { MasterDataWellboreManifest } from "./MasterDataWellbore";
 
 interface Data {
   [key: string]: unknown;
@@ -18,8 +19,7 @@ export class WellboreInterpretation22OSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml22.WellboreInterpretation>
   >
-  implements WellboreInterpretation
-{
+  implements WellboreInterpretation {
   public data: Data = {};
 
   constructor(
@@ -65,5 +65,17 @@ export const WellboreInterpretation22Manifest = async (
   xml: SimpleJson<resqml22.WellboreInterpretation>,
   context: OSDUContext,
   client: ResqmlClient
-): Promise<WellboreInterpretation22OSDU> =>
-  new WellboreInterpretation22OSDU(xml, context).initData(uri, xml, client);
+): Promise<WellboreInterpretation22OSDU> => {
+  // Synthesize master-data--Wellbore (and parent Well) if they don't exist in OSDU
+  const wellboreMasterData = await MasterDataWellboreManifest(
+    uri,
+    xml,
+    context,
+    client
+  );
+  if (wellboreMasterData !== undefined && wellboreMasterData.id) {
+    context.created.set(wellboreMasterData.id, wellboreMasterData);
+  }
+
+  return new WellboreInterpretation22OSDU(xml, context).initData(uri, xml, client);
+};

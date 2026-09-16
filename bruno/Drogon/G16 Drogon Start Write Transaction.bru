@@ -1,0 +1,39 @@
+meta {
+  name: G16 Drogon Start Write Transaction
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonThrowawayId}}/transactions
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  if (res.getStatus() === 200 || res.getStatus() === 201) {
+    const body = res.getBody();
+    const txId = typeof body === "string" ? body.trim().replace(/"/g, "") : (body && body.transactionId);
+    if (txId) bru.setVar("drogonWriteTxnId", txId);
+  }
+}
+
+docs {
+  Drogon lifecycle (write 2/14). Opens a WRITE transaction on the throwaway
+  dataspace for the self-describing CRS object added in G17.
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("captured write transactionId", function () {
+    expect(bru.getVar("drogonWriteTxnId"), "write txn id").to.be.a("string").and.not.be.empty;
+  });
+}

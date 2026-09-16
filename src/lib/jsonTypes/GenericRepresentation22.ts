@@ -112,7 +112,7 @@ export class GenericRepresentation22OSDU
               NodeCount += arr.rowCount / 3;
             }
           } catch {
-            // Array data not fully resolved — skip
+            // Array data not fully resolved - skip
           }
         }
       });

@@ -96,9 +96,19 @@ describe("GenericBinGrid routing", () => {
         expect(GenericBinGridOSDU.matchType(xml as any)).toBe(true);
     });
 
-    it("v2.0: GenericBinGridOSDU.matchType false when has interpretation", () => {
-        const xml = makeGrid2d20({ interpType: "obj_HorizonInterpretation" });
-        expect(GenericBinGridOSDU.matchType(xml as any)).toBe(false);
+    it("v2.0: GenericBinGridOSDU.matchType true even with interpretation (catch-all for Grid2d)", () => {
+        const xml = makeGrid2d20({ interpType: "obj_StratigraphicUnitInterpretation" });
+        expect(GenericBinGridOSDU.matchType(xml as any)).toBe(true);
+    });
+
+    it("v2.0: Grid2d with non-horizon interpretation → GenericBinGrid (not GenericRepresentation)", () => {
+        const xml = makeGrid2d20({ interpType: "obj_StratigraphicUnitInterpretation" });
+        expect(Grid2dToOsduKind(xml as any)).toContain("GenericBinGrid");
+    });
+
+    it("v2.0: Grid2d with GeobodyInterpretation → GenericBinGrid", () => {
+        const xml = makeGrid2d20({ interpType: "obj_GeobodyInterpretation" });
+        expect(Grid2dToOsduKind(xml as any)).toContain("GenericBinGrid");
     });
 
     it("v2.2: Grid2d with no interpretation → GenericBinGrid kind", () => {
@@ -116,9 +126,14 @@ describe("GenericBinGrid routing", () => {
         expect(GenericBinGrid22OSDU.matchType(xml as any)).toBe(true);
     });
 
-    it("v2.2: GenericBinGrid22OSDU.matchType false when has interpretation", () => {
+    it("v2.2: GenericBinGrid22OSDU.matchType true even with interpretation (catch-all for Grid2d)", () => {
         const xml = makeGrid2d22({ qualifiedType: "resqml22.GeobodyInterpretation" });
-        expect(GenericBinGrid22OSDU.matchType(xml as any)).toBe(false);
+        expect(GenericBinGrid22OSDU.matchType(xml as any)).toBe(true);
+    });
+
+    it("v2.2: Grid2d with non-horizon interpretation → GenericBinGrid", () => {
+        const xml = makeGrid2d22({ qualifiedType: "resqml22.StratigraphicUnitInterpretation" });
+        expect(Grid2dToOsduKind22(xml as any)).toContain("GenericBinGrid");
     });
 
     it("GenericBinGrid kind is registered in MilestoneKinds", () => {
@@ -133,7 +148,7 @@ describe("GenericBinGrid routing", () => {
         context.uriToObject.set("eml:///dataspace('test')/resqml20.obj_Grid2dRepresentation(grid-uuid-20)", xml as any);
 
         const osdu = new GenericBinGridOSDU(xml as any, context);
-        // Skip initData (requires client) — verify constructor kind
+        // Skip initData (requires client) - verify constructor kind
         expect((osdu as any).kind).toContain("GenericBinGrid");
     });
 });

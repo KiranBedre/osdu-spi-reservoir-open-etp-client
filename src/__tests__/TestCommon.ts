@@ -16,8 +16,6 @@
 
 import "jest";
 
-import fs from "fs";
-
 import {
   Energistics,
   EtpContentType,
@@ -81,10 +79,49 @@ describe("JSON serialization", () => {
   });
 
   it("IJKGrid valid and invalid", done => {
-    const grid = fs.readFileSync(
-      "./devops/data/obj_IjkGridRepresentation_9a487aca-44ca-4989-8ba7-653a5358ee80.xml",
-      "ascii"
-    );
+    // Minimal valid IjkGrid XML (trimmed from full RESQML 2.0 specimen)
+    const grid = `<?xml version="1.0" encoding="UTF-8"?>
+<resqml2:IjkGridRepresentation
+  xmlns:resqml2="http://www.energistics.org/energyml/data/resqmlv2"
+  xmlns:eml="http://www.energistics.org/energyml/data/commonv2"
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  schemaVersion="2.0" uuid="9a487aca-44ca-4989-8ba7-653a5358ee80"
+  xsi:type="resqml2:obj_IjkGridRepresentation">
+  <eml:Citation xsi:type="eml:Citation">
+    <eml:Title xsi:type="eml:DescriptionString">flow_simulation_grid</eml:Title>
+    <eml:Originator xsi:type="eml:NameString">test</eml:Originator>
+    <eml:Creation xsi:type="xsd:dateTime">2013-11-14T13:06:13Z</eml:Creation>
+    <eml:Format xsi:type="eml:DescriptionString">test</eml:Format>
+  </eml:Citation>
+  <resqml2:Nk xsi:type="xsd:positiveInteger">11</resqml2:Nk>
+  <resqml2:Ni xsi:type="xsd:positiveInteger">39</resqml2:Ni>
+  <resqml2:Nj xsi:type="xsd:positiveInteger">35</resqml2:Nj>
+  <resqml2:Geometry xsi:type="resqml2:IjkGridGeometry">
+    <resqml2:LocalCrs xsi:type="eml:DataObjectReference">
+      <eml:ContentType xsi:type="xsd:string">application/x-resqml+xml;version=2.0;type=obj_LocalDepth3dCrs</eml:ContentType>
+      <eml:Title xsi:type="eml:DescriptionString">Default</eml:Title>
+      <eml:UUID xsi:type="eml:UuidString">a05e8cb9-f948-4891-85c8-64eabde770e8</eml:UUID>
+    </resqml2:LocalCrs>
+    <resqml2:Points xsi:type="resqml2:Point3dHdf5Array">
+      <resqml2:Coordinates xsi:type="eml:Hdf5Dataset">
+        <eml:PathInHdfFile xsi:type="xsd:string">/RESQML/9a487aca/Points</eml:PathInHdfFile>
+        <eml:HdfProxy xsi:type="eml:DataObjectReference">
+          <eml:ContentType xsi:type="xsd:string">application/x-eml+xml;version=2.0;type=obj_EpcExternalPartReference</eml:ContentType>
+          <eml:Title xsi:type="eml:DescriptionString">model.h5</eml:Title>
+          <eml:UUID xsi:type="eml:UuidString">f1dc897a-e05e-4c57-944f-3501cb9cd71c</eml:UUID>
+        </eml:HdfProxy>
+      </resqml2:Coordinates>
+    </resqml2:Points>
+    <resqml2:KDirection xsi:type="resqml2:KDirection">down</resqml2:KDirection>
+    <resqml2:PillarGeometryIsDefined xsi:type="resqml2:BooleanConstantArray">
+      <resqml2:Value xsi:type="xsd:boolean">true</resqml2:Value>
+      <resqml2:Count xsi:type="xsd:positiveInteger">1440</resqml2:Count>
+    </resqml2:PillarGeometryIsDefined>
+    <resqml2:PillarShape xsi:type="resqml2:PillarShape">curved</resqml2:PillarShape>
+    <resqml2:GridIsRighthanded xsi:type="xsd:boolean">true</resqml2:GridIsRighthanded>
+  </resqml2:Geometry>
+</resqml2:IjkGridRepresentation>`;
     XmlUtils.xml2typescript(grid, "resqml20.obj_IjkGridRepresentation").then(
       obj => {
         const o2 = obj as any;
@@ -111,6 +148,99 @@ describe("EtpUri", () => {
     const uid = `0ac4d3a2-d209-433f-8f7a-c59b13dab196`;
     const a = EtpUri.uuidStringToByteArray(uid);
     expect(EtpUri.uuidByteArrayToString(a)).toStrictEqual(uid);
+  });
+
+  it("Remap uuids in object body, uri and array path", () => {
+    const selfUuid = "0ac4d3a2-d209-433f-8f7a-c59b13dab196";
+    const proxyUuid = "11111111-2222-3333-4444-555555555555";
+    const externalUuid = "99999999-8888-7777-6666-555544443333";
+    const newSelf = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const newProxy = "12121212-3434-5656-7878-909090909090";
+
+    const uuidMap = new Map<string, string>([
+      [selfUuid, newSelf],
+      [proxyUuid, newProxy]
+    ]);
+
+    // A minimal object body that carries: its own uuid, a DOR to the HDF proxy,
+    // an array path embedding the self uuid and a DOR to an object that lives
+    // outside the dataspace (must be left untouched).
+    const body = [
+      `<IjkGridRepresentation uuid="${selfUuid}">`,
+      `  <Points><HdfProxy><UUID>${proxyUuid}</UUID></HdfProxy>`,
+      `    <PathInHdfFile>/RESQML/${selfUuid}/points</PathInHdfFile></Points>`,
+      `  <LocalCrs><UUID>${externalUuid}</UUID></LocalCrs>`,
+      `</IjkGridRepresentation>`
+    ].join("\n");
+
+    const remapped = EtpUri.remapUuids(body, uuidMap);
+
+    // Self uuid and DOR uuid rewritten everywhere they occur.
+    expect(remapped).toContain(`uuid="${newSelf}"`);
+    expect(remapped).toContain(`<UUID>${newProxy}</UUID>`);
+    expect(remapped).toContain(`/RESQML/${newSelf}/points`);
+    // Old identities must be fully gone.
+    expect(remapped).not.toContain(selfUuid);
+    expect(remapped).not.toContain(proxyUuid);
+    // References outside the map are preserved untouched.
+    expect(remapped).toContain(`<UUID>${externalUuid}</UUID>`);
+
+    // Object uri gets the same treatment.
+    const oldUri = `${dataspace}/resqml20.obj_IjkGridRepresentation(${selfUuid})`;
+    expect(EtpUri.remapUuids(oldUri, uuidMap)).toBe(
+      `${dataspace}/resqml20.obj_IjkGridRepresentation(${newSelf})`
+    );
+  });
+
+  it("Remap uuids is case-insensitive and a no-op for an empty map", () => {
+    const upper = "0AC4D3A2-D209-433F-8F7A-C59B13DAB196";
+    const replacement = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const map = new Map<string, string>([
+      ["0ac4d3a2-d209-433f-8f7a-c59b13dab196", replacement]
+    ]);
+    expect(EtpUri.remapUuids(`uuid=${upper}`, map)).toBe(`uuid=${replacement}`);
+    expect(EtpUri.remapUuids(`uuid=${upper}`, new Map())).toBe(`uuid=${upper}`);
+  });
+
+  it("remapUuids rewrites self uuid, DOR references and array paths", () => {
+    const gridOld = "0ac4d3a2-d209-433f-8f7a-c59b13dab196";
+    const hdfOld = "11111111-2222-3333-4444-555555555555";
+    const externalOld = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const gridNew = "99999999-8888-7777-6666-555555555555";
+    const hdfNew = "12341234-1234-1234-1234-123412341234";
+
+    // Only grid + hdf proxy are in the dataspace; the external reference is not.
+    const uuidMap = new Map<string, string>([
+      [gridOld, gridNew],
+      [hdfOld, hdfNew]
+    ]);
+
+    const body =
+      `<IjkGridRepresentation uuid="${gridOld}">` +
+      // self identity is repeated (e.g. in the array path) and in mixed case
+      `<PathInHdfFile>/RESQML/${gridOld.toUpperCase()}/points</PathInHdfFile>` +
+      // DOR to the HDF proxy that lives in the dataspace -> must be remapped
+      `<HdfProxy><UUID>${hdfOld}</UUID></HdfProxy>` +
+      // DOR to an object outside the dataspace -> must be left untouched
+      `<Interpretation><UUID>${externalOld}</UUID></Interpretation>` +
+      `</IjkGridRepresentation>`;
+
+    const remapped = EtpUri.remapUuids(body, uuidMap);
+
+    expect(remapped).toContain(`uuid="${gridNew}"`);
+    // path uuid is remapped even though it was upper-cased in the source
+    expect(remapped).toContain(`/RESQML/${gridNew}/points`);
+    expect(remapped).toContain(`<UUID>${hdfNew}</UUID>`);
+    // external reference is preserved
+    expect(remapped).toContain(`<UUID>${externalOld}</UUID>`);
+    // none of the old in-dataspace uuids survive
+    expect(remapped).not.toContain(gridOld);
+    expect(remapped).not.toContain(hdfOld);
+  });
+
+  it("remapUuids leaves text untouched for an empty map", () => {
+    const body = `<X uuid="0ac4d3a2-d209-433f-8f7a-c59b13dab196"/>`;
+    expect(EtpUri.remapUuids(body, new Map())).toStrictEqual(body);
   });
 
   it("Object URI", async () => {
@@ -164,7 +294,7 @@ describe("EtpUri", () => {
     const uri = created.uri;
     expect(uri).toStrictEqual(
       `${dataspace}/resqml20.obj_SeismicLatticeFeature(uuid=0ac4d3a2-d209-433f-8f7a-c59b13dab196,version='v1')` +
-        "?$filter=Ni ge 10&$top=4&$skip=1&$orderby=Citation/Title"
+      "?$filter=Ni ge 10&$top=4&$skip=1&$orderby=Citation/Title"
     );
     expect(created.guid).toStrictEqual(
       EtpUri.uuidStringToByteArray("0ac4d3a2-d209-433f-8f7a-c59b13dab196")

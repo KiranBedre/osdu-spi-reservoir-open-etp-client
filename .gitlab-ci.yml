@@ -6,6 +6,14 @@ variables:
   AWS_SERVICE_NAMESPACE_SUFFIX: reservoir-ddms
   AWS_EKS_DEPLOYMENT_NAME: os-rest-to-etp-proxy-server
 
+# Stub: upstream cimpl-global.yml defines jobs that `extends: .maven`, which is
+# only available for Java services. Define a minimal hidden template so YAML
+# validation passes; the individual cimpl-dev-* jobs are disabled via rules below.
+.maven:
+  image: alpine:3.21
+  script:
+    - echo "not applicable for Node services"
+
 include:
   # pipeline logic
   - project: "osdu/platform/ci-cd-pipelines"
@@ -73,19 +81,3 @@ fossa-analyze:
   variables:
     FOSSA_OUTPUT_DIR: fossa-output
     npm_config_engine_strict: "false"
-
-# Override: fossa-check-notice fails due to upstream config issues unrelated to this service.
-fossa-check-notice:
-  allow_failure: true
-
-# Override: cimpl-check-openapi-spec fails due to missing Java/.maven config for Node service.
-cimpl-check-openapi-spec:
-  allow_failure: true
-
-# Override: cimpl-standby-test from cloud-providers/cimpl-global.yml extends `.maven`,
-# which is only defined for Java services. open-etp-client is a Node/TypeScript
-# service, so the `extends: .maven` reference fails YAML validation and blocks the
-# whole pipeline. Disable the job here until the upstream template is fixed.
-cimpl-standby-test:
-  rules:
-    - when: never
