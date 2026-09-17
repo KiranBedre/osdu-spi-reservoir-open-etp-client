@@ -21,32 +21,33 @@ headers {
 
 body:multipart-form {
   epc: @file(../data/Demo_Drogon.epc)
-  h5: @file(../data/Demo_Drogon.h5)
 }
 
 docs {
-  Drogon SELF-SEED (2/6). Uploads the reduced Drogon dataset (Demo_Drogon.epc
-  840 KB + Demo_Drogon.h5 45 MB - the CI-sized fixture with redundant property
-  arrays stripped but grid geometry, wells and kept-property arrays intact) into
-  the fresh dataspace via POST /dataspaces/{ds}/epc/upload?autoIngest=true. This
-  makes the suite upgrade-proof and CI-portable: no pre-seeded space required, and
-  because the H5 is included the ingested arrays are readable too.
+  Drogon SELF-SEED (2/6). Uploads the Drogon EPC (Demo_Drogon.epc, 840 KB -
+  the RESQML XML objects: grid, wells, property headers) into the fresh dataspace
+  via POST /dataspaces/{ds}/epc/upload?autoIngest=true. EPC-ONLY on purpose (the
+  H5 is intentionally omitted here - see the multipart note below). This makes the
+  suite upgrade-proof and CI-portable: no pre-seeded space required. The object
+  reads (S04/S05) and validate (S03) light up once /epc/upload is deployed; the
+  grid ARRAY bytes live in the H5 and are exercised via Newman/Postman instead,
+  which streams epc+h5 without the Bruno limitation below.
 
   NOTE: /epc/upload is a limited-deployment endpoint. On the CURRENT preship
   (pre-M27 client) it returns 404 and this test tolerates that (stays green). Once
   preship is upgraded to this M27 (~/rddms) client the upload succeeds and the
   downstream reads (S04/S05) and validate (S03) light up automatically.
 
-  Bruno resolves @file() relative to the collection root (bruno/), so the paths
-  are ../data/Demo_Drogon.epc and ../data/Demo_Drogon.h5. For remote CI runs this
-  reduced fixture must be staged for the runner (it is git-ignored locally).
+  Bruno resolves @file() relative to the collection root (bruno/), so the path is
+  ../data/Demo_Drogon.epc. For remote CI runs this fixture must be staged for the
+  runner (it is git-ignored locally).
 
-  IMPORTANT - NO tests/script blocks on purpose: the Bruno CLI JS sandbox
-  (quickjs-emscripten) aborts at runtime disposal (assertion list_empty(gc_obj_list)
-  in JS_FreeRuntime) whenever a request that carries large multipart file buffers
-  also runs ANY JS block (tests OR script). With the 45 MB H5 that abort is fatal
-  and fails the whole run, even though the upload itself succeeds. So this request
-  is intentionally assertion-free; upload verification is done downstream by S03
-  (validate), S04 (list resources) and S05 (object content), which inspect server
-  state rather than the request body and therefore carry no large buffers.
+  IMPORTANT - EPC-ONLY (single file part) and NO tests/script blocks on purpose.
+  The Bruno CLI (@usebruno/cli, quickjs marshalling) CRASHES on a multipart body
+  with 2+ file parts whenever any NON-LAST part is more than a few KB - the 840 KB
+  epc as the non-last part triggers it regardless of the H5 size, and it fires even
+  with no user script (implicit post-response marshalling). So Bruno uploads are
+  kept epc-only here; the full epc+h5 array round-trip is done under Newman/Postman.
+  Verification is done downstream by S03 (validate), S04 (list resources) and S05
+  (object content), which inspect server state rather than the request body.
 }
