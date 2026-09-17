@@ -25,17 +25,21 @@ script:pre-request {
     bru.setVar("testDataspaceId", encodeURIComponent(dsRaw));
   }
 
-  // Auto-refresh Keycloak token if expired or missing
-  const tokenUrl = bru.getEnvVar("token_url");
-  const refreshToken = bru.getEnvVar("refresh_token");
-  const clientId = bru.getEnvVar("client_id");
+  // Auto-refresh Keycloak token if expired or missing.
+  // Check runtime vars (CI `--env-var key=value`, read via getVar) first, then
+  // fall back to the selected environment file (getEnvVar). Secrets like the
+  // refresh token are injected at runtime and never committed, so getVar must
+  // win - otherwise the empty env-file value shadows the injected credential.
+  const tokenUrl = bru.getVar("token_url") || bru.getEnvVar("token_url");
+  const refreshToken = bru.getVar("refresh_token") || bru.getEnvVar("refresh_token");
+  const clientId = bru.getVar("client_id") || bru.getEnvVar("client_id");
   const currentToken = bru.getVar("access_token");
 
   // Refresh if no token or if we haven't refreshed in the last 55 minutes
   const lastRefresh = bru.getVar("_token_ts") || 0;
   const now = Date.now();
-  const clientSecret = bru.getEnvVar("client_secret");
-  const clientScope = bru.getEnvVar("client_scope");
+  const clientSecret = bru.getVar("client_secret") || bru.getEnvVar("client_secret");
+  const clientScope = bru.getVar("client_scope") || bru.getEnvVar("client_scope");
   if (!currentToken || (now - lastRefresh) > 55 * 60 * 1000) {
     if (tokenUrl && clientId) {
       try {
@@ -54,8 +58,12 @@ script:pre-request {
           if (resp.data && resp.data.access_token) {
             bru.setVar("access_token", resp.data.access_token);
             bru.setVar("_token_ts", now);
+            // Store any rotated refresh token as a RUNTIME var only. Never write
+            // it back with setEnvVar - in the CLI that persists the secret into
+            // the committed environment file. Keycloak offline tokens are
+            // reusable, so runtime scope is sufficient for the rest of the run.
             if (resp.data.refresh_token) {
-              bru.setEnvVar("refresh_token", resp.data.refresh_token);
+              bru.setVar("refresh_token", resp.data.refresh_token);
             }
           }
         }

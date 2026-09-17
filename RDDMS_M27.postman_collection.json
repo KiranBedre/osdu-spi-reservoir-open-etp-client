@@ -123,11 +123,11 @@
     },
     {
       "key": "drogon_ds_raw",
-      "value": "maap/drogon201b"
+      "value": "maap/drogon201"
     },
     {
       "key": "drogon_ds_encoded",
-      "value": "maap%2Fdrogon201b"
+      "value": "maap%2Fdrogon201"
     },
     {
       "key": "drogon_throwaway_raw",

@@ -1253,6 +1253,42 @@ export const createManifest = async (
       manifests.ReferenceData = undefined;
     }
 
+    // Final safety net: guarantee the manifest never ships duplicate
+    // WorkProductComponent ids. The primary dedup (seenRecordIds) runs before
+    // the schema-compatibility pass, but normalizeArray can REWRITE a WPC id
+    // when it remaps an unregistered kind onto GenericRepresentation - and
+    // several distinct WPCs (e.g. HorizonControlPoints) can then collapse onto
+    // the same id. Duplicate ids fail the atomic OSDU Storage batch, so drop the
+    // post-remap collisions here and resync the WorkProduct's Components list to
+    // the surviving ids so the DAG ingestion stays consistent.
+    if (manifests.Data?.WorkProductComponents) {
+      const seenWpcIds = new Set<string>();
+      const originalCount = manifests.Data.WorkProductComponents.length;
+      const dedupedWpcs = manifests.Data.WorkProductComponents.filter(rec => {
+        const id = (rec as { id?: unknown }).id;
+        if (typeof id !== "string" || id === "") {
+          return true; // keep id-less records untouched
+        }
+        if (seenWpcIds.has(id)) {
+          return false;
+        }
+        seenWpcIds.add(id);
+        return true;
+      });
+      if (dedupedWpcs.length !== originalCount) {
+        logger.warn(
+          `[dedup] Dropped ${originalCount -
+            dedupedWpcs.length} duplicate WorkProductComponent id(s) from manifest`
+        );
+        manifests.Data.WorkProductComponents = dedupedWpcs;
+        if (manifests.Data?.WorkProduct?.data) {
+          manifests.Data.WorkProduct.data.Components = dedupedWpcs
+            .filter(rec => typeof (rec as { id?: unknown }).id === "string")
+            .map(rec => `${(rec as { id: string }).id}:`);
+        }
+      }
+    }
+
     // Compute the size in MB of the json representation of manifests
     const size = Buffer.byteLength(JSON.stringify(manifests)) / 1024 / 1024;
     if (size > maxManifestSize) {
