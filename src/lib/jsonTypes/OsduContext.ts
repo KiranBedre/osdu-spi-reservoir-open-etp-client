@@ -199,8 +199,14 @@ export class OSDUContext {
     if (value === undefined) {
       return undefined;
     }
+    // OSDU reference-data ids use ':' as a structural separator within the
+    // value segment (e.g. CoordinateReferenceSystem "Projected:EPSG::32056").
+    // encodeURIComponent escapes ':' to %3A, which produces an invalid record
+    // id that downstream services (e.g. the Osdu_ingest DAG CRS validation)
+    // reject. Preserve literal colons while still escaping other unsafe chars.
+    const encodedValue = encodeURIComponent(value).replace(/%3A/g, ":");
     const ref = `${this.partition
-      }:reference-data--${referenceType}:${encodeURIComponent(value)}:`;
+      }:reference-data--${referenceType}:${encodedValue}:`;
     if (referenceType !== "PropertyType" || PropertyTypesIds.has(value)) {
       // Do not create reference for Standards Resqml PropertyTypes
       this.references.add(ref);
