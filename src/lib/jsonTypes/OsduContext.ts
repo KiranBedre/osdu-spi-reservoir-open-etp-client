@@ -154,6 +154,24 @@ export class OSDUContext {
 
   public created: Map<string, OSDUResourceType> = new Map();
 
+  /**
+   * Memoized spatial info (SpatialPoint/SpatialArea/CRS meta) keyed by
+   * supporting-representation URI. Multiple properties that share the same
+   * supporting representation resolve to identical geometry, so the (array
+   * reading) bbox computation is done once and reused instead of once per
+   * property. The value is the in-flight/settled Promise so that properties
+   * converted concurrently still share a single computation instead of each
+   * starting its own array read.
+   */
+  public repSpatialInfo: Map<
+    string,
+    Promise<{
+      SpatialPoint?: unknown;
+      SpatialArea?: unknown;
+      meta?: unknown[];
+    }>
+  > = new Map();
+
   public projectedCRS: Map<string, CoordinateReferenceSystem> = new Map();
   public boundedCRS: Map<string, CoordinateReferenceSystem> = new Map();
 
@@ -199,8 +217,14 @@ export class OSDUContext {
     if (value === undefined) {
       return undefined;
     }
+    // OSDU reference-data ids use ':' as a structural separator within the
+    // value segment (e.g. CoordinateReferenceSystem "Projected:EPSG::32056").
+    // encodeURIComponent escapes ':' to %3A, which produces an invalid record
+    // id that downstream services (e.g. the Osdu_ingest DAG CRS validation)
+    // reject. Preserve literal colons while still escaping other unsafe chars.
+    const encodedValue = encodeURIComponent(value).replace(/%3A/g, ":");
     const ref = `${this.partition
-      }:reference-data--${referenceType}:${encodeURIComponent(value)}:`;
+      }:reference-data--${referenceType}:${encodedValue}:`;
     if (referenceType !== "PropertyType" || PropertyTypesIds.has(value)) {
       // Do not create reference for Standards Resqml PropertyTypes
       this.references.add(ref);

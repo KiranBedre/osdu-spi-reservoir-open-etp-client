@@ -332,6 +332,15 @@ the OpenAPI decorators.
   (transaction, dataspace), chunking/batching notes, and inline examples.
 - **Logical tag ordering** - health → auth → read → manifest → query → write →
   domain-specific (WITSML, PWLS) → metrics, preserved via a custom `tagsSorter`.
+- **Operation ordering within Resources** - operations follow the natural
+  read → drill-down → traverse flow; the deprecated `/graph/*` aliases are grouped
+  after the canonical per-object `/targets` and `/sources` routes, and the
+  rarely-used deleted-resources (tombstone) query is placed last in the section.
+- **"When to use which" guidance** - the Resources tag description now
+  distinguishes path-addressed reads, relationship traversal, and body-driven
+  `POST /query/*` search, so callers can tell which endpoint fits their context.
+- **Neutral examples** - request/response examples use neutral placeholder
+  values rather than named products or vendors.
 - **Regenerated specs** - `openapi.json`, `openapi.yaml`, and `swagger.json`
   reflect the enriched descriptions, WITSML `$format` flag, JSON store input, and
   enriched query filters. Suitable for client generation.
@@ -385,6 +394,7 @@ change emitted coordinates for affected CRS and grids.
 | [!269](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/269) | WellLog `Top`/`BottomMeasuredDepth`/`SamplingInterval` null | `extractDepthRange()` falls back to a full `NodeMd` scan when `GetDataSubarray` returns empty |
 | [#126](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/issues/126) | Invalid dateTime → HTTP 500 | Now returns 400 with a descriptive message |
 | [#130](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/issues/130) | DELETE locked dataspace → 204 | Now propagates 403 |
+| - | Duplicate `WorkProductComponent` ids in built manifests | A post-remap dedup pass drops duplicate WPC ids created when the schema-compatibility rewrite re-mints ids for unregistered kinds (e.g. repeated `HorizonControlPoints`) |
 
 ---
 
@@ -405,3 +415,4 @@ These may affect existing consumers.
 | **DELETE locked dataspace** ([#130](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/issues/130)) | 204 (silent success) | 403 | Unlock before delete |
 | **Protocol negotiation** ([!289](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/289)) | `RDMS_ETP_EXTENDED_PROTOCOLS` env var | Auto-negotiated, env var removed | - |
 | **Dataspace ACL override** ([!207](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/207)) | ETP customData always overrode pre-configured ACLs | Pre-configured ACLs take priority | - |
+| **Clone re-identify** | `clone?reidentify=true` on a server that cannot copy dataspace content silently returned an identity-preserving clone | Now fails loud with `501 ENOTSUPPORTED` so callers do not get colliding UUIDs | Retry without `reidentify` for a reference snapshot |
