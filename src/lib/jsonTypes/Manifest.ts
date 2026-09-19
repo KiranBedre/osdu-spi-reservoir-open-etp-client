@@ -623,11 +623,36 @@ export const createManifest = async (
         }ms (null=${nullCount}, noType=${noTypeCount})`
       );
 
+      // Seed the DOR-resolution cache from the batch-resolved objects. During
+      // conversion, references (SupportingRepresentation, PropertyKind, Lookup,
+      // geometry, ...) are resolved via context.uriToObject; without seeding,
+      // each reference issues its own ETP getObjects round-trip even though the
+      // target was already fetched into `objects` by getResolvedObjects'
+      // recursive target resolution. Seeding turns those N+1 round-trips into
+      // in-memory cache hits.
+      let seeded = 0;
+      for (const [u, o] of objects) {
+        if (o !== null && o !== undefined && !context.uriToObject.has(u)) {
+          context.uriToObject.set(u, o);
+          seeded++;
+        }
+      }
+      logger.info(
+        `[perf] Seeded DOR cache with ${seeded} objects (uriToObject size=${context.uriToObject.size})`
+      );
+
       const tConvert = Date.now();
-      for (let i = 0; i < resolvedObjects.length; i++) {
+      // Convert objects with bounded concurrency. Each conversion is dominated
+      // by independent network round-trips (ETP object/array fetches and OSDU
+      // Storage existence checks); running them strictly serially serialises
+      // that latency. Node is single-threaded, so overlapping the awaits is
+      // safe for the synchronous Map/Set mutations on the shared context while
+      // still cutting wall-clock time dramatically on large models.
+      const CONVERT_CONCURRENCY = 16;
+      const processOne = async (i: number): Promise<void> => {
         const resObj = resolvedObjects[i];
         if (resObj?.$type === undefined) {
-          continue;
+          return;
         }
 
         const m = resObj.$type.match(
@@ -645,7 +670,7 @@ export const createManifest = async (
         const c = ResqmlOSDU.get(etpUri.dataObjectType);
         if (c === undefined) {
           bumpSkip(skippedNoConverter, etpUri.dataObjectType);
-          continue;
+          return;
         }
         try {
           const tObj = Date.now();
@@ -721,7 +746,7 @@ export const createManifest = async (
                           e === res.data.DDMSDatasets[0]
                       ) !== -1
                     ) {
-                      continue;
+                      return;
                     }
                     stored.data.DDMSDatasets = [
                       ...stored.data.DDMSDatasets,
@@ -742,9 +767,26 @@ export const createManifest = async (
             `Converter failed for ${etpUri.dataObjectType} (${resObj.Uuid}): ${convErr?.message ?? convErr
             }`
           );
-          continue;
+          return;
         }
-      }
+      };
+
+      let __nextIndex = 0;
+      const worker = async (): Promise<void> => {
+        for (; ;) {
+          const i = __nextIndex++;
+          if (i >= resolvedObjects.length) {
+            return;
+          }
+          await processOne(i);
+        }
+      };
+      await Promise.all(
+        Array.from(
+          { length: Math.min(CONVERT_CONCURRENCY, resolvedObjects.length) },
+          () => worker()
+        )
+      );
       logger.info(
         `[perf] Convert ${resolvedObjects.length} objects: ${Date.now() - tConvert
         }ms`
@@ -880,25 +922,25 @@ export const createManifest = async (
         }
 
         // 3. Convert all missing refs (objects now in cache)
-        for (const k of missingSrn) {
-          if (unknownSrn.has(k)) continue;
+        const refConvertOne = async (k: string): Promise<void> => {
+          if (unknownSrn.has(k)) return;
           const objUri = context.srnToUri.get(k);
           if (!objUri) {
             unknownSrn.add(k);
-            continue;
+            return;
           }
           const etpUri = new EtpUri(objUri);
           const c = ResqmlOSDU.get(etpUri.dataObjectType);
           if (!c) {
             bumpSkip(skippedNoConverter, etpUri.dataObjectType);
             unknownSrn.add(k);
-            continue;
+            return;
           }
 
           const obj = objects.get(objUri);
           if (!obj) {
             unknownSrn.add(k);
-            continue;
+            return;
           }
 
           try {
@@ -946,7 +988,27 @@ export const createManifest = async (
           } catch {
             unknownSrn.add(k);
           }
-        }
+        };
+
+        // Convert the missing refs with bounded concurrency, overlapping the
+        // per-object OSDU existence checks the same way the primary loop does.
+        const REF_CONCURRENCY = 16;
+        let refIndex = 0;
+        const refWorker = async (): Promise<void> => {
+          for (; ;) {
+            const idx = refIndex++;
+            if (idx >= missingSrn.length) {
+              return;
+            }
+            await refConvertOne(missingSrn[idx]);
+          }
+        };
+        await Promise.all(
+          Array.from(
+            { length: Math.min(REF_CONCURRENCY, missingSrn.length) },
+            () => refWorker()
+          )
+        );
         // Only consider NEW references not yet processed or generated
         missingSrn = Array.from(context.srnToUri.keys()).filter(
           k => generatedSrn.get(k) === undefined && !processedSrn.has(k)
@@ -1193,6 +1255,35 @@ export const createManifest = async (
         return { kept, remapped, dropped };
       };
 
+      // Pre-warm the schema-existence cache concurrently. isSchemaRegistered
+      // memoizes per kind, but normalizeArray would otherwise trigger the first
+      // lookup for each distinct kind SERIALLY (hundreds of records => one slow
+      // OSDU schema GET each). Collect every kind resolveKind might query and
+      // warm them in parallel so the normalizeArray passes are all cache hits.
+      const warmKinds = new Set<string>();
+      for (const arr of [
+        manifests.MasterData,
+        manifests.ReferenceData,
+        manifests.Data?.WorkProductComponents
+      ]) {
+        for (const rec of arr ?? []) {
+          const k = (rec as { kind?: string } | undefined)?.kind;
+          if (!k) continue;
+          warmKinds.add(k);
+          const byEntity = getKind(entityOf(k));
+          if (byEntity) warmKinds.add(byEntity);
+          if (categoryOf(k) === "work-product-component") {
+            const g = getKind("GenericRepresentation");
+            if (g) warmKinds.add(g);
+          }
+        }
+      }
+      await Promise.all(
+        Array.from(warmKinds).map(k =>
+          isSchemaRegistered(k, osduUrl, bearer, partition)
+        )
+      );
+
       const mdRes = await normalizeArray(manifests.MasterData);
       manifests.MasterData = mdRes.kept;
       const rdRes = await normalizeArray(manifests.ReferenceData);
@@ -1278,7 +1369,7 @@ export const createManifest = async (
       if (dedupedWpcs.length !== originalCount) {
         logger.warn(
           `[dedup] Dropped ${originalCount -
-            dedupedWpcs.length} duplicate WorkProductComponent id(s) from manifest`
+          dedupedWpcs.length} duplicate WorkProductComponent id(s) from manifest`
         );
         manifests.Data.WorkProductComponents = dedupedWpcs;
         if (manifests.Data?.WorkProduct?.data) {

@@ -154,6 +154,24 @@ export class OSDUContext {
 
   public created: Map<string, OSDUResourceType> = new Map();
 
+  /**
+   * Memoized spatial info (SpatialPoint/SpatialArea/CRS meta) keyed by
+   * supporting-representation URI. Multiple properties that share the same
+   * supporting representation resolve to identical geometry, so the (array
+   * reading) bbox computation is done once and reused instead of once per
+   * property. The value is the in-flight/settled Promise so that properties
+   * converted concurrently still share a single computation instead of each
+   * starting its own array read.
+   */
+  public repSpatialInfo: Map<
+    string,
+    Promise<{
+      SpatialPoint?: unknown;
+      SpatialArea?: unknown;
+      meta?: unknown[];
+    }>
+  > = new Map();
+
   public projectedCRS: Map<string, CoordinateReferenceSystem> = new Map();
   public boundedCRS: Map<string, CoordinateReferenceSystem> = new Map();
 
