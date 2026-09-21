@@ -49,6 +49,14 @@ governance across boundaries. **Build one manifest per dataspace instead.**
   consumed, which become dangling references under `propertyFilter=canonical`).
   Pass an empty value to disable.
 - **`includeArrayData`** - opt-in to bulk array reads during manifest build.
+- **OSDU self-identity precedence** - when resolving an object's OSDU SRN,
+  `OSDUContext.osduAlias()` now prefers the RESQML 2.3.0 `OSDURecordID` element
+  and falls back to `Aliases[Authority="osdu"].Identifier`. `OSDURecordID` is
+  `String256`, so it carries a full partition-qualified SRN
+  (e.g. `opendes:master-data--Wellbore:<uuid>:`) that overflows the alias
+  `Identifier`. RESQML 2.0.1 / 2.2 objects are unaffected — they keep using the
+  alias. Additive: manifest builds gain no new required input. Pairs with the
+  `open-etp-server` `OES_GOVERNANCE_STRICT_SRN` guard on `PutDataObjects`.
 
 <details>
 <summary>Converter internals & round-trip fidelity (developer detail)</summary>
