@@ -289,7 +289,17 @@ export default async function app(): Promise<NestExpressApplication> {
     fs.writeFileSync("./swagger.json", JSON.stringify(document, null, 2));
   }
 
+  // Serve the raw OpenAPI documents UNDER the REST route prefix. NestJS's
+  // default document URLs are siblings of the UI path ("<path>-json"/"-yaml"),
+  // e.g. "/api/reservoir-ddms/v2-json". Prefix-scoped ingress (the cimpl Istio
+  // VirtualService matches the segment-aware prefix "/api/reservoir-ddms/v2")
+  // does NOT route that sibling segment, so the spec 404s at the gateway.
+  // Nesting the documents under the prefix keeps the raw JSON/YAML reachable
+  // through the ingress ("<path>/openapi.json" and "<path>/openapi.yaml").
+  const specBase = restApiRoutePath.replace(/\/+$/, "");
   SwaggerModule.setup(restApiRoutePath, nestApp, document, {
+    jsonDocumentUrl: `${specBase}/openapi.json`,
+    yamlDocumentUrl: `${specBase}/openapi.yaml`,
     swaggerOptions: {
       apisSorter: "alpha",
       // Preserve the spec (workflow) order of operations within each tag
