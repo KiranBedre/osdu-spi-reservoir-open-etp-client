@@ -195,6 +195,11 @@ describe("CRS Fix 1: Vertical CRS resolution (v2.0.1)", () => {
     expect(vertId).toBeDefined();
     expect(vertId).toContain("Vertical");
     expect(vertId).toContain("5714");
+    // Regression: must be a valid OSDU reference-data SRN (not a bare
+    // "VerticalCRS:EPSG:5714" placeholder) and must NOT contain %3A-encoded
+    // colons, otherwise the Osdu_ingest DAG rejects the WorkProduct record.
+    expect(vertId).toBe("test-partition:reference-data--CoordinateReferenceSystem:Vertical:EPSG::5714:");
+    expect(vertId).not.toContain("%3A");
 
     // Verify persistableReferenceVerticalCrs
     const vertRef = result.SpatialPoint?.AsIngestedCoordinates?.persistableReferenceVerticalCrs;
@@ -223,6 +228,29 @@ describe("CRS Fix 1: Vertical CRS resolution (v2.0.1)", () => {
 
     const vertId = result.SpatialPoint?.AsIngestedCoordinates?.VerticalCoordinateReferenceSystemID;
     expect(vertId).toBeUndefined();
+  });
+});
+
+// ============================================================================
+// CRS Fix 5: reference-data SRN keeps literal colons (DAG ingestion) 🧪
+// ============================================================================
+describe("CRS Fix 5: addReferenceData preserves structural colons", () => {
+  it("does not %3A-encode colons in CoordinateReferenceSystem values", () => {
+    const context = new OSDUContext("osdu", "test-rddms");
+    const id = context.addReferenceData(
+      "CoordinateReferenceSystem",
+      "Projected:EPSG::32056"
+    );
+    expect(id).toBe(
+      "osdu:reference-data--CoordinateReferenceSystem:Projected:EPSG::32056:"
+    );
+    expect(id).not.toContain("%3A");
+  });
+
+  it("still escapes other unsafe characters (e.g. spaces, slashes)", () => {
+    const context = new OSDUContext("osdu", "test-rddms");
+    const id = context.addReferenceData("UnitOfMeasure", "m/s value");
+    expect(id).toBe("osdu:reference-data--UnitOfMeasure:m%2Fs%20value:");
   });
 });
 

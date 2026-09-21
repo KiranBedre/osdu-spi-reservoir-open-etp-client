@@ -63,7 +63,7 @@ class PwlsStatusDto {
   @ApiProperty({ example: 30201 })
   mnemonics!: number;
 
-  @ApiProperty({ example: ["Schlumberger"] })
+  @ApiProperty({ example: ["ExampleVendorA"] })
   vendors!: string[];
 }
 
@@ -165,7 +165,7 @@ class VendorCatalogUploadDto {
   "Company Code"!: number;
 
   @Allow()
-  @ApiProperty({ example: "Halliburton" })
+  @ApiProperty({ example: "Example Vendor" })
   "Company Name"!: string;
 
   @Allow()
@@ -417,7 +417,7 @@ export default class PwlsController {
       properties: {
         added: { type: "number", example: 5000 },
         totalMnemonics: { type: "number", example: 35201 },
-        vendors: { type: "array", items: { type: "string" }, example: ["Schlumberger", "Halliburton"] }
+        vendors: { type: "array", items: { type: "string" }, example: ["ExampleVendorA", "ExampleVendorB"] }
       }
     }
   })

@@ -1691,7 +1691,11 @@ export class ResqmlWorkProductComponent<
           persistableReferenceCrs,
           type: AsIngestedCoordinatesType.AnyCRSFeatureCollection,
           ...(verticalEpsgCode !== -1 ? {
-            VerticalCoordinateReferenceSystemID: `VerticalCRS:EPSG:${verticalEpsgCode}`,
+            VerticalCoordinateReferenceSystemID:
+              context.addReferenceData(
+                "CoordinateReferenceSystem",
+                `Vertical:EPSG::${verticalEpsgCode}`
+              ) ?? `VerticalCRS:EPSG:${verticalEpsgCode}`,
             persistableReferenceVerticalCrs: JSON.stringify({ authCode: { auth: "EPSG", code: verticalEpsgCode } })
           } : verticalCrsId ? {
             VerticalCoordinateReferenceSystemID: verticalCrsId,

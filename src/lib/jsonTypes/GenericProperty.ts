@@ -328,58 +328,93 @@ export class GenericPropertyOSDU
     // Get the geometry form supporting representation
     const osduRep = context.created.get(PropertyTopologyID.slice(0, -1));
     if (osduRep === undefined) {
-      const rep = (await GenericPropertyOSDU.getObjectFromDor(
-        client,
+      // All properties sharing a supporting representation resolve to the same
+      // geometry, so the (array reading) spatial-info computation is memoized
+      // per supporting-representation URI and reused instead of recomputed for
+      // every property. This matters for large models (e.g. Volve) where the
+      // supporting grid is converted after its hundreds of properties, so the
+      // context.created fast-path above never hits during property conversion.
+      const repKey = ResqmlWorkProductComponent.dorToUri(
         ReservoirDMSUrl,
-        xml.SupportingRepresentation,
-        context
-      )) as Record<string, unknown>;
+        xml.SupportingRepresentation
+      );
+      let spatialPromise = context.repSpatialInfo.get(repKey);
+      if (spatialPromise === undefined) {
+        // First property to reach this supporting representation kicks off the
+        // (array reading) computation and stores the in-flight Promise, so any
+        // other property converted concurrently shares this single computation
+        // instead of starting its own array read.
+        spatialPromise = (async () => {
+          const rep = (await GenericPropertyOSDU.getObjectFromDor(
+            client,
+            ReservoirDMSUrl,
+            xml.SupportingRepresentation,
+            context
+          )) as Record<string, unknown>;
 
-      let geometry = rep["Geometry"] as SimpleJson<resqml20.PointGeometry>;
-      if (geometry === undefined) {
-        for (const p of Object.keys(rep)) {
-          if (Array.isArray(rep[p])) {
-            (rep[p] as Array<unknown>).forEach(patch => {
-              if (patch !== undefined && typeof patch === "object") {
-                const oPatch = patch as Record<string, unknown>;
-                if ("Geometry" in oPatch) {
-                  const g = oPatch["Geometry"];
+          let geometry = rep["Geometry"] as SimpleJson<resqml20.PointGeometry>;
+          if (geometry === undefined) {
+            for (const p of Object.keys(rep)) {
+              if (Array.isArray(rep[p])) {
+                (rep[p] as Array<unknown>).forEach(patch => {
+                  if (patch !== undefined && typeof patch === "object") {
+                    const oPatch = patch as Record<string, unknown>;
+                    if ("Geometry" in oPatch) {
+                      const g = oPatch["Geometry"];
+                      if (g !== undefined) {
+                        geometry = g as SimpleJson<resqml20.PointGeometry>;
+                      }
+                    }
+                  }
+                });
+              } else {
+                const patch = rep[p] as Record<string, unknown>;
+                if (
+                  patch !== undefined &&
+                  typeof patch === "object" &&
+                  "Geometry" in patch
+                ) {
+                  const g = patch["Geometry"];
                   if (g !== undefined) {
                     geometry = g as SimpleJson<resqml20.PointGeometry>;
                   }
                 }
               }
-            });
-          } else {
-            const patch = rep[p] as Record<string, unknown>;
-            if (
-              patch !== undefined &&
-              typeof patch === "object" &&
-              "Geometry" in patch
-            ) {
-              const g = patch["Geometry"];
-              if (g !== undefined) {
-                geometry = g as SimpleJson<resqml20.PointGeometry>;
-              }
             }
           }
-        }
+          if (geometry) {
+            const dataspaceUri = EtpUri.createDataSpaceUri(
+              new EtpUri(ReservoirDMSUrl).dataSpace
+            ).uri;
+            const { SpatialPoint, SpatialArea, FrameOfReferenceCRS } =
+              await GenericPropertyOSDU.createSpatialInfo(
+                client,
+                dataspaceUri,
+                [geometry],
+                context
+              );
+            return {
+              SpatialPoint,
+              SpatialArea,
+              meta: [FrameOfReferenceCRS]
+            };
+          }
+          // Negative cache: no geometry on this supporting representation.
+          return {};
+        })();
+        context.repSpatialInfo.set(repKey, spatialPromise);
       }
-      if (geometry) {
-        const dataspaceUri = EtpUri.createDataSpaceUri(
-          new EtpUri(ReservoirDMSUrl).dataSpace
-        ).uri;
-        const { SpatialPoint, SpatialArea, FrameOfReferenceCRS } =
-          await GenericPropertyOSDU.createSpatialInfo(
-            client,
-            dataspaceUri,
-            [geometry],
-            context
-          );
-        this.data.SpatialPoint = SpatialPoint;
-        this.data.SpatialArea = SpatialArea;
-
-        this.meta = [FrameOfReferenceCRS];
+      const cachedSpatial = await spatialPromise;
+      if (cachedSpatial.SpatialPoint !== undefined) {
+        this.data.SpatialPoint =
+          cachedSpatial.SpatialPoint as typeof this.data.SpatialPoint;
+      }
+      if (cachedSpatial.SpatialArea !== undefined) {
+        this.data.SpatialArea =
+          cachedSpatial.SpatialArea as typeof this.data.SpatialArea;
+      }
+      if (cachedSpatial.meta !== undefined) {
+        this.meta = cachedSpatial.meta as typeof this.meta;
       }
     } else {
       const rep = osduRep as GenericRepresentation;

@@ -156,8 +156,12 @@ export default async function app(): Promise<NestExpressApplication> {
     .addTag("Resources",
       "Read-only access to ETP dataspaces, objects, relationships, and data arrays. " +
       "Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`). " +
-      "Graph endpoints (`/graph/…`) return edges between resources; flat endpoints (`/resources/…`) return lists without edges. " +
-      "**Graph scope**: `self` (direct), `targets` (referenced by), `sources` (referencing), `targetsOrSelf`, `sourcesOrSelf`. " +
+      "**When to use which:** list a dataspace's contents with `GET …/resources` (types) or `…/resources/all` (flat); " +
+      "fetch a single known object with `…/resources/{type}/{guid}`; traverse a known object's relationships via its " +
+      "`…/targets` (referenced by) and `…/sources` (referencing) sub-resources. When you do **not** know the exact path and " +
+      "need to filter or search, use the **Query** tag (`POST /query/objects/find`) instead; for a batch graph walk across " +
+      "many URIs use `POST /query/graph/search`. " +
+      "The top-level `/graph/…` endpoints are **deprecated** aliases of the per-object `/targets` and `/sources` routes - prefer the latter. " +
       "**Depth**: 1 = immediate, N = recursive, 0 = unlimited (may timeout). " +
       "**Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP has no server-side pagination). " +
       "No transaction required."
@@ -234,10 +238,11 @@ export default async function app(): Promise<NestExpressApplication> {
       "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/arrays/{pathInResource}/metadata", // array metadata
       "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/arrays/{pathInResource}",      // array content
       "/dataspaces/multi-resources/get-content",                                                  // batch get object content
-      "/dataspaces/{dataspaceId}/deleted",                                                        // tombstones
-      "/dataspaces/{dataspaceId}/graph/all",                                                      // deprecated graph variants
+      // deprecated graph aliases of the per-object /targets and /sources endpoints - kept after the canonical drill-down
+      "/dataspaces/{dataspaceId}/graph/all",
       "/dataspaces/{dataspaceId}/graph/{dataObjectType}/{guid}/targets",
       "/dataspaces/{dataspaceId}/graph/{dataObjectType}/{guid}/sources",
+      "/dataspaces/{dataspaceId}/deleted",                                                         // tombstones (rarely used) - kept last in the section
       // ── Query (search) ──
       "/query/objects/find",
       "/query/graph/search",
