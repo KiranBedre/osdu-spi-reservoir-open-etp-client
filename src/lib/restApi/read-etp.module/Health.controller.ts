@@ -223,22 +223,38 @@ export default class HealthAPI {
         );
         const version = packageJson.version;
         const artifactId = packageJson.name;
-        let commitId = "unknown";
-        let commitTime = "unknown";
 
-        //Get commitId, commitTime and buildTime from env variables
-        // get commit info from Git
-        try {
-          commitId = child_process
-            .execSync("git rev-parse HEAD")
-            .toString()
-            .trim();
-          commitTime = child_process
-            .execSync("git log -1 --format=%ci")
-            .toString()
-            .trim();
-        } catch (e) {
-          //Nothing
+        // Build identity is injected at container-build time via env vars, using
+        // the SAME names as open-etp-server (GIT_COMMIT_HASH / GIT_COMMIT_TIMESTAMP
+        // / BUILD_TIME) so client and server report their build the same way.
+        // GitLab-native vars (CI_COMMIT_SHA / CI_COMMIT_TIMESTAMP) are accepted as
+        // a fallback, and a runtime `git` lookup covers local dev checkouts.
+        let commitId =
+          process.env.GIT_COMMIT_HASH || process.env.CI_COMMIT_SHA || "unknown";
+        let commitTime =
+          process.env.GIT_COMMIT_TIMESTAMP ||
+          process.env.CI_COMMIT_TIMESTAMP ||
+          "unknown";
+        const buildTime = process.env.BUILD_TIME || "unknown";
+
+        if (commitId === "unknown" || commitTime === "unknown") {
+          // get commit info from Git (local dev fallback)
+          try {
+            if (commitId === "unknown") {
+              commitId = child_process
+                .execSync("git rev-parse HEAD")
+                .toString()
+                .trim();
+            }
+            if (commitTime === "unknown") {
+              commitTime = child_process
+                .execSync("git log -1 --format=%ci")
+                .toString()
+                .trim();
+            }
+          } catch (e) {
+            //Nothing
+          }
         }
 
         resolve({
@@ -246,7 +262,8 @@ export default class HealthAPI {
           artifactId,
           version,
           commitId,
-          commitTime
+          commitTime,
+          buildTime
         });
       } catch (e) {
         throw new InternalServerErrorException({
