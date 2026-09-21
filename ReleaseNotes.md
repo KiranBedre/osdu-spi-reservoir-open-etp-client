@@ -395,6 +395,7 @@ change emitted coordinates for affected CRS and grids.
 | [#126](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/issues/126) | Invalid dateTime → HTTP 500 | Now returns 400 with a descriptive message |
 | [#130](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/issues/130) | DELETE locked dataspace → 204 | Now propagates 403 |
 | - | Duplicate `WorkProductComponent` ids in built manifests | A post-remap dedup pass drops duplicate WPC ids created when the schema-compatibility rewrite re-mints ids for unregistered kinds (e.g. repeated `HorizonControlPoints`) |
+| - | Schema-existence cache poisoning → empty manifests | `isSchemaRegistered` only caches definitive answers (200 registered / 404 not-registered); transient auth/server failures (401/403/5xx) are treated as "assume present" and no longer cached, so a single stale-token schema lookup can no longer silently drop every WPC/MasterData/ReferenceData record until process restart |
 
 ---
 

@@ -288,9 +288,24 @@ export async function isSchemaRegistered(
 
   try {
     const resp = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
-    const ok = resp.status === 200;
-    schemaExistsCache.set(kind, ok);
-    return ok;
+    // Only cache DEFINITIVE answers: 200 = registered, 404 = not registered.
+    // Transient/auth failures (401/403/5xx/etc.) must NOT poison the cache with
+    // `false`, otherwise a single stale-token lookup would silently drop every
+    // record of that kind for the rest of the process lifetime. Treat those as
+    // "assume present" (do not drop) and leave the cache untouched so a later
+    // call with a valid token can resolve the real answer.
+    if (resp.status === 200) {
+      schemaExistsCache.set(kind, true);
+      return true;
+    }
+    if (resp.status === 404) {
+      schemaExistsCache.set(kind, false);
+      return false;
+    }
+    logger.warn(
+      `Schema existence check for '${kind}' returned HTTP ${resp.status} (transient/auth) - assuming present, not caching`
+    );
+    return true;
   } catch (err: any) {
     logger.warn(`Schema existence check failed for '${kind}' (${err?.message ?? err}) - assuming present`);
     return true;
