@@ -52,7 +52,7 @@ The following software have components provided under the terms of this license:
 - @nestjs/platform-express (from https://nestjs.com/)
 - @nestjs/swagger (from https://github.com/nestjs/swagger#readme)
 - adm-zip (from https://github.com/cthackers/adm-zip)
-- bunyan (from https://www.npmjs.com/package/bunyan)
+- bunyan (from https://github.com/trentm/node-bunyan#readme)
 - class-transformer (from https://github.com/typestack/class-transformer#readme)
 - class-validator (from https://github.com/typestack/class-validator#readme)
 - compression (from https://github.com/expressjs/compression#readme)
