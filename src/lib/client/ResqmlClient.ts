@@ -1127,9 +1127,16 @@ export class ResqmlClient {
 
     if (reidentify) {
       // The non-OSDU fallback stores a reference to the origin dataspace instead
-      // of performing a real copy, so there is nothing to re-identify.
-      this.logger.warn(
-        "reidentify requested but ignored: server does not support DataspaceOSDU content copy"
+      // of performing a real copy, so there is nothing to re-identify. The
+      // caller explicitly asked for an independent, re-ingestable copy with
+      // fresh identities; silently returning an identity-preserving reference
+      // would hand back a dataset that collides with the source on re-ingest.
+      // Fail loudly instead (maps to 501 Not Implemented).
+      throw new EtpError(
+        "reidentify=true is not supported on this server: it cannot perform a " +
+          "DataspaceOSDU content copy, so object UUIDs cannot be re-minted. " +
+          "Retry without reidentify to create a reference snapshot.",
+        ErrorCode.ENOTSUPPORTED
       );
     }
 
