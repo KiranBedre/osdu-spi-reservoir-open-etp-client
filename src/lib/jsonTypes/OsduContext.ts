@@ -375,11 +375,15 @@ export class OSDUContext {
   }
 
   /**
-   * Get the osdu alias
+   * Get the osdu self-identity (SRN) of a data object.
+   *
+   * For EML 2.3+ objects the dedicated OSDURecordID element is preferred; for
+   * all versions it falls back to the Aliases[Authority="osdu"].Identifier
+   * carrier, keeping RESQML 2.0.1/2.2 objects working unchanged.
    *
    * @static
    * @param {IResqmlDataObject} dataObject
-   * @return {string|undefined} alias if exists
+   * @return {string|undefined} the osdu SRN if present
    * @memberof OSDUContext
    */
   public static osduAlias(dataObject: IResqmlDataObject): string | undefined {
@@ -399,6 +403,13 @@ export class OSDUContext {
       }
     } else {
       const o = dataObject as SimpleJson<Eml23.AbstractObject>;
+      // 2.3.0: prefer the dedicated, first-class self-identity element. It is
+      // String256 and holds the full partition-qualified SRN. Fall back to the
+      // osdu-authority alias for 2.0.1/2.2 objects that predate OSDURecordID.
+      const recordId = (o as { OSDURecordID?: string }).OSDURecordID;
+      if (recordId) {
+        return recordId;
+      }
       const al = o.Aliases?.find(a => a.Authority === "osdu");
       if (al && al.Identifier) {
         return al.Identifier;

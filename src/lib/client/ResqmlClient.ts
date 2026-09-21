@@ -2020,15 +2020,24 @@ export class ResqmlClient {
 
       const sliceStarts: number[] = [...starts];
 
+      // Precompute the per-dimension stride used to derive external-loop starts.
+      // These depend only on the dimension index (not on the loop counter e),
+      // so computing them once avoids O(nbExternalLoop * dividingDimension)
+      // redundant reduceArraySizeDimension calls.
+      const strideByDim: number[] = new Array(dividingDimension);
+      for (let il = 0; il < dividingDimension; il++) {
+        strideByDim[il] = this.reduceArraySizeDimension(
+          requestDimensions,
+          il + 1,
+          dividingDimension
+        );
+      }
+
       for (let e = 0; e < nbExternalLoop; e++) {
         // Compute starts for each dimension of external loop
         let externalIndices = e;
         for (let il = 0; il < dividingDimension; il++) {
-          const lp = this.reduceArraySizeDimension(
-            requestDimensions,
-            il + 1,
-            dividingDimension
-          );
+          const lp = strideByDim[il];
           sliceStarts[il] = externalIndices / lp;
           externalIndices = externalIndices % lp;
         }
@@ -2056,6 +2065,45 @@ export class ResqmlClient {
       });
     }
     return subarraysDefinition;
+  }
+
+  /**
+   * Flatten the per-subarray value chunks into a single contiguous array.
+   *
+   * Uses a single pre-sized allocation and one linear copy pass instead of
+   * `values = values.concat(chunk)` inside a loop, which reallocates and
+   * re-copies the entire accumulated array on every subarray (O(n²) time and
+   * memory churn for large, heavily-sliced arrays).
+   *
+   * @private
+   * @param {Energistics.Etp.v12.Datatypes.AnyArray[]} subarrays received subarrays
+   * @param {string | undefined} keyName property holding the values for this array type
+   * @returns {any[]} concatenated values
+   */
+  private flattenSubarrayValues(
+    subarrays: Energistics.Etp.v12.Datatypes.AnyArray[],
+    keyName: string | undefined
+  ): any[] {
+    const chunks: any[][] = [];
+    let total = 0;
+    for (const subarray of subarrays) {
+      const v = (subarray.item as any)[keyName as any]?.values;
+      if (v) {
+        chunks.push(v);
+        total += v.length;
+      }
+    }
+    if (chunks.length === 1) {
+      return chunks[0];
+    }
+    const values: any[] = new Array(total);
+    let off = 0;
+    for (const c of chunks) {
+      for (let i = 0; i < c.length; i++) {
+        values[off++] = c[i];
+      }
+    }
+    return values;
   }
 
   /**
@@ -2104,13 +2152,8 @@ export class ResqmlClient {
 
       const keyName = subarrays[0].item.__keyName;
 
-      let values: any[] = [];
-      for (const subarray of subarrays) {
-        const temp = subarray.item;
-        // Extract the values from the AnyArray (using the first property of the array)
-        // and concatenate to the large array of values
-        values = values.concat(temp[keyName]?.values);
-      }
+      // Single-pass flatten (avoids O(n²) values.concat in a loop)
+      const values = this.flattenSubarrayValues(subarrays, keyName);
       // Build a new large array based on the type parameters of the first subarray
       // and the large array of values and dimensions
       const s = subarrays[0];
@@ -2181,13 +2224,8 @@ export class ResqmlClient {
 
       const keyName = subarrays[0].item.__keyName;
 
-      let values: any[] = [];
-      for (const subarray of subarrays) {
-        const temp = subarray.item;
-        // Extract the values from the AnyArray (using the first property of the array)
-        // and concatenate to the large array of values
-        values = values.concat(temp[keyName]?.values);
-      }
+      // Single-pass flatten (avoids O(n²) values.concat in a loop)
+      const values = this.flattenSubarrayValues(subarrays, keyName);
       // Build a new large array based on the type parameters of the first subarray
       // and the large array of values and dimensions
       const s = subarrays[0];

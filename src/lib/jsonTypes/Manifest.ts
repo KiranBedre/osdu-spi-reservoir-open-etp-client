@@ -563,7 +563,7 @@ export const createManifest = async (
     >();
     for (const dataspace in dataspaceObjects) {
       const tmpUris = [...dataspaceObjects[dataspace]];
-      let resolvedObjects: (IResqmlDataObject | null)[] = [];
+      const resolvedObjects: (IResqmlDataObject | null)[] = [];
 
       const t0 = Date.now();
       // Batch size: use larger batches to minimize ETP round-trips.
@@ -603,7 +603,11 @@ export const createManifest = async (
               }, singleMap size=${singleMap.size}`
             );
           }
-          resolvedObjects = resolvedObjects.concat(arr);
+          // Append in place (bounded batch): avoids O(n²) reallocation from
+          // resolvedObjects.concat in the batch loop
+          for (let i = 0; i < arr.length; i++) {
+            resolvedObjects.push(arr[i]);
+          }
         } catch (e: any) {
           logger.error(
             `getResolvedObjects failed for batch: ${batch
