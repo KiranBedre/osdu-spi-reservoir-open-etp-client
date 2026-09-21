@@ -307,6 +307,19 @@ export class DiscoveryCustomer extends BaseHandler {
     header: Energistics.Etp.v12.Datatypes.MessageHeader,
     message: Energistics.Etp.v12.Protocol.Core.ProtocolException
   ) {
-    this.resourceResults.onException(header, message);
+    // A ProtocolException may correlate to an in-flight GetResources/-Edges
+    // request or a GetDeletedResources request. Offer it to both handlers so
+    // the matching pending request is rejected. Previously only resourceResults
+    // was notified, so an error reply to GetDeletedResources (e.g. ENOT_FOUND
+    // for a missing dataspace) was dropped and waitForRequest hung forever.
+    if (this.resourceResults.onException(header, message)) {
+      return;
+    }
+    if (this.deletedResourceResults.onException(header, message)) {
+      return;
+    }
+    this.logTrace(
+      `Discovery.ProtocolException not claimed by any handler for ${header.correlationId}.`
+    );
   }
 }
