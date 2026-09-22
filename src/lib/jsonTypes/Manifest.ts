@@ -1241,12 +1241,12 @@ export const createManifest = async (
     };
     let schemaCompatDiag:
       | {
-          masterData: { remap: number; drop: number };
-          referenceData: { remap: number; drop: number };
-          workProductComponents: { remap: number; drop: number };
-          suppressed: boolean;
-          skipped: boolean;
-        }
+        masterData: { remap: number; drop: number };
+        referenceData: { remap: number; drop: number };
+        workProductComponents: { remap: number; drop: number };
+        suppressed: boolean;
+        skipped: boolean;
+      }
       | undefined;
     // Large-dataset default: the schema-compatibility pass probes every record's
     // kind against the target schema service (and does NOT negatively cache a
@@ -1260,8 +1260,8 @@ export const createManifest = async (
       process.env.MANIFEST_SCHEMA_COMPAT_MAX_RECORDS;
     const schemaCompatMaxRecords =
       schemaCompatMaxRecordsRaw !== undefined &&
-      schemaCompatMaxRecordsRaw !== "" &&
-      Number.isFinite(Number(schemaCompatMaxRecordsRaw))
+        schemaCompatMaxRecordsRaw !== "" &&
+        Number.isFinite(Number(schemaCompatMaxRecordsRaw))
         ? Math.max(0, Number(schemaCompatMaxRecordsRaw))
         : 500;
     const assembledTotal =
@@ -1284,8 +1284,8 @@ export const createManifest = async (
       };
       logger.info(
         "[schema-compat] SKIPPED by request (schemaCompat=false): keeping every " +
-          "record's original kind for a faster (M26-style) build; ensure the " +
-          "target OSDU has these kinds registered or ingestion may reject them."
+        "record's original kind for a faster (M26-style) build; ensure the " +
+        "target OSDU has these kinds registered or ingestion may reject them."
       );
     } else if (
       context.schemaCompat !== true &&
@@ -1303,9 +1303,9 @@ export const createManifest = async (
       };
       logger.info(
         `[schema-compat] SKIPPED (large dataset: ${assembledTotal} assembled ` +
-          `record(s) > MANIFEST_SCHEMA_COMPAT_MAX_RECORDS=${schemaCompatMaxRecords}) ` +
-          "to stay under the ~60s ingress timeout; pass schemaCompat:true to force " +
-          "the kind-remap pass on a large build."
+        `record(s) > MANIFEST_SCHEMA_COMPAT_MAX_RECORDS=${schemaCompatMaxRecords}) ` +
+        "to stay under the ~60s ingress timeout; pass schemaCompat:true to force " +
+        "the kind-remap pass on a large build."
       );
     } else if (osduUrl && osduUrl !== "http://localhost") {
       const bearer = context.bearer;
@@ -1436,8 +1436,8 @@ export const createManifest = async (
         if (inN > 0 && res.kept.length === 0) {
           logger.warn(
             `[schema-compat] ${label}: normalize would drop ALL ${inN} record(s) ` +
-              `- schema service at '${osduUrl}' likely unreachable/misconfigured; ` +
-              `KEEPING originals to avoid an empty manifest`
+            `- schema service at '${osduUrl}' likely unreachable/misconfigured; ` +
+            `KEEPING originals to avoid an empty manifest`
           );
           schemaCompatSuppressed = true;
           return input as any[];
