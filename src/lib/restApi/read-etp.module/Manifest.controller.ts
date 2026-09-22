@@ -486,6 +486,16 @@ export class ManifestInputDto {
   @IsOptional()
   @IsBoolean()
   async?: boolean = false;
+
+  @ApiPropertyOptional({
+    name: "schemaCompat",
+    description: `When true (default), run the schema-compatibility pass that resolves each record's kind against the target OSDU schema service and remaps/normalizes it to a registered kind (M27 behavior - maximizes ingestibility). When false, SKIP that pass entirely: every record keeps its original kind with no per-kind schema-service round-trips. This is a faster, M26-style build (useful as a worst-case escape hatch on high-latency links) but the manifest may carry kinds the target OSDU does not have registered, so ingestion could reject them.`,
+    type: Boolean,
+    example: true
+  })
+  @IsOptional()
+  @IsBoolean()
+  schemaCompat?: boolean = true;
 }
 
 /**
@@ -728,6 +738,10 @@ Common presets: all types + all properties (default); all types + no properties 
     );
 
     context.bearer = bearer;
+
+    if (body.schemaCompat !== undefined) {
+      context.schemaCompat = body.schemaCompat;
+    }
 
     // Remove the "array" part of the technical assurances to convert to internal representation
     if (body.technicalAssurances !== undefined) {

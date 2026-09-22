@@ -1248,7 +1248,26 @@ export const createManifest = async (
           skipped: boolean;
         }
       | undefined;
-    if (osduUrl && osduUrl !== "http://localhost") {
+    if (context.schemaCompat === false) {
+      // Opt-out (M26-style fast path): skip the live schema-service kind
+      // resolution/normalize pass entirely. Every record keeps its original
+      // kind - no per-kind schema GETs - which is materially faster on
+      // high-latency links, at the cost of NOT remapping kinds to what the
+      // target OSDU actually has registered (ingestion may reject unknown
+      // kinds). Default remains true (remap on) for ingestion fidelity.
+      schemaCompatDiag = {
+        masterData: { remap: 0, drop: 0 },
+        referenceData: { remap: 0, drop: 0 },
+        workProductComponents: { remap: 0, drop: 0 },
+        suppressed: false,
+        skipped: true
+      };
+      logger.info(
+        "[schema-compat] SKIPPED by request (schemaCompat=false): keeping every " +
+          "record's original kind for a faster (M26-style) build; ensure the " +
+          "target OSDU has these kinds registered or ingestion may reject them."
+      );
+    } else if (osduUrl && osduUrl !== "http://localhost") {
       const bearer = context.bearer;
       const partition = context.partition;
       const categoryOf = (kind: string): string =>

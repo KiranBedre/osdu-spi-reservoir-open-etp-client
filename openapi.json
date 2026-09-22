@@ -18667,6 +18667,11 @@
             "type": "boolean",
             "description": "When true, build the manifest asynchronously: the request returns `202 Accepted` with a `jobId` immediately and the build continues in-process, so it is not bound by the ~60s edge/load-balancer request timeout that fronts the platform ingress. Poll `GET /manifests/jobs/{jobId}` for status and, once `completed`, the manifest + build diagnostics. When false (default) the build runs synchronously and the manifest is returned in the response body.",
             "example": false
+          },
+          "schemaCompat": {
+            "type": "boolean",
+            "description": "When true (default), run the schema-compatibility pass that resolves each record's kind against the target OSDU schema service and remaps/normalizes it to a registered kind (M27 behavior - maximizes ingestibility). When false, SKIP that pass entirely: every record keeps its original kind with no per-kind schema-service round-trips. This is a faster, M26-style build (useful as a worst-case escape hatch on high-latency links) but the manifest may carry kinds the target OSDU does not have registered, so ingestion could reject them.",
+            "example": true
           }
         },
         "required": [
