@@ -1239,6 +1239,7 @@ export const createManifest = async (
           referenceData: { remap: number; drop: number };
           workProductComponents: { remap: number; drop: number };
           suppressed: boolean;
+          skipped: boolean;
         }
       | undefined;
     if (osduUrl && osduUrl !== "http://localhost") {
@@ -1335,11 +1336,23 @@ export const createManifest = async (
           }
         }
       }
-      await Promise.all(
+      const warmResults = await Promise.all(
         Array.from(warmKinds).map(k =>
           isSchemaRegistered(k, osduUrl, bearer, partition)
         )
       );
+
+      // Short-circuit: if EVERY distinct kind got a definitive 404 from the
+      // schema service, the service is reachable but has NOTHING registered for
+      // this deployment (e.g. RDMS_OSDU_URL points at a bare/misconfigured OSDU
+      // instance). Running the normalize passes would then drop 100% of every
+      // array only for the per-array fail-safe to revert it all - pure wasted
+      // work whose only trace is misleading "drop=all/suppressed" diagnostics.
+      // isSchemaRegistered returns TRUE on transient/unreachable errors (and
+      // never caches `false`), so `some(true)===false` specifically means
+      // "definitive 404 for ALL kinds" - not "network down". Skip the pass.
+      const schemaServiceUsable =
+        warmResults.length === 0 || warmResults.some(r => r === true);
 
       // Fail-safe: the schema-compatibility pass must NEVER empty out a
       // non-empty array. A reachable-but-misconfigured schema service (or a
@@ -1367,52 +1380,72 @@ export const createManifest = async (
         return res.kept;
       };
 
-      const mdRes = await normalizeArray(manifests.MasterData);
-      manifests.MasterData = applyNormalized(
-        "MasterData",
-        manifests.MasterData,
-        mdRes
-      );
-      const rdRes = await normalizeArray(manifests.ReferenceData);
-      manifests.ReferenceData = applyNormalized(
-        "ReferenceData",
-        manifests.ReferenceData,
-        rdRes
-      );
-      let wpcRemapped = 0;
-      let wpcDropped = 0;
-      if (manifests.Data?.WorkProductComponents) {
-        const wpcInput = manifests.Data.WorkProductComponents;
-        const wpcRes = await normalizeArray(wpcInput);
-        manifests.Data.WorkProductComponents = applyNormalized(
-          "WorkProductComponents",
-          wpcInput,
-          wpcRes
+      if (!schemaServiceUsable) {
+        // Every distinct kind 404'd (see rationale above): skip the normalize
+        // passes entirely and keep all records unchanged - no per-record work.
+        schemaCompatDiag = {
+          masterData: { remap: 0, drop: 0 },
+          referenceData: { remap: 0, drop: 0 },
+          workProductComponents: { remap: 0, drop: 0 },
+          suppressed: false,
+          skipped: true
+        };
+        logger.warn(
+          `[schema-compat] SKIPPED: schema service at '${osduUrl}' returned 404 ` +
+          `for ALL ${warmKinds.size} distinct kind(s) - nothing registered for ` +
+          `this deployment; keeping every record unchanged (no per-record ` +
+          `normalize). Verify RDMS_OSDU_URL targets an OSDU whose schema-service ` +
+          `has the osdu:wks manifest kinds registered.`
         );
-        wpcRemapped = wpcRes.remapped;
-        wpcDropped = wpcRes.dropped;
-        // Resync the WorkProduct's Components list with the surviving WPC ids
-        // (post-remap/drop, or the reverted originals when the pass was
-        // suppressed) so the WorkProduct-centric DAG ingestion stays consistent.
-        if (manifests.Data?.WorkProduct?.data) {
-          manifests.Data.WorkProduct.data.Components =
-            manifests.Data.WorkProductComponents
-              .filter(rec => typeof (rec as { id?: unknown }).id === "string")
-              .map(rec => `${(rec as { id: string }).id}:`);
+      } else {
+        const mdRes = await normalizeArray(manifests.MasterData);
+        manifests.MasterData = applyNormalized(
+          "MasterData",
+          manifests.MasterData,
+          mdRes
+        );
+        const rdRes = await normalizeArray(manifests.ReferenceData);
+        manifests.ReferenceData = applyNormalized(
+          "ReferenceData",
+          manifests.ReferenceData,
+          rdRes
+        );
+        let wpcRemapped = 0;
+        let wpcDropped = 0;
+        if (manifests.Data?.WorkProductComponents) {
+          const wpcInput = manifests.Data.WorkProductComponents;
+          const wpcRes = await normalizeArray(wpcInput);
+          manifests.Data.WorkProductComponents = applyNormalized(
+            "WorkProductComponents",
+            wpcInput,
+            wpcRes
+          );
+          wpcRemapped = wpcRes.remapped;
+          wpcDropped = wpcRes.dropped;
+          // Resync the WorkProduct's Components list with the surviving WPC ids
+          // (post-remap/drop, or the reverted originals when the pass was
+          // suppressed) so the WorkProduct-centric DAG ingestion stays consistent.
+          if (manifests.Data?.WorkProduct?.data) {
+            manifests.Data.WorkProduct.data.Components =
+              manifests.Data.WorkProductComponents
+                .filter(rec => typeof (rec as { id?: unknown }).id === "string")
+                .map(rec => `${(rec as { id: string }).id}:`);
+          }
         }
+        schemaCompatDiag = {
+          masterData: { remap: mdRes.remapped, drop: mdRes.dropped },
+          referenceData: { remap: rdRes.remapped, drop: rdRes.dropped },
+          workProductComponents: { remap: wpcRemapped, drop: wpcDropped },
+          suppressed: schemaCompatSuppressed,
+          skipped: false
+        };
+        logger.info(
+          `[schema-compat] MasterData(remap=${mdRes.remapped},drop=${mdRes.dropped}) ` +
+          `ReferenceData(remap=${rdRes.remapped},drop=${rdRes.dropped}) ` +
+          `WorkProductComponents(remap=${wpcRemapped},drop=${wpcDropped})` +
+          (schemaCompatSuppressed ? " [SUPPRESSED: kept originals]" : "")
+        );
       }
-      schemaCompatDiag = {
-        masterData: { remap: mdRes.remapped, drop: mdRes.dropped },
-        referenceData: { remap: rdRes.remapped, drop: rdRes.dropped },
-        workProductComponents: { remap: wpcRemapped, drop: wpcDropped },
-        suppressed: schemaCompatSuppressed
-      };
-      logger.info(
-        `[schema-compat] MasterData(remap=${mdRes.remapped},drop=${mdRes.dropped}) ` +
-        `ReferenceData(remap=${rdRes.remapped},drop=${rdRes.dropped}) ` +
-        `WorkProductComponents(remap=${wpcRemapped},drop=${wpcDropped})` +
-        (schemaCompatSuppressed ? " [SUPPRESSED: kept originals]" : "")
-      );
     }
 
     // Actionable summary of ETP object types that were omitted from the
