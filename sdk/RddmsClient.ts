@@ -87,9 +87,52 @@ export interface DataspaceInput {
 }
 
 export interface ManifestInput {
-    dataspaceId: string;
+    /** URIs of resources or dataspaces to generate a manifest for. */
+    uris: string[];
+    /** Optional filter restricting non-property types when indexing whole dataspaces (accepts * and ? wildcards). */
     typePatterns?: string[];
+    /** Property inclusion, independent of typePatterns. "all" (default), "canonical", or "none". */
+    propertyFilter?: "canonical" | "none" | "all";
+    /** Type patterns (accepts * and ?) that hard-exclude matching types before inclusion rules (CRS always kept). */
+    excludePatterns?: string[];
+    /** If true (default), missing references are added as entries; else collected into an error list. */
     createMissingReferences?: boolean;
+    /** When true, read bulk arrays to compute spatial bounding boxes / active cell counts. Default false. */
+    includeArrayData?: boolean;
+    /** OSDU tags to apply. */
+    tags?: Record<string, string>;
+    /** Technical Assurance information. */
+    technicalAssurances?: unknown[];
+    /**
+     * When true, build asynchronously: returns `202` with a `jobId` immediately
+     * (not bound by the ~60s ingress timeout). Poll `manifest.job(jobId)` for
+     * status and the completed manifest. Default false (synchronous).
+     */
+    async?: boolean;
+    /**
+     * When true (default), run the schema-compatibility pass that remaps each
+     * record's kind to one registered in the target OSDU schema service
+     * (maximizes ingestibility). When false, skip it entirely for a faster,
+     * M26-style build with no per-kind schema-service round-trips (records keep
+     * their original kind, which the target OSDU may not have registered).
+     */
+    schemaCompat?: boolean;
+}
+
+/** `202 Accepted` payload returned by `manifest.build` when `async: true`. */
+export interface ManifestJobAccepted {
+    jobId: string;
+    status: string;
+    statusUrl: string;
+}
+
+/** Status payload returned by `manifest.job(jobId)`. */
+export interface ManifestJobStatus {
+    jobId: string;
+    status: "running" | "completed" | "failed" | string;
+    manifest?: unknown;
+    diagnostics?: unknown;
+    error?: string;
 }
 
 export interface FindResourcesInput {
@@ -413,9 +456,18 @@ export class RddmsClient {
     // ── Manifest ────────────────────────────────────────────────────────────
 
     readonly manifest = {
-        /** Build OSDU manifest from a dataspace */
+        /**
+         * Build an OSDU manifest from a dataspace / resource URIs.
+         *
+         * Synchronous (default): resolves to the manifest object.
+         * Async (`input.async === true`): resolves to a {@link ManifestJobAccepted}
+         * (`202`); poll {@link RddmsClient.manifest.job} until `completed`.
+         */
         build: (input: ManifestInput) =>
             this.post<unknown>("/manifests/build", input),
+        /** Poll the status/result of an async manifest build started with `async: true`. */
+        job: (jobId: string) =>
+            this.get<ManifestJobStatus>(`/manifests/jobs/${enc(jobId)}`),
     };
 
     // ── PWLS (curve / property catalogue) ────────────────────────────────
