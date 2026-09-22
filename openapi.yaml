@@ -15139,15 +15139,18 @@ components:
         schemaCompat:
           type: boolean
           description: >-
-            When true (default), run the schema-compatibility pass that resolves
-            each record's kind against the target OSDU schema service and
-            remaps/normalizes it to a registered kind (M27 behavior - maximizes
-            ingestibility). When false, SKIP that pass entirely: every record
-            keeps its original kind with no per-kind schema-service round-trips.
-            This is a faster, M26-style build (useful as a worst-case escape
-            hatch on high-latency links) but the manifest may carry kinds the
-            target OSDU does not have registered, so ingestion could reject
-            them.
+            Controls the schema-compatibility pass that resolves each record's
+            kind against the target OSDU schema service and remaps/normalizes it
+            to a registered kind (maximizes ingestibility). Tri-state: omit
+            (default) for AUTO — the pass runs for normal builds but is
+            automatically SKIPPED for large datasets (assembled record count over
+            `MANIFEST_SCHEMA_COMPAT_MAX_RECORDS`, default 500) because the
+            per-kind schema-service round-trips can push the build past the ~60s
+            edge/load-balancer timeout that fronts the platform ingress. Set
+            `true` to FORCE the pass on even for large datasets. Set `false` to
+            always SKIP it (faster, M26-style build; every record keeps its
+            original kind, which the target OSDU may not have registered, so
+            ingestion could reject them).
           example: true
       required:
         - uris
