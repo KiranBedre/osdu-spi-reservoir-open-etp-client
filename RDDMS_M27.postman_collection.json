@@ -5981,7 +5981,7 @@
                 "exec": [
                   "var s = pm.response.code;",
                   "pm.test('epc upload accepted or not-yet-deployed (200/201/404/413)', function(){ pm.expect(s).to.be.oneOf([200,201,404,413]); });",
-                  "if (s===200||s===201){ var b=pm.response.json(); var stored=(b.objectsStored!=null?b.objectsStored:(b.stored!=null?b.stored:b.object_count)); pm.collectionVariables.set('drogon_seed_stored', String(stored)); pm.test('objects stored > 0', function(){ pm.expect(Number(stored)).to.be.greaterThan(0); }); } else { console.log('NOTE: /epc/upload not deployed yet (pre-M27 preship) -> '+s); }"
+                  "if (s===200||s===201){ var b=pm.response.json(); var stored=(b.objectsStored!=null?b.objectsStored:(b.stored!=null?b.stored:b.object_count)); pm.collectionVariables.set('drogon_seed_stored', String(stored)); pm.test('objects stored > 0', function(){ pm.expect(Number(stored)).to.be.greaterThan(0); }); } else { console.log('NOTE: /epc/upload returned '+s+' — route IS deployed; 500 = ETP write permission denied for this token/env, 413 = payload too large, 404 = older build without the route'); }"
                 ]
               }
             }
