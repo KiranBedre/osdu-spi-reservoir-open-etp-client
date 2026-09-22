@@ -11958,11 +11958,14 @@ paths:
           required: false
           in: query
           description: >-
-            When 'true', runs RESQML strict validation (XSD, DOR integrity,
-            business rules) on the EPC before ingesting. If validation finds
-            errors, the upload still proceeds but the response includes a
-            `validation` report. Set to 'strict' to reject the upload on
-            validation errors (returns 400).
+            When 'true', runs RESQML validation (XSD, DOR integrity, business
+            rules) on the EPC before ingesting. If validation finds errors, the
+            upload still proceeds but the response includes a `validation`
+            report. Set to 'strict' to reject the upload (returns 400) - but
+            only on errors that actually block ingestion (malformed package,
+            broken references, missing arrays, known store incompatibilities).
+            Pure XSD-schema / business-rule pedantries that the ETP store
+            tolerates are reported but do not block.
           schema:
             type: string
             enum:
