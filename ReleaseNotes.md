@@ -247,6 +247,24 @@ runtime dependencies.
   documents (`type`, `title`, `status`, `detail`, `instance`); otherwise the
   default error shape is unchanged.
 
+### Binary array transport (non-breaking, opt-in)
+
+Raw-bytes array I/O for large numeric arrays, additive to the existing JSON
+paths. Default responses are unchanged; binary is opt-in per request.
+
+- **Binary read** - `GET .../resources/{dataObjectType}/{guid}/arrays/{path}?format=binary`
+  streams the array as little-endian `application/octet-stream`, with
+  `X-Array-Type` (the transport element type, e.g. `Float64Array`) and
+  `X-Array-Dimensions` response headers. `format=json` (default) and
+  `format=base64` are unchanged.
+- **Binary write** - new `PUT .../resources/{dataObjectType}/{guid}/arrays/{path}`
+  consumes `application/octet-stream`; `arrayType` and repeated `dimensions`
+  (optional `starts`/`counts` for a subarray slice, `transactionId`) are query
+  parameters. An empty body creates an empty array of the given shape. The
+  existing batch `PUT .../resources/arrays` (JSON) is unchanged.
+- **Why** - avoids base64's ~33% size inflation and JSON parsing for large
+  numeric arrays, and lets the raw buffer stream straight through.
+
 ### Operational
 
 - **Converter registry** - `GET /health/converters` lists all registered source
@@ -350,8 +368,10 @@ the OpenAPI decorators.
 - **Neutral examples** - request/response examples use neutral placeholder
   values rather than named products or vendors.
 - **Regenerated specs** - `openapi.json`, `openapi.yaml`, and `swagger.json`
-  reflect the enriched descriptions, WITSML `$format` flag, JSON store input, and
-  enriched query filters. Suitable for client generation.
+  reflect the enriched descriptions, WITSML `$format` flag, JSON store input,
+  enriched query filters, and the opt-in binary array I/O (`?format=binary`
+  read and the octet-stream `PUT .../arrays/{path}` write). Suitable for client
+  generation.
 
 ---
 
@@ -381,6 +401,7 @@ internal; no API changes.
 | 11 | `new Array(n)` pre-allocation for chunked slices | Faster allocation for sub-array slicing |
 | 12 | Parallel array uploads with bounded concurrency (default 5) | 3–5× faster for many small arrays |
 | 13 | Zero-copy TypedArray chunking + Avro memcpy for float/double | 15% faster putArrays; ~1 GB less heap for large datasets |
+| 14 | HTTP response compression (gzip/brotli) via `Accept-Encoding`, JSON only - raw `application/octet-stream` array streams are explicitly excluded | Smaller JSON on the wire; no CPU wasted gzipping incompressible binary array buffers |
 
 </details>
 
