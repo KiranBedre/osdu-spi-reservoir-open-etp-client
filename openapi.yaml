@@ -1282,8 +1282,11 @@ paths:
         business rules). Read-only - does not modify any data.
 
 
-        **Performance**: Fetches full XML for every object in the dataspace. For
-        large dataspaces (>1000 objects), this may take several seconds.
+        **Performance / limits**: Object bodies are fetched in batches. To
+        protect the shared service, dataspaces with more than
+        `VALIDATE_MAX_OBJECTS` objects (default 2000) return **413**, and a run
+        that exceeds `VALIDATE_TIME_BUDGET_MS` (default 45s) returns **408**
+        instead of overrunning the request budget.
       operationId: ResourcesReadAPI_ValidateDataspace
       parameters:
         - name: data-partition-id
@@ -15146,8 +15149,8 @@ components:
             kind against the target OSDU schema service and remaps/normalizes it
             to a registered kind (maximizes ingestibility). Tri-state: omit
             (default) for AUTO — the pass runs for normal builds but is
-            automatically SKIPPED for large datasets (assembled record count over
-            `MANIFEST_SCHEMA_COMPAT_MAX_RECORDS`, default 500) because the
+            automatically SKIPPED for large datasets (assembled record count
+            over `MANIFEST_SCHEMA_COMPAT_MAX_RECORDS`, default 500) because the
             per-kind schema-service round-trips can push the build past the ~60s
             edge/load-balancer timeout that fronts the platform ingress. Set
             `true` to FORCE the pass on even for large datasets. Set `false` to

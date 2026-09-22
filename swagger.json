@@ -1655,7 +1655,7 @@
     },
     "/dataspaces/{dataspaceId}/validate": {
       "post": {
-        "description": "Fetches all data objects from the dataspace via ETP and runs RESQML strict validation (XSD schema, DOR integrity, cross-object consistency, business rules). Read-only - does not modify any data.\n\n**Performance**: Fetches full XML for every object in the dataspace. For large dataspaces (>1000 objects), this may take several seconds.",
+        "description": "Fetches all data objects from the dataspace via ETP and runs RESQML strict validation (XSD schema, DOR integrity, cross-object consistency, business rules). Read-only - does not modify any data.\n\n**Performance / limits**: Object bodies are fetched in batches. To protect the shared service, dataspaces with more than `VALIDATE_MAX_OBJECTS` objects (default 2000) return **413**, and a run that exceeds `VALIDATE_TIME_BUDGET_MS` (default 45s) returns **408** instead of overrunning the request budget.",
         "operationId": "ResourcesReadAPI_ValidateDataspace",
         "parameters": [
           {
