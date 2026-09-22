@@ -13451,24 +13451,24 @@ paths:
                     pattern: ^[0-9a-zA-Z@\-/]+$
                   version:
                     type: string
-                    example: 1.0.1
+                    example: 1.3.0
                     maxLength: 2048
                     pattern: ^[0-9.]+$
                   commitId:
                     type: string
-                    example: 1.0.1
+                    example: 26e41156d47fc48f60835c72aecdf46f2d4c541c
                     maxLength: 2048
                     pattern: ^[0-9a-fA-F]+$
                   commitTime:
                     type: string
-                    example: 2023-07-24 20:53:33 -0500
+                    example: '2026-09-22T08:40:14+02:00'
                     maxLength: 2048
-                    pattern: ^[0-9a-zA-Z \-:]+$
+                    pattern: ^[0-9a-zA-Z +\-:]+$
                   buildTime:
                     type: string
-                    example: 2023-07-24 20:53:33 -0500
+                    example: '2026-09-22T06:49:22Z'
                     maxLength: 2048
-                    pattern: ^[0-9a-zA-Z \-:]+$
+                    pattern: ^[0-9a-zA-Z +\-:]+$
                 required:
                   - groupId
                   - artifactId
