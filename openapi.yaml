@@ -2124,6 +2124,10 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ManifestDto'
+        '202':
+          description: >-
+            Accepted (async:true). Body contains { jobId, status, statusUrl }.
+            Poll GET /manifests/jobs/{jobId}.
         '401':
           description: Unauthorized
           content:
@@ -2325,6 +2329,252 @@ paths:
       security:
         - HTTPBearer: []
       summary: Build OSDU manifest from ETP resources
+      tags:
+        - Manifest
+  /manifests/jobs/{jobId}:
+    get:
+      description: >-
+        Returns the current state of an async manifest build started via `POST
+        /manifests/build` with `async: true`.
+
+
+        - `status: "running"` - build in progress; poll again.
+
+        - `status: "completed"` - includes `manifest` and `diagnostics`.
+
+        - `status: "failed"` - includes `error`.
+
+
+        Build diagnostics are also echoed in the `X-Manifest-Build-Diagnostics`
+        response header when available.
+      operationId: ObjectsManifestAPI_GetManifestJob
+      parameters:
+        - name: x-collaboration
+          in: header
+          description: >-
+            Optional collaboration context forwarded to OSDU storage services
+            (JSON string).
+          required: false
+          schema:
+            type: string
+        - name: data-partition-id
+          in: header
+          description: Data partition id
+          schema:
+            type: string
+            example: data-partition-id
+            maxLength: 1048
+            pattern: ^[A-Za-z0-9]+(-[A-Za-z0-9]+)*$
+        - name: jobId
+          required: true
+          in: path
+          description: Job id returned by POST /manifests/build with async:true.
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Job status (and manifest when completed).
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 401
+                    maximum: 401
+                    example: 401
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 403
+                    maximum: 403
+                    example: 403
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 404
+                    maximum: 404
+                    example: 404
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '406':
+          description: Not acceptable response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 406
+                    maximum: 406
+                    example: 406
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '410':
+          description: >-
+            The underlying ETP WebSocket session has been terminated by the ETP
+            server. The transaction is no longer usable and must not be retried;
+            clients should open a new transaction.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  code:
+                    type: string
+                    example: WEBSOCKET_SESSION_TERMINATED
+                    description: >-
+                      Stable machine-readable identifier for this error
+                      condition.
+                  description:
+                    type: string
+                    example: >-
+                      ETP WebSocket session terminated (code 1011, reason:
+                      Internal server error).
+                  transactionId:
+                    type: string
+                    format: uuid
+                    description: Transaction id that was terminated.
+                  closeCode:
+                    type: integer
+                    format: int32
+                    example: 1011
+                    description: WebSocket close code reported by the ETP server.
+                  closeReason:
+                    type: string
+                    description: WebSocket close reason reported by the ETP server.
+                  terminatedAt:
+                    type: string
+                    format: date-time
+                    description: ISO-8601 timestamp when the session was terminated.
+                  retryable:
+                    type: boolean
+                    example: false
+                    description: >-
+                      Always false. The transaction cannot be reused; open a new
+                      one.
+        '429':
+          description: Too many request
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 429
+                    maximum: 429
+                    example: 429
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '500':
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        default:
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+      security:
+        - HTTPBearer: []
+      summary: Get the status/result of an async manifest build
       tags:
         - Manifest
   /dataspaces/{dataspaceId}/resources/all:
@@ -14874,6 +15124,17 @@ components:
             compute spatial bounding boxes and active cell counts. When false
             (default), skip array reads for faster performance at the cost of
             missing SpatialArea and ActiveCellCount fields.
+          example: false
+        async:
+          type: boolean
+          description: >-
+            When true, build the manifest asynchronously: the request returns
+            `202 Accepted` with a `jobId` immediately and the build continues
+            in-process, so it is not bound by the ~60s edge/load-balancer
+            request timeout that fronts the platform ingress. Poll `GET
+            /manifests/jobs/{jobId}` for status and, once `completed`, the
+            manifest + build diagnostics. When false (default) the build runs
+            synchronously and the manifest is returned in the response body.
           example: false
       required:
         - uris

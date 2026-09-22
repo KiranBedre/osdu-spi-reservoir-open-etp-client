@@ -663,7 +663,11 @@ export const createManifest = async (
       // that latency. Node is single-threaded, so overlapping the awaits is
       // safe for the synchronous Map/Set mutations on the shared context while
       // still cutting wall-clock time dramatically on large models.
-      const CONVERT_CONCURRENCY = 16;
+      // 32-way: profiling large models (e.g. demo/Volve) showed the build is
+      // dominated by independent ETP getObjects/getDataArray round-trip LATENCY
+      // rather than CPU, so raising the number of in-flight requests on the
+      // multiplexed ETP session hides more of that latency.
+      const CONVERT_CONCURRENCY = 32;
       const processOne = async (i: number): Promise<void> => {
         const resObj = resolvedObjects[i];
         if (resObj?.$type === undefined) {
@@ -1032,7 +1036,9 @@ export const createManifest = async (
 
         // Convert the missing refs with bounded concurrency, overlapping the
         // per-object OSDU existence checks the same way the primary loop does.
-        const REF_CONCURRENCY = 16;
+        // Matches the primary loop's 32-way width: reference resolution is the
+        // same latency-bound ETP round-trip workload.
+        const REF_CONCURRENCY = 32;
         let refIndex = 0;
         const refWorker = async (): Promise<void> => {
           for (; ;) {

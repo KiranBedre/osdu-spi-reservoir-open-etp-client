@@ -227,6 +227,7 @@ export default async function app(): Promise<NestExpressApplication> {
       "/dataspaces/{dataspaceId}",                                                                // delete
       // ── Manifest ──
       "/manifests/build",
+      "/manifests/jobs/{jobId}",
       // ── Resources: read / drill-down ──
       "/dataspaces/{dataspaceId}/resources/all",                                                  // all resources in a dataspace
       "/dataspaces/{dataspaceId}/resources",                                                      // resource types (+ put objects)

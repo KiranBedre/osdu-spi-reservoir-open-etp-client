@@ -17,6 +17,9 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
+  NotFoundException,
+  Param,
   Post,
   Req,
   Res,
@@ -35,8 +38,10 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiProperty,
   ApiPropertyOptional,
+  ApiResponse,
   ApiTags,
   ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse
@@ -60,6 +65,7 @@ import { datePattern } from "./Resource.controller";
 
 import { decode } from "jsonwebtoken";
 import express from "express";
+import { randomUUID } from "crypto";
 import {
   IsArray,
   IsString,
@@ -86,6 +92,61 @@ import { bigIntToString } from "../../mlTypes/XmlJsonUtil";
 import logging from "../../common/Logging";
 
 const logger = logging.getLogger("EtpClient");
+
+/**
+ * In-memory registry for asynchronous manifest builds.
+ *
+ * Large dataspaces (e.g. demo/Volve) can take longer than the ~60s edge/load
+ * balancer timeout that fronts the platform ingress, so the synchronous
+ * `POST /manifests/build` connection is cut before the build returns. The async
+ * variant returns 202 immediately with a `jobId`, runs the build in-process
+ * (no HTTP timeout applies once the response has been sent), and exposes the
+ * result/diagnostics/error through `GET /manifests/jobs/{jobId}`.
+ *
+ * NOTE: the registry is per-process. When the gateway runs multiple replicas,
+ * a status poll must reach the same replica that accepted the build (sticky
+ * routing) or it will 404. This DDMS is single-replica on the current
+ * deployments; a shared store would be required to relax that.
+ */
+interface ManifestBuildJob {
+  jobId: string;
+  status: "running" | "completed" | "failed";
+  createdAt: number;
+  finishedAt?: number;
+  partition: string;
+  requestedBy?: string;
+  uris?: string[];
+  durationMs?: number;
+  result?: unknown;
+  diagnostics?: unknown;
+  error?: string;
+}
+
+const MANIFEST_JOBS = new Map<string, ManifestBuildJob>();
+// Retain completed jobs for 30 minutes so a client has time to poll + download.
+const MANIFEST_JOB_TTL_MS = 30 * 60 * 1000;
+// Hard cap on retained jobs (each may hold a multi-MB manifest) - evict oldest
+// finished jobs beyond this to bound memory.
+const MANIFEST_JOB_MAX = 50;
+
+/** Drop TTL-expired jobs and enforce the size cap (oldest finished first). */
+function evictManifestJobs(): void {
+  const now = Date.now();
+  for (const [id, j] of MANIFEST_JOBS) {
+    if (j.finishedAt !== undefined && now - j.finishedAt > MANIFEST_JOB_TTL_MS) {
+      MANIFEST_JOBS.delete(id);
+    }
+  }
+  if (MANIFEST_JOBS.size > MANIFEST_JOB_MAX) {
+    const finished = Array.from(MANIFEST_JOBS.values())
+      .filter(j => j.finishedAt !== undefined)
+      .sort((a, b) => (a.finishedAt ?? 0) - (b.finishedAt ?? 0));
+    for (const j of finished) {
+      if (MANIFEST_JOBS.size <= MANIFEST_JOB_MAX) break;
+      MANIFEST_JOBS.delete(j.jobId);
+    }
+  }
+}
 
 const emailPattern =
   /^[a-zA-Z0-9_+&*-]+(?:\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,7}$/;
@@ -415,6 +476,16 @@ export class ManifestInputDto {
   @IsOptional()
   @IsBoolean()
   includeArrayData?: boolean = false;
+
+  @ApiPropertyOptional({
+    name: "async",
+    description: `When true, build the manifest asynchronously: the request returns \`202 Accepted\` with a \`jobId\` immediately and the build continues in-process, so it is not bound by the ~60s edge/load-balancer request timeout that fronts the platform ingress. Poll \`GET /manifests/jobs/{jobId}\` for status and, once \`completed\`, the manifest + build diagnostics. When false (default) the build runs synchronously and the manifest is returned in the response body.`,
+    type: Boolean,
+    example: false
+  })
+  @IsOptional()
+  @IsBoolean()
+  async?: boolean = false;
 }
 
 /**
@@ -541,6 +612,11 @@ Common presets: all types + all properties (default); all types + no properties 
     description: "Success",
     type: ManifestDto
   })
+  @ApiResponse({
+    status: 202,
+    description:
+      "Accepted (async:true). Body contains { jobId, status, statusUrl }. Poll GET /manifests/jobs/{jobId}."
+  })
   public async GetManifest(
     @Body() body: ManifestInputDto,
     @Req() request: express.Request,
@@ -555,55 +631,124 @@ Common presets: all types + all properties (default); all types + no properties 
       });
     }
 
-    let c = undefined;
-    try {
-      logger.info("Initializing manifest creation process.");
-      let maxManifestSize = 1000;
-
-      // Reduce the manifest size for browsers
-      const userAgent = request.headers["user-agent"];
-      if (
-        userAgent?.includes("Mozilla") ||
-        userAgent?.includes("Chrome") ||
-        userAgent?.includes("Safari")
-      ) {
-        maxManifestSize = 1;
-        logger.info("Detected browser user-agent, reducing manifest size.");
-      }
+    // Async mode (opt-in via `async: true`): register a job, return 202 with a
+    // jobId immediately, and continue the build in-process so it is not bound
+    // by the ~60s edge/LB request timeout. Poll GET /manifests/jobs/{jobId}.
+    if (body.async === true) {
       const bearer = extractToken(request);
       const jwt = bearer ? (decode(bearer) as JwtPayload) : {};
       const partition = extractDataPartitionId(request);
+      const partitionStr = typeof partition === "string" ? partition : "osdu";
+      const requestedBy =
+        jwt === null || typeof jwt === "string" ? undefined : jwt.unique_name;
 
-      logger.info(`Extracted partition ID: ${partition}`);
-      const context = new OSDUContext(
-        typeof partition === "string" ? partition : "osdu",
-        jwt === null || typeof jwt === "string" ? undefined : jwt.unique_name,
-        body.tags,
-        body.createMissingReferences,
-        body.includeArrayData
+      const jobId = randomUUID();
+      const job: ManifestBuildJob = {
+        jobId,
+        status: "running",
+        createdAt: Date.now(),
+        partition: partitionStr,
+        requestedBy,
+        uris: body.uris
+      };
+      MANIFEST_JOBS.set(jobId, job);
+      evictManifestJobs();
+
+      // Fire-and-forget: the build continues after the 202 response is sent, so
+      // it is not bound by the edge/LB request timeout. Any error is captured
+      // into the job record; the promise is deliberately not awaited.
+      void this.runManifestBuildJob(job, body, request);
+
+      res.status(202).json({
+        jobId,
+        status: job.status,
+        statusUrl: `manifests/jobs/${jobId}`
+      });
+      return;
+    }
+
+    try {
+      const { manifest, diagnostics } = await this.buildManifestFromBody(
+        body,
+        request
       );
-
-      context.bearer = bearer;
-
-      // Remove the "array" part of the technical assurances to convert to internal representation
-      if (body.technicalAssurances !== undefined) {
-        context.technicalAssurances = body.technicalAssurances.map(ta => {
-          const nta = { ...ta };
-          if (ta.AcceptableUsage !== undefined) {
-            nta.AcceptableUsage = ta.AcceptableUsage.map(au => ({ ...au }));
-          }
-          if (ta.Reviewers !== undefined) {
-            nta.Reviewers = ta.Reviewers.map(r => ({ ...r }));
-          }
-          if (ta.UnacceptableUsage !== undefined) {
-            nta.UnacceptableUsage = ta.UnacceptableUsage.map(au => ({ ...au }));
-          }
-          return nta;
-        });
+      // Echo build diagnostics (non-enumerable, so absent from the body) in a
+      // response header. This makes an empty/degraded manifest self-explaining
+      // even when server logs are unreachable (e.g. cimpl pods) - the header
+      // reports input/created/skip/convert-failed counts and the dominant
+      // failing types without altering the schema-compliant manifest body.
+      if (diagnostics !== undefined) {
+        try {
+          res.set("X-Manifest-Build-Diagnostics", JSON.stringify(diagnostics));
+        } catch {
+          // Never let header serialization break the response.
+        }
       }
+      res.send(JSON.stringify(manifest, bigIntToString, 2));
+    } catch (err) {
+      logger.error("Error occurred during manifest creation.");
+      throw httpErrorFromEtpError(err);
+    }
+  }
 
-      logger.debug("Creating session.");
-      c = await createSession(bearer, partition);
+  /**
+   * Shared build path used by both the synchronous `POST /manifests/build`
+   * and its asynchronous mode (`POST /manifests/build` with `async: true`).
+   * Owns the ETP session lifecycle (always closed via `finally`) and returns
+   * the built manifest together with its non-enumerable build diagnostics.
+   */
+  private async buildManifestFromBody(
+    body: ManifestInputDto,
+    request: express.Request
+  ): Promise<{ manifest: unknown; diagnostics: unknown }> {
+    logger.info("Initializing manifest creation process.");
+    let maxManifestSize = 1000;
+
+    // Reduce the manifest size for browsers
+    const userAgent = request.headers["user-agent"];
+    if (
+      userAgent?.includes("Mozilla") ||
+      userAgent?.includes("Chrome") ||
+      userAgent?.includes("Safari")
+    ) {
+      maxManifestSize = 1;
+      logger.info("Detected browser user-agent, reducing manifest size.");
+    }
+    const bearer = extractToken(request);
+    const jwt = bearer ? (decode(bearer) as JwtPayload) : {};
+    const partition = extractDataPartitionId(request);
+
+    logger.info(`Extracted partition ID: ${partition}`);
+    const context = new OSDUContext(
+      typeof partition === "string" ? partition : "osdu",
+      jwt === null || typeof jwt === "string" ? undefined : jwt.unique_name,
+      body.tags,
+      body.createMissingReferences,
+      body.includeArrayData
+    );
+
+    context.bearer = bearer;
+
+    // Remove the "array" part of the technical assurances to convert to internal representation
+    if (body.technicalAssurances !== undefined) {
+      context.technicalAssurances = body.technicalAssurances.map(ta => {
+        const nta = { ...ta };
+        if (ta.AcceptableUsage !== undefined) {
+          nta.AcceptableUsage = ta.AcceptableUsage.map(au => ({ ...au }));
+        }
+        if (ta.Reviewers !== undefined) {
+          nta.Reviewers = ta.Reviewers.map(r => ({ ...r }));
+        }
+        if (ta.UnacceptableUsage !== undefined) {
+          nta.UnacceptableUsage = ta.UnacceptableUsage.map(au => ({ ...au }));
+        }
+        return nta;
+      });
+    }
+
+    logger.debug("Creating session.");
+    const c = await createSession(bearer, partition);
+    try {
       const b = await createManifest(
         c,
         body.uris ?? [],
@@ -614,26 +759,99 @@ Common presets: all types + all properties (default); all types + no properties 
         body.excludePatterns
       );
       logger.info("Manifest creation successful.");
+      return {
+        manifest: b,
+        diagnostics: (b as { __buildDiagnostics?: unknown }).__buildDiagnostics
+      };
+    } finally {
       await c.closeSession();
-      c = undefined;
-      // Echo build diagnostics (non-enumerable, so absent from the body) in a
-      // response header. This makes an empty/degraded manifest self-explaining
-      // even when server logs are unreachable (e.g. cimpl pods) - the header
-      // reports input/created/skip/convert-failed counts and the dominant
-      // failing types without altering the schema-compliant manifest body.
-      const diag = (b as { __buildDiagnostics?: unknown }).__buildDiagnostics;
-      if (diag !== undefined) {
-        try {
-          res.set("X-Manifest-Build-Diagnostics", JSON.stringify(diag));
-        } catch {
-          // Never let header serialization break the response.
-        }
-      }
-      res.send(JSON.stringify(b, bigIntToString, 2));
-    } catch (err) {
-      logger.error("Error occurred during manifest creation.");
-      c?.closeSession();
-      throw httpErrorFromEtpError(err);
     }
+  }
+
+  /** Background worker for an async manifest build - never throws. */
+  private async runManifestBuildJob(
+    job: ManifestBuildJob,
+    body: ManifestInputDto,
+    request: express.Request
+  ): Promise<void> {
+    const t0 = Date.now();
+    try {
+      const { manifest, diagnostics } = await this.buildManifestFromBody(
+        body,
+        request
+      );
+      job.result = manifest;
+      job.diagnostics = diagnostics;
+      job.status = "completed";
+      logger.info(`[manifest-async] job ${job.jobId} completed.`);
+    } catch (err) {
+      job.status = "failed";
+      job.error = (err as { message?: string })?.message ?? String(err);
+      logger.error(`[manifest-async] job ${job.jobId} failed: ${job.error}`);
+    } finally {
+      job.finishedAt = Date.now();
+      job.durationMs = job.finishedAt - t0;
+      evictManifestJobs();
+    }
+  }
+
+  @Get("jobs/:jobId")
+  @ApiParam({
+    name: "jobId",
+    description: "Job id returned by POST /manifests/build with async:true."
+  })
+  @ApiOperation({
+    summary: "Get the status/result of an async manifest build",
+    description: `Returns the current state of an async manifest build started via \`POST /manifests/build\` with \`async: true\`.
+
+- \`status: "running"\` - build in progress; poll again.
+- \`status: "completed"\` - includes \`manifest\` and \`diagnostics\`.
+- \`status: "failed"\` - includes \`error\`.
+
+Build diagnostics are also echoed in the \`X-Manifest-Build-Diagnostics\` response header when available.`,
+    servers: swaggerServers
+  })
+  @ApiOkResponse({ description: "Job status (and manifest when completed)." })
+  public async GetManifestJob(
+    @Param("jobId") jobId: string,
+    @Res() res: express.Response
+  ): Promise<void> {
+    const job = MANIFEST_JOBS.get(jobId);
+    if (job === undefined) {
+      throw new NotFoundException({
+        description: `No manifest job '${jobId}' (unknown, expired, or handled by another replica)`
+      });
+    }
+
+    res.set("Content-Type", "application/json");
+    if (job.diagnostics !== undefined) {
+      try {
+        res.set("X-Manifest-Build-Diagnostics", JSON.stringify(job.diagnostics));
+      } catch {
+        // Never let header serialization break the response.
+      }
+    }
+
+    const payload: Record<string, unknown> = {
+      jobId: job.jobId,
+      status: job.status,
+      createdAt: new Date(job.createdAt).toISOString(),
+      finishedAt:
+        job.finishedAt !== undefined
+          ? new Date(job.finishedAt).toISOString()
+          : undefined,
+      durationMs: job.durationMs,
+      partition: job.partition,
+      requestedBy: job.requestedBy,
+      uris: job.uris
+    };
+    if (job.status === "completed") {
+      payload.diagnostics = job.diagnostics;
+      payload.manifest = job.result;
+    } else if (job.status === "failed") {
+      payload.error = job.error;
+    }
+
+    res.status(200).send(JSON.stringify(payload, bigIntToString, 2));
   }
 }
