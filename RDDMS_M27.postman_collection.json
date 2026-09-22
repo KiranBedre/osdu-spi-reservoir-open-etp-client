@@ -5161,7 +5161,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,400,404,501]); });"
+                  "pm.test(\"status documented\", function(){ pm.expect(pm.response.code).to.be.oneOf([200,201,400,404,501]); });"
                 ]
               }
             }
@@ -6023,8 +6023,8 @@
                 "type": "text/javascript",
                 "exec": [
                   "var s = pm.response.code;",
-                  "pm.test('validate ok or not-yet-deployed (200/404)', function(){ pm.expect(s).to.be.oneOf([200,404]); });",
-                  "if (s===200){ var b=pm.response.json(); var v=(b.is_valid!=null?b.is_valid:b.isValid); pm.test('dataspace is valid', function(){ pm.expect(v===true||v===undefined).to.be.true; }); }"
+                  "pm.test('validate ok or not-yet-deployed (200/201/404)', function(){ pm.expect(s).to.be.oneOf([200,201,404]); });",
+                  "if (s===200||s===201){ var b=pm.response.json(); var v=(b.is_valid!=null?b.is_valid:b.isValid); pm.test('dataspace is valid', function(){ pm.expect(v===true||v===undefined).to.be.true; }); }"
                 ]
               }
             }

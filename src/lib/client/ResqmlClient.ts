@@ -1134,8 +1134,8 @@ export class ResqmlClient {
       // Fail loudly instead (maps to 501 Not Implemented).
       throw new EtpError(
         "reidentify=true is not supported on this server: it cannot perform a " +
-          "DataspaceOSDU content copy, so object UUIDs cannot be re-minted. " +
-          "Retry without reidentify to create a reference snapshot.",
+        "DataspaceOSDU content copy, so object UUIDs cannot be re-minted. " +
+        "Retry without reidentify to create a reference snapshot.",
         ErrorCode.ENOTSUPPORTED
       );
     }
@@ -3484,6 +3484,70 @@ export class ResqmlClient {
     }
 
     return values.toString();
+  }
+
+  /**
+   * Encode the data array as a raw little-endian binary buffer, using the
+   * natural width of the transport element type (Float32/Float64/Int32/Int64/
+   * UInt8), together with the concrete typed-array kind the buffer represents.
+   *
+   * Unlike {@link formatArrayData} with `format="base64"`, this returns the raw
+   * bytes with no base64 (+33% size) or JSON string escaping, so it can be
+   * streamed directly with `Content-Type: application/octet-stream`. The
+   * returned `arrayType` describes the actual bytes (which follow the ETP
+   * transport union, e.g. an `_ArrayOfLong` is emitted as `BigInt64Array`), and
+   * must be conveyed out of band (e.g. an `X-Array-Type` header) so the receiver
+   * can reinterpret the buffer with the matching typed-array view. This can
+   * differ from the logical array type reported in the array metadata.
+   *
+   * @param {Energistics.Etp.v12.Datatypes.AnyArray} array
+   * @returns {({ buffer: Buffer; arrayType: string } | undefined)}
+   */
+  public arrayDataToBuffer(
+    array: Energistics.Etp.v12.Datatypes.AnyArray
+  ): { buffer: Buffer; arrayType: string } | undefined {
+    const values = array.item[array.item.__keyName]?.values;
+    if (!values) {
+      return undefined;
+    }
+    switch (array.item.__keyName) {
+      case "_ArrayOfBoolean": {
+        const typedValues = values as boolean[];
+        return {
+          buffer: Buffer.from(
+            new Uint8Array(typedValues.map(v => (v ? 1 : 0))).buffer
+          ),
+          arrayType: "Uint8Array"
+        };
+      }
+      case "_ArrayOfFloat":
+        return {
+          buffer: Buffer.from(new Float32Array(values as number[]).buffer),
+          arrayType: "Float32Array"
+        };
+      case "_ArrayOfDouble":
+        return {
+          buffer: Buffer.from(new Float64Array(values as number[]).buffer),
+          arrayType: "Float64Array"
+        };
+      case "_ArrayOfInt":
+        return {
+          buffer: Buffer.from(new Int32Array(values as number[]).buffer),
+          arrayType: "Int32Array"
+        };
+      case "_ArrayOfLong":
+        return {
+          buffer: Buffer.from(new BigInt64Array(values as bigint[]).buffer),
+          arrayType: "BigInt64Array"
+        };
+      case "_ArrayOfString":
+        return {
+          buffer: Buffer.from((values as string[]).join(","), "utf-8"),
+          arrayType: "string"
+        };
+    }
+
+    return undefined;
   }
 
   /**

@@ -147,6 +147,7 @@ export class OSDUContext {
   public srnToUri: Map<string, string> = new Map();
   public uriToObject: Map<string, IResqmlDataObject> = new Map();
   public createMissingReferences?: boolean = true;
+  public schemaCompat: boolean = true;
   public useDataArrayForManifest: boolean = false;
   public bearer?: string;
   public collaboration?: string;

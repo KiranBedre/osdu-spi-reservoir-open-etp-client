@@ -32,6 +32,7 @@ import {
   ApiBadRequestResponse,
   ApiBearerAuth,
   ApiBody,
+  ApiConsumes,
   ApiDefaultResponse,
   ApiForbiddenResponse,
   ApiGoneResponse,
@@ -74,6 +75,7 @@ import {
   FindInObjectParams,
   HasBearerGuard,
   HasDataPartitionGuard,
+  OptionalParseIntArrayPipe,
   createSession,
   dataObjectTypePattern,
   errorMessageSchema,
@@ -101,8 +103,11 @@ import { AnyTypedArray } from "../../protocols/ArrayCustomer";
 import { EmlObjectDto } from "../read-etp.module/Object.controller";
 import {
   AnyTypedArrayString,
+  DataArrayParams,
   arrayPathPattern,
-  arrayTypeString
+  arrayTypeString,
+  countsQueryParam,
+  startsQueryParam
 } from "../read-etp.module/Array.controller";
 import { versionQueryParam } from "../read-etp.module/Resource.controller";
 
@@ -839,6 +844,47 @@ Each object must conform to the Energistics JSON schema for its type and include
   }
 
   /**
+   * Reinterpret a raw little-endian binary buffer as a typed array of the given
+   * element type. Counterpart to the base64 branch of {@link toTypeArray}, but
+   * fed straight from an `application/octet-stream` request body so there is no
+   * base64 decode step.
+   *
+   * @private
+   * @memberof MutationsAPI
+   */
+  private bufferToTypeArray(buf: Buffer, arrayType: string): AnyTypedArray {
+    const int8 = new Int8Array(buf);
+    switch (arrayType) {
+      case "Int8Array":
+        return int8;
+      case "Uint8Array":
+        return new Uint8Array(int8.buffer);
+      case "Uint8ClampedArray":
+        return new Uint8ClampedArray(int8.buffer);
+      case "Int16Array":
+        return new Int16Array(int8.buffer);
+      case "Uint16Array":
+        return new Uint16Array(int8.buffer);
+      case "Int32Array":
+        return new Int32Array(int8.buffer);
+      case "Uint32Array":
+        return new Uint32Array(int8.buffer);
+      case "Float32Array":
+        return new Float32Array(int8.buffer);
+      case "Float64Array":
+        return new Float64Array(int8.buffer);
+      case "BigInt64Array":
+        return new BigInt64Array(int8.buffer);
+      case "BigUint64Array":
+        return new BigUint64Array(int8.buffer);
+      default:
+        throw new BadRequestException({
+          description: `Unsupported arrayType for binary upload: ${arrayType}`
+        });
+    }
+  }
+
+  /**
    * Put a new data array or replace existing array or part of the array formatted as json
    *
    * @memberof MutationsAPI
@@ -1078,6 +1124,191 @@ Each object must conform to the Energistics JSON schema for its type and include
       return r;
     } catch (err) {
       logger.error(`Error occurred while putting data arrays: ${err}`);
+      if (!transactionId) {
+        await c?.closeSession();
+      }
+      throw httpErrorFromEtpError(err);
+    }
+  }
+
+  private asIntArray(
+    v: number[] | number | undefined
+  ): number[] | undefined {
+    if (v === undefined) {
+      return undefined;
+    }
+    return Array.isArray(v) ? v : [v];
+  }
+
+  @Put(":dataObjectType/:guid/arrays/:pathInResource")
+  @ApiConsumes("application/octet-stream")
+  @ApiBody({
+    description:
+      "Raw little-endian array bytes matching `arrayType`. Send an empty body to create an empty array of the given `dimensions`.",
+    required: false,
+    schema: { type: "string", format: "binary" }
+  })
+  @ApiQuery({
+    name: "arrayType",
+    required: true,
+    description: "Element type of the binary payload",
+    schema: { type: "string", enum: arrayTypeString }
+  })
+  @ApiQuery({
+    name: "dimensions",
+    required: true,
+    description:
+      "Number of items in each dimension (repeat the param per dimension, e.g. dimensions=100&dimensions=3)",
+    isArray: true,
+    type: "integer",
+    schema: {
+      type: "array",
+      maxItems: 1000,
+      items: {
+        type: "integer",
+        format: "int32",
+        minimum: 1,
+        maximum: 1000000
+      }
+    }
+  })
+  @ApiQuery(startsQueryParam)
+  @ApiQuery(countsQueryParam)
+  @ApiQuery(transactionIdQueryParam)
+  @ApiOkResponse({ description: "Success", schema: { type: "boolean" } })
+  @ApiBadRequestResponse(
+    errorMessageSchema(
+      `Validation Failed: Invalid Range: Starts + Counts exceed Dimensions`
+    )
+  )
+  @ApiOperation({
+    summary: "Create or update a data array from a raw binary body",
+    description: `Binary counterpart to \`PUT /resources/arrays\` for a **single** array. The request body is the raw little-endian bytes of the array (no JSON envelope, no base64), and the array identity/shape are passed as path and query parameters. This avoids base64's ~33% size inflation and JSON parsing for large numeric arrays.\n\n**arrayType**: element type of the bytes (e.g. \`Float64Array\`).\n**dimensions**: repeat per dimension, e.g. \`dimensions=100&dimensions=3\`.\n**starts/counts**: optional, to write a subarray slice (both required together, matching \`dimensions\` length).\n**Empty body**: creates an empty array of the given dimensions and type.\n**Transaction**: should be done within a transaction — pass \`transactionId\` from \`POST /dataspaces/{ds}/transactions\`.`,
+    servers: swaggerServers
+  })
+  public async PutDataArrayBinary(
+    @Param() params: DataArrayParams,
+    @Query("arrayType") arrayType?: string,
+    @Query("dimensions", OptionalParseIntArrayPipe)
+    dimensions?: number[] | number,
+    @Query("starts", OptionalParseIntArrayPipe) starts?: number[] | number,
+    @Query("counts", OptionalParseIntArrayPipe) counts?: number[] | number,
+    @Query("transactionId") transactionId?: string,
+    @Req() request?: express.Request
+  ): Promise<boolean> {
+    const dims = this.asIntArray(dimensions);
+    const startsArr = this.asIntArray(starts);
+    const countsArr = this.asIntArray(counts);
+
+    if (
+      !arrayType ||
+      !arrayTypeString.includes(arrayType as AnyTypedArrayString)
+    ) {
+      throw new BadRequestException({
+        description: `Query param 'arrayType' is required and must be one of: ${arrayTypeString.join(
+          ", "
+        )}`
+      });
+    }
+    if (
+      !dims ||
+      dims.length === 0 ||
+      !dims.every(d => Number.isInteger(d) && d >= 1)
+    ) {
+      throw new BadRequestException({
+        description:
+          "Query param 'dimensions' is required and must be one or more positive integers"
+      });
+    }
+
+    const m = qualifiedTypeRegex.exec(params.dataObjectType);
+    const uri = EtpUri.createObjectUri(
+      params.dataspaceId,
+      m?.groups?.domainFamily ?? "",
+      m?.groups?.domainVersion ?? "",
+      m?.groups?.dataType ?? "",
+      params.guid
+    ).uri;
+    const dataArray: IArrayId = {
+      uri,
+      pathInResource: params.pathInResource
+    };
+
+    const body = request?.body;
+    const buf = Buffer.isBuffer(body) ? body : Buffer.alloc(0);
+
+    let c: ResqmlClient | undefined = undefined;
+    try {
+      c = await createSession(
+        extractToken(request),
+        extractDataPartitionId(request),
+        undefined,
+        transactionId
+      );
+
+      let result: boolean;
+      if (buf.length === 0) {
+        result = await c.putEmptyDataArray(
+          dataArray,
+          this.toTypeArray("", arrayType),
+          dims
+        );
+      } else {
+        const dataArr = this.bufferToTypeArray(buf, arrayType);
+        if (startsArr || countsArr) {
+          if (!startsArr || !countsArr) {
+            throw new EtpError(
+              `Validation Failed: Invalid Range: Starts or Counts required`,
+              ErrorCode.EINVALID_ARGUMENT
+            );
+          }
+          if (
+            startsArr.length !== countsArr.length ||
+            startsArr.length !== dims.length
+          ) {
+            throw new EtpError(
+              `Validation Failed: Invalid Range: Starts and Counts must have the same size than Dimensions`,
+              ErrorCode.EINVALID_ARGUMENT
+            );
+          }
+          let fullArray = true;
+          for (let d = 0; d < dims.length; d++) {
+            if (startsArr[d] !== 0 || countsArr[d] !== dims[d]) {
+              fullArray = false;
+            }
+            if (startsArr[d] + countsArr[d] > dims[d]) {
+              throw new EtpError(
+                `Validation Failed: Invalid Range: Starts + Counts exceed Dimensions`,
+                ErrorCode.EINVALID_ARGUMENT
+              );
+            }
+          }
+          if (countsArr.reduce((p, cur) => p * cur, 1) !== dataArr.length) {
+            throw new EtpError(
+              `Validation Failed: Invalid Range: Data length must be the product of Counts`,
+              ErrorCode.EINVALID_ARGUMENT
+            );
+          }
+          result = fullArray
+            ? await c.putDataArray(dataArray, dims, dataArr)
+            : await c.putDataSubArray(dataArray, startsArr, countsArr, dataArr);
+        } else {
+          if (dims.reduce((p, cur) => p * cur, 1) !== dataArr.length) {
+            throw new EtpError(
+              `Validation Failed: Invalid Range: Data length must be the product of Dimensions`,
+              ErrorCode.EINVALID_ARGUMENT
+            );
+          }
+          result = await c.putDataArray(dataArray, dims, dataArr);
+        }
+      }
+
+      if (!transactionId) {
+        await c.closeSession();
+      }
+      c = undefined;
+      return result;
+    } catch (err) {
       if (!transactionId) {
         await c?.closeSession();
       }

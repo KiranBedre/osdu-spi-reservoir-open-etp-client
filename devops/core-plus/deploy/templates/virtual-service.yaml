@@ -23,3 +23,9 @@ spec:
             port:
               number: 8003
             host: {{ printf "%s.%s.svc.cluster.local" .Values.conf.appName .Release.Namespace | quote }}
+      # Manifest builds over large dataspaces are inherently long-running
+      # (linear in object count: ETP fetch + convert per object). The mesh
+      # default route timeout (~15s) cuts big-dataspace builds mid-flight and
+      # surfaces as an opaque connection drop (HTTP 000/500) at the client.
+      # 300s matches the Azure AGIC request-timeout and the ingest DAG budget.
+      timeout: 300s

@@ -74,30 +74,30 @@ export class ClientInfoDto {
   artifactId!: string;
   @ApiProperty({
     name: "version",
-    example: "1.0.1",
+    example: "1.3.0",
     maxLength: 2048,
     pattern: patternString(/^[0-9.]+$/)
   })
   version!: string;
   @ApiProperty({
     name: "commitId",
-    example: "1.0.1",
+    example: "26e4115",
     maxLength: 2048,
     pattern: patternString(/^[0-9a-fA-F]+$/)
   })
   commitId!: string;
   @ApiProperty({
     name: "commitTime",
-    example: "2023-07-24 20:53:33 -0500",
+    example: "2026-09-22T08:40:14+02:00",
     maxLength: 2048,
-    pattern: patternString(/^[0-9a-zA-Z \-:]+$/)
+    pattern: patternString(/^[0-9a-zA-Z +\-:]+$/)
   })
   commitTime!: string;
   @ApiProperty({
     name: "buildTime",
-    example: "2023-07-24 20:53:33 -0500",
+    example: "2026-09-22T06:49:22Z",
     maxLength: 2048,
-    pattern: patternString(/^[0-9a-zA-Z \-:]+$/)
+    pattern: patternString(/^[0-9a-zA-Z +\-:]+$/)
   })
   buildTime!: string;
 }
