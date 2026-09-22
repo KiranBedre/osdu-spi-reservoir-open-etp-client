@@ -81,7 +81,7 @@ export class ClientInfoDto {
   version!: string;
   @ApiProperty({
     name: "commitId",
-    example: "26e41156d47fc48f60835c72aecdf46f2d4c541c",
+    example: "26e4115",
     maxLength: 2048,
     pattern: patternString(/^[0-9a-fA-F]+$/)
   })
