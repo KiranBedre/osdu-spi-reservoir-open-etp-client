@@ -375,6 +375,17 @@ export const createManifest = async (
     // object (returned undefined). Emitted once at the end of the build.
     const skippedNoConverter = new Map<string, number>();
     const skippedConverterUndefined = new Map<string, number>();
+    // `convertFailed` = a converter matched and ran but THREW (e.g. an OSDU
+    // CRS/reference lookup rejected, or a converter bug). Previously this path
+    // dropped the object silently with no tally, so a systemic convert-time
+    // failure (e.g. OSDU unreachable on a deployed instance) produced an empty
+    // manifest with zero explanation. Counting it turns that blind spot into an
+    // actionable, surfaced diagnostic.
+    const convertFailed = new Map<string, number>();
+    // Total objects that had a resolvable $type and were therefore eligible for
+    // conversion. Compared against `context.created.size` to detect the
+    // pathological "N inputs, 0 outputs" case and raise a loud warning.
+    let attemptedConversions = 0;
     const bumpSkip = (m: Map<string, number>, key: string): void => {
       m.set(key, (m.get(key) ?? 0) + 1);
     };
@@ -658,6 +669,7 @@ export const createManifest = async (
         if (resObj?.$type === undefined) {
           return;
         }
+        attemptedConversions++;
 
         const m = resObj.$type.match(
           /^(?<domainFamily>resqml|eml|witsml|prodml)(?<domainVersion>[\d]+).(?<dataType>[\w]+)$/i
@@ -676,55 +688,81 @@ export const createManifest = async (
           bumpSkip(skippedNoConverter, etpUri.dataObjectType);
           return;
         }
+        // Stage 1: core conversion. This is the ONLY step whose failure can
+        // legitimately drop the object, because a throw here means no record
+        // was produced. Everything after this point is best-effort enrichment
+        // that must never cost us an otherwise-valid record (warn, don't skip).
+        let res: OSDUResourceType | undefined;
         try {
           const tObj = Date.now();
-          let res = await c.convert(
-            etpUri.uri,
-            resolvedObjects[i],
-            context,
-            client
-          );
+          res = await c.convert(etpUri.uri, resolvedObjects[i], context, client);
           const convertMs = Date.now() - tObj;
           if (convertMs > 200) {
             logger.warn(
               `[perf] Slow converter: ${etpUri.dataObjectType} took ${convertMs}ms`
             );
           }
-          // Override record.kind with the dynamically resolved version.
-          // The converter constructor hardcodes a compile-time version, but the
-          // platform may have a different version registered. The resolved kind
-          // from the registry ensures the record references a schema version
-          // that actually exists on the target platform.
-          // Also fix record.id prefix when the converter uses a different
-          // resource type than the schema (e.g. WPC base class for master-data schemas).
-          if (res !== undefined) {
-            const resolvedKind = c.osduKind(resolvedObjects[i]!);
-            if (resolvedKind) {
-              res.kind = resolvedKind;
-              // Ensure record.id uses the correct resource-type--Entity prefix
-              const kindParts = resolvedKind.split(":");
-              // kindParts = ["osdu", "wks", "resource-type--Entity", "X.Y.Z"]
-              const typeEntity = kindParts[2]; // e.g. "master-data--BHARun"
-              if (typeEntity && res.id) {
-                const idParts = res.id.split(":");
-                // idParts = ["partition", "old-type--Entity", "uuid"]
-                if (idParts.length >= 3) {
-                  idParts[1] = typeEntity;
-                  res.id = idParts.join(":");
-                }
+        } catch (convErr: any) {
+          // No record produced. Count and warn (loudly) instead of dropping
+          // silently, so a systemic convert-time failure is diagnosable.
+          bumpSkip(convertFailed, etpUri.dataObjectType);
+          logger.warn(
+            `[convert] Converter threw for ${etpUri.dataObjectType} (${resObj.Uuid}); no record produced: ${convErr?.message ?? convErr
+            }`
+          );
+          return;
+        }
+        if (res === undefined) {
+          // Converter deliberately declined this object (returned undefined).
+          bumpSkip(skippedConverterUndefined, etpUri.dataObjectType);
+          return;
+        }
+
+        // Stage 2: resolve the platform kind + fix the record id prefix.
+        // The converter constructor hardcodes a compile-time version, but the
+        // platform may have a different version registered. Failure here is
+        // non-fatal: we keep the converter's default kind and still emit.
+        try {
+          const resolvedKind = c.osduKind(resolvedObjects[i]!);
+          if (resolvedKind) {
+            res.kind = resolvedKind;
+            // Ensure record.id uses the correct resource-type--Entity prefix
+            const kindParts = resolvedKind.split(":");
+            // kindParts = ["osdu", "wks", "resource-type--Entity", "X.Y.Z"]
+            const typeEntity = kindParts[2]; // e.g. "master-data--BHARun"
+            if (typeEntity && res.id) {
+              const idParts = res.id.split(":");
+              // idParts = ["partition", "old-type--Entity", "uuid"]
+              if (idParts.length >= 3) {
+                idParts[1] = typeEntity;
+                res.id = idParts.join(":");
               }
             }
           }
-          const dataspaceUri = EtpUri.createDataSpaceUri(etpUri.dataSpace).uri;
-          const aclLegal = context.dataspaceACLs.get(dataspaceUri);
-          if (aclLegal !== undefined && res !== undefined) {
-            res.acl = aclLegal?.acl ?? { owners: [], viewers: [] };
-            res.legal = aclLegal?.legal ?? {
-              legaltags: [],
-              otherRelevantDataCountries: []
-            };
-          }
-          if (res !== undefined && res.id) {
+        } catch (kindErr: any) {
+          logger.warn(
+            `[enrich] Kind resolution failed for ${etpUri.dataObjectType} (${resObj.Uuid}); keeping converter default kind: ${kindErr?.message ?? kindErr
+            }`
+          );
+        }
+
+        // Stage 3: stamp the dataspace ACL/legal tags (required for OSDU
+        // Storage compliance). Synchronous and safe.
+        const dataspaceUri = EtpUri.createDataSpaceUri(etpUri.dataSpace).uri;
+        const aclLegal = context.dataspaceACLs.get(dataspaceUri);
+        if (aclLegal !== undefined) {
+          res.acl = aclLegal?.acl ?? { owners: [], viewers: [] };
+          res.legal = aclLegal?.legal ?? {
+            legaltags: [],
+            otherRelevantDataCountries: []
+          };
+        }
+
+        // Stage 4: reconcile with any pre-existing OSDU record (merge dataset
+        // references). If OSDU is unreachable or this lookup throws, warn and
+        // emit the freshly converted record rather than dropping it.
+        if (res.id) {
+          try {
             // Check if it is an explicit osdu resource
             if (OSDUContext.osduAlias(resObj) !== undefined) {
               //Check that a version exists
@@ -761,17 +799,15 @@ export const createManifest = async (
                 }
               }
             }
-            if (res !== undefined && res.id) {
-              context.created.set(res.id, res);
-            }
+          } catch (osduErr: any) {
+            logger.warn(
+              `[enrich] OSDU reconciliation failed for ${res.id}; emitting freshly converted record: ${osduErr?.message ?? osduErr
+              }`
+            );
           }
-        } catch (convErr: any) {
-          // Converter failed for this object - skip it
-          logger.error(
-            `Converter failed for ${etpUri.dataObjectType} (${resObj.Uuid}): ${convErr?.message ?? convErr
-            }`
-          );
-          return;
+          if (res && res.id) {
+            context.created.set(res.id, res);
+          }
         }
       };
 
@@ -1323,21 +1359,65 @@ export const createManifest = async (
     // Actionable summary of ETP object types that were omitted from the
     // manifest by the converter-registry / converter-skip filters. Sorted by
     // frequency so the highest-value missing converters surface first.
-    if (skippedNoConverter.size > 0 || skippedConverterUndefined.size > 0) {
-      const fmt = (m: Map<string, number>): string =>
-        Array.from(m.entries())
-          .sort((a, b) => b[1] - a[1])
-          .map(([t, n]) => `${t}×${n}`)
-          .join(", ");
-      const sum = (m: Map<string, number>): number =>
-        Array.from(m.values()).reduce((a, b) => a + b, 0);
+    const sumMap = (m: Map<string, number>): number =>
+      Array.from(m.values()).reduce((a, b) => a + b, 0);
+    const fmtMap = (m: Map<string, number>): string =>
+      Array.from(m.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([t, n]) => `${t}×${n}`)
+        .join(", ");
+    if (
+      skippedNoConverter.size > 0 ||
+      skippedConverterUndefined.size > 0 ||
+      convertFailed.size > 0
+    ) {
       logger.info(
-        `[skip] no-converter=${sum(skippedNoConverter)} [${fmt(
+        `[skip] no-converter=${sumMap(skippedNoConverter)} [${fmtMap(
           skippedNoConverter
         )}] ` +
-        `converter-skipped=${sum(skippedConverterUndefined)} [${fmt(
+        `converter-skipped=${sumMap(skippedConverterUndefined)} [${fmtMap(
           skippedConverterUndefined
-        )}]`
+        )}] ` +
+        `convert-failed=${sumMap(convertFailed)} [${fmtMap(convertFailed)}]`
+      );
+    }
+
+    // Build-time diagnostics. Surfaced (below) via a non-enumerable property so
+    // the caller can echo them in a response header WITHOUT polluting the
+    // schema-compliant manifest body. These make an empty/degraded manifest
+    // self-explaining even when server logs are unreachable (e.g. cimpl pods).
+    const noConverterN = sumMap(skippedNoConverter);
+    const converterSkippedN = sumMap(skippedConverterUndefined);
+    const convertFailedN = sumMap(convertFailed);
+    const createdN = context.created.size;
+    const buildDiagnostics = {
+      inputObjects: attemptedConversions,
+      created: createdN,
+      noConverter: noConverterN,
+      converterSkipped: converterSkippedN,
+      convertFailed: convertFailedN,
+      noConverterTypes: Array.from(skippedNoConverter.keys()),
+      convertFailedTypes: Array.from(convertFailed.keys())
+    };
+
+    // Loud, actionable warning for the pathological "N eligible inputs -> 0
+    // records" case. Previously this shipped as an HTTP 201 with an empty body
+    // and zero explanation; now it names the dominant failure mode.
+    if (createdN === 0 && attemptedConversions > 0) {
+      logger.warn(
+        `[manifest] EMPTY RESULT: ${attemptedConversions} object(s) were eligible ` +
+        `for conversion but 0 record(s) were produced ` +
+        `(no-converter=${noConverterN}, converter-skipped=${converterSkippedN}, ` +
+        `convert-failed=${convertFailedN}). ` +
+        (convertFailedN > 0
+          ? `Dominant cause appears to be converter throws (check OSDU/CRS reachability): [${fmtMap(
+            convertFailed
+          )}].`
+          : noConverterN > 0
+            ? `Dominant cause appears to be missing converters: [${fmtMap(
+              skippedNoConverter
+            )}].`
+            : `Converters ran but declined every object.`)
       );
     }
 
@@ -1396,6 +1476,16 @@ export const createManifest = async (
         )
       );
     }
+    // Attach build diagnostics as a NON-enumerable property so JSON.stringify
+    // (and therefore the wire body) ignores it, preserving strict
+    // osdu:wks:Manifest schema compliance, while the controller can still read
+    // it to emit an X-Manifest-Build-Diagnostics response header.
+    Object.defineProperty(manifests, "__buildDiagnostics", {
+      value: buildDiagnostics,
+      enumerable: false,
+      configurable: true,
+      writable: false
+    });
     return manifests;
   } catch (err: any) {
     logger.error("Manifest creation failed:", err?.message || err);
