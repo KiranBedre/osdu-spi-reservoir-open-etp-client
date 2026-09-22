@@ -125,6 +125,32 @@ import { createHash } from "crypto";
 
 const logger = logging.getLogger("EtpClient");
 
+/**
+ * Rejection raised by {@link raceWithTimeout} when a wrapped promise does not
+ * settle within its deadline. Callers distinguish it via `instanceof` so a
+ * slow ETP round-trip can be surfaced as an HTTP 408 instead of hanging until
+ * the edge/LB timeout fires.
+ */
+class OperationTimeoutError extends Error {}
+
+/**
+ * Race a promise against a wall-clock deadline. On timeout the returned
+ * promise rejects with an {@link OperationTimeoutError}; the underlying
+ * promise keeps running (the caller is expected to tear down its ETP session
+ * to abort the in-flight work). The timer is always cleared so it cannot keep
+ * the event loop alive.
+ */
+function raceWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new OperationTimeoutError()),
+      Math.max(0, ms)
+    );
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
 /** RDF alternate representations advertised via the `Link` header. */
 const RDF_ALTERNATES: ReadonlyArray<readonly [RdfFormat, string]> = [
   ["turtle", RDF_MIME_TURTLE],
@@ -939,7 +965,9 @@ export default class ResourcesReadAPI {
       "**Performance / limits**: Object bodies are fetched in batches. To protect " +
       "the shared service, dataspaces with more than `VALIDATE_MAX_OBJECTS` objects " +
       "(default 2000) return **413**, and a run that exceeds `VALIDATE_TIME_BUDGET_MS` " +
-      "(default 45s) returns **408** instead of overrunning the request budget.",
+      "(default 45s) returns **408**. The time budget also bounds the initial object " +
+      "enumeration, so very large dataspaces fail fast instead of overrunning the " +
+      "request budget.",
     servers: swaggerServers
   })
   public async ValidateDataspace(
@@ -968,12 +996,46 @@ export default class ResourcesReadAPI {
         includeSecondarySources: false
       };
 
-      const resources = await c.discovery.getResources(
-        context,
-        Energistics.Etp.v12.Datatypes.Object.ContextScopeKind.targets,
-        false,
-        null
+      // Single wall-clock budget for the whole validation. Enumerating a very
+      // large dataspace can itself overrun the edge/LB timeout long before the
+      // object cap below gets a chance to reject it, so the enumeration, the
+      // batched body fetch and the (synchronous) parse all draw from one
+      // shared deadline. Overrunning it returns a clean 408 instead of a dead
+      // request that keeps the shared pod busy.
+      const TIME_BUDGET_MS = Number(
+        process.env.VALIDATE_TIME_BUDGET_MS ?? 45000
       );
+      const validateStartedAt = Date.now();
+      const remainingBudgetMs = () =>
+        TIME_BUDGET_MS - (Date.now() - validateStartedAt);
+
+      let resources: Resource[];
+      try {
+        resources = await raceWithTimeout(
+          c.discovery.getResources(
+            context,
+            Energistics.Etp.v12.Datatypes.Object.ContextScopeKind.targets,
+            false,
+            null
+          ),
+          remainingBudgetMs()
+        );
+      } catch (enumErr) {
+        if (enumErr instanceof OperationTimeoutError) {
+          await c.closeSession();
+          c = undefined;
+          throw new RequestTimeoutException({
+            statusCode: 408,
+            message:
+              `Validation exceeded the ${Math.round(TIME_BUDGET_MS / 1000)}s ` +
+              `time budget while enumerating dataspace objects. This ` +
+              `dataspace is too large to validate synchronously; validate a ` +
+              `smaller dataspace or raise VALIDATE_TIME_BUDGET_MS.`,
+            phase: "enumeration"
+          });
+        }
+        throw enumErr;
+      }
 
       if (resources.length === 0) {
         return {
@@ -1010,20 +1072,16 @@ export default class ResourcesReadAPI {
         1,
         Number(process.env.VALIDATE_BATCH_SIZE ?? 50)
       );
-      // Bound the total time spent fetching object bodies. Very large
-      // dataspaces can take minutes to walk, which overruns the edge/LB
-      // timeout and keeps the pod busy on a request the client already
-      // abandoned. Stop with a clean 408 instead.
-      const TIME_BUDGET_MS = Number(
-        process.env.VALIDATE_TIME_BUDGET_MS ?? 45000
-      );
-      const fetchStartedAt = Date.now();
 
-      // Convert to validator format, batch by batch
+      // Convert to validator format, batch by batch. The fetch loop draws from
+      // the same wall-clock budget as the enumeration above, so the whole
+      // request can never overrun VALIDATE_TIME_BUDGET_MS. Overrunning stops
+      // with a clean 408 instead of keeping the shared pod busy on a request
+      // the client already abandoned.
       const xmlPayloads: { content_type: string; uuid: string; xml: string }[] =
         [];
       for (let i = 0; i < uris.length; i += BATCH_SIZE) {
-        if (Date.now() - fetchStartedAt > TIME_BUDGET_MS) {
+        if (remainingBudgetMs() <= 0) {
           await c.closeSession();
           c = undefined;
           throw new RequestTimeoutException({
