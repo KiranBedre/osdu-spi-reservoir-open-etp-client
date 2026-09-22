@@ -616,6 +616,19 @@ Common presets: all types + all properties (default); all types + no properties 
       logger.info("Manifest creation successful.");
       await c.closeSession();
       c = undefined;
+      // Echo build diagnostics (non-enumerable, so absent from the body) in a
+      // response header. This makes an empty/degraded manifest self-explaining
+      // even when server logs are unreachable (e.g. cimpl pods) - the header
+      // reports input/created/skip/convert-failed counts and the dominant
+      // failing types without altering the schema-compliant manifest body.
+      const diag = (b as { __buildDiagnostics?: unknown }).__buildDiagnostics;
+      if (diag !== undefined) {
+        try {
+          res.set("X-Manifest-Build-Diagnostics", JSON.stringify(diag));
+        } catch {
+          // Never let header serialization break the response.
+        }
+      }
       res.send(JSON.stringify(b, bigIntToString, 2));
     } catch (err) {
       logger.error("Error occurred during manifest creation.");
