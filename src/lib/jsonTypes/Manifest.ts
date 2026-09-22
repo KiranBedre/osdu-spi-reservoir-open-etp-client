@@ -1224,6 +1224,23 @@ export const createManifest = async (
     //                           dangling, which OSDU tolerates)
     // In standalone/local mode isSchemaRegistered() returns true for everything,
     // so this pass is a no-op there.
+    //
+    // Snapshot the assembled record counts BEFORE this pass so the build
+    // diagnostics can attribute any shrinkage to it (the `created` counter is
+    // taken from context.created and cannot see records dropped here).
+    const assembledCounts = {
+      workProductComponents: manifests.Data?.WorkProductComponents?.length ?? 0,
+      masterData: manifests.MasterData?.length ?? 0,
+      referenceData: manifests.ReferenceData?.length ?? 0
+    };
+    let schemaCompatDiag:
+      | {
+          masterData: { remap: number; drop: number };
+          referenceData: { remap: number; drop: number };
+          workProductComponents: { remap: number; drop: number };
+          suppressed: boolean;
+        }
+      | undefined;
     if (osduUrl && osduUrl !== "http://localhost") {
       const bearer = context.bearer;
       const partition = context.partition;
@@ -1324,35 +1341,77 @@ export const createManifest = async (
         )
       );
 
+      // Fail-safe: the schema-compatibility pass must NEVER empty out a
+      // non-empty array. A reachable-but-misconfigured schema service (or a
+      // partition/version mismatch that returns 404 for legitimately-registered
+      // kinds) would otherwise drop EVERY record and ship an empty manifest -
+      // exactly the fragile failure mode this build guards against. If a
+      // normalize pass would remove 100% of a non-empty array, keep the
+      // pre-pass records and warn loudly instead of shipping nothing.
+      let schemaCompatSuppressed = false;
+      const applyNormalized = (
+        label: string,
+        input: OSDUResourceType[] | undefined,
+        res: { kept: any[]; remapped: number; dropped: number }
+      ): any[] => {
+        const inN = input?.length ?? 0;
+        if (inN > 0 && res.kept.length === 0) {
+          logger.warn(
+            `[schema-compat] ${label}: normalize would drop ALL ${inN} record(s) ` +
+              `- schema service at '${osduUrl}' likely unreachable/misconfigured; ` +
+              `KEEPING originals to avoid an empty manifest`
+          );
+          schemaCompatSuppressed = true;
+          return input as any[];
+        }
+        return res.kept;
+      };
+
       const mdRes = await normalizeArray(manifests.MasterData);
-      manifests.MasterData = mdRes.kept;
+      manifests.MasterData = applyNormalized(
+        "MasterData",
+        manifests.MasterData,
+        mdRes
+      );
       const rdRes = await normalizeArray(manifests.ReferenceData);
-      manifests.ReferenceData = rdRes.kept;
+      manifests.ReferenceData = applyNormalized(
+        "ReferenceData",
+        manifests.ReferenceData,
+        rdRes
+      );
       let wpcRemapped = 0;
       let wpcDropped = 0;
       if (manifests.Data?.WorkProductComponents) {
-        const wpcRes = await normalizeArray(
-          manifests.Data.WorkProductComponents
+        const wpcInput = manifests.Data.WorkProductComponents;
+        const wpcRes = await normalizeArray(wpcInput);
+        manifests.Data.WorkProductComponents = applyNormalized(
+          "WorkProductComponents",
+          wpcInput,
+          wpcRes
         );
-        manifests.Data.WorkProductComponents = wpcRes.kept;
         wpcRemapped = wpcRes.remapped;
         wpcDropped = wpcRes.dropped;
-        // Resync the WorkProduct's Components list with the (possibly
-        // remapped/dropped) WPC ids. normalizeArray may rewrite a WPC's id
-        // when its kind is remapped (e.g. WellboreInterpretation ->
-        // GenericRepresentation) or drop it entirely, which would otherwise
-        // leave the Components array pointing at stale/dangling ids and break
-        // the WorkProduct-centric DAG ingestion.
+        // Resync the WorkProduct's Components list with the surviving WPC ids
+        // (post-remap/drop, or the reverted originals when the pass was
+        // suppressed) so the WorkProduct-centric DAG ingestion stays consistent.
         if (manifests.Data?.WorkProduct?.data) {
-          manifests.Data.WorkProduct.data.Components = wpcRes.kept
-            .filter(rec => typeof (rec as { id?: unknown }).id === "string")
-            .map(rec => `${(rec as { id: string }).id}:`);
+          manifests.Data.WorkProduct.data.Components =
+            manifests.Data.WorkProductComponents
+              .filter(rec => typeof (rec as { id?: unknown }).id === "string")
+              .map(rec => `${(rec as { id: string }).id}:`);
         }
       }
+      schemaCompatDiag = {
+        masterData: { remap: mdRes.remapped, drop: mdRes.dropped },
+        referenceData: { remap: rdRes.remapped, drop: rdRes.dropped },
+        workProductComponents: { remap: wpcRemapped, drop: wpcDropped },
+        suppressed: schemaCompatSuppressed
+      };
       logger.info(
         `[schema-compat] MasterData(remap=${mdRes.remapped},drop=${mdRes.dropped}) ` +
         `ReferenceData(remap=${rdRes.remapped},drop=${rdRes.dropped}) ` +
-        `WorkProductComponents(remap=${wpcRemapped},drop=${wpcDropped})`
+        `WorkProductComponents(remap=${wpcRemapped},drop=${wpcDropped})` +
+        (schemaCompatSuppressed ? " [SUPPRESSED: kept originals]" : "")
       );
     }
 
@@ -1397,7 +1456,19 @@ export const createManifest = async (
       converterSkipped: converterSkippedN,
       convertFailed: convertFailedN,
       noConverterTypes: Array.from(skippedNoConverter.keys()),
-      convertFailedTypes: Array.from(convertFailed.keys())
+      convertFailedTypes: Array.from(convertFailed.keys()),
+      // Post-assembly visibility: `created` is counted before the
+      // schema-compatibility pass, so a full `created` with empty final arrays
+      // pinpoints that pass (see schemaCompat) rather than conversion.
+      assembled: assembledCounts,
+      schemaCompat: schemaCompatDiag,
+      finalCounts: {
+        workProductComponents:
+          manifests.Data?.WorkProductComponents?.length ?? 0,
+        masterData: manifests.MasterData?.length ?? 0,
+        referenceData: manifests.ReferenceData?.length ?? 0
+      },
+      osduUrl: osduUrl || "(unset)"
     };
 
     // Loud, actionable warning for the pathological "N eligible inputs -> 0
