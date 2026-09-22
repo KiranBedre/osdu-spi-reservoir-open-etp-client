@@ -21,9 +21,11 @@ import {
   Get,
   HttpCode,
   Param,
+  PayloadTooLargeException,
   Post,
   Query,
   Req,
+  RequestTimeoutException,
   Res,
   UseGuards
 } from "@nestjs/common";
@@ -934,8 +936,10 @@ export default class ResourcesReadAPI {
       "Fetches all data objects from the dataspace via ETP and runs RESQML strict validation " +
       "(XSD schema, DOR integrity, cross-object consistency, business rules). " +
       "Read-only - does not modify any data.\n\n" +
-      "**Performance**: Fetches full XML for every object in the dataspace. " +
-      "For large dataspaces (>1000 objects), this may take several seconds.",
+      "**Performance / limits**: Object bodies are fetched in batches. To protect " +
+      "the shared service, dataspaces with more than `VALIDATE_MAX_OBJECTS` objects " +
+      "(default 2000) return **413**, and a run that exceeds `VALIDATE_TIME_BUDGET_MS` " +
+      "(default 45s) returns **408** instead of overrunning the request budget.",
     servers: swaggerServers
   })
   public async ValidateDataspace(
@@ -983,17 +987,61 @@ export default class ResourcesReadAPI {
         };
       }
 
-      // Fetch all object bodies
+      // Fetch object bodies in batches. Fetching every object at once
+      // previously loaded the whole dataspace into memory and could OOM/crash
+      // the pod on large dataspaces (which then broke unrelated in-flight
+      // requests). A hard object cap guards against pathological sizes.
       const uris = resources.map(r => r.uri);
-      const objects = await c.getDataObjects(uris);
-      await c.closeSession();
-      c = undefined;
+      const MAX_OBJECTS = Number(process.env.VALIDATE_MAX_OBJECTS ?? 2000);
+      if (uris.length > MAX_OBJECTS) {
+        await c.closeSession();
+        c = undefined;
+        throw new PayloadTooLargeException({
+          statusCode: 413,
+          message:
+            `Dataspace has ${uris.length} objects which exceeds the ` +
+            `validation limit of ${MAX_OBJECTS}. Validate a smaller ` +
+            `dataspace or raise the VALIDATE_MAX_OBJECTS limit.`,
+          object_count: uris.length,
+          limit: MAX_OBJECTS
+        });
+      }
+      const BATCH_SIZE = Math.max(
+        1,
+        Number(process.env.VALIDATE_BATCH_SIZE ?? 50)
+      );
+      // Bound the total time spent fetching object bodies. Very large
+      // dataspaces can take minutes to walk, which overruns the edge/LB
+      // timeout and keeps the pod busy on a request the client already
+      // abandoned. Stop with a clean 408 instead.
+      const TIME_BUDGET_MS = Number(
+        process.env.VALIDATE_TIME_BUDGET_MS ?? 45000
+      );
+      const fetchStartedAt = Date.now();
 
-      // Convert to validator format
-      const xmlPayloads = objects
-        .filter(o => o !== null)
-        .map(o => {
-          const uri = o!.resource.uri;
+      // Convert to validator format, batch by batch
+      const xmlPayloads: { content_type: string; uuid: string; xml: string }[] =
+        [];
+      for (let i = 0; i < uris.length; i += BATCH_SIZE) {
+        if (Date.now() - fetchStartedAt > TIME_BUDGET_MS) {
+          await c.closeSession();
+          c = undefined;
+          throw new RequestTimeoutException({
+            statusCode: 408,
+            message:
+              `Validation exceeded the ${Math.round(TIME_BUDGET_MS / 1000)}s ` +
+              `time budget after fetching ${i} of ${uris.length} objects. ` +
+              `This dataspace is too large to validate synchronously; validate ` +
+              `a smaller dataspace or raise VALIDATE_TIME_BUDGET_MS.`,
+            fetched: i,
+            object_count: uris.length
+          });
+        }
+        const chunk = uris.slice(i, i + BATCH_SIZE);
+        const objects = await c.getDataObjects(chunk);
+        for (const o of objects) {
+          if (o === null) continue;
+          const uri = o.resource.uri;
           // Extract content type from URI pattern: /resqml20.obj_Foo(uuid)
           const uriMatch = uri.match(
             /\/(?<domain>resqml|eml|witsml|prodml)(?<ver>\d+)\.(?<type>(?:obj_)?\w+)\(/
@@ -1007,13 +1055,18 @@ export default class ResourcesReadAPI {
           const uuidMatch = uri.match(
             /\(([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\)/
           );
-          return {
-            content_type: contentType,
-            uuid: uuidMatch?.[1] ?? "",
-            xml: o!.data ? Buffer.from(o!.data).toString("utf-8") : ""
-          };
-        })
-        .filter(o => o.xml.length > 0);
+          const xml = o.data ? Buffer.from(o.data).toString("utf-8") : "";
+          if (xml.length > 0) {
+            xmlPayloads.push({
+              content_type: contentType,
+              uuid: uuidMatch?.[1] ?? "",
+              xml
+            });
+          }
+        }
+      }
+      await c.closeSession();
+      c = undefined;
 
       logger.info(`Validating ${xmlPayloads.length} objects from dataspace ${params.dataspaceId}...`);
       const { ValidatorClient } = await import("../../client/ValidatorClient");

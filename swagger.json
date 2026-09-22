@@ -1655,7 +1655,7 @@
     },
     "/dataspaces/{dataspaceId}/validate": {
       "post": {
-        "description": "Fetches all data objects from the dataspace via ETP and runs RESQML strict validation (XSD schema, DOR integrity, cross-object consistency, business rules). Read-only - does not modify any data.\n\n**Performance**: Fetches full XML for every object in the dataspace. For large dataspaces (>1000 objects), this may take several seconds.",
+        "description": "Fetches all data objects from the dataspace via ETP and runs RESQML strict validation (XSD schema, DOR integrity, cross-object consistency, business rules). Read-only - does not modify any data.\n\n**Performance / limits**: Object bodies are fetched in batches. To protect the shared service, dataspaces with more than `VALIDATE_MAX_OBJECTS` objects (default 2000) return **413**, and a run that exceeds `VALIDATE_TIME_BUDGET_MS` (default 45s) returns **408** instead of overrunning the request budget.",
         "operationId": "ResourcesReadAPI_ValidateDataspace",
         "parameters": [
           {
@@ -14762,7 +14762,7 @@
             "name": "validate",
             "required": false,
             "in": "query",
-            "description": "When 'true', runs RESQML strict validation (XSD, DOR integrity, business rules) on the EPC before ingesting. If validation finds errors, the upload still proceeds but the response includes a `validation` report. Set to 'strict' to reject the upload on validation errors (returns 400).",
+            "description": "When 'true', runs RESQML validation (XSD, DOR integrity, business rules) on the EPC before ingesting. If validation finds errors, the upload still proceeds but the response includes a `validation` report. Set to 'strict' to reject the upload (returns 400) - but only on errors that actually block ingestion (malformed package, broken references, missing arrays, known store incompatibilities). Pure XSD-schema / business-rule pedantries that the ETP store tolerates are reported but do not block.",
             "schema": {
               "type": "string",
               "enum": [

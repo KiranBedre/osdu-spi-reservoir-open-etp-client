@@ -100,6 +100,7 @@ import { join } from "path";
 
 import { ValidatorClient } from "../../client/ValidatorClient";
 import type { ValidationReport } from "../../client/ValidatorClient";
+import { Severity, ValidationCategory } from "../../client/ValidatorClient";
 
 import logging from "../../common/Logging";
 const logger = logging.getLogger("EtpClient");
@@ -463,9 +464,11 @@ export default class EpcUploadAPI {
         name: "validate",
         required: false,
         description:
-            "When 'true', runs RESQML strict validation (XSD, DOR integrity, business rules) on the EPC before ingesting. " +
+            "When 'true', runs RESQML validation (XSD, DOR integrity, business rules) on the EPC before ingesting. " +
             "If validation finds errors, the upload still proceeds but the response includes a `validation` report. " +
-            "Set to 'strict' to reject the upload on validation errors (returns 400).",
+            "Set to 'strict' to reject the upload (returns 400) - but only on errors that actually block ingestion " +
+            "(malformed package, broken references, missing arrays, known store incompatibilities). " +
+            "Pure XSD-schema / business-rule pedantries that the ETP store tolerates are reported but do not block.",
         schema: {
             type: "string",
             enum: ["false", "true", "strict"],
@@ -858,13 +861,35 @@ export default class EpcUploadAPI {
                 );
 
                 if (validate === "strict" && !validationReport.is_valid) {
-                    cleanupFiles(files ?? {});
-                    throw new BadRequestException({
-                        statusCode: 400,
-                        message: `RESQML validation failed: ${validationReport.error_count} error(s)`,
-                        error: "Validation Failed",
-                        validation: validationReport
-                    });
+                    // The ETP store tolerates many XSD-schema pedantries
+                    // (element ordering, optional-element placement, etc.) that
+                    // the strict validator flags as errors. Only reject uploads
+                    // on errors that genuinely prevent ingestion so we do not
+                    // block EPCs the server would happily accept.
+                    const BLOCKING_CATEGORIES = new Set<ValidationCategory>([
+                        ValidationCategory.EPC_STRUCTURE,
+                        ValidationCategory.DOR_INTEGRITY,
+                        ValidationCategory.HDF5_REFERENCE,
+                        ValidationCategory.RDDMS_COMPAT
+                    ]);
+                    const blockingErrors = validationReport.errors.filter(
+                        e =>
+                            e.severity === Severity.ERROR &&
+                            BLOCKING_CATEGORIES.has(e.category)
+                    );
+                    if (blockingErrors.length > 0) {
+                        cleanupFiles(files ?? {});
+                        throw new BadRequestException({
+                            statusCode: 400,
+                            message: `RESQML validation failed: ${blockingErrors.length} blocking error(s)`,
+                            error: "Validation Failed",
+                            validation: validationReport
+                        });
+                    }
+                    logger.info(
+                        `Strict validation found ${validationReport.error_count} error(s) but ` +
+                        `none are blocking (XSD/business-rule pedantry the store tolerates); proceeding with ingest.`
+                    );
                 }
             }
 
