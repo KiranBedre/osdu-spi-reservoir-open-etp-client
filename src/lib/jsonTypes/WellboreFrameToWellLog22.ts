@@ -6,7 +6,7 @@
  * WPC--WellLog:1.3.0 with Curves[].
  */
 import * as resqml22 from "../mlTypes/xmlns/www.energistics.org/energyml/resqmlv22/resqmlv2";
-import { ResqmlClient } from "../client/ResqmlClient";
+import { EtpUri, ResqmlClient } from "../client/ResqmlClient";
 import { Energistics } from "../common/Etp12";
 import type { IDataArray } from "../common/EtpTypes";
 import type { SimpleJson } from "../mlTypes/XmlJsonUtil";
@@ -219,33 +219,52 @@ export class WellboreFrameToWellLog22OSDU
   ): Promise<Curves[]> {
     const curves: Curves[] = [];
 
-    let relatedUris: string[];
-    try {
-      const related = await client.getResources(
-        frameUri,
-        Energistics.Etp.v12.Datatypes.Object.ContextScopeKind.sources
-      );
-      relatedUris = related
-        .filter(
-          (r: any) =>
-            r.uri.includes("ContinuousProperty") ||
-            r.uri.includes("DiscreteProperty") ||
-            r.uri.includes("CategoricalProperty")
-        )
-        .map((r: any) => r.uri);
-    } catch {
-      return curves;
+    // Fast path: a dataspace pre-pass built a frame(UUID) -> property[] index,
+    // so assemble curves from memory with zero ETP round-trips. When the index
+    // exists but this frame is absent from it, the frame genuinely has no curve
+    // properties (empty list) and we skip the network entirely.
+    let propObjs: any[] | undefined;
+    if (context.frameCurveProps !== undefined) {
+      propObjs = context.frameCurveProps.get(new EtpUri(frameUri).uuid) ?? [];
     }
 
-    if (relatedUris.length === 0) {
-      return curves;
+    // Fallback (targeted/single-object builds, or index unavailable): discover
+    // the properties attached to this frame and fetch them directly.
+    if (propObjs === undefined) {
+      let relatedUris: string[];
+      try {
+        const related = await client.getResources(
+          frameUri,
+          Energistics.Etp.v12.Datatypes.Object.ContextScopeKind.sources
+        );
+        relatedUris = related
+          .filter(
+            (r: any) =>
+              r.uri.includes("ContinuousProperty") ||
+              r.uri.includes("DiscreteProperty") ||
+              r.uri.includes("CategoricalProperty")
+          )
+          .map((r: any) => r.uri);
+      } catch {
+        return curves;
+      }
+
+      if (relatedUris.length === 0) {
+        return curves;
+      }
+
+      const objects = new Map<string, any>();
+      const batch = relatedUris.slice(0, 50);
+      try {
+        const resolved = await client.getResolvedObjects(batch, objects, false);
+        propObjs = resolved.filter(o => o !== null && o !== undefined);
+      } catch {
+        return curves;
+      }
     }
 
-    const objects = new Map<string, any>();
-    const batch = relatedUris.slice(0, 50);
     try {
-      const resolved = await client.getResolvedObjects(batch, objects, false);
-      for (const obj of resolved) {
+      for (const obj of propObjs) {
         if (obj === null || obj === undefined) continue;
         const o = obj as any;
 

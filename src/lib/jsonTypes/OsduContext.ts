@@ -146,6 +146,17 @@ export class OSDUContext {
   public references: Set<string> = new Set();
   public srnToUri: Map<string, string> = new Map();
   public uriToObject: Map<string, IResqmlDataObject> = new Map();
+  /**
+   * WellLog curve index built once per whole-dataspace build. Maps a
+   * WellboreFrameRepresentation UUID -> the Continuous/Discrete/Categorical
+   * Property objects whose SupportingRepresentation is that frame. The WellLog
+   * converter uses this to assemble Curves[] from memory instead of issuing a
+   * per-frame getResources(sources) + getResolvedObjects ETP round-trip.
+   * Undefined = not built (targeted/single-object builds fall back to the
+   * per-frame network path). Keyed by UUID to stay robust against URI
+   * version/format differences.
+   */
+  public frameCurveProps?: Map<string, IResqmlDataObject[]>;
   public createMissingReferences?: boolean = true;
   // Schema-compatibility pass control (OFF by default; opt-in):
   //   undefined/false -> skip the pass (fast build; every record keeps its

@@ -657,6 +657,139 @@ export const createManifest = async (
         `[perf] Seeded DOR cache with ${seeded} objects (uriToObject size=${context.uriToObject.size})`
       );
 
+      // ---------------------------------------------------------------------
+      // WellLog curve-index pre-pass.
+      //
+      // The WellLog converter needs, per WellboreFrameRepresentation, the
+      // Continuous/Discrete/CategoricalProperty objects that reference it.
+      // Property objects are excluded from the primary object set by the
+      // manifest filter (propertyFilter), so without an index each frame issues
+      // its OWN getResources(sources) + getResolvedObjects round-trip — two ETP
+      // calls per WellLog. On dataspaces with hundreds of frames that dominates
+      // build time.
+      //
+      // Instead, when the set contains frames, enumerate ALL property objects
+      // in the dataspace once, bulk-fetch them with bounded concurrency, and
+      // invert them into a frame-UUID -> property[] index on the context. The
+      // converter then assembles Curves[] from memory (zero per-frame calls).
+      // Keyed by UUID to stay robust against URI version/format differences.
+      // ---------------------------------------------------------------------
+      const hasFrames = resolvedObjects.some(
+        o =>
+          o !== null &&
+          typeof (o as any)?.$type === "string" &&
+          (o as any).$type.includes("WellboreFrameRepresentation")
+      );
+      if (hasFrames) {
+        const tIdx = Date.now();
+        try {
+          if (context.frameCurveProps === undefined) {
+            context.frameCurveProps = new Map<string, IResqmlDataObject[]>();
+          }
+          const frameIndex = context.frameCurveProps;
+          const dsUri = EtpUri.createDataSpaceUri(dataspace).uri;
+          const propResources = await client.getDataspaceResources(dsUri);
+          const propUris = propResources
+            .map(r => r.uri)
+            .filter(
+              u =>
+                u.includes("ContinuousProperty") ||
+                u.includes("DiscreteProperty") ||
+                u.includes("CategoricalProperty")
+            );
+          if (propUris.length > 0) {
+            const propCache: Map<URI, IResqmlDataObject> = new Map<
+              URI,
+              IResqmlDataObject
+            >();
+            const IDX_BATCH = 50;
+            const IDX_CONCURRENCY = 8;
+            const idxBatches: string[][] = [];
+            for (let i = 0; i < propUris.length; i += IDX_BATCH) {
+              idxBatches.push(propUris.slice(i, i + IDX_BATCH));
+            }
+            let idxCursor = 0;
+            let idxFailed = false;
+            const idxWorker = async (): Promise<void> => {
+              while (idxCursor < idxBatches.length) {
+                const b = idxBatches[idxCursor++];
+                try {
+                  await client.getResolvedObjects(b, propCache, false);
+                } catch (e: any) {
+                  idxFailed = true;
+                  logger.warn(
+                    `[welllog-index] property fetch batch failed: ${e?.message ?? e
+                    }`
+                  );
+                }
+              }
+            };
+            await Promise.all(
+              Array.from(
+                { length: Math.min(IDX_CONCURRENCY, idxBatches.length) },
+                () => idxWorker()
+              )
+            );
+            if (idxFailed) {
+              // A batch failed: the index would be incomplete, which would make
+              // the converter silently drop curves. Discard it so every frame
+              // falls back to the resilient per-frame fetch path instead.
+              context.frameCurveProps = undefined;
+              logger.warn(
+                `[welllog-index] incomplete property fetch; discarding index and falling back to per-frame fetch`
+              );
+            } else {
+              let indexed = 0;
+              for (const [, propObj] of propCache) {
+                if (propObj === null || propObj === undefined) continue;
+                const t = (propObj as any).$type;
+                if (
+                  typeof t !== "string" ||
+                  !(
+                    t.includes("ContinuousProperty") ||
+                    t.includes("DiscreteProperty") ||
+                    t.includes("CategoricalProperty")
+                  )
+                ) {
+                  continue;
+                }
+                const targets = new Set<string>();
+                client.getObjectTargets(dataspace, propObj, targets);
+                for (const target of targets) {
+                  if (!target.includes("WellboreFrameRepresentation")) continue;
+                  const frameKey = new EtpUri(target).uuid;
+                  if (!frameKey) continue;
+                  const list = frameIndex.get(frameKey);
+                  if (list) {
+                    list.push(propObj);
+                  } else {
+                    frameIndex.set(frameKey, [propObj]);
+                  }
+                  indexed++;
+                }
+              }
+              logger.info(
+                `[welllog-index] indexed ${indexed} curve properties across ${frameIndex.size
+                } frames (${propUris.length} property objects, ${idxBatches.length
+                } batches) in ${Date.now() - tIdx}ms`
+              );
+            }
+          } else {
+            logger.info(
+              `[welllog-index] no property objects in ${dataspace}; frames have no curves`
+            );
+          }
+        } catch (e: any) {
+          // Enumeration itself failed: discard any partial index so the
+          // converter uses the resilient per-frame fetch path.
+          context.frameCurveProps = undefined;
+          logger.warn(
+            `[welllog-index] pre-pass failed; converter will fall back to per-frame fetch: ${e?.message ?? e
+            }`
+          );
+        }
+      }
+
       const tConvert = Date.now();
       // Convert objects with bounded concurrency. Each conversion is dominated
       // by independent network round-trips (ETP object/array fetches and OSDU
