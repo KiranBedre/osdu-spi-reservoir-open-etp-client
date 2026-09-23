@@ -2059,22 +2059,23 @@ paths:
         mappings.
 
 
-        **Type filtering (opt-in)**: By default ALL types are included
-        (representations, interpretations, properties, CRS, etc.). Filtering is
-        opt-in via two independent controls:
+        **Type filtering**: By DEFAULT a curated discovery set is emitted (M26
+        behaviour): top-level types (features, interpretations, representations,
+        stratigraphic columns, activities, collections, WITSML 2.1) with NO
+        properties and CRS always included. Two independent controls override
+        this:
 
-        - `typePatterns`: restrict NON-property types (e.g. pass a curated list
-        for top-level types only).
+        - `typePatterns`: restrict/expand NON-property types. Pass `["*"]` to
+        include EVERY type.
 
-        - `propertyFilter`: `all` (default) | `canonical` (only standard-named
-        properties like PORO/PERMX/SW) | `none` (exclude properties).
+        - `propertyFilter`: `none` (default, exclude properties) | `canonical`
+        (only standard-named properties like PORO/PERMX/SW) | `all` (every
+        property).
 
 
-        Common presets: all types + all properties (default); all types + no
-        properties (`propertyFilter: none`); all types + canonical properties
-        (`propertyFilter: canonical`); curated top-level + no properties
-        (`typePatterns` + `propertyFilter: none`). CRS objects are always
-        included regardless of the filter.
+        To reproduce the M27 "everything" build, pass `typePatterns: ["*"]` and
+        `propertyFilter: "all"`. CRS objects are always included regardless of
+        the filter.
 
 
         **Key behaviors**:
@@ -15056,11 +15057,11 @@ components:
           maxItems: 99999
           description: >-
             Optional filter restricting NON-property types when indexing entire
-            dataspaces (accepts * and ? wildcards). When omitted, ALL types are
-            included. Pass a curated list to restrict, e.g.
+            dataspaces (accepts * and ? wildcards). When omitted, a curated M26
+            default set is used:
             ["*Feature","*Interpretation*","*Representation","*StratigraphicColumn","*Activity*","*Collection","witsml21.*"]
-            for top-level types only. CRS objects are always included regardless
-            of this filter.
+            (top-level types only). Pass ["*"] to include EVERY type. CRS
+            objects are always included regardless of this filter.
           example:
             - resqml20.obj_*Representation
           type: array
@@ -15075,13 +15076,14 @@ components:
             - none
             - all
           description: >-
-            Controls property inclusion, independent of typePatterns. "all"
-            (default): include every property. "canonical": include only
+            Controls property inclusion, independent of typePatterns. "none"
+            (default): exclude all properties (fastest — keeps whole-dataspace
+            builds under the ~60s ingress timeout). "canonical": include only
             properties with standard names (PWLS, OSDU, simulator abbreviations
-            like PORO, PERMX, SW). "none": exclude all properties. Combine with
-            typePatterns to build presets, e.g. all types + no properties, or
-            curated top-level + no properties.
-          example: all
+            like PORO, PERMX, SW). "all": include every property. Combine with
+            typePatterns to build presets, e.g. all types + all properties
+            (typePatterns:["*"] + propertyFilter:"all").
+          example: none
         excludePatterns:
           maxItems: 99999
           description: >-
@@ -15146,19 +15148,19 @@ components:
         schemaCompat:
           type: boolean
           description: >-
-            Controls the schema-compatibility pass that resolves each record's
-            kind against the target OSDU schema service and remaps/normalizes it
-            to a registered kind (maximizes ingestibility). Tri-state: omit
-            (default) for AUTO — the pass runs for normal builds but is
-            automatically SKIPPED for large datasets (assembled record count
-            over `MANIFEST_SCHEMA_COMPAT_MAX_RECORDS`, default 500) because the
+            Opt-in (default OFF, M26 behaviour). Controls the
+            schema-compatibility pass that resolves each record's kind against
+            the target OSDU schema service and remaps/normalizes it to a
+            registered kind (maximizes ingestibility). Omit or set `false`
+            (default) to SKIP it for a faster M26-style build — every record
+            keeps its original kind, which the target OSDU may not have
+            registered, so ingestion could reject them. Set `true` to RUN the
+            pass; when forced on it is still auto-skipped for very large
+            datasets (assembled record count over
+            `MANIFEST_SCHEMA_COMPAT_MAX_RECORDS`, default 500) because the
             per-kind schema-service round-trips can push the build past the ~60s
-            edge/load-balancer timeout that fronts the platform ingress. Set
-            `true` to FORCE the pass on even for large datasets. Set `false` to
-            always SKIP it (faster, M26-style build; every record keeps its
-            original kind, which the target OSDU may not have registered, so
-            ingestion could reject them).
-          example: true
+            edge/load-balancer timeout that fronts the platform ingress.
+          example: false
       required:
         - uris
     ManifestDataDto:

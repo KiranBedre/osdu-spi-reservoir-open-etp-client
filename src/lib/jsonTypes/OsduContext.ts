@@ -147,10 +147,10 @@ export class OSDUContext {
   public srnToUri: Map<string, string> = new Map();
   public uriToObject: Map<string, IResqmlDataObject> = new Map();
   public createMissingReferences?: boolean = true;
-  // Tri-state schema-compatibility pass control:
-  //   undefined -> auto (run the pass, but auto-skip for large datasets)
-  //   true      -> force the pass on (even for large datasets)
-  //   false     -> skip the pass entirely (M26-style fast build)
+  // Schema-compatibility pass control (OFF by default; opt-in):
+  //   undefined/false -> skip the pass (fast build; every record keeps its
+  //                      original kind)
+  //   true            -> run the pass (auto-skipped for very large datasets)
   public schemaCompat?: boolean;
   public useDataArrayForManifest: boolean = false;
   public bearer?: string;

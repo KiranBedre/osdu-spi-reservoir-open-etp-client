@@ -1248,14 +1248,16 @@ export const createManifest = async (
         skipped: boolean;
       }
       | undefined;
-    // Large-dataset default: the schema-compatibility pass probes every record's
-    // kind against the target schema service (and does NOT negatively cache a
-    // 404), so a big dataspace fans out to hundreds/thousands of schema GETs and
-    // can push the build past the ~60s edge/LB timeout that fronts the platform
-    // ingress (observed on SKUA/Dani whole-dataspace builds that regressed from
-    // ~57s to >60s -> HTTP 500). Auto-skip the pass once the assembled record
-    // count exceeds MANIFEST_SCHEMA_COMPAT_MAX_RECORDS (default 500) unless the
-    // caller explicitly forces it with `schemaCompat: true`.
+    // OFF BY DEFAULT (M26 behaviour): the schema-compatibility pass probes every
+    // DISTINCT record kind against the target schema service. Results are cached
+    // per kind (both 200 and 404 are cached, see isSchemaRegistered), but on a
+    // cold cache the round-trips still add latency and, on whole-dataspace
+    // builds, can push past the ~60s edge/LB timeout that fronts the platform
+    // ingress (observed on SKUA/Dani builds that regressed from ~57s to >60s ->
+    // HTTP 500). The pass is therefore OPT-IN: it runs only when the caller sets
+    // `schemaCompat: true`. When forced on it is still auto-skipped for very
+    // large datasets (assembled record count over
+    // MANIFEST_SCHEMA_COMPAT_MAX_RECORDS, default 500) to stay under the timeout.
     const schemaCompatMaxRecordsRaw =
       process.env.MANIFEST_SCHEMA_COMPAT_MAX_RECORDS;
     const schemaCompatMaxRecords =
@@ -1268,13 +1270,13 @@ export const createManifest = async (
       assembledCounts.workProductComponents +
       assembledCounts.masterData +
       assembledCounts.referenceData;
-    if (context.schemaCompat === false) {
-      // Opt-out (M26-style fast path): skip the live schema-service kind
-      // resolution/normalize pass entirely. Every record keeps its original
-      // kind - no per-kind schema GETs - which is materially faster on
-      // high-latency links, at the cost of NOT remapping kinds to what the
-      // target OSDU actually has registered (ingestion may reject unknown
-      // kinds). Default remains true (remap on) for ingestion fidelity.
+    if (context.schemaCompat !== true) {
+      // OFF by default (M26-style fast path): skip the live schema-service kind
+      // resolution/normalize pass unless the caller explicitly opts in with
+      // `schemaCompat: true`. Every record keeps its original kind - no per-kind
+      // schema GETs - which keeps whole-dataspace builds under the ~60s ingress
+      // timeout, at the cost of NOT remapping kinds to what the target OSDU has
+      // registered (ingestion may reject unknown kinds).
       schemaCompatDiag = {
         masterData: { remap: 0, drop: 0 },
         referenceData: { remap: 0, drop: 0 },
@@ -1283,17 +1285,14 @@ export const createManifest = async (
         skipped: true
       };
       logger.info(
-        "[schema-compat] SKIPPED by request (schemaCompat=false): keeping every " +
-        "record's original kind for a faster (M26-style) build; ensure the " +
-        "target OSDU has these kinds registered or ingestion may reject them."
+        "[schema-compat] SKIPPED (off by default; pass schemaCompat:true to " +
+        "enable live kind remapping). Ensure the target OSDU has these kinds " +
+        "registered or ingestion may reject them."
       );
-    } else if (
-      context.schemaCompat !== true &&
-      assembledTotal > schemaCompatMaxRecords
-    ) {
-      // Auto-skip for large datasets (see note above). Pass `schemaCompat: true`
-      // to force the remap pass on a large build, or tune the threshold with
-      // MANIFEST_SCHEMA_COMPAT_MAX_RECORDS.
+    } else if (assembledTotal > schemaCompatMaxRecords) {
+      // Forced on (schemaCompat:true) but auto-skip very large builds so the
+      // per-kind schema GETs cannot push the build past the ~60s ingress
+      // timeout. Tune the threshold with MANIFEST_SCHEMA_COMPAT_MAX_RECORDS.
       schemaCompatDiag = {
         masterData: { remap: 0, drop: 0 },
         referenceData: { remap: 0, drop: 0 },
@@ -1302,10 +1301,10 @@ export const createManifest = async (
         skipped: true
       };
       logger.info(
-        `[schema-compat] SKIPPED (large dataset: ${assembledTotal} assembled ` +
-        `record(s) > MANIFEST_SCHEMA_COMPAT_MAX_RECORDS=${schemaCompatMaxRecords}) ` +
-        "to stay under the ~60s ingress timeout; pass schemaCompat:true to force " +
-        "the kind-remap pass on a large build."
+        `[schema-compat] SKIPPED (schemaCompat:true but large dataset: ` +
+        `${assembledTotal} assembled record(s) > ` +
+        `MANIFEST_SCHEMA_COMPAT_MAX_RECORDS=${schemaCompatMaxRecords}) to stay ` +
+        "under the ~60s ingress timeout."
       );
     } else if (osduUrl && osduUrl !== "http://localhost") {
       const bearer = context.bearer;
