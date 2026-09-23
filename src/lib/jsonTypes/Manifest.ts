@@ -335,6 +335,31 @@ function compilePatterns(patterns: string[]): RegExp[] {
 }
 
 /**
+ * True when a referenced object type must NOT be resurrected by the
+ * reference-resolution wave, because the active build filter deliberately
+ * excluded it. This makes `propertyFilter` and `excludePatterns` authoritative
+ * for the WHOLE build (not only the primary selection): a property dropped by
+ * `propertyFilter:"none"`, or any type matched by `excludePatterns`, stays out
+ * even when a kept object (e.g. an Activity) references it. CRS is always kept.
+ */
+function isReferenceSuppressed(
+  dataObjectType: string,
+  propertyFilter: PropertyFilter,
+  excludePatterns?: string[]
+): boolean {
+  if (ALWAYS_INCLUDE_PATTERN.test(dataObjectType)) return false;
+  if (excludePatterns && excludePatterns.length > 0) {
+    for (const p of compilePatterns(excludePatterns)) {
+      if (dataObjectType.match(p)) return true;
+    }
+  }
+  if (propertyFilter === "none" && PROPERTY_TYPE_PATTERN.test(dataObjectType)) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Cheap pre-flight estimate of how many input resources a build would process,
  * applying the SAME type/property/exclude filter as {@link createManifest} (so
  * the count matches what the build actually iterates - e.g. Dani ~938 vs Volve
@@ -1100,6 +1125,21 @@ export const createManifest = async (
     let missingSrn: string[] = Array.from(context.srnToUri.keys()).filter(
       k => generatedSrn.get(k) === undefined
     );
+    // Honor the build filter across the reference wave: never resurrect a type
+    // that propertyFilter/excludePatterns deliberately excluded (e.g. properties
+    // referenced by an Activity under propertyFilter:"none"). Cheap in-memory
+    // filter, and shrinks the filterOSDUResources network call below.
+    missingSrn = missingSrn.filter(k => {
+      const u = context.srnToUri.get(k);
+      return (
+        u === undefined ||
+        !isReferenceSuppressed(
+          new EtpUri(u).dataObjectType,
+          propertyFilter,
+          excludePatterns
+        )
+      );
+    });
     missingSrn = await context.filterOSDUResources(missingSrn);
 
     const unknownSrn = new Set<string>();
@@ -1258,6 +1298,18 @@ export const createManifest = async (
         );
         // Remove references that cannot be resolved
         missingSrn = missingSrn.filter(k => !unknownSrn.has(k));
+        // Keep the build filter authoritative for newly discovered refs too.
+        missingSrn = missingSrn.filter(k => {
+          const u = context.srnToUri.get(k);
+          return (
+            u === undefined ||
+            !isReferenceSuppressed(
+              new EtpUri(u).dataObjectType,
+              propertyFilter,
+              excludePatterns
+            )
+          );
+        });
         missingSrn = await context.filterOSDUResources(missingSrn);
       }
     }
