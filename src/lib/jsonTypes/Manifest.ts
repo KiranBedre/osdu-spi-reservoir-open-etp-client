@@ -657,53 +657,68 @@ export const createManifest = async (
       // Batch size: use larger batches to minimize ETP round-trips.
       // The ETP protocol layer already handles message-size splitting internally.
       const BATCH_SIZE = 50;
-      while (tmpUris.length > 0) {
-        const batch = tmpUris.splice(0, BATCH_SIZE);
-        logger.info(
-          `[perf] Fetching batch of ${batch.length
-          } URIs from ${dataspace}, first: ${batch[0]?.substring(
-            batch[0].lastIndexOf("/")
-          )}`
-        );
-        try {
-          const t1 = Date.now();
-          const arr = await client.getResolvedObjects(batch, objects, false);
-          const batchNulls = arr.filter(o => o === null).length;
-          logger.info(
-            `[perf] Batch result: ${arr.length
-            } items, ${batchNulls} nulls, objects map size=${objects.size
-            }, took ${Date.now() - t1}ms`
-          );
-          if (batchNulls > 0 && batchNulls === arr.length) {
-            // Try single fetch to diagnose
-            const testUri = batch[0];
-            logger.warn(
-              `[debug] All nulls! Trying single getObjects for: ${testUri}`
-            );
-            const singleMap = new Map<string, any>();
-            const single = await client.getResolvedObjects(
-              [testUri],
-              singleMap,
-              false
-            );
-            logger.warn(
-              `[debug] Single result: ${single.length} items, null=${single[0] === null
-              }, singleMap size=${singleMap.size}`
-            );
-          }
-          // Append in place (bounded batch): avoids O(n²) reallocation from
-          // resolvedObjects.concat in the batch loop
-          for (let i = 0; i < arr.length; i++) {
-            resolvedObjects.push(arr[i]);
-          }
-        } catch (e: any) {
-          logger.error(
-            `getResolvedObjects failed for batch: ${batch
-              .map(u => u.substring(u.lastIndexOf("/") + 1))
-              .join(", ")} - ${e?.message ?? e}`
-          );
-        }
+      // Fetch the batches with bounded concurrency instead of strictly serially.
+      // Each getResolvedObjects call is an independent, latency-dominated ETP
+      // round-trip (plus recursive target resolution) that only mutates the
+      // shared `objects` map synchronously, so overlapping them is safe on the
+      // single-threaded event loop and hides most of the per-batch latency.
+      // For large models (e.g. demo/Volve, ~3300 objects => ~67 batches) the
+      // previous one-at-a-time loop serialised that latency and dominated the
+      // whole build; running ~8 in flight collapses it into a handful of waves.
+      const FETCH_CONCURRENCY = 8;
+      const fetchBatches: string[][] = [];
+      for (let i = 0; i < tmpUris.length; i += BATCH_SIZE) {
+        fetchBatches.push(tmpUris.slice(i, i + BATCH_SIZE));
       }
+      let fetchCursor = 0;
+      const fetchWorker = async (): Promise<void> => {
+        while (fetchCursor < fetchBatches.length) {
+          const batch = fetchBatches[fetchCursor++];
+          try {
+            const t1 = Date.now();
+            const arr = await client.getResolvedObjects(batch, objects, false);
+            const batchNulls = arr.filter(o => o === null).length;
+            logger.info(
+              `[perf] Batch result: ${arr.length
+              } items, ${batchNulls} nulls, objects map size=${objects.size
+              }, took ${Date.now() - t1}ms`
+            );
+            if (batchNulls > 0 && batchNulls === arr.length) {
+              // Try single fetch to diagnose
+              const testUri = batch[0];
+              logger.warn(
+                `[debug] All nulls! Trying single getObjects for: ${testUri}`
+              );
+              const singleMap = new Map<string, any>();
+              const single = await client.getResolvedObjects(
+                [testUri],
+                singleMap,
+                false
+              );
+              logger.warn(
+                `[debug] Single result: ${single.length} items, null=${single[0] === null
+                }, singleMap size=${singleMap.size}`
+              );
+            }
+            // Append in place: avoids O(n²) reallocation from concat
+            for (let i = 0; i < arr.length; i++) {
+              resolvedObjects.push(arr[i]);
+            }
+          } catch (e: any) {
+            logger.error(
+              `getResolvedObjects failed for batch: ${batch
+                .map(u => u.substring(u.lastIndexOf("/") + 1))
+                .join(", ")} - ${e?.message ?? e}`
+            );
+          }
+        }
+      };
+      await Promise.all(
+        Array.from(
+          { length: Math.min(FETCH_CONCURRENCY, fetchBatches.length) },
+          () => fetchWorker()
+        )
+      );
 
       const nullCount = resolvedObjects.filter(o => o === null).length;
       const noTypeCount = resolvedObjects.filter(
