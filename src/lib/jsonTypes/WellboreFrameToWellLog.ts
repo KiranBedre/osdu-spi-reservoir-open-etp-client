@@ -332,5 +332,23 @@ export const WellboreFrameToWellLogManifest = async (
   xml: SimpleJson<resqml20.obj_WellboreFrameRepresentation>,
   context: OSDUContext,
   client: ResqmlClient
-): Promise<WellboreFrameToWellLogOSDU> =>
-  new WellboreFrameToWellLogOSDU(xml, context).initData(uri, xml, client);
+): Promise<WellboreFrameToWellLogOSDU | undefined> => {
+  const result = await new WellboreFrameToWellLogOSDU(xml, context).initData(
+    uri,
+    xml,
+    client
+  );
+  // Do not emit an empty WellLog: a WellboreFrameRepresentation with neither a
+  // resolvable wellbore (RepresentedInterpretation) nor any attached curves
+  // produces a record with no useful content. Skipping keeps the manifest to
+  // representations that actually carry log data.
+  const curves = result.data.Curves;
+  if (
+    result.data.WellboreID === undefined &&
+    (curves === undefined || curves.length === 0)
+  ) {
+    logger.info(`[skip] Empty WellLog (no wellbore, no curves) for ${uri}`);
+    return undefined;
+  }
+  return result;
+};
