@@ -272,37 +272,19 @@ export class OSDUContext {
       return eCRS;
     }
 
-    const query = `id:"${id}"`;
-
-    const body = {
-      kind: `*:*:reference-data--CoordinateReferenceSystem:*`,
-      query
-    };
-    const bodyString = JSON.stringify(body);
-    const r = await this.fetchOSDU<{ results: OSDUResourceType[] }>(
-      "/api/search/v2/query",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": `application/json`,
-          "Content-Length": `${bodyString.length}`
-        },
-        body: bodyString
-      }
+    // The record id is fully deterministic from the EPSG code, so fetch it
+    // directly from the authoritative Storage service instead of Elasticsearch.
+    const crs = await this.fetchOSDU<CoordinateReferenceSystem>(
+      `/api/storage/v2/records/${id}`
     );
-    if (r === undefined) {
-      return undefined;
-    }
-    for (const e of r.results) {
-      const crs = e as CoordinateReferenceSystem;
-      if (
-        crs.id !== undefined &&
-        crs.data !== undefined &&
-        crs.data.CodeAsNumber === epsgCode
-      ) {
-        this.projectedCRS.set(id, crs);
-        return crs;
-      }
+    if (
+      crs !== undefined &&
+      crs.id !== undefined &&
+      crs.data !== undefined &&
+      crs.data.CodeAsNumber === epsgCode
+    ) {
+      this.projectedCRS.set(id, crs);
+      return crs;
     }
     return undefined;
   }
@@ -660,84 +642,33 @@ export class OSDUContext {
         return s;
       })
       .filter(s => this.created.get(s.slice(0, -1)) === undefined);
-    const chunks = this.divideIntoChunks(srn, 20);
-    return Promise.all(
-      chunks.map(async chunk => {
-        const queryString = chunk
-          .map(c => `id: "${c.slice(0, -1)}"`)
-          .join(" OR ");
-        const query = {
-          kind: "*:*:reference-data--*:*",
-          offset: 0,
-          limit: 20,
-          aggregateBy: "kind",
-          query: queryString,
-          returnedFields: ["id"]
-        };
-        try {
-          const bodyString = JSON.stringify(query);
-          const found = await this.fetchOSDU<{ results: { id: string }[] }>(
-            `/api/search/v2/query`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": `application/json`,
-                "Content-Length": `${bodyString.length}`
-              },
-              body: bodyString
-            }
-          );
-          return found === undefined ? [] : found.results.map(f => f.id);
-        } catch (e) {
-          return [];
-        }
-      })
-    ).then(results => {
-      const dataFound = results.flat().map(v => v + ":");
-      return srn.filter(v => !dataFound.includes(v));
-    });
+    if (srn.length === 0) return [];
+    // Authoritative existence check against the Storage service (source of
+    // truth). Unlike Search, Storage has no index lag, so reference-data
+    // written moments earlier is reliably seen and not falsely reported as
+    // "missing" (which, in strict mode, would raise a bogus "Missing
+    // reference(s)" failure).
+    const found = await this.batchOsduRecordVersions(srn);
+    return srn.filter(s => !found.has(s.endsWith(":") ? s.slice(0, -1) : s));
   }
 
   /**
-   * Get the known versions associated with id
+   * Get the current version of each id already present in OSDU.
+   *
+   * Uses the authoritative Storage batch fetch endpoint
+   * (POST /api/storage/v2/query/records) rather than Elasticsearch Search.
+   * This reads the source of truth directly (no Search/ES index lag, so a
+   * record written moments earlier in the same build is reliably seen) and
+   * collapses the previous ~N/20 slow Search queries into faster concurrent
+   * Storage batch fetches. The returned Map is keyed by the clean id (no
+   * trailing ':'); ids may be passed with or without one.
    *
    * @param {string[]} ids
-   * @return {Promise<string[]>}
+   * @return {Promise<Map<string, number>>}
    * @memberof OSDUContext
    */
   public async getVersions(ids: string[]): Promise<Map<string, number>> {
-    const chunks = this.divideIntoChunks(ids, 20);
-    const versions: Map<string, number> = new Map();
-    await Promise.all(
-      chunks.map(async chunk => {
-        const queryString = chunk.map(c => `id: "${c}"`).join(" OR ");
-        const query = {
-          kind: "*:*:*--*:*",
-          offset: 0,
-          limit: 20,
-          aggregateBy: "kind",
-          query: queryString,
-          returnedFields: ["id", "version"]
-        };
-        try {
-          const bodyString = JSON.stringify(query);
-          const found = await this.fetchOSDU<{
-            results: { id: string; version: number }[];
-          }>(`/api/search/v2/query`, {
-            method: "POST",
-            headers: {
-              "Content-Type": `application/json`,
-              "Content-Length": `${bodyString.length}`
-            },
-            body: bodyString
-          });
-          found?.results.forEach(r => versions.set(r.id, r.version));
-        } catch (e) {
-          // Do nothing
-        }
-      })
-    );
-    return versions;
+    return this.batchOsduRecordVersions(ids);
   }
 
   /**

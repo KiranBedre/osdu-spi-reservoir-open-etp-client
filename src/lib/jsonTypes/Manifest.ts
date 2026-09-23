@@ -374,7 +374,7 @@ export const estimateManifestInputCount = async (
   client: ResqmlClient,
   uris: URI[],
   typePatterns?: string[],
-  propertyFilter: PropertyFilter = "none",
+  propertyFilter: PropertyFilter = "canonical",
   excludePatterns?: string[]
 ): Promise<number> => {
   const allUris = new Set<string>();
@@ -436,7 +436,7 @@ export const createManifest = async (
   context: OSDUContext,
   typePatterns?: string[],
   maxManifestSize: number = 1000,
-  propertyFilter: PropertyFilter = "all",
+  propertyFilter: PropertyFilter = "canonical",
   excludePatterns?: string[]
 ): Promise<Manifest> => {
   if (uris.length === 0) {

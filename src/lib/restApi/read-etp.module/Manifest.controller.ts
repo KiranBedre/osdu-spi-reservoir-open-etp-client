@@ -418,8 +418,8 @@ export class ManifestInputDto {
     name: "propertyFilter",
     type: String,
     enum: ["canonical", "none", "all"],
-    description: `Controls property inclusion, independent of typePatterns. "none" (default): exclude all properties (fastest — keeps whole-dataspace builds under the ~60s ingress timeout). "canonical": include only properties with standard names (PWLS, OSDU, simulator abbreviations like PORO, PERMX, SW). "all": include every property. Combine with typePatterns to build presets, e.g. all types + all properties (typePatterns:["*"] + propertyFilter:"all").`,
-    example: "none"
+    description: `Controls property inclusion, independent of typePatterns. "canonical" (default): include only properties with standard names (PWLS, OSDU, simulator abbreviations like PORO, PERMX, SW). "none": exclude all properties (fastest). "all": include every property. Combine with typePatterns to build presets, e.g. all types + all properties (typePatterns:["*"] + propertyFilter:"all").`,
+    example: "canonical"
   })
   @IsOptional()
   @IsString()
@@ -616,9 +616,9 @@ export default class ObjectsManifestAPI {
 
 **Supported source domains**: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. Use \`GET /health/converters\` to list all registered mappings.
 
-**Type filtering**: By DEFAULT a curated discovery set is emitted (M26 behaviour): top-level types (features, interpretations, representations, stratigraphic columns, activities, collections, WITSML 2.1) with NO properties and CRS always included. Two independent controls override this:
+**Type filtering**: By DEFAULT a curated discovery set is emitted (M26 behaviour): top-level types (features, interpretations, representations, stratigraphic columns, activities, collections, WITSML 2.1) with only canonical (standard-named) properties and CRS always included. Two independent controls override this:
 - \`typePatterns\`: restrict/expand NON-property types. Pass \`["*"]\` to include EVERY type.
-- \`propertyFilter\`: \`none\` (default, exclude properties) | \`canonical\` (only standard-named properties like PORO/PERMX/SW) | \`all\` (every property).
+- \`propertyFilter\`: \`canonical\` (default, only standard-named properties like PORO/PERMX/SW) | \`none\` (exclude properties) | \`all\` (every property).
 
 To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`propertyFilter: "all"\`. CRS objects are always included regardless of the filter.
 
@@ -810,7 +810,7 @@ To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`prop
         context,
         body.typePatterns ?? DEFAULT_DATASPACE_TYPE_PATTERNS,
         maxManifestSize,
-        body.propertyFilter ?? "none",
+        body.propertyFilter ?? "canonical",
         body.excludePatterns
       );
       logger.info("Manifest creation successful.");
@@ -842,7 +842,7 @@ To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`prop
         c,
         body.uris ?? [],
         body.typePatterns ?? DEFAULT_DATASPACE_TYPE_PATTERNS,
-        body.propertyFilter ?? "none",
+        body.propertyFilter ?? "canonical",
         body.excludePatterns
       );
     } finally {
