@@ -134,7 +134,7 @@ const MANIFEST_JOB_TTL_MS = 30 * 60 * 1000;
 // finished jobs beyond this to bound memory.
 const MANIFEST_JOB_MAX = 50;
 
-// Auto-async threshold: when a caller does not specify `async`, a build whose
+// Auto-async threshold: unless a caller sets `async:true`, a build whose
 // filtered input-resource count reaches this many resources is run
 // asynchronously so it is not cut by the ~60s edge/LB request timeout. The
 // count uses the SAME filter as the build (see estimateManifestInputCount), so
@@ -493,7 +493,7 @@ export class ManifestInputDto {
 
   @ApiPropertyOptional({
     name: "async",
-    description: `Controls synchronous vs asynchronous build. When \`true\`, the request returns \`202 Accepted\` with a \`jobId\` immediately and the build continues in-process, so it is not bound by the ~60s edge/load-balancer request timeout that fronts the platform ingress; poll \`GET /manifests/jobs/{jobId}\` for status and, once \`completed\`, the manifest + build diagnostics. When \`false\`, the build ALWAYS runs synchronously and the manifest is returned in the response body (may hit the ~60s timeout for large dataspaces). When OMITTED (default), the mode is chosen automatically: a cheap pre-count of filtered input resources selects async for large dataspaces (>= ${MANIFEST_ASYNC_AUTO_MIN_RESOURCES} resources, e.g. Volve) and sync for smaller ones (e.g. Dani). Set \`false\` to force synchronous regardless of size.`,
+    description: `Controls synchronous vs asynchronous build. When \`true\`, the request returns \`202 Accepted\` with a \`jobId\` immediately and the build continues in-process, so it is not bound by the ~60s edge/load-balancer request timeout that fronts the platform ingress; poll \`GET /manifests/jobs/{jobId}\` for status and, once \`completed\`, the manifest + build diagnostics. When OMITTED or \`false\` (default), the mode is chosen automatically: a cheap pre-count of filtered input resources selects async for large dataspaces (>= ${MANIFEST_ASYNC_AUTO_MIN_RESOURCES} resources, e.g. Volve) so they never hit the timeout, and returns the manifest synchronously in the response body for smaller ones (e.g. Dani). There is no "force synchronous" mode: forcing sync on a large dataspace would only guarantee a timeout, so \`false\` behaves the same as omitted. Use \`true\` when you always want a job handle regardless of size.`,
     type: Boolean,
     example: false
   })
@@ -655,14 +655,16 @@ To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`prop
       });
     }
 
-    // Decide sync vs async. Explicit `async:false` ALWAYS forces synchronous.
-    // Explicit `async:true` forces asynchronous. When omitted, auto-select:
-    // pre-count the filtered input resources and switch large dataspaces
+    // Decide sync vs async. `async:true` forces asynchronous (always returns a
+    // job handle). Otherwise (omitted OR false) the mode is auto-selected: a
+    // cheap pre-count of the filtered input switches large dataspaces
     // (>= MANIFEST_ASYNC_AUTO_MIN_RESOURCES) to async so the build is not cut
-    // by the ~60s edge/LB request timeout. A pre-count failure falls back to
-    // synchronous (unchanged legacy behaviour).
+    // by the ~60s edge/LB request timeout, while smaller ones run synchronously
+    // and return the manifest inline. Forcing sync is intentionally NOT offered:
+    // it would only guarantee a timeout on large dataspaces. A pre-count failure
+    // falls back to synchronous (safe for the small inputs that reach here).
     let useAsync = body.async === true;
-    if (body.async === undefined) {
+    if (body.async !== true) {
       try {
         const estimated = await this.estimateInputSize(body, request);
         useAsync = estimated >= MANIFEST_ASYNC_AUTO_MIN_RESOURCES;

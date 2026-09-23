@@ -15142,13 +15142,15 @@ components:
             continues in-process, so it is not bound by the ~60s
             edge/load-balancer request timeout that fronts the platform ingress;
             poll `GET /manifests/jobs/{jobId}` for status and, once `completed`,
-            the manifest + build diagnostics. When `false`, the build ALWAYS
-            runs synchronously and the manifest is returned in the response body
-            (may hit the ~60s timeout for large dataspaces). When OMITTED
-            (default), the mode is chosen automatically: a cheap pre-count of
-            filtered input resources selects async for large dataspaces (>= 1000
-            resources, e.g. Volve) and sync for smaller ones (e.g. Dani). Set
-            `false` to force synchronous regardless of size.
+            the manifest + build diagnostics. When OMITTED or `false` (default),
+            the mode is chosen automatically: a cheap pre-count of filtered
+            input resources selects async for large dataspaces (>= 1000
+            resources, e.g. Volve) so they never hit the timeout, and returns
+            the manifest synchronously in the response body for smaller ones
+            (e.g. Dani). There is no "force synchronous" mode: forcing sync on a
+            large dataspace would only guarantee a timeout, so `false` behaves
+            the same as omitted. Use `true` when you always want a job handle
+            regardless of size.
           example: false
         schemaCompat:
           type: boolean
