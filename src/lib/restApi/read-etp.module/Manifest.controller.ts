@@ -89,6 +89,7 @@ import {
 import {
   createManifest,
   DEFAULT_DATASPACE_TYPE_PATTERNS,
+  DEFAULT_INGEST_EXCLUDE_PATTERNS,
   estimateManifestInputCount,
   PropertyFilter
 } from "../../jsonTypes/Manifest";
@@ -142,6 +143,26 @@ const MANIFEST_JOB_MAX = 50;
 // (~3520) auto-switches to a 202 job. Override with MANIFEST_ASYNC_AUTO_MIN_RESOURCES.
 const MANIFEST_ASYNC_AUTO_MIN_RESOURCES =
   Number(process.env.MANIFEST_ASYNC_AUTO_MIN_RESOURCES) || 1000;
+
+/**
+ * Resolve the effective type-exclusion list for a build.
+ *
+ * An explicit `excludePatterns` (including an empty array to opt out) is always
+ * honored verbatim. Otherwise the default is property-aware: because Activity
+ * records reference every property they consumed, keeping them while ANY
+ * property is dropped (`propertyFilter` other than `"all"`) yields dangling
+ * references. So when `propertyFilter !== "all"` we default to
+ * DEFAULT_INGEST_EXCLUDE_PATTERNS (drops `*Activity`/`*ActivityTemplate`/
+ * `*PropertySet`) to keep the manifest self-consistent, matching the auto-ingest
+ * path; with `propertyFilter:"all"` nothing is dropped so Activities are safe to
+ * keep and the default is empty. Used by BOTH the build and the async pre-count
+ * so the estimate matches what the build actually processes.
+ */
+function resolveExcludePatterns(body: ManifestInputDto): string[] | undefined {
+  if (body.excludePatterns !== undefined) return body.excludePatterns;
+  const propertyFilter: PropertyFilter = body.propertyFilter ?? "canonical";
+  return propertyFilter === "all" ? undefined : DEFAULT_INGEST_EXCLUDE_PATTERNS;
+}
 
 /** Drop TTL-expired jobs and enforce the size cap (oldest finished first). */
 function evictManifestJobs(): void {
@@ -431,7 +452,7 @@ export class ManifestInputDto {
     type: [String],
     maxItems: 99999,
     maxLength: 2048,
-    description: `Optional list of type patterns (accepts * and ? wildcards) that HARD-exclude matching types, applied before every inclusion rule except CRS (always kept). Use to drop noisy/low-value types that would otherwise bloat the manifest or introduce dangling references, e.g. ["*Activity","*ActivityTemplate"] (Activity records reference every property they consumed, which become dangling when propertyFilter="canonical"), or ["*GridConnectionSet"] when connection-set counts explode.`,
+    description: `Optional list of type patterns (accepts * and ? wildcards) that HARD-exclude matching types, applied before every inclusion rule except CRS (always kept). When OMITTED, the default is property-aware: with propertyFilter other than "all" (e.g. the "canonical" default) it defaults to ["*Activity","*ActivityTemplate","*PropertySet"] so the manifest stays self-consistent (Activity records reference every property they consumed, which become dangling once any property is dropped); with propertyFilter:"all" it defaults to empty (nothing is dropped, so Activities are safe to keep). Pass an explicit list to override, or [] to opt out of the default exclusions entirely. Also useful to drop other noisy types, e.g. ["*GridConnectionSet"] when connection-set counts explode.`,
     example: ["*Activity", "*ActivityTemplate"],
     pattern: `${patternString(/^[0-9a-zA-Z._*?]+$/)}`
   })
@@ -616,11 +637,12 @@ export default class ObjectsManifestAPI {
 
 **Supported source domains**: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. Use \`GET /health/converters\` to list all registered mappings.
 
-**Type filtering**: By DEFAULT a curated discovery set is emitted (M26 behaviour): top-level types (features, interpretations, representations, stratigraphic columns, activities, collections, WITSML 2.1) with only canonical (standard-named) properties and CRS always included. Two independent controls override this:
+**Type filtering**: By DEFAULT a curated discovery set is emitted (M26 behaviour): top-level types (features, interpretations, representations, stratigraphic columns, collections, WITSML 2.1) with only canonical (standard-named) properties and CRS always included. Two independent controls override this:
 - \`typePatterns\`: restrict/expand NON-property types. Pass \`["*"]\` to include EVERY type.
 - \`propertyFilter\`: \`canonical\` (default, only standard-named properties like PORO/PERMX/SW) | \`none\` (exclude properties) | \`all\` (every property).
+- \`excludePatterns\`: hard type exclusions. When omitted the default is property-aware - because Activity records reference every property they consumed, whenever \`propertyFilter\` is not \`all\` (e.g. the \`canonical\` default) \`*Activity\`/\`*ActivityTemplate\`/\`*PropertySet\` are excluded by default to avoid dangling references; with \`propertyFilter:"all"\` nothing is dropped and Activities are kept. Pass \`[]\` to opt out.
 
-To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`propertyFilter: "all"\`. CRS objects are always included regardless of the filter.
+To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`propertyFilter: "all"\` (this also retains Activities). CRS objects are always included regardless of the filter.
 
 **Key behaviors**:
 - Best-effort mode - partial results returned on converter errors (check \`errors[]\` in response)
@@ -811,7 +833,7 @@ To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`prop
         body.typePatterns ?? DEFAULT_DATASPACE_TYPE_PATTERNS,
         maxManifestSize,
         body.propertyFilter ?? "canonical",
-        body.excludePatterns
+        resolveExcludePatterns(body)
       );
       logger.info("Manifest creation successful.");
       return {
@@ -843,7 +865,7 @@ To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`prop
         body.uris ?? [],
         body.typePatterns ?? DEFAULT_DATASPACE_TYPE_PATTERNS,
         body.propertyFilter ?? "canonical",
-        body.excludePatterns
+        resolveExcludePatterns(body)
       );
     } finally {
       await c.closeSession();
