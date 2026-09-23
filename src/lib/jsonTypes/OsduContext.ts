@@ -171,6 +171,14 @@ export class OSDUContext {
   public created: Map<string, OSDUResourceType> = new Map();
 
   /**
+   * Per-build memoization of getOSDUResourceVersion. Keyed by the clean id
+   * (no trailing ':'). Master-data converters and reconciliation can look up
+   * the same id repeatedly; caching the in-flight Promise collapses those to a
+   * single Storage round-trip per id.
+   */
+  private osduVersionCache = new Map<string, Promise<number | undefined>>();
+
+  /**
    * Memoized spatial info (SpatialPoint/SpatialArea/CRS meta) keyed by
    * supporting-representation URI. Multiple properties that share the same
    * supporting representation resolve to identical geometry, so the (array
@@ -514,8 +522,8 @@ export class OSDUContext {
 
   /**
    * Filter out all resources already in OSDU catalog.
-   * Uses batched OSDU search queries instead of individual record lookups
-   * for O(N/batch) HTTP calls instead of O(N).
+   * Uses the authoritative Storage batch fetch endpoint (source of truth,
+   * no Search index lag) for O(N/batch) HTTP calls instead of O(N).
    *
    * @param {string[]} srn
    * @return {Promise<string[]>}
@@ -523,49 +531,50 @@ export class OSDUContext {
    */
   public async filterOSDUResources(srn: string[]): Promise<string[]> {
     if (srn.length === 0) return [];
-    const chunks = this.divideIntoChunks(srn, 20);
-    const foundIds = new Set<string>();
+    // Authoritative existence check against the Storage service (source of
+    // truth). Unlike Search, Storage has no index lag, so records written
+    // moments earlier in the same build are reliably seen and not re-created.
+    const found = await this.batchOsduRecordVersions(srn);
+    return srn.filter(
+      s => !found.has(s.endsWith(":") ? s.slice(0, -1) : s)
+    );
+  }
+
+  /**
+   * Authoritatively resolve which ids already exist in the OSDU Storage
+   * service, along with their current version, using the Storage batch fetch
+   * endpoint (POST /api/storage/v2/query/records). This reads the source of
+   * truth directly (no Search/ES index lag), so records written moments
+   * earlier are reliably seen.
+   *
+   * Ids may be passed with or without a trailing ':'. The returned Map is
+   * keyed by the clean id (no trailing ':').
+   *
+   * @param {string[]} ids
+   * @return {Promise<Map<string, number>>}
+   * @memberof OSDUContext
+   */
+  public async batchOsduRecordVersions(
+    ids: string[]
+  ): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    if (ids.length === 0) return result;
+    const clean = ids.map(i => (i.endsWith(":") ? i.slice(0, -1) : i));
+    const chunks = this.divideIntoChunks(clean, 20);
     await Promise.all(
       chunks.map(async chunk => {
-        // Strip trailing ':' for search, then search by id
-        const queryString = chunk
-          .map(c => {
-            const clean = c.endsWith(":") ? c.slice(0, -1) : c;
-            return `id:"${clean}"`;
-          })
-          .join(" OR ");
-        const query = {
-          kind: "*:*:*--*:*",
-          offset: 0,
-          limit: chunk.length,
-          query: queryString,
-          returnedFields: ["id"]
-        };
-        try {
-          const bodyString = JSON.stringify(query);
-          const found = await this.fetchOSDU<{ results: { id: string }[] }>(
-            `/api/search/v2/query`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": `application/json`,
-                "Content-Length": `${bodyString.length}`
-              },
-              body: bodyString
-            }
-          );
-          if (found?.results) {
-            for (const r of found.results) {
-              foundIds.add(r.id);
-              foundIds.add(r.id + ":");
-            }
+        const found = await this.pushOSDU<
+          { records: string[] },
+          { records: { id: string; version: number }[] }
+        >(`/api/storage/v2/query/records`, { records: chunk });
+        found?.records?.forEach(r => {
+          if (r?.id !== undefined) {
+            result.set(r.id, r.version);
           }
-        } catch {
-          // Treat search failure as "not found" - conservative
-        }
+        });
       })
     );
-    return srn.filter(s => !foundIds.has(s));
+    return result;
   }
 
   /**
@@ -576,6 +585,19 @@ export class OSDUContext {
    * @memberof OSDUContext
    */
   public async getOSDUResourceVersion(
+    srn: string
+  ): Promise<number | undefined> {
+    const key = srn.endsWith(":") ? srn.slice(0, -1) : srn;
+    const cached = this.osduVersionCache.get(key);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const pending = this.getOSDUResourceVersionUncached(srn);
+    this.osduVersionCache.set(key, pending);
+    return pending;
+  }
+
+  private async getOSDUResourceVersionUncached(
     srn: string
   ): Promise<number | undefined> {
     try {

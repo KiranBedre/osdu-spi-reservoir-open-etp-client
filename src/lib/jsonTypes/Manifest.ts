@@ -954,38 +954,37 @@ export const createManifest = async (
           try {
             // Check if it is an explicit osdu resource
             if (OSDUContext.osduAlias(resObj) !== undefined) {
-              //Check that a version exists
+              // Fetch the latest stored record directly (it carries both its
+              // version and data), collapsing the previous version-probe +
+              // record-GET into a single Storage round-trip.
               const d = res.id.split(":");
-              const version = await context.getOSDUResourceVersion(res.id);
-              if (version) {
-                const stored = await context.fetchOSDU<OSDUResourceType>(
-                  `/api/storage/v2/records/${d[0]}:${d[1]}:${d[2]}`
-                );
-                if (stored) {
-                  // If version exists, just update the DDMSDatasets field in the exiting record
-                  if (res && res.data?.DDMSDatasets?.length > 0) {
-                    if (!stored.data) {
-                      stored.data = {};
-                    }
-                    if (!stored.data.DDMSDatasets) {
-                      stored.data.DDMSDatasets = [];
-                    } else if (
-                      // If the DDMSDatasets already contain the current grid, skip it
-                      stored.data.DDMSDatasets.findIndex(
-                        (e: string) =>
-                          res?.data?.DDMSDatasets &&
-                          e === res.data.DDMSDatasets[0]
-                      ) !== -1
-                    ) {
-                      return;
-                    }
-                    stored.data.DDMSDatasets = [
-                      ...stored.data.DDMSDatasets,
-                      ...res.data.DDMSDatasets
-                    ];
+              const stored = await context.fetchOSDU<OSDUResourceType>(
+                `/api/storage/v2/records/${d[0]}:${d[1]}:${d[2]}`
+              );
+              if (stored) {
+                // If version exists, just update the DDMSDatasets field in the exiting record
+                if (res && res.data?.DDMSDatasets?.length > 0) {
+                  if (!stored.data) {
+                    stored.data = {};
                   }
-                  res = stored;
+                  if (!stored.data.DDMSDatasets) {
+                    stored.data.DDMSDatasets = [];
+                  } else if (
+                    // If the DDMSDatasets already contain the current grid, skip it
+                    stored.data.DDMSDatasets.findIndex(
+                      (e: string) =>
+                        res?.data?.DDMSDatasets &&
+                        e === res.data.DDMSDatasets[0]
+                    ) !== -1
+                  ) {
+                    return;
+                  }
+                  stored.data.DDMSDatasets = [
+                    ...stored.data.DDMSDatasets,
+                    ...res.data.DDMSDatasets
+                  ];
                 }
+                res = stored;
               }
             }
           } catch (osduErr: any) {
@@ -1137,7 +1136,7 @@ export const createManifest = async (
         //    Well/log-heavy dataspace can need ~20+ batches per wave, and the
         //    old sequential loop paid every ETP round-trip end to end.
         const FETCH_BATCH = 50;
-        const FETCH_CONCURRENCY = 8;
+        const FETCH_CONCURRENCY = 16;
         if (toResolve.length > 0) {
           const t0 = Date.now();
           const batches: string[][] = [];
