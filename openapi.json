@@ -18665,7 +18665,7 @@
           },
           "async": {
             "type": "boolean",
-            "description": "When true, build the manifest asynchronously: the request returns `202 Accepted` with a `jobId` immediately and the build continues in-process, so it is not bound by the ~60s edge/load-balancer request timeout that fronts the platform ingress. Poll `GET /manifests/jobs/{jobId}` for status and, once `completed`, the manifest + build diagnostics. When false (default) the build runs synchronously and the manifest is returned in the response body.",
+            "description": "Controls synchronous vs asynchronous build. When `true`, the request returns `202 Accepted` with a `jobId` immediately and the build continues in-process, so it is not bound by the ~60s edge/load-balancer request timeout that fronts the platform ingress; poll `GET /manifests/jobs/{jobId}` for status and, once `completed`, the manifest + build diagnostics. When `false`, the build ALWAYS runs synchronously and the manifest is returned in the response body (may hit the ~60s timeout for large dataspaces). When OMITTED (default), the mode is chosen automatically: a cheap pre-count of filtered input resources selects async for large dataspaces (>= 1000 resources, e.g. Volve) and sync for smaller ones (e.g. Dani). Set `false` to force synchronous regardless of size.",
             "example": false
           },
           "schemaCompat": {

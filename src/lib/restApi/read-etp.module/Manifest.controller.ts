@@ -89,6 +89,7 @@ import {
 import {
   createManifest,
   DEFAULT_DATASPACE_TYPE_PATTERNS,
+  estimateManifestInputCount,
   PropertyFilter
 } from "../../jsonTypes/Manifest";
 import { JwtPayload } from "jsonwebtoken";
@@ -132,6 +133,15 @@ const MANIFEST_JOB_TTL_MS = 30 * 60 * 1000;
 // Hard cap on retained jobs (each may hold a multi-MB manifest) - evict oldest
 // finished jobs beyond this to bound memory.
 const MANIFEST_JOB_MAX = 50;
+
+// Auto-async threshold: when a caller does not specify `async`, a build whose
+// filtered input-resource count reaches this many resources is run
+// asynchronously so it is not cut by the ~60s edge/LB request timeout. The
+// count uses the SAME filter as the build (see estimateManifestInputCount), so
+// a Dani-sized dataspace (~938) stays synchronous while a Volve-sized one
+// (~3520) auto-switches to a 202 job. Override with MANIFEST_ASYNC_AUTO_MIN_RESOURCES.
+const MANIFEST_ASYNC_AUTO_MIN_RESOURCES =
+  Number(process.env.MANIFEST_ASYNC_AUTO_MIN_RESOURCES) || 1000;
 
 /** Drop TTL-expired jobs and enforce the size cap (oldest finished first). */
 function evictManifestJobs(): void {
@@ -483,13 +493,13 @@ export class ManifestInputDto {
 
   @ApiPropertyOptional({
     name: "async",
-    description: `When true, build the manifest asynchronously: the request returns \`202 Accepted\` with a \`jobId\` immediately and the build continues in-process, so it is not bound by the ~60s edge/load-balancer request timeout that fronts the platform ingress. Poll \`GET /manifests/jobs/{jobId}\` for status and, once \`completed\`, the manifest + build diagnostics. When false (default) the build runs synchronously and the manifest is returned in the response body.`,
+    description: `Controls synchronous vs asynchronous build. When \`true\`, the request returns \`202 Accepted\` with a \`jobId\` immediately and the build continues in-process, so it is not bound by the ~60s edge/load-balancer request timeout that fronts the platform ingress; poll \`GET /manifests/jobs/{jobId}\` for status and, once \`completed\`, the manifest + build diagnostics. When \`false\`, the build ALWAYS runs synchronously and the manifest is returned in the response body (may hit the ~60s timeout for large dataspaces). When OMITTED (default), the mode is chosen automatically: a cheap pre-count of filtered input resources selects async for large dataspaces (>= ${MANIFEST_ASYNC_AUTO_MIN_RESOURCES} resources, e.g. Volve) and sync for smaller ones (e.g. Dani). Set \`false\` to force synchronous regardless of size.`,
     type: Boolean,
     example: false
   })
   @IsOptional()
   @IsBoolean()
-  async?: boolean = false;
+  async?: boolean;
 
   @ApiPropertyOptional({
     name: "schemaCompat",
@@ -645,10 +655,35 @@ To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`prop
       });
     }
 
-    // Async mode (opt-in via `async: true`): register a job, return 202 with a
-    // jobId immediately, and continue the build in-process so it is not bound
-    // by the ~60s edge/LB request timeout. Poll GET /manifests/jobs/{jobId}.
-    if (body.async === true) {
+    // Decide sync vs async. Explicit `async:false` ALWAYS forces synchronous.
+    // Explicit `async:true` forces asynchronous. When omitted, auto-select:
+    // pre-count the filtered input resources and switch large dataspaces
+    // (>= MANIFEST_ASYNC_AUTO_MIN_RESOURCES) to async so the build is not cut
+    // by the ~60s edge/LB request timeout. A pre-count failure falls back to
+    // synchronous (unchanged legacy behaviour).
+    let useAsync = body.async === true;
+    if (body.async === undefined) {
+      try {
+        const estimated = await this.estimateInputSize(body, request);
+        useAsync = estimated >= MANIFEST_ASYNC_AUTO_MIN_RESOURCES;
+        logger.info(
+          `[manifest] auto-mode: ${estimated} filtered resources -> ${
+            useAsync ? "async" : "sync"
+          } (threshold ${MANIFEST_ASYNC_AUTO_MIN_RESOURCES})`
+        );
+      } catch (err) {
+        logger.warn(
+          `[manifest] auto-mode pre-count failed, defaulting to sync: ${
+            (err as { message?: string })?.message ?? String(err)
+          }`
+        );
+      }
+    }
+
+    // Async mode: register a job, return 202 with a jobId immediately, and
+    // continue the build in-process so it is not bound by the ~60s edge/LB
+    // request timeout. Poll GET /manifests/jobs/{jobId}.
+    if (useAsync) {
       const bearer = extractToken(request);
       const jwt = bearer ? (decode(bearer) as JwtPayload) : {};
       const partition = extractDataPartitionId(request);
@@ -781,6 +816,33 @@ To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`prop
         manifest: b,
         diagnostics: (b as { __buildDiagnostics?: unknown }).__buildDiagnostics
       };
+    } finally {
+      await c.closeSession();
+    }
+  }
+
+  /**
+   * Cheap pre-flight resource count used to auto-select sync vs async when the
+   * caller omits `async`. Opens its own short-lived ETP session, applies the
+   * same type/property/exclude filter the build will use, and returns the
+   * number of input resources. Whole-dataspace URIs cost one discovery
+   * round-trip each; explicit object URIs incur no network call.
+   */
+  private async estimateInputSize(
+    body: ManifestInputDto,
+    request: express.Request
+  ): Promise<number> {
+    const bearer = extractToken(request);
+    const partition = extractDataPartitionId(request);
+    const c = await createSession(bearer, partition);
+    try {
+      return await estimateManifestInputCount(
+        c,
+        body.uris ?? [],
+        body.typePatterns ?? DEFAULT_DATASPACE_TYPE_PATTERNS,
+        body.propertyFilter ?? "none",
+        body.excludePatterns
+      );
     } finally {
       await c.closeSession();
     }

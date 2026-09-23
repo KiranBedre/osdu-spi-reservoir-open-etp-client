@@ -335,6 +335,57 @@ function compilePatterns(patterns: string[]): RegExp[] {
 }
 
 /**
+ * Cheap pre-flight estimate of how many input resources a build would process,
+ * applying the SAME type/property/exclude filter as {@link createManifest} (so
+ * the count matches what the build actually iterates - e.g. Dani ~938 vs Volve
+ * ~3520). Used by the REST layer to auto-select an asynchronous build for large
+ * dataspaces that would otherwise exceed the ~60s edge/LB request timeout.
+ *
+ * Whole-dataspace URIs are expanded and filtered via one discovery round-trip
+ * each; explicit object URIs count as one and incur NO network call. Nothing is
+ * fetched, converted, or resolved beyond the dataspace resource listing.
+ */
+export const estimateManifestInputCount = async (
+  client: ResqmlClient,
+  uris: URI[],
+  typePatterns?: string[],
+  propertyFilter: PropertyFilter = "none",
+  excludePatterns?: string[]
+): Promise<number> => {
+  const allUris = new Set<string>();
+  for (const uri of uris) {
+    const etpUri = new EtpUri(uri);
+    if (!etpUri.isValid) {
+      continue;
+    }
+    if (etpUri.domain === "") {
+      // Whole dataspace: list + filter exactly like createManifest's discovery.
+      const dataspaceUri = EtpUri.createDataSpaceUri(etpUri.dataSpace);
+      const dataspaceUris = await client.getDataspaceResources(
+        dataspaceUri.uri
+      );
+      for (const f of dataspaceUris) {
+        const u = new EtpUri(f.uri);
+        if (
+          manifestFilterMatches(
+            u.dataObjectType,
+            f.name,
+            typePatterns,
+            propertyFilter,
+            excludePatterns
+          )
+        ) {
+          allUris.add(f.uri);
+        }
+      }
+    } else {
+      allUris.add(etpUri.uri);
+    }
+  }
+  return allUris.size;
+};
+
+/**
  * Create a manifest for a list of uris
  *
  * @param {ResqmlClient} client linked to ETP server
