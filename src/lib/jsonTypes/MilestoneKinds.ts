@@ -25,6 +25,16 @@ let resolvedKinds: Map<string, string> | undefined;
 /** De-dupes concurrent lazy initialisation attempts (ensureSchemaVersions). */
 let schemaInitPromise: Promise<void> | undefined;
 
+/**
+ * Timestamp (ms) of the last completed schema-sync attempt that resolved
+ * nothing. On instances whose Schema Service LIST endpoint returns empty
+ * (e.g. preship), `resolvedKinds` never populates, so without this guard the
+ * 4 schema-service round-trips would re-fire on *every* manifest build. We
+ * back off and reuse the static fallback for a cooldown window instead.
+ */
+let schemaInitEmptyAt: number | undefined;
+const SCHEMA_INIT_COOLDOWN_MS = 5 * 60 * 1000;
+
 /** Per-kind "is this schema registered on the target instance?" cache. */
 const schemaExistsCache = new Map<string, boolean>();
 
@@ -56,16 +66,29 @@ export async function initSchemaVersions(
   try {
     const kinds = new Map<string, string>();
 
-    for (const entityPrefix of ["work-product-component", "master-data", "dataset", "reference-data"]) {
-      const url = `${schemaUrl}?authority=osdu&source=wks&entityType=${entityPrefix}--*&status=PUBLISHED&limit=1000`;
-      const resp = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
-      if (!resp.ok) {
-        logger.warn(`Schema Service returned ${resp.status} for ${entityPrefix} - skipping`);
-        continue;
-      }
-      const body = await resp.json() as { schemaInfos?: Array<{ schemaIdentity: { id: string } }> };
-      const infos = body.schemaInfos ?? [];
+    // Fire all entity-prefix queries concurrently. The previous sequential
+    // loop paid up to 4 × 10s of latency per build; M26 never made these
+    // calls at all, so this parallel wave is the closest fast-path equivalent.
+    const entityPrefixes = ["work-product-component", "master-data", "dataset", "reference-data"];
+    const results = await Promise.all(
+      entityPrefixes.map(async entityPrefix => {
+        const url = `${schemaUrl}?authority=osdu&source=wks&entityType=${entityPrefix}--*&status=PUBLISHED&limit=1000`;
+        try {
+          const resp = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+          if (!resp.ok) {
+            logger.warn(`Schema Service returned ${resp.status} for ${entityPrefix} - skipping`);
+            return [] as Array<{ schemaIdentity: { id: string } }>;
+          }
+          const body = await resp.json() as { schemaInfos?: Array<{ schemaIdentity: { id: string } }> };
+          return body.schemaInfos ?? [];
+        } catch (err: any) {
+          logger.warn(`Schema Service query failed for ${entityPrefix} (${err?.message ?? err}) - skipping`);
+          return [] as Array<{ schemaIdentity: { id: string } }>;
+        }
+      })
+    );
 
+    for (const infos of results) {
       for (const info of infos) {
         const id = info.schemaIdentity?.id;
         if (!id) continue;
@@ -82,11 +105,14 @@ export async function initSchemaVersions(
 
     if (kinds.size > 0) {
       resolvedKinds = kinds;
+      schemaInitEmptyAt = undefined;
       logger.info(`Schema Service: resolved ${kinds.size} entity types from ${baseUrl}`);
     } else {
+      schemaInitEmptyAt = Date.now();
       logger.warn("Schema Service returned no schemas - using static fallback");
     }
   } catch (err: any) {
+    schemaInitEmptyAt = Date.now();
     logger.warn(`Schema Service unavailable (${err?.message ?? err}) - using static fallback`);
   }
 }
@@ -249,6 +275,13 @@ export async function ensureSchemaVersions(
   dataPartitionId?: string
 ): Promise<void> {
   if (resolvedKinds) return;
+  // A recent attempt resolved nothing (e.g. Schema Service LIST is empty on
+  // this instance). Reuse the static fallback for the cooldown window instead
+  // of re-firing the schema-service queries on every single manifest build.
+  if (schemaInitEmptyAt !== undefined &&
+      Date.now() - schemaInitEmptyAt < SCHEMA_INIT_COOLDOWN_MS) {
+    return;
+  }
   if (!schemaInitPromise) {
     schemaInitPromise = initSchemaVersions(osduBaseUrl, token, dataPartitionId)
       .catch(err => {

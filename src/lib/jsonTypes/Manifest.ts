@@ -947,19 +947,32 @@ export const createManifest = async (
           }
         }
 
-        // 2. Batch-fetch uncached objects via ETP (50 per batch)
+        // 2. Batch-fetch uncached objects via ETP (50 per batch). Fire the
+        //    batches with bounded concurrency instead of one-at-a-time: a
+        //    Well/log-heavy dataspace can need ~20+ batches per wave, and the
+        //    old sequential loop paid every ETP round-trip end to end.
         const FETCH_BATCH = 50;
+        const FETCH_CONCURRENCY = 8;
         if (toResolve.length > 0) {
           const t0 = Date.now();
+          const batches: string[][] = [];
           for (let i = 0; i < toResolve.length; i += FETCH_BATCH) {
-            const batch = toResolve.slice(i, i + FETCH_BATCH);
-            const batchUris = batch.map(r => r.uri);
-            try {
-              await client.getResolvedObjects(batchUris, objects, false);
-            } catch (e: any) {
-              logger.warn(`[perf] Batch ETP fetch failed: ${e?.message ?? e}`);
-            }
+            batches.push(toResolve.slice(i, i + FETCH_BATCH).map(r => r.uri));
           }
+          let cursor = 0;
+          const worker = async (): Promise<void> => {
+            while (cursor < batches.length) {
+              const batchUris = batches[cursor++];
+              try {
+                await client.getResolvedObjects(batchUris, objects, false);
+              } catch (e: any) {
+                logger.warn(`[perf] Batch ETP fetch failed: ${e?.message ?? e}`);
+              }
+            }
+          };
+          await Promise.all(
+            Array.from({ length: Math.min(FETCH_CONCURRENCY, batches.length) }, () => worker())
+          );
           logger.info(
             `[perf] Fetched ${toResolve.length} objects in ${Date.now() - t0}ms`
           );
