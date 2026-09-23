@@ -389,17 +389,18 @@ export const createManifest = async (
     const bumpSkip = (m: Map<string, number>, key: string): void => {
       m.set(key, (m.get(key) ?? 0) + 1);
     };
-    // Align stamped kind versions with the live target instance using the
-    // request token. The startup init (RestServer) runs unauthenticated and
-    // silently no-ops on secured instances, so without this the builder stays on
-    // the static fallback table - producing wrong schema versions and emitting
-    // work-product-component types that are absent on the target. Once resolved,
-    // getKind()/getKindOrFallback() return registered versions and unknown WPC
-    // types fall back to GenericRepresentation.
-    try {
-      await ensureSchemaVersions(osduUrl, context.bearer, context.partition);
-    } catch {
-      // Keep the static fallback table if resolution fails.
+    // M26 parity (default): make NO schema-service calls - stamp kinds straight
+    // from the static fallback table, exactly like the M26 boundary. Only when
+    // schemaCompat:true is explicitly requested do we align stamped kind
+    // versions with the live target instance (resolving registered versions and
+    // falling back GenericRepresentation for unknown WPC types). This keeps the
+    // default build path free of every schema-service round-trip.
+    if (context.schemaCompat === true) {
+      try {
+        await ensureSchemaVersions(osduUrl, context.bearer, context.partition);
+      } catch {
+        // Keep the static fallback table if resolution fails.
+      }
     }
     try {
       await registerDMS(context);
