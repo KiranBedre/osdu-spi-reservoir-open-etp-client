@@ -279,7 +279,7 @@ export async function ensureSchemaVersions(
   // this instance). Reuse the static fallback for the cooldown window instead
   // of re-firing the schema-service queries on every single manifest build.
   if (schemaInitEmptyAt !== undefined &&
-      Date.now() - schemaInitEmptyAt < SCHEMA_INIT_COOLDOWN_MS) {
+    Date.now() - schemaInitEmptyAt < SCHEMA_INIT_COOLDOWN_MS) {
     return;
   }
   if (!schemaInitPromise) {

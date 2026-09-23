@@ -11,6 +11,7 @@ Changes in the `open-etp-client` REST gateway since the M27 baseline (`cfffaa2`)
 5. [Optimizations](#5-optimizations)
 6. [Bug Fixes](#6-bug-fixes)
 7. [Behavioral Changes ⚠️](#7-behavioral-changes-️)
+8. [Known Issues & Authoring Gotchas](#8-known-issues--authoring-gotchas)
 
 ---
 
@@ -451,3 +452,20 @@ These may affect existing consumers.
 | **Protocol negotiation** ([!289](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/289)) | `RDMS_ETP_EXTENDED_PROTOCOLS` env var | Auto-negotiated, env var removed | - |
 | **Dataspace ACL override** ([!207](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/207)) | ETP customData always overrode pre-configured ACLs | Pre-configured ACLs take priority | - |
 | **Clone re-identify** | `clone?reidentify=true` on a server that cannot copy dataspace content silently returned an identity-preserving clone | Now fails loud with `501 ENOTSUPPORTED` so callers do not get colliding UUIDs | Retry without `reidentify` for a reference snapshot |
+
+---
+
+## 8. Known Issues & Authoring Gotchas
+
+**Highlights:** most of these are **EPC-authoring** pitfalls that surface as import or
+commit errors rather than client defects. They are collected here so an ingest failure is
+quick to diagnose.
+
+| Area | Symptom | Cause & workaround |
+| --- | --- | --- |
+| **Mixed DOR format** | `"N Missing reference(s)"` on `CommitTransaction` | A v2.0.1 `<eml:ContentType>…type=obj_TypeName</eml:ContentType>` DOR left inside a v2.2 EPC resolves against `TypeName` (no `obj_`) and cannot match a stored object. Convert **all** DORs to the v2.2 form (`<eml:Uuid>` + `<eml:QualifiedType>resqml22.TypeName</eml:QualifiedType>`) before upload. |
+| **`<Default Extension="xml">`** | Server misidentifies object types / parse issues | A `<Default Extension="xml">` entry in `[Content_Types].xml` overrides every per-part `<Override>`. Use `<Override>` entries only. |
+| **ETP interop URL** | WebSocket connect returns `404` | The interop ETP URL requires a **trailing slash**: `wss://<host>/api/reservoir-ddms-etp/v2/`. |
+| **`Error: Cannot read part: xml`** | Warning during ETP EPC import | Harmless - refers to an unrecognized `<Default Extension="xml">` entry; the import still succeeds. |
+| **Local Postgres port clash** | Docker-compose ETP server fails to bind `5432` | The host already runs PostgreSQL. Map an alternate port, e.g. `-p 5433:5432`. |
+| **No channel streaming** | GrowingObject (6) / ChannelSubscribe (21) unavailable | Out of scope - RDDMS is a modelling store; use a Wellbore DDMS / WITSML Server for real-time rig data. |
