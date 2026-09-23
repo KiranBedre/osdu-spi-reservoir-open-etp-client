@@ -452,8 +452,8 @@ export class ManifestInputDto {
     type: [String],
     maxItems: 99999,
     maxLength: 2048,
-    description: `Optional list of type patterns (accepts * and ? wildcards) that HARD-exclude matching types, applied before every inclusion rule except CRS (always kept). When OMITTED, the default is property-aware: with propertyFilter other than "all" (e.g. the "canonical" default) it defaults to ["*Activity","*ActivityTemplate","*PropertySet"] so the manifest stays self-consistent (Activity records reference every property they consumed, which become dangling once any property is dropped); with propertyFilter:"all" it defaults to empty (nothing is dropped, so Activities are safe to keep). Pass an explicit list to override, or [] to opt out of the default exclusions entirely. Also useful to drop other noisy types, e.g. ["*GridConnectionSet"] when connection-set counts explode.`,
-    example: ["*Activity", "*ActivityTemplate"],
+    description: `Optional list of type patterns (accepts * and ? wildcards) that HARD-exclude matching types, applied before every inclusion rule except CRS (always kept). When OMITTED, the default is property-aware: with propertyFilter other than "all" (e.g. the "canonical" default) it defaults to ["*Activity","*ActivityTemplate","*PropertySet","*WellboreFrameRepresentation","witsml21.Log"] so the manifest stays self-consistent and free of redundant well-log copies. Activity records reference every property they consumed (dangling once any property is dropped); WellboreFrameRepresentation / witsml Log objects convert to OSDU WellLog work-products, but wells are authoritative in the Wellbore DDMS and their curves remain searchable here in RDDMS, so a second copy adds no discovery value while multiplying record count and build time. Excluding a well frame/log also auto-suppresses its orphaned curve properties so no dangling SupportingRepresentation reference is emitted. With propertyFilter:"all" it defaults to empty (nothing is dropped, so Activities and wells are kept). Pass an explicit list to override, or [] to opt out of the default exclusions entirely. Also useful to drop other noisy types, e.g. ["*GridConnectionSet"] when connection-set counts explode.`,
+    example: ["*Activity", "*WellboreFrameRepresentation", "witsml21.Log"],
     pattern: `${patternString(/^[0-9a-zA-Z._*?]+$/)}`
   })
   @IsOptional()
@@ -640,9 +640,9 @@ export default class ObjectsManifestAPI {
 **Type filtering**: By DEFAULT a curated discovery set is emitted (M26 behaviour): top-level types (features, interpretations, representations, stratigraphic columns, collections, WITSML 2.1) with only canonical (standard-named) properties and CRS always included. Two independent controls override this:
 - \`typePatterns\`: restrict/expand NON-property types. Pass \`["*"]\` to include EVERY type.
 - \`propertyFilter\`: \`canonical\` (default, only standard-named properties like PORO/PERMX/SW) | \`none\` (exclude properties) | \`all\` (every property).
-- \`excludePatterns\`: hard type exclusions. When omitted the default is property-aware - because Activity records reference every property they consumed, whenever \`propertyFilter\` is not \`all\` (e.g. the \`canonical\` default) \`*Activity\`/\`*ActivityTemplate\`/\`*PropertySet\` are excluded by default to avoid dangling references; with \`propertyFilter:"all"\` nothing is dropped and Activities are kept. Pass \`[]\` to opt out.
+- \`excludePatterns\`: hard type exclusions. When omitted the default is property-aware - whenever \`propertyFilter\` is not \`all\` (e.g. the \`canonical\` default) \`*Activity\`/\`*ActivityTemplate\`/\`*PropertySet\`/\`*WellboreFrameRepresentation\`/\`witsml21.Log\` are excluded by default. Activity records reference every property they consumed (dangling once any property is dropped); well frames/logs convert to OSDU WellLog work-products, but wells are authoritative in the Wellbore DDMS and their curves stay searchable here in RDDMS, so a redundant OSDU copy is skipped (its orphaned curve properties are auto-suppressed to avoid dangling references). With \`propertyFilter:"all"\` nothing is dropped and Activities/wells are kept. Pass \`[]\` to opt out.
 
-To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`propertyFilter: "all"\` (this also retains Activities). CRS objects are always included regardless of the filter.
+To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`propertyFilter: "all"\` (this also retains Activities and wells). CRS objects are always included regardless of the filter.
 
 **Key behaviors**:
 - Best-effort mode - partial results returned on converter errors (check \`errors[]\` in response)
@@ -691,14 +691,12 @@ To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`prop
         const estimated = await this.estimateInputSize(body, request);
         useAsync = estimated >= MANIFEST_ASYNC_AUTO_MIN_RESOURCES;
         logger.info(
-          `[manifest] auto-mode: ${estimated} filtered resources -> ${
-            useAsync ? "async" : "sync"
+          `[manifest] auto-mode: ${estimated} filtered resources -> ${useAsync ? "async" : "sync"
           } (threshold ${MANIFEST_ASYNC_AUTO_MIN_RESOURCES})`
         );
       } catch (err) {
         logger.warn(
-          `[manifest] auto-mode pre-count failed, defaulting to sync: ${
-            (err as { message?: string })?.message ?? String(err)
+          `[manifest] auto-mode pre-count failed, defaulting to sync: ${(err as { message?: string })?.message ?? String(err)
           }`
         );
       }

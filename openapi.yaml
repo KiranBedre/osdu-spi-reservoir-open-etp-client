@@ -2073,16 +2073,22 @@ paths:
         property).
 
         - `excludePatterns`: hard type exclusions. When omitted the default is
-        property-aware - because Activity records reference every property they
-        consumed, whenever `propertyFilter` is not `all` (e.g. the `canonical`
-        default) `*Activity`/`*ActivityTemplate`/`*PropertySet` are excluded by
-        default to avoid dangling references; with `propertyFilter:"all"`
-        nothing is dropped and Activities are kept. Pass `[]` to opt out.
+        property-aware - whenever `propertyFilter` is not `all` (e.g. the
+        `canonical` default)
+        `*Activity`/`*ActivityTemplate`/`*PropertySet`/`*WellboreFrameRepresentation`/`witsml21.Log`
+        are excluded by default. Activity records reference every property they
+        consumed (dangling once any property is dropped); well frames/logs
+        convert to OSDU WellLog work-products, but wells are authoritative in
+        the Wellbore DDMS and their curves stay searchable here in RDDMS, so a
+        redundant OSDU copy is skipped (its orphaned curve properties are
+        auto-suppressed to avoid dangling references). With
+        `propertyFilter:"all"` nothing is dropped and Activities/wells are kept.
+        Pass `[]` to opt out.
 
 
         To reproduce the M27 "everything" build, pass `typePatterns: ["*"]` and
-        `propertyFilter: "all"` (this also retains Activities). CRS objects are
-        always included regardless of the filter.
+        `propertyFilter: "all"` (this also retains Activities and wells). CRS
+        objects are always included regardless of the filter.
 
 
         **Key behaviors**:
@@ -15098,17 +15104,25 @@ components:
             except CRS (always kept). When OMITTED, the default is
             property-aware: with propertyFilter other than "all" (e.g. the
             "canonical" default) it defaults to
-            ["*Activity","*ActivityTemplate","*PropertySet"] so the manifest
-            stays self-consistent (Activity records reference every property
-            they consumed, which become dangling once any property is dropped);
-            with propertyFilter:"all" it defaults to empty (nothing is dropped,
-            so Activities are safe to keep). Pass an explicit list to override,
+            ["*Activity","*ActivityTemplate","*PropertySet","*WellboreFrameRepresentation","witsml21.Log"]
+            so the manifest stays self-consistent and free of redundant well-log
+            copies. Activity records reference every property they consumed
+            (dangling once any property is dropped); WellboreFrameRepresentation
+            / witsml Log objects convert to OSDU WellLog work-products, but
+            wells are authoritative in the Wellbore DDMS and their curves remain
+            searchable here in RDDMS, so a second copy adds no discovery value
+            while multiplying record count and build time. Excluding a well
+            frame/log also auto-suppresses its orphaned curve properties so no
+            dangling SupportingRepresentation reference is emitted. With
+            propertyFilter:"all" it defaults to empty (nothing is dropped, so
+            Activities and wells are kept). Pass an explicit list to override,
             or [] to opt out of the default exclusions entirely. Also useful to
             drop other noisy types, e.g. ["*GridConnectionSet"] when
             connection-set counts explode.
           example:
             - '*Activity'
-            - '*ActivityTemplate'
+            - '*WellboreFrameRepresentation'
+            - witsml21.Log
           type: array
           items:
             type: string

@@ -136,17 +136,35 @@ export const DEFAULT_DATASPACE_TYPE_PATTERNS: string[] = [
 ];
 
 /**
- * Types that reference other data objects but carry little standalone
- * discovery value and frequently introduce referential-integrity noise when
- * combined with property filtering (e.g. Activity records reference every
- * property they consumed; with `propertyFilter="canonical"` those references
- * become dangling). Excluded by default on the auto-ingest path so the emitted
- * manifest stays self-consistent for the OSDU ingestion workflow (Airflow DAG).
+ * Types excluded by default whenever property filtering is active
+ * (`propertyFilter` !== "all"). Two rationales:
+ *
+ *  1. Referential-integrity noise: types that reference other data objects but
+ *     carry little standalone discovery value (e.g. Activity records reference
+ *     every property they consumed; with `propertyFilter="canonical"` those
+ *     references become dangling).
+ *
+ *  2. Well-log data authority: RESQML `WellboreFrameRepresentation` and WITSML
+ *     `Log` objects convert to OSDU `WellLog` work-products (curve data). Wells
+ *     and their logs are authoritative in the Wellbore DDMS, and the curves
+ *     remain directly searchable/retrievable here in RDDMS, so mirroring a
+ *     second copy into the OSDU manifest adds no discovery value while
+ *     multiplying record count and build time. Excluding the frame/log also
+ *     requires suppressing its orphaned curve properties (see the convert-phase
+ *     supporting-representation check in `createManifest`) so no dangling
+ *     `SupportingRepresentation` reference is emitted.
+ *
+ * Excluded by default on the auto-ingest path so the emitted manifest stays
+ * self-consistent for the OSDU ingestion workflow (Airflow DAG). Pass
+ * `propertyFilter:"all"` (or an explicit `excludePatterns`) to override — the
+ * "everything" build (M27 preship) retains wells and activities.
  */
 export const DEFAULT_INGEST_EXCLUDE_PATTERNS: string[] = [
   "*Activity", // resqml20.obj_Activity / eml23.Activity
   "*ActivityTemplate", // resqml20.obj_ActivityTemplate / eml23.ActivityTemplate
-  "*PropertySet" // resqml20.obj_PropertySet -> PersistedCollection (pure grouping container)
+  "*PropertySet", // resqml20.obj_PropertySet -> PersistedCollection (pure grouping container)
+  "*WellboreFrameRepresentation", // RESQML well logs -> WellLog; authoritative in Wellbore DDMS, searchable in RDDMS
+  "witsml21.Log" // WITSML well logs -> WellLog; same rationale
 ];
 
 /** Property type pattern for secondary filter matching */
@@ -458,6 +476,12 @@ export const createManifest = async (
     // manifest with zero explanation. Counting it turns that blind spot into an
     // actionable, surfaced diagnostic.
     const convertFailed = new Map<string, number>();
+    // `suppressedExcludedSupport` = a property object whose supporting
+    // representation type is excluded from this build (e.g. a WellLog curve
+    // whose `WellboreFrameRepresentation` frame is excluded by default). We
+    // deliberately drop the property so it does not emit a work-product with a
+    // dangling `SupportingRepresentation` reference to a record we never ingest.
+    const suppressedExcludedSupport = new Map<string, number>();
     // Total objects that had a resolvable $type and were therefore eligible for
     // conversion. Compared against `context.created.size` to detect the
     // pathological "N inputs, 0 outputs" case and raise a loud warning.
@@ -893,6 +917,13 @@ export const createManifest = async (
       // rather than CPU, so raising the number of in-flight requests on the
       // multiplexed ETP session hides more of that latency.
       const CONVERT_CONCURRENCY = 32;
+      // Precompile the exclude patterns once so the per-property
+      // supporting-representation check below is a cheap regex test rather than
+      // a recompile per object. Empty/undefined -> no suppression.
+      const compiledExcludeForSupport =
+        excludePatterns && excludePatterns.length > 0
+          ? compilePatterns(excludePatterns)
+          : undefined;
       const processOne = async (i: number): Promise<void> => {
         const resObj = resolvedObjects[i];
         if (resObj?.$type === undefined) {
@@ -911,6 +942,37 @@ export const createManifest = async (
           resObj.Uuid,
           resObj.ObjectVersion
         );
+
+        // Suppress properties whose supporting representation is excluded from
+        // this build. A property (e.g. a well-log curve) points at its parent
+        // representation via `SupportingRepresentation`; when that parent type
+        // is in `excludePatterns` (WellboreFrameRepresentation / witsml Log are
+        // excluded by default) the parent is never ingested, so emitting the
+        // property would leave a dangling reference. Only properties can carry a
+        // SupportingRepresentation, so gate on the property type first to avoid
+        // the target scan for every object.
+        if (
+          compiledExcludeForSupport !== undefined &&
+          PROPERTY_TYPE_PATTERN.test(etpUri.dataObjectType)
+        ) {
+          const supportTargets = new Set<string>();
+          client.getObjectTargets(dataspace, resObj, supportTargets);
+          let supportExcluded = false;
+          for (const target of supportTargets) {
+            const targetType = new EtpUri(target).dataObjectType;
+            if (
+              targetType &&
+              compiledExcludeForSupport.some((p) => targetType.match(p))
+            ) {
+              supportExcluded = true;
+              break;
+            }
+          }
+          if (supportExcluded) {
+            bumpSkip(suppressedExcludedSupport, etpUri.dataObjectType);
+            return;
+          }
+        }
 
         const c = ResqmlOSDU.get(etpUri.dataObjectType);
         if (c === undefined) {
@@ -1789,7 +1851,8 @@ export const createManifest = async (
     if (
       skippedNoConverter.size > 0 ||
       skippedConverterUndefined.size > 0 ||
-      convertFailed.size > 0
+      convertFailed.size > 0 ||
+      suppressedExcludedSupport.size > 0
     ) {
       logger.info(
         `[skip] no-converter=${sumMap(skippedNoConverter)} [${fmtMap(
@@ -1798,7 +1861,10 @@ export const createManifest = async (
         `converter-skipped=${sumMap(skippedConverterUndefined)} [${fmtMap(
           skippedConverterUndefined
         )}] ` +
-        `convert-failed=${sumMap(convertFailed)} [${fmtMap(convertFailed)}]`
+        `convert-failed=${sumMap(convertFailed)} [${fmtMap(convertFailed)}] ` +
+        `excluded-support=${sumMap(suppressedExcludedSupport)} [${fmtMap(
+          suppressedExcludedSupport
+        )}]`
       );
     }
 
@@ -1809,6 +1875,7 @@ export const createManifest = async (
     const noConverterN = sumMap(skippedNoConverter);
     const converterSkippedN = sumMap(skippedConverterUndefined);
     const convertFailedN = sumMap(convertFailed);
+    const excludedSupportN = sumMap(suppressedExcludedSupport);
     const createdN = context.created.size;
     const buildDiagnostics = {
       inputObjects: attemptedConversions,
@@ -1816,6 +1883,7 @@ export const createManifest = async (
       noConverter: noConverterN,
       converterSkipped: converterSkippedN,
       convertFailed: convertFailedN,
+      excludedSupport: excludedSupportN,
       noConverterTypes: Array.from(skippedNoConverter.keys()),
       convertFailedTypes: Array.from(convertFailed.keys()),
       // Post-assembly visibility: `created` is counted before the
