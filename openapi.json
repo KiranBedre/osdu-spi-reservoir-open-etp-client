@@ -6428,7 +6428,7 @@
     },
     "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/targets": {
       "get": {
-        "description": "Flat list of resources that this object references (e.g., a Property's supporting Representation, or a Representation's CRS). Follows relationships forward (parent → child).\n\n**depth**: 1 = immediate targets only, N = recursive (e.g., depth=2 gets targets of targets).\n\n**List vs graph**: Set `edges=true` to also return the relationship edges (equivalent to the deprecated `GET /graph/{type}/{guid}/targets`).",
+        "description": "Flat list of resources that this object references (e.g., a Property's supporting Representation, or a Representation's CRS). Follows relationships forward (parent \u2192 child).\n\n**depth**: 1 = immediate targets only, N = recursive (e.g., depth=2 gets targets of targets).\n\n**List vs graph**: Set `edges=true` to also return the relationship edges (equivalent to the deprecated `GET /graph/{type}/{guid}/targets`).",
         "operationId": "ResourcesReadAPI_ListTargets",
         "parameters": [
           {
@@ -6977,7 +6977,7 @@
     },
     "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/sources": {
       "get": {
-        "description": "Flat list of resources that reference this object (e.g., Properties attached to a Representation). Follows relationships backward (child → parent).\n\n**depth**: 1 = immediate sources only, N = recursive.\n\n**List vs graph**: Set `edges=true` to also return the relationship edges (equivalent to the deprecated `GET /graph/{type}/{guid}/sources`).",
+        "description": "Flat list of resources that reference this object (e.g., Properties attached to a Representation). Follows relationships backward (child \u2192 parent).\n\n**depth**: 1 = immediate sources only, N = recursive.\n\n**List vs graph**: Set `edges=true` to also return the relationship edges (equivalent to the deprecated `GET /graph/{type}/{guid}/sources`).",
         "operationId": "ResourcesReadAPI_ListSources",
         "parameters": [
           {
@@ -8797,7 +8797,7 @@
     },
     "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/arrays/{pathInResource}": {
       "put": {
-        "description": "Binary counterpart to `PUT /resources/arrays` for a **single** array. The request body is the raw little-endian bytes of the array (no JSON envelope, no base64), and the array identity/shape are passed as path and query parameters. This avoids base64's ~33% size inflation and JSON parsing for large numeric arrays.\n\n**arrayType**: element type of the bytes (e.g. `Float64Array`).\n**dimensions**: repeat per dimension, e.g. `dimensions=100&dimensions=3`.\n**starts/counts**: optional, to write a subarray slice (both required together, matching `dimensions` length).\n**Empty body**: creates an empty array of the given dimensions and type.\n**Transaction**: should be done within a transaction — pass `transactionId` from `POST /dataspaces/{ds}/transactions`.",
+        "description": "Binary counterpart to `PUT /resources/arrays` for a **single** array. The request body is the raw little-endian bytes of the array (no JSON envelope, no base64), and the array identity/shape are passed as path and query parameters. This avoids base64's ~33% size inflation and JSON parsing for large numeric arrays.\n\n**arrayType**: element type of the bytes (e.g. `Float64Array`).\n**dimensions**: repeat per dimension, e.g. `dimensions=100&dimensions=3`.\n**starts/counts**: optional, to write a subarray slice (both required together, matching `dimensions` length).\n**Empty body**: creates an empty array of the given dimensions and type.\n**Transaction**: should be done within a transaction \u2014 pass `transactionId` from `POST /dataspaces/{ds}/transactions`.",
         "operationId": "MutationsAPI_PutDataArrayBinary",
         "parameters": [
           {
@@ -9231,7 +9231,7 @@
         ]
       },
       "get": {
-        "description": "Retrieve the numeric data of an array. For large arrays, use `starts` and `counts` to fetch slices (subarrays) instead of the full dataset.\n\n**starts/counts**: Must be used together. Each is a comma-separated list matching the array dimensions (e.g., `starts=0,0&counts=100,3` for first 100 rows × 3 columns).\n\n**format**: `json` (default) returns a number array; `base64` returns a base64-encoded binary string (more efficient for large transfers).\n\n**Chunking**: The ETP layer automatically chunks large arrays (~10 MB per WebSocket message) and reassembles on the server side.",
+        "description": "Retrieve the numeric data of an array. For large arrays, use `starts` and `counts` to fetch slices (subarrays) instead of the full dataset.\n\n**starts/counts**: Must be used together. Each is a comma-separated list matching the array dimensions (e.g., `starts=0,0&counts=100,3` for first 100 rows \u00d7 3 columns).\n\n**format**: `json` (default) returns a number array; `base64` returns a base64-encoded binary string (more efficient for large transfers).\n\n**Chunking**: The ETP layer automatically chunks large arrays (~10 MB per WebSocket message) and reassembles on the server side.",
         "operationId": "DataArrayReadAPI_GetArray",
         "parameters": [
           {
@@ -13267,7 +13267,7 @@
     },
     "/dataspaces/{dataspaceId}/transactions": {
       "post": {
-        "description": "Start a new transaction for atomic write operations in this dataspace.\n\nReturns a `transactionId` UUID. Pass it to write/array endpoints as a query parameter.\n\n**Lifecycle**: commit with `PUT …/transactions/{txId}`, rollback with `DELETE …/transactions/{txId}`.\n\n**Timeout**: Auto-rollback after `TimeoutPeriod` seconds (default 300) if no new transaction messages occur.\n\n**Constraint**: Only one transaction can be active per dataspace at a time.\n\n**Typical write workflow**:\n```\nPOST  /dataspaces/{ds}/transactions              → transactionId\nPUT   /dataspaces/{ds}/resources?transactionId=…  → put objects (JSON array)\nPUT   /dataspaces/{ds}/resources/arrays?transactionId=… → put arrays (one per channel)\nPUT   /dataspaces/{ds}/transactions/{txId}        → commit\n```",
+        "description": "Start a new transaction for atomic write operations in this dataspace.\n\nReturns a `transactionId` UUID. Pass it to write/array endpoints as a query parameter.\n\n**Lifecycle**: commit with `PUT \u2026/transactions/{txId}`, rollback with `DELETE \u2026/transactions/{txId}`.\n\n**Timeout**: Auto-rollback after `TimeoutPeriod` seconds (default 300) if no new transaction messages occur.\n\n**Constraint**: Only one transaction can be active per dataspace at a time.\n\n**Typical write workflow**:\n```\nPOST  /dataspaces/{ds}/transactions              \u2192 transactionId\nPUT   /dataspaces/{ds}/resources?transactionId=\u2026  \u2192 put objects (JSON array)\nPUT   /dataspaces/{ds}/resources/arrays?transactionId=\u2026 \u2192 put arrays (one per channel)\nPUT   /dataspaces/{ds}/transactions/{txId}        \u2192 commit\n```",
         "operationId": "TransactionsAPI_PostTransaction",
         "parameters": [
           {
@@ -14691,7 +14691,7 @@
     },
     "/dataspaces/{dataspaceId}/epc/upload": {
       "post": {
-        "description": "Upload a RESQML EPC file (ZIP with XML objects) and an optional HDF5 companion file.\n\n**Processing flow**:\n1. Validate file sizes against configured limits\n2. Unzip EPC → parse `[Content_Types].xml` manifest\n3. Extract XML objects, identify `EpcExternalPartReference` entries\n4. Scan XML for `<Hdf5Dataset>` blocks → collect H5 dataset paths\n5. Open H5 file, pre-scan dataset metadata\n6. Ensure dataspace exists (auto-create if needed)\n7. Start transaction (or reuse caller's)\n8. PUT objects in batches of 100 (avoids ETP message size limits)\n9. PUT arrays one-by-one from H5 file (bounded memory)\n10. Commit transaction\n11. Auto-ingest to OSDU catalog (if `autoIngest` is set)\n\n**Dataspace resolution**:\n- Use `/dataspaces/auto/epc/upload` to auto-generate the dataspace as `{username}/{epc_name}`\n- Override with `?dataspace=my/space` to use a specific name\n- The dataspace is auto-created if it doesn't exist\n\n**Auto-ingest modes**:\n- `false` (default) - no catalog registration\n- `true` / `records` - builds manifest → pushes records via Storage Service (data immediately searchable)\n- `workflow` - builds manifest → submits to OSDU ingestion workflow DAG\n\n**Note**: `autoIngest` requires an internal transaction (omit `transactionId`). When using an external transaction, auto-ingest is skipped because the data may not be committed yet.\n\n**Performance**: H5 file is written to disk (not buffered in memory). Arrays are read and sent one at a time. Duplicate H5 dataset references are deduplicated.",
+        "description": "Upload a RESQML EPC file (ZIP with XML objects) and an optional HDF5 companion file.\n\n**Processing flow**:\n1. Validate file sizes against configured limits\n2. Unzip EPC \u2192 parse `[Content_Types].xml` manifest\n3. Extract XML objects, identify `EpcExternalPartReference` entries\n4. Scan XML for `<Hdf5Dataset>` blocks \u2192 collect H5 dataset paths\n5. Open H5 file, pre-scan dataset metadata\n6. Ensure dataspace exists (auto-create if needed)\n7. Start transaction (or reuse caller's)\n8. PUT objects in batches of 100 (avoids ETP message size limits)\n9. PUT arrays one-by-one from H5 file (bounded memory)\n10. Commit transaction\n11. Auto-ingest to OSDU catalog (if `autoIngest` is set)\n\n**Dataspace resolution**:\n- Use `/dataspaces/auto/epc/upload` to auto-generate the dataspace as `{username}/{epc_name}`\n- Override with `?dataspace=my/space` to use a specific name\n- The dataspace is auto-created if it doesn't exist\n\n**Auto-ingest modes**:\n- `false` (default) - no catalog registration\n- `true` / `records` - builds manifest \u2192 pushes records via Storage Service (data immediately searchable)\n- `workflow` - builds manifest \u2192 submits to OSDU ingestion workflow DAG\n\n**Note**: `autoIngest` requires an internal transaction (omit `transactionId`). When using an external transaction, auto-ingest is skipped because the data may not be committed yet.\n\n**Performance**: H5 file is written to disk (not buffered in memory). Arrays are read and sent one at a time. Duplicate H5 dataset references are deduplicated.",
         "operationId": "EpcUploadAPI_uploadEpc",
         "parameters": [
           {
@@ -14814,6 +14814,42 @@
             "schema": {
               "type": "string",
               "default": "*Activity,*ActivityTemplate"
+            }
+          },
+          {
+            "name": "owners",
+            "required": false,
+            "in": "query",
+            "description": "OSDU ACL owner group(s) stamped into the dataspace governance **only when this upload auto-creates a new dataspace** (an existing dataspace is left untouched). Comma-separated. Overrides the `RDMS_DEFAULT_OWNERS` env fallback. On OSDU-backed ETP servers a dataspace created without owners/legaltags rejects subsequent writes with \"Permission denied\", so supply these when uploading to a brand-new dataspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "viewers",
+            "required": false,
+            "in": "query",
+            "description": "OSDU ACL viewer group(s) for a newly auto-created dataspace (see `owners`). Comma-separated. Overrides the `RDMS_DEFAULT_VIEWERS` env fallback.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "legaltags",
+            "required": false,
+            "in": "query",
+            "description": "OSDU legal tag(s) for a newly auto-created dataspace (see `owners`). Comma-separated. Overrides the `RDMS_DEFAULT_LEGAL_TAGS` env fallback.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "otherRelevantDataCountries",
+            "required": false,
+            "in": "query",
+            "description": "OSDU other-relevant-data-country code(s) (e.g. `US`) for a newly auto-created dataspace (see `owners`). Comma-separated. Overrides the `RDMS_DEFAULT_DATA_COUNTRIES` env fallback.",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -15318,7 +15354,7 @@
     },
     "/witsml/store": {
       "put": {
-        "description": "Store WITSML 2.1 (or 1.4.1 container) objects as ETP data objects. Provide the payload as `xml` or as a `json` array of Energistics objects (each with `$type` and `Uuid`). If no transactionId is provided, automatically wraps the write in a transaction (start → put → commit).\n\n**Key features**:\n- **XML or JSON input**: Send raw WITSML/EnergyML XML in `xml`, or an array of parsed objects in `json` (converted to XML server-side)\n- **WITSML 1.4.1 support**: Detects plural container wrappers (`<wells>`, `<logs>`, etc.) and splits into individual WITSML 2.1 objects with deterministic UUID v5 from uid\n- **Channel data extraction**: Automatically extracts `<logData><data>` rows (1.4.1) or ChannelSet data (2.1) as separate ETP data arrays\n- **Trajectory support**: Extracts MD/Inclination/Azimuth from `<trajectoryStation>` elements as arrays\n- **Auto-transaction**: If no `transactionId` is provided, the write is wrapped in an internal transaction. If provided, the caller manages commit/rollback.",
+        "description": "Store WITSML 2.1 (or 1.4.1 container) objects as ETP data objects. Provide the payload as `xml` or as a `json` array of Energistics objects (each with `$type` and `Uuid`). If no transactionId is provided, automatically wraps the write in a transaction (start \u2192 put \u2192 commit).\n\n**Key features**:\n- **XML or JSON input**: Send raw WITSML/EnergyML XML in `xml`, or an array of parsed objects in `json` (converted to XML server-side)\n- **WITSML 1.4.1 support**: Detects plural container wrappers (`<wells>`, `<logs>`, etc.) and splits into individual WITSML 2.1 objects with deterministic UUID v5 from uid\n- **Channel data extraction**: Automatically extracts `<logData><data>` rows (1.4.1) or ChannelSet data (2.1) as separate ETP data arrays\n- **Trajectory support**: Extracts MD/Inclination/Azimuth from `<trajectoryStation>` elements as arrays\n- **Auto-transaction**: If no `transactionId` is provided, the write is wrapped in an internal transaction. If provided, the caller manages commit/rollback.",
         "operationId": "WitsmlController_putWitsmlObjects",
         "parameters": [
           {
@@ -17620,7 +17656,7 @@
     },
     "/health/converters": {
       "get": {
-        "description": "Returns all registered RESQML/WITSML → OSDU type converters for diagnostics and validation.",
+        "description": "Returns all registered RESQML/WITSML \u2192 OSDU type converters for diagnostics and validation.",
         "operationId": "HealthAPI_Converters",
         "parameters": [],
         "responses": {
@@ -17990,6 +18026,169 @@
           "Metrics"
         ]
       }
+    },
+    "/pwls/hierarchy": {
+      "get": {
+        "description": "Resolves a mnemonic or property to its PWLS v4 ancestry chain (self first, up towards the abstract 'property' root). Depth is variable - PWLS v4 is a recursive tree, not a fixed 3-tier taxonomy. Provide either 'mnemonic' or 'property'.",
+        "operationId": "PwlsController_hierarchy",
+        "parameters": [
+          {
+            "name": "mnemonic",
+            "required": false,
+            "in": "query",
+            "description": "Curve mnemonic to resolve first (e.g. RHOB, NPHI)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "property",
+            "required": false,
+            "in": "query",
+            "description": "PWLS property name (e.g. 'bulk density')",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vendor-neutral property ancestry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PwlsHierarchyResultDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 404,
+                      "maximum": 404,
+                      "example": 404
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not acceptable response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 406,
+                      "maximum": 406,
+                      "example": 406
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 429,
+                      "maximum": 429,
+                      "example": 429
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unknown Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 500,
+                      "maximum": 500,
+                      "example": 500
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Get the property ancestry (vendor-neutral tree)",
+        "tags": [
+          "PWLS"
+        ]
+      }
     }
   },
   "info": {
@@ -18005,7 +18204,7 @@
   "tags": [
     {
       "name": "Health",
-      "description": "Liveness, readiness probes, and server metadata. Use `GET /health/converters` to list all registered RESQML/WITSML → OSDU converter mappings."
+      "description": "Liveness, readiness probes, and server metadata. Use `GET /health/converters` to list all registered RESQML/WITSML \u2192 OSDU converter mappings."
     },
     {
       "name": "Authentication",
@@ -18025,11 +18224,11 @@
     },
     {
       "name": "Resources",
-      "description": "Read-only access to ETP dataspaces, objects, relationships, and data arrays. Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`). **When to use which:** list a dataspace's contents with `GET …/resources` (types) or `…/resources/all` (flat); fetch a single known object with `…/resources/{type}/{guid}`; traverse a known object's relationships via its `…/targets` (referenced by) and `…/sources` (referencing) sub-resources. When you do **not** know the exact path and need to filter or search, use the **Query** tag (`POST /query/objects/find`) instead; for a batch graph walk across many URIs use `POST /query/graph/search`. The top-level `/graph/…` endpoints are **deprecated** aliases of the per-object `/targets` and `/sources` routes - prefer the latter. **Depth**: 1 = immediate, N = recursive, 0 = unlimited (may timeout). **Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP has no server-side pagination). No transaction required."
+      "description": "Read-only access to ETP dataspaces, objects, relationships, and data arrays. Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`). **When to use which:** list a dataspace's contents with `GET \u2026/resources` (types) or `\u2026/resources/all` (flat); fetch a single known object with `\u2026/resources/{type}/{guid}`; traverse a known object's relationships via its `\u2026/targets` (referenced by) and `\u2026/sources` (referencing) sub-resources. When you do **not** know the exact path and need to filter or search, use the **Query** tag (`POST /query/objects/find`) instead; for a batch graph walk across many URIs use `POST /query/graph/search`. The top-level `/graph/\u2026` endpoints are **deprecated** aliases of the per-object `/targets` and `/sources` routes - prefer the latter. **Depth**: 1 = immediate, N = recursive, 0 = unlimited (may timeout). **Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP has no server-side pagination). No transaction required."
     },
     {
       "name": "Query",
-      "description": "Body-driven search across a dataspace or a batch of URIs (ETP Discovery + Store). `POST /query/objects/find` returns matching objects with full content; `POST /query/graph/search` runs a batch graph search across multiple URIs (Discovery Protocol 3). Use these when a filter or multi-URI batch does not fit a path-addressed `GET /resources/…` call."
+      "description": "Body-driven search across a dataspace or a batch of URIs (ETP Discovery + Store). `POST /query/objects/find` returns matching objects with full content; `POST /query/graph/search` runs a batch graph search across multiple URIs (Discovery Protocol 3). Use these when a filter or multi-URI batch does not fit a path-addressed `GET /resources/\u2026` call."
     },
     {
       "name": "Transactions",
@@ -18037,7 +18236,7 @@
     },
     {
       "name": "Write",
-      "description": "Create, update, and delete objects and upload EPC+H5 files. **Requires a transaction** - start one first via Transactions, then pass `transactionId`. Typical flow: create dataspace → start transaction → put objects → put arrays → commit."
+      "description": "Create, update, and delete objects and upload EPC+H5 files. **Requires a transaction** - start one first via Transactions, then pass `transactionId`. Typical flow: create dataspace \u2192 start transaction \u2192 put objects \u2192 put arrays \u2192 commit."
     },
     {
       "name": "WITSML",
@@ -18049,7 +18248,7 @@
     },
     {
       "name": "Linked Data",
-      "description": "Public, read-only semantic-web metadata: the JSON-LD context, the graph ontology, and the RESQML→OSDU OWL alignment. Complements the RDF/CSV/GraphML serializations of the resource graph."
+      "description": "Public, read-only semantic-web metadata: the JSON-LD context, the graph ontology, and the RESQML\u2192OSDU OWL alignment. Complements the RDF/CSV/GraphML serializations of the resource graph."
     }
   ],
   "servers": [
@@ -18267,6 +18466,16 @@
             "type": "string",
             "example": "uuid-string"
           },
+          "parent": {
+            "type": "string",
+            "example": "density",
+            "description": "Immediate parent PWLS property (v4 recursive tree)"
+          },
+          "parentPropertyTypeId": {
+            "type": "string",
+            "example": "fd8a4e2e-63d7-43d9-926a-a23da337dc6c",
+            "description": "OSDU PropertyType UUID of the parent"
+          },
           "resolved": {
             "type": "boolean",
             "example": true
@@ -18274,6 +18483,58 @@
         },
         "required": [
           "mnemonic",
+          "resolved"
+        ]
+      },
+      "PwlsHierarchyNodeDto": {
+        "type": "object",
+        "properties": {
+          "property": {
+            "type": "string",
+            "example": "bulk density"
+          },
+          "propertyTypeId": {
+            "type": "string",
+            "example": "8cf38da3-e98e-4134-a186-1c6f562d6430"
+          },
+          "quantityClass": {
+            "type": "string",
+            "example": "mass per volume"
+          }
+        },
+        "required": [
+          "property",
+          "quantityClass"
+        ]
+      },
+      "PwlsHierarchyResultDto": {
+        "type": "object",
+        "properties": {
+          "property": {
+            "type": "string",
+            "example": "bulk density"
+          },
+          "depth": {
+            "type": "number",
+            "example": 2,
+            "description": "Number of levels in the ancestry chain"
+          },
+          "hierarchy": {
+            "description": "Ancestry from the property itself up towards the root (abstract 'property' root omitted)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PwlsHierarchyNodeDto"
+            }
+          },
+          "resolved": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "property",
+          "depth",
+          "hierarchy",
           "resolved"
         ]
       },
@@ -18671,7 +18932,7 @@
           },
           "schemaCompat": {
             "type": "boolean",
-            "description": "Opt-in (default OFF, M26 behaviour). Controls the schema-compatibility pass that resolves each record's kind against the target OSDU schema service and remaps/normalizes it to a registered kind (maximizes ingestibility). Omit or set `false` (default) to SKIP it for a faster M26-style build — every record keeps its original kind, which the target OSDU may not have registered, so ingestion could reject them. Set `true` to RUN the pass; when forced on it is still auto-skipped for very large datasets (assembled record count over `MANIFEST_SCHEMA_COMPAT_MAX_RECORDS`, default 500) because the per-kind schema-service round-trips can push the build past the ~60s edge/load-balancer timeout that fronts the platform ingress.",
+            "description": "Opt-in (default OFF, M26 behaviour). Controls the schema-compatibility pass that resolves each record's kind against the target OSDU schema service and remaps/normalizes it to a registered kind (maximizes ingestibility). Omit or set `false` (default) to SKIP it for a faster M26-style build \u2014 every record keeps its original kind, which the target OSDU may not have registered, so ingestion could reject them. Set `true` to RUN the pass; when forced on it is still auto-skipped for very large datasets (assembled record count over `MANIFEST_SCHEMA_COMPAT_MAX_RECORDS`, default 500) because the per-kind schema-service round-trips can push the build past the ~60s edge/load-balancer timeout that fronts the platform ingress.",
             "example": false
           }
         },

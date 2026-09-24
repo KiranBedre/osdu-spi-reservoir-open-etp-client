@@ -59,11 +59,14 @@ import { XMLParser } from "fast-xml-parser";
 
 import {
     DataObject,
+    DataValue,
     Energistics,
     EtpUri,
     IArrayId,
     ResqmlClient
 } from "../../client/ResqmlClient";
+
+import { EtpDataValue } from "../../common/EtpTypes";
 
 import {
     FindInDataSpaceParams,
@@ -85,7 +88,13 @@ import { qualifiedTypeRegex } from "../../common/EtpQualifiedType";
 
 import { createManifest, DEFAULT_DATASPACE_TYPE_PATTERNS, DEFAULT_INGEST_EXCLUDE_PATTERNS, PropertyFilter } from "../../jsonTypes/Manifest";
 import { OSDUContext } from "../../jsonTypes/OsduContext";
-import { osduUrl } from "../../common/config";
+import {
+    osduUrl,
+    defaultDataspaceOwners,
+    defaultDataspaceViewers,
+    defaultDataspaceLegalTags,
+    defaultDataspaceDataCountries
+} from "../../common/config";
 import { bigIntToString } from "../../mlTypes/XmlJsonUtil";
 import {
     ensureSchemaVersions,
@@ -359,6 +368,43 @@ function cleanupFiles(files: { epc?: Express.Multer.File[]; h5?: Express.Multer.
     }
 }
 
+/**
+ * Build the ETP CustomData governance map (owners / viewers / legaltags /
+ * otherRelevantDataCountries) applied when auto-creating a NEW dataspace during
+ * an EPC upload. Per-request comma-separated query values take precedence over
+ * the `RDMS_DEFAULT_*` env fallbacks. Returns an empty Map when nothing is
+ * configured, in which case dataspace auto-create behaves exactly as before
+ * (no governance stamped).
+ */
+function buildDataspaceGovernance(overrides: {
+    owners?: string;
+    viewers?: string;
+    legaltags?: string;
+    otherRelevantDataCountries?: string;
+}): Map<string, DataValue> {
+    const customData = new Map<string, DataValue>();
+    const csv = (v?: string): string[] | undefined => {
+        if (v === undefined) return undefined;
+        const list = v.split(",").map(s => s.trim()).filter(s => s.length > 0);
+        return list.length > 0 ? list : undefined;
+    };
+    const entries: [string, string[] | undefined][] = [
+        ["owners", csv(overrides.owners) ?? defaultDataspaceOwners],
+        ["viewers", csv(overrides.viewers) ?? defaultDataspaceViewers],
+        ["legaltags", csv(overrides.legaltags) ?? defaultDataspaceLegalTags],
+        [
+            "otherRelevantDataCountries",
+            csv(overrides.otherRelevantDataCountries) ?? defaultDataspaceDataCountries
+        ]
+    ];
+    for (const [key, value] of entries) {
+        if (value && value.length > 0) {
+            customData.set(key, EtpDataValue.fromUnknown(value));
+        }
+    }
+    return customData;
+}
+
 // ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------
@@ -508,6 +554,40 @@ export default class EpcUploadAPI {
             + "ingestion workflow) when `propertyFilter=canonical`. Pass an empty value to disable exclusions.",
         schema: { type: "string", default: "*Activity,*ActivityTemplate" }
     })
+    @ApiQuery({
+        name: "owners",
+        required: false,
+        description:
+            "OSDU ACL owner group(s) stamped into the dataspace governance **only when this upload auto-creates a "
+            + "new dataspace** (an existing dataspace is left untouched). Comma-separated. Overrides the `RDMS_DEFAULT_OWNERS` "
+            + "env fallback. On OSDU-backed ETP servers a dataspace created without owners/legaltags rejects subsequent "
+            + "writes with \"Permission denied\", so supply these when uploading to a brand-new dataspace.",
+        schema: { type: "string" }
+    })
+    @ApiQuery({
+        name: "viewers",
+        required: false,
+        description:
+            "OSDU ACL viewer group(s) for a newly auto-created dataspace (see `owners`). Comma-separated. "
+            + "Overrides the `RDMS_DEFAULT_VIEWERS` env fallback.",
+        schema: { type: "string" }
+    })
+    @ApiQuery({
+        name: "legaltags",
+        required: false,
+        description:
+            "OSDU legal tag(s) for a newly auto-created dataspace (see `owners`). Comma-separated. "
+            + "Overrides the `RDMS_DEFAULT_LEGAL_TAGS` env fallback.",
+        schema: { type: "string" }
+    })
+    @ApiQuery({
+        name: "otherRelevantDataCountries",
+        required: false,
+        description:
+            "OSDU other-relevant-data-country code(s) (e.g. `US`) for a newly auto-created dataspace (see `owners`). "
+            + "Comma-separated. Overrides the `RDMS_DEFAULT_DATA_COUNTRIES` env fallback.",
+        schema: { type: "string" }
+    })
     @ApiOkResponse({
         description: "Ingest result summary",
         schema: {
@@ -656,6 +736,10 @@ export default class EpcUploadAPI {
         @Query("typePatterns") typePatterns?: string,
         @Query("propertyFilter") propertyFilter?: string,
         @Query("excludePatterns") excludePatterns?: string,
+        @Query("owners") owners?: string,
+        @Query("viewers") viewers?: string,
+        @Query("legaltags") legaltags?: string,
+        @Query("otherRelevantDataCountries") otherRelevantDataCountries?: string,
         @Req() request?: express.Request
     ) {
         // ── Resolve dataspace name ──
@@ -1063,7 +1147,25 @@ export default class EpcUploadAPI {
             // ── 5b. Auto-create dataspace if it doesn't exist ──
             const dataspaceUri = `eml:///dataspace('${params.dataspaceId}')`;
             try {
-                const created = await c.findOrCreateDataspace(params.dataspaceId, params.dataspaceId);
+                // Governance (ACL + legal) is stamped into the new dataspace's
+                // ETP CustomData ONLY when it does not already exist — an
+                // existing dataspace keeps its own governance. Sources (each
+                // optional): request query params override the RDMS_DEFAULT_*
+                // env fallbacks. On OSDU-backed ETP servers a dataspace created
+                // without owners/legaltags rejects the subsequent writes with
+                // "Permission denied", so this lets an upload to a brand-new
+                // dataspace succeed without a separate create call.
+                const govCustomData = buildDataspaceGovernance({
+                    owners,
+                    viewers,
+                    legaltags,
+                    otherRelevantDataCountries
+                });
+                const created = await c.findOrCreateDataspace(
+                    params.dataspaceId,
+                    params.dataspaceId,
+                    govCustomData
+                );
                 if (created) {
                     logger.info(`Dataspace '${params.dataspaceId}' ensured (findOrCreate)`);
                 }

@@ -14815,6 +14815,42 @@
               "type": "string",
               "default": "*Activity,*ActivityTemplate"
             }
+          },
+          {
+            "name": "owners",
+            "required": false,
+            "in": "query",
+            "description": "OSDU ACL owner group(s) stamped into the dataspace governance **only when this upload auto-creates a new dataspace** (an existing dataspace is left untouched). Comma-separated. Overrides the `RDMS_DEFAULT_OWNERS` env fallback. On OSDU-backed ETP servers a dataspace created without owners/legaltags rejects subsequent writes with \"Permission denied\", so supply these when uploading to a brand-new dataspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "viewers",
+            "required": false,
+            "in": "query",
+            "description": "OSDU ACL viewer group(s) for a newly auto-created dataspace (see `owners`). Comma-separated. Overrides the `RDMS_DEFAULT_VIEWERS` env fallback.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "legaltags",
+            "required": false,
+            "in": "query",
+            "description": "OSDU legal tag(s) for a newly auto-created dataspace (see `owners`). Comma-separated. Overrides the `RDMS_DEFAULT_LEGAL_TAGS` env fallback.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "otherRelevantDataCountries",
+            "required": false,
+            "in": "query",
+            "description": "OSDU other-relevant-data-country code(s) (e.g. `US`) for a newly auto-created dataspace (see `owners`). Comma-separated. Overrides the `RDMS_DEFAULT_DATA_COUNTRIES` env fallback.",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -18217,7 +18253,7 @@
   ],
   "servers": [
     {
-      "url": "/api/reservoir-ddms/v2"
+      "url": ""
     }
   ],
   "components": {

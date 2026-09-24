@@ -12045,6 +12045,46 @@ paths:
           schema:
             type: string
             default: '*Activity,*ActivityTemplate'
+        - name: owners
+          required: false
+          in: query
+          description: >-
+            OSDU ACL owner group(s) stamped into the dataspace governance **only
+            when this upload auto-creates a new dataspace** (an existing
+            dataspace is left untouched). Comma-separated. Overrides the
+            `RDMS_DEFAULT_OWNERS` env fallback. On OSDU-backed ETP servers a
+            dataspace created without owners/legaltags rejects subsequent writes
+            with "Permission denied", so supply these when uploading to a
+            brand-new dataspace.
+          schema:
+            type: string
+        - name: viewers
+          required: false
+          in: query
+          description: >-
+            OSDU ACL viewer group(s) for a newly auto-created dataspace (see
+            `owners`). Comma-separated. Overrides the `RDMS_DEFAULT_VIEWERS` env
+            fallback.
+          schema:
+            type: string
+        - name: legaltags
+          required: false
+          in: query
+          description: >-
+            OSDU legal tag(s) for a newly auto-created dataspace (see `owners`).
+            Comma-separated. Overrides the `RDMS_DEFAULT_LEGAL_TAGS` env
+            fallback.
+          schema:
+            type: string
+        - name: otherRelevantDataCountries
+          required: false
+          in: query
+          description: >-
+            OSDU other-relevant-data-country code(s) (e.g. `US`) for a newly
+            auto-created dataspace (see `owners`). Comma-separated. Overrides
+            the `RDMS_DEFAULT_DATA_COUNTRIES` env fallback.
+          schema:
+            type: string
       requestBody:
         required: true
         description: >-
@@ -14498,6 +14538,126 @@ paths:
       summary: Prometheus metrics.
       tags:
         - Metrics
+  /pwls/hierarchy:
+    get:
+      description: >-
+        Resolves a mnemonic or property to its PWLS v4 ancestry chain (self
+        first, up towards the abstract 'property' root). Depth is variable -
+        PWLS v4 is a recursive tree, not a fixed 3-tier taxonomy. Provide either
+        'mnemonic' or 'property'.
+      operationId: PwlsController_hierarchy
+      parameters:
+        - name: mnemonic
+          required: false
+          in: query
+          description: Curve mnemonic to resolve first (e.g. RHOB, NPHI)
+          schema:
+            type: string
+        - name: property
+          required: false
+          in: query
+          description: PWLS property name (e.g. 'bulk density')
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Vendor-neutral property ancestry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PwlsHierarchyResultDto'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 404
+                    maximum: 404
+                    example: 404
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '406':
+          description: Not acceptable response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 406
+                    maximum: 406
+                    example: 406
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '429':
+          description: Too many request
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 429
+                    maximum: 429
+                    example: 429
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        default:
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+      security: []
+      summary: Get the property ancestry (vendor-neutral tree)
+      tags:
+        - PWLS
 info:
   title: Reservoir DMS
   description: REST API for OSDU Reservoir DMS (M27).
@@ -14765,11 +14925,59 @@ components:
         propertyTypeId:
           type: string
           example: uuid-string
+        parent:
+          type: string
+          example: density
+          description: Immediate parent PWLS property (v4 recursive tree)
+        parentPropertyTypeId:
+          type: string
+          example: fd8a4e2e-63d7-43d9-926a-a23da337dc6c
+          description: OSDU PropertyType UUID of the parent
         resolved:
           type: boolean
           example: true
       required:
         - mnemonic
+        - resolved
+    PwlsHierarchyNodeDto:
+      type: object
+      properties:
+        property:
+          type: string
+          example: bulk density
+        propertyTypeId:
+          type: string
+          example: 8cf38da3-e98e-4134-a186-1c6f562d6430
+        quantityClass:
+          type: string
+          example: mass per volume
+      required:
+        - property
+        - quantityClass
+    PwlsHierarchyResultDto:
+      type: object
+      properties:
+        property:
+          type: string
+          example: bulk density
+        depth:
+          type: number
+          example: 2
+          description: Number of levels in the ancestry chain
+        hierarchy:
+          description: >-
+            Ancestry from the property itself up towards the root (abstract
+            'property' root omitted)
+          type: array
+          items:
+            $ref: '#/components/schemas/PwlsHierarchyNodeDto'
+        resolved:
+          type: boolean
+          example: true
+      required:
+        - property
+        - depth
+        - hierarchy
         - resolved
     CurveValidationEntry:
       type: object
