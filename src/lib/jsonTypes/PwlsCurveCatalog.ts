@@ -13,6 +13,14 @@ import { getPropertyTypeIDFromResqmlAlias } from "./PropertyTypes";
  * Additional vendor catalogs can be loaded via `loadVendorCatalog()` or
  * the REST endpoint `POST /pwls/catalog`.
  *
+ * Hierarchy note: PWLS v4 replaces the legacy PWLS v2 two-tier
+ * `LogCurveMainFamily -> LogCurveFamily` taxonomy with a single recursive
+ * `PropertyKind` tree (surfaced in OSDU as `PropertyType.ParentPropertyTypeID`).
+ * The vendor-neutral ancestry is therefore walked via `parent` /
+ * `getPropertyHierarchy()` here - not via the deprecated family record types.
+ * Parent lineage is regenerated from the official EML2.3 dictionary by
+ * `devops/scripts/generate_pwls_properties.py`.
+ *
  * Source: https://community.opengroup.org/energistics/pwls-curve-catalog
  * License: Apache-2.0
  */
@@ -21,6 +29,10 @@ interface PwlsPropertyEntry {
   property: string;
   quantityClass: string;
   propertyTypeId?: string;
+  /** Parent PWLS property name (from the EML2.3 PropertyKind Parent tree). */
+  parent?: string;
+  /** Parent OSDU PropertyType UUID. */
+  parentPropertyTypeId?: string;
 }
 
 interface PwlsPropertiesJson {
@@ -88,6 +100,64 @@ export function getPropertyTypeIdForProperty(
  */
 export function isKnownPwlsProperty(property: string): boolean {
   return propertyMap.has(property.toLowerCase());
+}
+
+/** A single node in a PWLS property ancestry chain. */
+export interface PwlsHierarchyNode {
+  property: string;
+  propertyTypeId?: string;
+  quantityClass: string;
+}
+
+/**
+ * Get the immediate parent PWLS property name for a property.
+ *
+ * PWLS v4 replaces the legacy v2 "Main Family / Family" two-tier taxonomy with
+ * a single recursive PropertyKind tree. Walk this repeatedly (or use
+ * {@link getPropertyHierarchy}) to obtain the full vendor-neutral ancestry.
+ *
+ * @param property - PWLS property name (case-insensitive)
+ * @returns Parent property name, or undefined for top-level properties.
+ */
+export function getParentProperty(property: string): string | undefined {
+  return propertyMap.get(property.toLowerCase())?.parent;
+}
+
+/**
+ * Get the OSDU PropertyType UUID of the immediate parent property.
+ *
+ * @param property - PWLS property name (case-insensitive)
+ */
+export function getParentPropertyTypeId(property: string): string | undefined {
+  return propertyMap.get(property.toLowerCase())?.parentPropertyTypeId;
+}
+
+/**
+ * Resolve the full vendor-neutral ancestry for a PWLS property, from the
+ * property itself up towards the root (e.g. `bulk density` -> `density`).
+ *
+ * The abstract root `property` is not included. Depth is variable (PWLS v4 is a
+ * recursive tree, not a fixed 3-tier `MainFamily -> Family -> Type` model).
+ *
+ * @param property - PWLS property name (case-insensitive)
+ * @returns Ancestry chain (self first), or empty array if unknown.
+ */
+export function getPropertyHierarchy(property: string): PwlsHierarchyNode[] {
+  const chain: PwlsHierarchyNode[] = [];
+  const seen = new Set<string>();
+  let name: string | undefined = property.toLowerCase();
+  while (name && !seen.has(name)) {
+    const entry = propertyMap.get(name);
+    if (!entry) break;
+    seen.add(name);
+    chain.push({
+      property: entry.property,
+      propertyTypeId: entry.propertyTypeId,
+      quantityClass: entry.quantityClass
+    });
+    name = entry.parent?.toLowerCase();
+  }
+  return chain;
 }
 
 // --- Vendor mnemonic catalog ---

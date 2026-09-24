@@ -39,6 +39,9 @@ import {
   getPropertyTypeIdFromMnemonic,
   getPropertyTypeIdForProperty,
   getPropertyEntries,
+  getParentProperty,
+  getParentPropertyTypeId,
+  getPropertyHierarchy,
   isKnownPwlsProperty,
   loadVendorCatalog,
   hasVendorCatalog,
@@ -79,6 +82,40 @@ class PwlsResolveResultDto {
 
   @ApiPropertyOptional({ example: "uuid-string" })
   propertyTypeId?: string;
+
+  @ApiPropertyOptional({ example: "density", description: "Immediate parent PWLS property (v4 recursive tree)" })
+  parent?: string;
+
+  @ApiPropertyOptional({ example: "fd8a4e2e-63d7-43d9-926a-a23da337dc6c", description: "OSDU PropertyType UUID of the parent" })
+  parentPropertyTypeId?: string;
+
+  @ApiProperty({ example: true })
+  resolved!: boolean;
+}
+
+class PwlsHierarchyNodeDto {
+  @ApiProperty({ example: "bulk density" })
+  property!: string;
+
+  @ApiPropertyOptional({ example: "8cf38da3-e98e-4134-a186-1c6f562d6430" })
+  propertyTypeId?: string;
+
+  @ApiProperty({ example: "mass per volume" })
+  quantityClass!: string;
+}
+
+class PwlsHierarchyResultDto {
+  @ApiProperty({ example: "bulk density" })
+  property!: string;
+
+  @ApiProperty({ example: 2, description: "Number of levels in the ancestry chain" })
+  depth!: number;
+
+  @ApiProperty({
+    type: [PwlsHierarchyNodeDto],
+    description: "Ancestry from the property itself up towards the root (abstract 'property' root omitted)"
+  })
+  hierarchy!: PwlsHierarchyNodeDto[];
 
   @ApiProperty({ example: true })
   resolved!: boolean;
@@ -247,6 +284,8 @@ export default class PwlsController {
         property,
         quantityClass: getQuantityClassForProperty(property),
         propertyTypeId: getPropertyTypeIdForProperty(property),
+        parent: getParentProperty(property),
+        parentPropertyTypeId: getParentPropertyTypeId(property),
         resolved: true
       };
     }
@@ -258,11 +297,53 @@ export default class PwlsController {
         property: mnemonic.toLowerCase(),
         quantityClass: getQuantityClassForProperty(mnemonic),
         propertyTypeId: getPropertyTypeIdForProperty(mnemonic),
+        parent: getParentProperty(mnemonic),
+        parentPropertyTypeId: getParentPropertyTypeId(mnemonic),
         resolved: true
       };
     }
 
     return { mnemonic, resolved: false };
+  }
+
+  /**
+   * Resolve the vendor-neutral ancestry of a curve mnemonic or PWLS property.
+   *
+   * PWLS v4 replaces the legacy v2 `MainFamily -> Family -> Type` model with a
+   * single recursive `PropertyKind` tree (surfaced in OSDU as
+   * `PropertyType.ParentPropertyTypeID`). This walks that tree from the resolved
+   * property up towards the root, e.g. `RHOB` -> `bulk density` -> `density`.
+   */
+  @Get("hierarchy")
+  @ApiOkResponse({ description: "Vendor-neutral property ancestry", type: PwlsHierarchyResultDto })
+  @ApiQuery({ name: "mnemonic", required: false, description: "Curve mnemonic to resolve first (e.g. RHOB, NPHI)" })
+  @ApiQuery({ name: "property", required: false, description: "PWLS property name (e.g. 'bulk density')" })
+  @ApiOperation({
+    summary: "Get the property ancestry (vendor-neutral tree)",
+    description:
+      "Resolves a mnemonic or property to its PWLS v4 ancestry chain (self first, up towards the abstract 'property' root). Depth is variable - PWLS v4 is a recursive tree, not a fixed 3-tier taxonomy. Provide either 'mnemonic' or 'property'.",
+    security: [],
+    servers: swaggerServers
+  })
+  public hierarchy(
+    @Query("mnemonic") mnemonic?: string,
+    @Query("property") property?: string
+  ): PwlsHierarchyResultDto {
+    let name = property?.trim();
+    if (!name && mnemonic?.trim()) {
+      name = getPropertyFromMnemonic(mnemonic.trim());
+    }
+    if (!name) {
+      throw new BadRequestException("Query parameter 'mnemonic' or 'property' is required");
+    }
+
+    const hierarchy = getPropertyHierarchy(name);
+    return {
+      property: hierarchy[0]?.property ?? name,
+      depth: hierarchy.length,
+      hierarchy,
+      resolved: hierarchy.length > 0
+    };
   }
 
   /**
