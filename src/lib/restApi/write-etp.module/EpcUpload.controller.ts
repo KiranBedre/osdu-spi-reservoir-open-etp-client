@@ -218,6 +218,8 @@ interface CatalogIngestionResult {
     failedCount?: number;
     /** Sample of per-record failures (capped). */
     failures?: Array<{ id?: string; kind?: string; status: number; error: string }>;
+    /** Number of reference-data records skipped because they already exist unchanged in Storage. */
+    skippedUnchanged?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -1804,8 +1806,39 @@ export default class EpcUploadAPI {
             logger.info(`[autoIngest] Deduplicated ${records.length - uniqueRecords.length} duplicate record(s)`);
         }
 
-        for (let i = 0; i < uniqueRecords.length; i += STORAGE_BATCH_SIZE) {
-            const batch = uniqueRecords.slice(i, i + STORAGE_BATCH_SIZE);
+        // Do not re-PUT shared reference-data catalog records (e.g. CoordinateReferenceSystem)
+        // when their `data` payload already matches what Storage holds. Storage bumps the
+        // record version on every PUT even when the content is byte-identical, so repeated
+        // ingests of the same dataset (e.g. Drogon EPSG:23031) would otherwise churn the
+        // version history of authoritative catalog records and stamp our test user as the
+        // modifier. Missing or genuinely changed reference-data records are still PUT.
+        let skippedUnchanged = 0;
+        const pushRecords: unknown[] = [];
+        {
+            const SKIP_CHECK_CONCURRENCY = 8;
+            const checks: Array<{ rec: unknown; skip: boolean }> = uniqueRecords.map(rec => ({ rec, skip: false }));
+            for (let i = 0; i < checks.length; i += SKIP_CHECK_CONCURRENCY) {
+                const slice = checks.slice(i, i + SKIP_CHECK_CONCURRENCY);
+                await Promise.all(slice.map(async entry => {
+                    if (this.isReferenceDataRecord(entry.rec)) {
+                        entry.skip = await this.referenceDataUnchanged(entry.rec, bearer, partitionStr);
+                    }
+                }));
+            }
+            for (const { rec, skip } of checks) {
+                if (skip) {
+                    skippedUnchanged += 1;
+                } else {
+                    pushRecords.push(rec);
+                }
+            }
+        }
+        if (skippedUnchanged > 0) {
+            logger.info(`[autoIngest] Skipped ${skippedUnchanged} unchanged reference-data record(s) already present in Storage`);
+        }
+
+        for (let i = 0; i < pushRecords.length; i += STORAGE_BATCH_SIZE) {
+            const batch = pushRecords.slice(i, i + STORAGE_BATCH_SIZE);
             const res = await this.putRecords(batch, bearer, partitionStr);
             if (res.ok) {
                 const result = await res.json() as { recordCount?: number };
@@ -1849,13 +1882,80 @@ export default class EpcUploadAPI {
             );
         }
 
-        logger.info(`[autoIngest] Pushed ${totalPushed}/${uniqueRecords.length} records via Storage Service`);
+        logger.info(`[autoIngest] Pushed ${totalPushed}/${pushRecords.length} records via Storage Service`);
         return {
             status: failures.length > 0 ? "partial" : "completed",
             mode: "records",
             recordCount: totalPushed,
+            ...(skippedUnchanged > 0 ? { skippedUnchanged } : {}),
             ...(failures.length > 0 ? { failedCount: failures.length, failures: failures.slice(0, 20) } : {})
         };
+    }
+
+    /** True when the record is an OSDU reference-data catalog record. */
+    private isReferenceDataRecord(rec: unknown): boolean {
+        const kind = (rec as { kind?: unknown })?.kind;
+        return typeof kind === "string" && kind.includes("reference-data--");
+    }
+
+    /**
+     * Return true when the reference-data record already exists in Storage with an
+     * identical `data` payload, so re-PUTting it would only churn the version history.
+     * Returns false when the record is missing, changed, or the check cannot be made
+     * (fail-open so genuine creates/updates are never dropped).
+     */
+    private async referenceDataUnchanged(
+        rec: unknown,
+        bearer: string | undefined,
+        partition: string
+    ): Promise<boolean> {
+        const id = (rec as { id?: unknown })?.id;
+        if (typeof id !== "string" || id.length === 0) {
+            return false;
+        }
+        try {
+            const res = await fetch(
+                `${osduUrl}/api/storage/v2/records/${encodeURIComponent(id)}`,
+                {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${bearer}`,
+                        "data-partition-id": partition
+                    }
+                }
+            );
+            if (!res.ok) {
+                return false;
+            }
+            const existing = await res.json() as { data?: unknown };
+            const incoming = (rec as { data?: unknown })?.data;
+            return this.stableStringify(existing?.data) === this.stableStringify(incoming);
+        } catch {
+            return false;
+        }
+    }
+
+    /** Deterministic JSON stringify with sorted object keys for stable deep comparison. */
+    private stableStringify(value: unknown): string {
+        const seen = new WeakSet<object>();
+        const normalize = (v: unknown): unknown => {
+            if (v === null || typeof v !== "object") {
+                return v;
+            }
+            if (seen.has(v as object)) {
+                return null;
+            }
+            seen.add(v as object);
+            if (Array.isArray(v)) {
+                return v.map(normalize);
+            }
+            const out: Record<string, unknown> = {};
+            for (const key of Object.keys(v as Record<string, unknown>).sort()) {
+                out[key] = normalize((v as Record<string, unknown>)[key]);
+            }
+            return out;
+        };
+        return JSON.stringify(normalize(value), bigIntToString);
     }
 
     /** PUT a batch of records to the OSDU Storage Service. */
