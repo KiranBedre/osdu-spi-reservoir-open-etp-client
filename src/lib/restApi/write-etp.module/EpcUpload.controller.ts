@@ -218,8 +218,8 @@ interface CatalogIngestionResult {
     failedCount?: number;
     /** Sample of per-record failures (capped). */
     failures?: Array<{ id?: string; kind?: string; status: number; error: string }>;
-    /** Number of reference-data records skipped because they already exist unchanged in Storage. */
-    skippedUnchanged?: number;
+    /** Number of reference-data records skipped because they already exist in Storage (not overwritten). */
+    skippedExisting?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -1806,13 +1806,15 @@ export default class EpcUploadAPI {
             logger.info(`[autoIngest] Deduplicated ${records.length - uniqueRecords.length} duplicate record(s)`);
         }
 
-        // Do not re-PUT shared reference-data catalog records (e.g. CoordinateReferenceSystem)
-        // when their `data` payload already matches what Storage holds. Storage bumps the
-        // record version on every PUT even when the content is byte-identical, so repeated
-        // ingests of the same dataset (e.g. Drogon EPSG:23031) would otherwise churn the
-        // version history of authoritative catalog records and stamp our test user as the
-        // modifier. Missing or genuinely changed reference-data records are still PUT.
-        let skippedUnchanged = 0;
+        // Never overwrite shared reference-data catalog records (e.g. CoordinateReferenceSystem)
+        // that already exist in Storage. The manifest builder synthesizes a low-fidelity
+        // reference-data stub purely so downstream object references resolve; PUTting it over an
+        // authoritative catalog record (loaded by the OSDU datafier from the IOGP manifests)
+        // both clobbers the real content (nulling BaseCRS/PersistableReference/Wgs84Coordinates/…)
+        // and churns the version history, stamping the ingesting user as the modifier. So we only
+        // create reference-data records that are MISSING; existing ones are left untouched.
+        // (Fail-open: if the existence check errors, we still PUT so genuine creates are not lost.)
+        let skippedExisting = 0;
         const pushRecords: unknown[] = [];
         {
             const SKIP_CHECK_CONCURRENCY = 8;
@@ -1821,20 +1823,20 @@ export default class EpcUploadAPI {
                 const slice = checks.slice(i, i + SKIP_CHECK_CONCURRENCY);
                 await Promise.all(slice.map(async entry => {
                     if (this.isReferenceDataRecord(entry.rec)) {
-                        entry.skip = await this.referenceDataUnchanged(entry.rec, bearer, partitionStr);
+                        entry.skip = await this.referenceDataExists(entry.rec, bearer, partitionStr);
                     }
                 }));
             }
             for (const { rec, skip } of checks) {
                 if (skip) {
-                    skippedUnchanged += 1;
+                    skippedExisting += 1;
                 } else {
                     pushRecords.push(rec);
                 }
             }
         }
-        if (skippedUnchanged > 0) {
-            logger.info(`[autoIngest] Skipped ${skippedUnchanged} unchanged reference-data record(s) already present in Storage`);
+        if (skippedExisting > 0) {
+            logger.info(`[autoIngest] Skipped ${skippedExisting} existing reference-data catalog record(s) (not overwriting authoritative content)`);
         }
 
         for (let i = 0; i < pushRecords.length; i += STORAGE_BATCH_SIZE) {
@@ -1887,7 +1889,7 @@ export default class EpcUploadAPI {
             status: failures.length > 0 ? "partial" : "completed",
             mode: "records",
             recordCount: totalPushed,
-            ...(skippedUnchanged > 0 ? { skippedUnchanged } : {}),
+            ...(skippedExisting > 0 ? { skippedExisting } : {}),
             ...(failures.length > 0 ? { failedCount: failures.length, failures: failures.slice(0, 20) } : {})
         };
     }
@@ -1899,12 +1901,11 @@ export default class EpcUploadAPI {
     }
 
     /**
-     * Return true when the reference-data record already exists in Storage with an
-     * identical `data` payload, so re-PUTting it would only churn the version history.
-     * Returns false when the record is missing, changed, or the check cannot be made
-     * (fail-open so genuine creates/updates are never dropped).
+     * Return true when the reference-data record already exists in Storage, so it must
+     * NOT be overwritten by the manifest's synthesized stub. Returns false when the record
+     * is missing (404) or the check cannot be made (fail-open so genuine creates still PUT).
      */
-    private async referenceDataUnchanged(
+    private async referenceDataExists(
         rec: unknown,
         bearer: string | undefined,
         partition: string
@@ -1924,38 +1925,11 @@ export default class EpcUploadAPI {
                     }
                 }
             );
-            if (!res.ok) {
-                return false;
-            }
-            const existing = await res.json() as { data?: unknown };
-            const incoming = (rec as { data?: unknown })?.data;
-            return this.stableStringify(existing?.data) === this.stableStringify(incoming);
+            // 200 → exists (skip); 404 → missing (create); anything else → fail-open (PUT).
+            return res.ok;
         } catch {
             return false;
         }
-    }
-
-    /** Deterministic JSON stringify with sorted object keys for stable deep comparison. */
-    private stableStringify(value: unknown): string {
-        const seen = new WeakSet<object>();
-        const normalize = (v: unknown): unknown => {
-            if (v === null || typeof v !== "object") {
-                return v;
-            }
-            if (seen.has(v as object)) {
-                return null;
-            }
-            seen.add(v as object);
-            if (Array.isArray(v)) {
-                return v.map(normalize);
-            }
-            const out: Record<string, unknown> = {};
-            for (const key of Object.keys(v as Record<string, unknown>).sort()) {
-                out[key] = normalize((v as Record<string, unknown>)[key]);
-            }
-            return out;
-        };
-        return JSON.stringify(normalize(value), bigIntToString);
     }
 
     /** PUT a batch of records to the OSDU Storage Service. */
