@@ -190,8 +190,15 @@ export async function seedReferenceDataIfNeeded(
     for (const id of found.keys()) {
       existingIds.add(id);
     }
-  } catch {
-    // Storage lookup failure - conservative: skip these, they'll be created by createMissingReferences
+  } catch (e: any) {
+    // Storage lookup failed: we cannot tell which records already exist, so we
+    // MUST NOT proceed - PUTting the stub payload blindly would clobber any
+    // authoritative catalog records that are already present. Abort seeding and
+    // let createMissingReferences handle genuinely-missing vocabulary later.
+    logger.warn(
+      `[seed] Existence check failed for partition '${partition}', skipping seed to avoid overwriting catalog records: ${e?.message ?? e}`
+    );
+    return;
   }
 
   // Filter to only missing records
