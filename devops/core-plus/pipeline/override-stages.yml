@@ -158,9 +158,6 @@ cimpl-prod-test:
     - !reference [.cimpl_bruno_tests, script]
 
 # Disable the cimpl-check-openapi-spec job as this is a WebSocket ETP server and has no OpenAPI spec
-cimpl-check-openapi-spec:
-  rules:
-    - when: never
 
 cimpl-dev-check-openapi-spec:
   rules:
