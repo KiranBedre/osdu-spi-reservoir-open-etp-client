@@ -86,7 +86,13 @@ import {
   ITechnicalAssurance,
   OSDUContext
 } from "../../jsonTypes/OsduContext";
-import { createManifest, PropertyFilter } from "../../jsonTypes/Manifest";
+import {
+  createManifest,
+  DEFAULT_DATASPACE_TYPE_PATTERNS,
+  DEFAULT_INGEST_EXCLUDE_PATTERNS,
+  estimateManifestInputCount,
+  PropertyFilter
+} from "../../jsonTypes/Manifest";
 import { JwtPayload } from "jsonwebtoken";
 import { bigIntToString } from "../../mlTypes/XmlJsonUtil";
 import logging from "../../common/Logging";
@@ -128,6 +134,35 @@ const MANIFEST_JOB_TTL_MS = 30 * 60 * 1000;
 // Hard cap on retained jobs (each may hold a multi-MB manifest) - evict oldest
 // finished jobs beyond this to bound memory.
 const MANIFEST_JOB_MAX = 50;
+
+// Auto-async threshold: unless a caller sets `async:true`, a build whose
+// filtered input-resource count reaches this many resources is run
+// asynchronously so it is not cut by the ~60s edge/LB request timeout. The
+// count uses the SAME filter as the build (see estimateManifestInputCount), so
+// a Dani-sized dataspace (~938) stays synchronous while a Volve-sized one
+// (~3520) auto-switches to a 202 job. Override with MANIFEST_ASYNC_AUTO_MIN_RESOURCES.
+const MANIFEST_ASYNC_AUTO_MIN_RESOURCES =
+  Number(process.env.MANIFEST_ASYNC_AUTO_MIN_RESOURCES) || 1000;
+
+/**
+ * Resolve the effective type-exclusion list for a build.
+ *
+ * An explicit `excludePatterns` (including an empty array to opt out) is always
+ * honored verbatim. Otherwise the default is property-aware: because Activity
+ * records reference every property they consumed, keeping them while ANY
+ * property is dropped (`propertyFilter` other than `"all"`) yields dangling
+ * references. So when `propertyFilter !== "all"` we default to
+ * DEFAULT_INGEST_EXCLUDE_PATTERNS (drops `*Activity`/`*ActivityTemplate`/
+ * `*PropertySet`) to keep the manifest self-consistent, matching the auto-ingest
+ * path; with `propertyFilter:"all"` nothing is dropped so Activities are safe to
+ * keep and the default is empty. Used by BOTH the build and the async pre-count
+ * so the estimate matches what the build actually processes.
+ */
+function resolveExcludePatterns(body: ManifestInputDto): string[] | undefined {
+  if (body.excludePatterns !== undefined) return body.excludePatterns;
+  const propertyFilter: PropertyFilter = body.propertyFilter ?? "canonical";
+  return propertyFilter === "all" ? undefined : DEFAULT_INGEST_EXCLUDE_PATTERNS;
+}
 
 /** Drop TTL-expired jobs and enforce the size cap (oldest finished first). */
 function evictManifestJobs(): void {
@@ -390,7 +425,7 @@ export class ManifestInputDto {
     type: [String],
     maxItems: 99999,
     maxLength: 2048,
-    description: `Optional filter restricting NON-property types when indexing entire dataspaces (accepts * and ? wildcards). When omitted, ALL types are included. Pass a curated list to restrict, e.g. ["*Feature","*Interpretation*","*Representation","*StratigraphicColumn","*Activity*","*Collection","witsml21.*"] for top-level types only. CRS objects are always included regardless of this filter.`,
+    description: `Optional filter restricting NON-property types when indexing entire dataspaces (accepts * and ? wildcards). When omitted, a curated M26 default set is used: ["*Feature","*Interpretation*","*Representation","*StratigraphicColumn","*Activity*","*Collection","witsml21.*"] (top-level types only). Pass ["*"] to include EVERY type. CRS objects are always included regardless of this filter.`,
     example: ["resqml20.obj_*Representation"],
     pattern: `${patternString(/^[0-9a-zA-Z._*?]+$/)}`
   })
@@ -404,8 +439,8 @@ export class ManifestInputDto {
     name: "propertyFilter",
     type: String,
     enum: ["canonical", "none", "all"],
-    description: `Controls property inclusion, independent of typePatterns. "all" (default): include every property. "canonical": include only properties with standard names (PWLS, OSDU, simulator abbreviations like PORO, PERMX, SW). "none": exclude all properties. Combine with typePatterns to build presets, e.g. all types + no properties, or curated top-level + no properties.`,
-    example: "all"
+    description: `Controls property inclusion, independent of typePatterns. "canonical" (default): include only properties with standard names (PWLS, OSDU, simulator abbreviations like PORO, PERMX, SW). "none": exclude all properties (fastest). "all": include every property. Combine with typePatterns to build presets, e.g. all types + all properties (typePatterns:["*"] + propertyFilter:"all").`,
+    example: "canonical"
   })
   @IsOptional()
   @IsString()
@@ -417,8 +452,8 @@ export class ManifestInputDto {
     type: [String],
     maxItems: 99999,
     maxLength: 2048,
-    description: `Optional list of type patterns (accepts * and ? wildcards) that HARD-exclude matching types, applied before every inclusion rule except CRS (always kept). Use to drop noisy/low-value types that would otherwise bloat the manifest or introduce dangling references, e.g. ["*Activity","*ActivityTemplate"] (Activity records reference every property they consumed, which become dangling when propertyFilter="canonical"), or ["*GridConnectionSet"] when connection-set counts explode.`,
-    example: ["*Activity", "*ActivityTemplate"],
+    description: `Optional list of type patterns (accepts * and ? wildcards) that HARD-exclude matching types, applied before every inclusion rule except CRS (always kept). When OMITTED, the default is property-aware: with propertyFilter other than "all" (e.g. the "canonical" default) it defaults to ["*Activity","*ActivityTemplate","*PropertySet","*WellboreFrameRepresentation","witsml21.Log"] so the manifest stays self-consistent and free of redundant well-log copies. Activity records reference every property they consumed (dangling once any property is dropped); WellboreFrameRepresentation / witsml Log objects convert to OSDU WellLog work-products, but wells are authoritative in the Wellbore DDMS and their curves remain searchable here in RDDMS, so a second copy adds no discovery value while multiplying record count and build time. Excluding a well frame/log also auto-suppresses its orphaned curve properties so no dangling SupportingRepresentation reference is emitted. With propertyFilter:"all" it defaults to empty (nothing is dropped, so Activities and wells are kept). Pass an explicit list to override, or [] to opt out of the default exclusions entirely. Also useful to drop other noisy types, e.g. ["*GridConnectionSet"] when connection-set counts explode.`,
+    example: ["*Activity", "*WellboreFrameRepresentation", "witsml21.Log"],
     pattern: `${patternString(/^[0-9a-zA-Z._*?]+$/)}`
   })
   @IsOptional()
@@ -479,19 +514,19 @@ export class ManifestInputDto {
 
   @ApiPropertyOptional({
     name: "async",
-    description: `When true, build the manifest asynchronously: the request returns \`202 Accepted\` with a \`jobId\` immediately and the build continues in-process, so it is not bound by the ~60s edge/load-balancer request timeout that fronts the platform ingress. Poll \`GET /manifests/jobs/{jobId}\` for status and, once \`completed\`, the manifest + build diagnostics. When false (default) the build runs synchronously and the manifest is returned in the response body.`,
+    description: `Controls synchronous vs asynchronous build. When \`true\`, the request returns \`202 Accepted\` with a \`jobId\` immediately and the build continues in-process, so it is not bound by the ~60s edge/load-balancer request timeout that fronts the platform ingress; poll \`GET /manifests/jobs/{jobId}\` for status and, once \`completed\`, the manifest + build diagnostics. When OMITTED or \`false\` (default), the mode is chosen automatically: a cheap pre-count of filtered input resources selects async for large dataspaces (>= ${MANIFEST_ASYNC_AUTO_MIN_RESOURCES} resources, e.g. Volve) so they never hit the timeout, and returns the manifest synchronously in the response body for smaller ones (e.g. Dani). There is no "force synchronous" mode: forcing sync on a large dataspace would only guarantee a timeout, so \`false\` behaves the same as omitted. Use \`true\` when you always want a job handle regardless of size.`,
     type: Boolean,
     example: false
   })
   @IsOptional()
   @IsBoolean()
-  async?: boolean = false;
+  async?: boolean;
 
   @ApiPropertyOptional({
     name: "schemaCompat",
-    description: `Controls the schema-compatibility pass that resolves each record's kind against the target OSDU schema service and remaps/normalizes it to a registered kind (maximizes ingestibility). Tri-state: omit (default) for AUTO — the pass runs for normal builds but is automatically SKIPPED for large datasets (assembled record count over \`MANIFEST_SCHEMA_COMPAT_MAX_RECORDS\`, default 500) because the per-kind schema-service round-trips can push the build past the ~60s edge/load-balancer timeout that fronts the platform ingress. Set \`true\` to FORCE the pass on even for large datasets. Set \`false\` to always SKIP it (faster, M26-style build; every record keeps its original kind, which the target OSDU may not have registered, so ingestion could reject them).`,
+    description: `Opt-in (default OFF, M26 behaviour). Controls the schema-compatibility pass that resolves each record's kind against the target OSDU schema service and remaps/normalizes it to a registered kind (maximizes ingestibility). Omit or set \`false\` (default) to SKIP it for a faster M26-style build — every record keeps its original kind, which the target OSDU may not have registered, so ingestion could reject them. Set \`true\` to RUN the pass; when forced on it is still auto-skipped for very large datasets (assembled record count over \`MANIFEST_SCHEMA_COMPAT_MAX_RECORDS\`, default 500) because the per-kind schema-service round-trips can push the build past the ~60s edge/load-balancer timeout that fronts the platform ingress.`,
     type: Boolean,
-    example: true
+    example: false
   })
   @IsOptional()
   @IsBoolean()
@@ -602,11 +637,12 @@ export default class ObjectsManifestAPI {
 
 **Supported source domains**: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. Use \`GET /health/converters\` to list all registered mappings.
 
-**Type filtering (opt-in)**: By default ALL types are included (representations, interpretations, properties, CRS, etc.). Filtering is opt-in via two independent controls:
-- \`typePatterns\`: restrict NON-property types (e.g. pass a curated list for top-level types only).
-- \`propertyFilter\`: \`all\` (default) | \`canonical\` (only standard-named properties like PORO/PERMX/SW) | \`none\` (exclude properties).
+**Type filtering**: By DEFAULT a curated discovery set is emitted (M26 behaviour): top-level types (features, interpretations, representations, stratigraphic columns, collections, WITSML 2.1) with only canonical (standard-named) properties and CRS always included. Two independent controls override this:
+- \`typePatterns\`: restrict/expand NON-property types. Pass \`["*"]\` to include EVERY type.
+- \`propertyFilter\`: \`canonical\` (default, only standard-named properties like PORO/PERMX/SW) | \`none\` (exclude properties) | \`all\` (every property).
+- \`excludePatterns\`: hard type exclusions. When omitted the default is property-aware - whenever \`propertyFilter\` is not \`all\` (e.g. the \`canonical\` default) \`*Activity\`/\`*ActivityTemplate\`/\`*PropertySet\`/\`*WellboreFrameRepresentation\`/\`witsml21.Log\` are excluded by default. Activity records reference every property they consumed (dangling once any property is dropped); well frames/logs convert to OSDU WellLog work-products, but wells are authoritative in the Wellbore DDMS and their curves stay searchable here in RDDMS, so a redundant OSDU copy is skipped (its orphaned curve properties are auto-suppressed to avoid dangling references). With \`propertyFilter:"all"\` nothing is dropped and Activities/wells are kept. Pass \`[]\` to opt out.
 
-Common presets: all types + all properties (default); all types + no properties (\`propertyFilter: none\`); all types + canonical properties (\`propertyFilter: canonical\`); curated top-level + no properties (\`typePatterns\` + \`propertyFilter: none\`). CRS objects are always included regardless of the filter.
+To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`propertyFilter: "all"\` (this also retains Activities and wells). CRS objects are always included regardless of the filter.
 
 **Key behaviors**:
 - Best-effort mode - partial results returned on converter errors (check \`errors[]\` in response)
@@ -641,10 +677,35 @@ Common presets: all types + all properties (default); all types + no properties 
       });
     }
 
-    // Async mode (opt-in via `async: true`): register a job, return 202 with a
-    // jobId immediately, and continue the build in-process so it is not bound
-    // by the ~60s edge/LB request timeout. Poll GET /manifests/jobs/{jobId}.
-    if (body.async === true) {
+    // Decide sync vs async. `async:true` forces asynchronous (always returns a
+    // job handle). Otherwise (omitted OR false) the mode is auto-selected: a
+    // cheap pre-count of the filtered input switches large dataspaces
+    // (>= MANIFEST_ASYNC_AUTO_MIN_RESOURCES) to async so the build is not cut
+    // by the ~60s edge/LB request timeout, while smaller ones run synchronously
+    // and return the manifest inline. Forcing sync is intentionally NOT offered:
+    // it would only guarantee a timeout on large dataspaces. A pre-count failure
+    // falls back to synchronous (safe for the small inputs that reach here).
+    let useAsync = body.async === true;
+    if (body.async !== true) {
+      try {
+        const estimated = await this.estimateInputSize(body, request);
+        useAsync = estimated >= MANIFEST_ASYNC_AUTO_MIN_RESOURCES;
+        logger.info(
+          `[manifest] auto-mode: ${estimated} filtered resources -> ${useAsync ? "async" : "sync"
+          } (threshold ${MANIFEST_ASYNC_AUTO_MIN_RESOURCES})`
+        );
+      } catch (err) {
+        logger.warn(
+          `[manifest] auto-mode pre-count failed, defaulting to sync: ${(err as { message?: string })?.message ?? String(err)
+          }`
+        );
+      }
+    }
+
+    // Async mode: register a job, return 202 with a jobId immediately, and
+    // continue the build in-process so it is not bound by the ~60s edge/LB
+    // request timeout. Poll GET /manifests/jobs/{jobId}.
+    if (useAsync) {
       const bearer = extractToken(request);
       const jwt = bearer ? (decode(bearer) as JwtPayload) : {};
       const partition = extractDataPartitionId(request);
@@ -767,16 +828,43 @@ Common presets: all types + all properties (default); all types + no properties 
         c,
         body.uris ?? [],
         context,
-        body.typePatterns,
+        body.typePatterns ?? DEFAULT_DATASPACE_TYPE_PATTERNS,
         maxManifestSize,
-        body.propertyFilter ?? "all",
-        body.excludePatterns
+        body.propertyFilter ?? "canonical",
+        resolveExcludePatterns(body)
       );
       logger.info("Manifest creation successful.");
       return {
         manifest: b,
         diagnostics: (b as { __buildDiagnostics?: unknown }).__buildDiagnostics
       };
+    } finally {
+      await c.closeSession();
+    }
+  }
+
+  /**
+   * Cheap pre-flight resource count used to auto-select sync vs async when the
+   * caller omits `async`. Opens its own short-lived ETP session, applies the
+   * same type/property/exclude filter the build will use, and returns the
+   * number of input resources. Whole-dataspace URIs cost one discovery
+   * round-trip each; explicit object URIs incur no network call.
+   */
+  private async estimateInputSize(
+    body: ManifestInputDto,
+    request: express.Request
+  ): Promise<number> {
+    const bearer = extractToken(request);
+    const partition = extractDataPartitionId(request);
+    const c = await createSession(bearer, partition);
+    try {
+      return await estimateManifestInputCount(
+        c,
+        body.uris ?? [],
+        body.typePatterns ?? DEFAULT_DATASPACE_TYPE_PATTERNS,
+        body.propertyFilter ?? "canonical",
+        resolveExcludePatterns(body)
+      );
     } finally {
       await c.closeSession();
     }

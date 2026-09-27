@@ -2059,22 +2059,36 @@ paths:
         mappings.
 
 
-        **Type filtering (opt-in)**: By default ALL types are included
-        (representations, interpretations, properties, CRS, etc.). Filtering is
-        opt-in via two independent controls:
+        **Type filtering**: By DEFAULT a curated discovery set is emitted (M26
+        behaviour): top-level types (features, interpretations, representations,
+        stratigraphic columns, collections, WITSML 2.1) with only canonical
+        (standard-named) properties and CRS always included. Two independent
+        controls override this:
 
-        - `typePatterns`: restrict NON-property types (e.g. pass a curated list
-        for top-level types only).
+        - `typePatterns`: restrict/expand NON-property types. Pass `["*"]` to
+        include EVERY type.
 
-        - `propertyFilter`: `all` (default) | `canonical` (only standard-named
-        properties like PORO/PERMX/SW) | `none` (exclude properties).
+        - `propertyFilter`: `canonical` (default, only standard-named properties
+        like PORO/PERMX/SW) | `none` (exclude properties) | `all` (every
+        property).
+
+        - `excludePatterns`: hard type exclusions. When omitted the default is
+        property-aware - whenever `propertyFilter` is not `all` (e.g. the
+        `canonical` default)
+        `*Activity`/`*ActivityTemplate`/`*PropertySet`/`*WellboreFrameRepresentation`/`witsml21.Log`
+        are excluded by default. Activity records reference every property they
+        consumed (dangling once any property is dropped); well frames/logs
+        convert to OSDU WellLog work-products, but wells are authoritative in
+        the Wellbore DDMS and their curves stay searchable here in RDDMS, so a
+        redundant OSDU copy is skipped (its orphaned curve properties are
+        auto-suppressed to avoid dangling references). With
+        `propertyFilter:"all"` nothing is dropped and Activities/wells are kept.
+        Pass `[]` to opt out.
 
 
-        Common presets: all types + all properties (default); all types + no
-        properties (`propertyFilter: none`); all types + canonical properties
-        (`propertyFilter: canonical`); curated top-level + no properties
-        (`typePatterns` + `propertyFilter: none`). CRS objects are always
-        included regardless of the filter.
+        To reproduce the M27 "everything" build, pass `typePatterns: ["*"]` and
+        `propertyFilter: "all"` (this also retains Activities and wells). CRS
+        objects are always included regardless of the filter.
 
 
         **Key behaviors**:
@@ -12031,6 +12045,46 @@ paths:
           schema:
             type: string
             default: '*Activity,*ActivityTemplate'
+        - name: owners
+          required: false
+          in: query
+          description: >-
+            OSDU ACL owner group(s) stamped into the dataspace governance **only
+            when this upload auto-creates a new dataspace** (an existing
+            dataspace is left untouched). Comma-separated. Overrides the
+            `RDMS_DEFAULT_OWNERS` env fallback. On OSDU-backed ETP servers a
+            dataspace created without owners/legaltags rejects subsequent writes
+            with "Permission denied", so supply these when uploading to a
+            brand-new dataspace.
+          schema:
+            type: string
+        - name: viewers
+          required: false
+          in: query
+          description: >-
+            OSDU ACL viewer group(s) for a newly auto-created dataspace (see
+            `owners`). Comma-separated. Overrides the `RDMS_DEFAULT_VIEWERS` env
+            fallback.
+          schema:
+            type: string
+        - name: legaltags
+          required: false
+          in: query
+          description: >-
+            OSDU legal tag(s) for a newly auto-created dataspace (see `owners`).
+            Comma-separated. Overrides the `RDMS_DEFAULT_LEGAL_TAGS` env
+            fallback.
+          schema:
+            type: string
+        - name: otherRelevantDataCountries
+          required: false
+          in: query
+          description: >-
+            OSDU other-relevant-data-country code(s) (e.g. `US`) for a newly
+            auto-created dataspace (see `owners`). Comma-separated. Overrides
+            the `RDMS_DEFAULT_DATA_COUNTRIES` env fallback.
+          schema:
+            type: string
       requestBody:
         required: true
         description: >-
@@ -14484,6 +14538,126 @@ paths:
       summary: Prometheus metrics.
       tags:
         - Metrics
+  /pwls/hierarchy:
+    get:
+      description: >-
+        Resolves a mnemonic or property to its PWLS v4 ancestry chain (self
+        first, up towards the abstract 'property' root). Depth is variable -
+        PWLS v4 is a recursive tree, not a fixed 3-tier taxonomy. Provide either
+        'mnemonic' or 'property'.
+      operationId: PwlsController_hierarchy
+      parameters:
+        - name: mnemonic
+          required: false
+          in: query
+          description: Curve mnemonic to resolve first (e.g. RHOB, NPHI)
+          schema:
+            type: string
+        - name: property
+          required: false
+          in: query
+          description: PWLS property name (e.g. 'bulk density')
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Vendor-neutral property ancestry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PwlsHierarchyResultDto'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 404
+                    maximum: 404
+                    example: 404
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '406':
+          description: Not acceptable response
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 406
+                    maximum: 406
+                    example: 406
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        '429':
+          description: Too many request
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 429
+                    maximum: 429
+                    example: 429
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+        default:
+          description: Unknown Error
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                properties:
+                  statusCode:
+                    type: integer
+                    format: int32
+                    minimum: 500
+                    maximum: 500
+                    example: 500
+                  message:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+                  error:
+                    type: string
+                    pattern: ^[a-zA-Z0-9 ]*$
+                    maxLength: 2048
+      security: []
+      summary: Get the property ancestry (vendor-neutral tree)
+      tags:
+        - PWLS
 info:
   title: Reservoir DMS
   description: REST API for OSDU Reservoir DMS (M27).
@@ -14751,11 +14925,59 @@ components:
         propertyTypeId:
           type: string
           example: uuid-string
+        parent:
+          type: string
+          example: density
+          description: Immediate parent PWLS property (v4 recursive tree)
+        parentPropertyTypeId:
+          type: string
+          example: fd8a4e2e-63d7-43d9-926a-a23da337dc6c
+          description: OSDU PropertyType UUID of the parent
         resolved:
           type: boolean
           example: true
       required:
         - mnemonic
+        - resolved
+    PwlsHierarchyNodeDto:
+      type: object
+      properties:
+        property:
+          type: string
+          example: bulk density
+        propertyTypeId:
+          type: string
+          example: 8cf38da3-e98e-4134-a186-1c6f562d6430
+        quantityClass:
+          type: string
+          example: mass per volume
+      required:
+        - property
+        - quantityClass
+    PwlsHierarchyResultDto:
+      type: object
+      properties:
+        property:
+          type: string
+          example: bulk density
+        depth:
+          type: number
+          example: 2
+          description: Number of levels in the ancestry chain
+        hierarchy:
+          description: >-
+            Ancestry from the property itself up towards the root (abstract
+            'property' root omitted)
+          type: array
+          items:
+            $ref: '#/components/schemas/PwlsHierarchyNodeDto'
+        resolved:
+          type: boolean
+          example: true
+      required:
+        - property
+        - depth
+        - hierarchy
         - resolved
     CurveValidationEntry:
       type: object
@@ -15056,11 +15278,11 @@ components:
           maxItems: 99999
           description: >-
             Optional filter restricting NON-property types when indexing entire
-            dataspaces (accepts * and ? wildcards). When omitted, ALL types are
-            included. Pass a curated list to restrict, e.g.
+            dataspaces (accepts * and ? wildcards). When omitted, a curated M26
+            default set is used:
             ["*Feature","*Interpretation*","*Representation","*StratigraphicColumn","*Activity*","*Collection","witsml21.*"]
-            for top-level types only. CRS objects are always included regardless
-            of this filter.
+            (top-level types only). Pass ["*"] to include EVERY type. CRS
+            objects are always included regardless of this filter.
           example:
             - resqml20.obj_*Representation
           type: array
@@ -15075,27 +15297,40 @@ components:
             - none
             - all
           description: >-
-            Controls property inclusion, independent of typePatterns. "all"
-            (default): include every property. "canonical": include only
-            properties with standard names (PWLS, OSDU, simulator abbreviations
-            like PORO, PERMX, SW). "none": exclude all properties. Combine with
-            typePatterns to build presets, e.g. all types + no properties, or
-            curated top-level + no properties.
-          example: all
+            Controls property inclusion, independent of typePatterns.
+            "canonical" (default): include only properties with standard names
+            (PWLS, OSDU, simulator abbreviations like PORO, PERMX, SW). "none":
+            exclude all properties (fastest). "all": include every property.
+            Combine with typePatterns to build presets, e.g. all types + all
+            properties (typePatterns:["*"] + propertyFilter:"all").
+          example: canonical
         excludePatterns:
           maxItems: 99999
           description: >-
             Optional list of type patterns (accepts * and ? wildcards) that
             HARD-exclude matching types, applied before every inclusion rule
-            except CRS (always kept). Use to drop noisy/low-value types that
-            would otherwise bloat the manifest or introduce dangling references,
-            e.g. ["*Activity","*ActivityTemplate"] (Activity records reference
-            every property they consumed, which become dangling when
-            propertyFilter="canonical"), or ["*GridConnectionSet"] when
+            except CRS (always kept). When OMITTED, the default is
+            property-aware: with propertyFilter other than "all" (e.g. the
+            "canonical" default) it defaults to
+            ["*Activity","*ActivityTemplate","*PropertySet","*WellboreFrameRepresentation","witsml21.Log"]
+            so the manifest stays self-consistent and free of redundant well-log
+            copies. Activity records reference every property they consumed
+            (dangling once any property is dropped); WellboreFrameRepresentation
+            / witsml Log objects convert to OSDU WellLog work-products, but
+            wells are authoritative in the Wellbore DDMS and their curves remain
+            searchable here in RDDMS, so a second copy adds no discovery value
+            while multiplying record count and build time. Excluding a well
+            frame/log also auto-suppresses its orphaned curve properties so no
+            dangling SupportingRepresentation reference is emitted. With
+            propertyFilter:"all" it defaults to empty (nothing is dropped, so
+            Activities and wells are kept). Pass an explicit list to override,
+            or [] to opt out of the default exclusions entirely. Also useful to
+            drop other noisy types, e.g. ["*GridConnectionSet"] when
             connection-set counts explode.
           example:
             - '*Activity'
-            - '*ActivityTemplate'
+            - '*WellboreFrameRepresentation'
+            - witsml21.Log
           type: array
           items:
             type: string
@@ -15135,30 +15370,37 @@ components:
         async:
           type: boolean
           description: >-
-            When true, build the manifest asynchronously: the request returns
-            `202 Accepted` with a `jobId` immediately and the build continues
-            in-process, so it is not bound by the ~60s edge/load-balancer
-            request timeout that fronts the platform ingress. Poll `GET
-            /manifests/jobs/{jobId}` for status and, once `completed`, the
-            manifest + build diagnostics. When false (default) the build runs
-            synchronously and the manifest is returned in the response body.
+            Controls synchronous vs asynchronous build. When `true`, the request
+            returns `202 Accepted` with a `jobId` immediately and the build
+            continues in-process, so it is not bound by the ~60s
+            edge/load-balancer request timeout that fronts the platform ingress;
+            poll `GET /manifests/jobs/{jobId}` for status and, once `completed`,
+            the manifest + build diagnostics. When OMITTED or `false` (default),
+            the mode is chosen automatically: a cheap pre-count of filtered
+            input resources selects async for large dataspaces (>= 1000
+            resources, e.g. Volve) so they never hit the timeout, and returns
+            the manifest synchronously in the response body for smaller ones
+            (e.g. Dani). There is no "force synchronous" mode: forcing sync on a
+            large dataspace would only guarantee a timeout, so `false` behaves
+            the same as omitted. Use `true` when you always want a job handle
+            regardless of size.
           example: false
         schemaCompat:
           type: boolean
           description: >-
-            Controls the schema-compatibility pass that resolves each record's
-            kind against the target OSDU schema service and remaps/normalizes it
-            to a registered kind (maximizes ingestibility). Tri-state: omit
-            (default) for AUTO — the pass runs for normal builds but is
-            automatically SKIPPED for large datasets (assembled record count
-            over `MANIFEST_SCHEMA_COMPAT_MAX_RECORDS`, default 500) because the
+            Opt-in (default OFF, M26 behaviour). Controls the
+            schema-compatibility pass that resolves each record's kind against
+            the target OSDU schema service and remaps/normalizes it to a
+            registered kind (maximizes ingestibility). Omit or set `false`
+            (default) to SKIP it for a faster M26-style build — every record
+            keeps its original kind, which the target OSDU may not have
+            registered, so ingestion could reject them. Set `true` to RUN the
+            pass; when forced on it is still auto-skipped for very large
+            datasets (assembled record count over
+            `MANIFEST_SCHEMA_COMPAT_MAX_RECORDS`, default 500) because the
             per-kind schema-service round-trips can push the build past the ~60s
-            edge/load-balancer timeout that fronts the platform ingress. Set
-            `true` to FORCE the pass on even for large datasets. Set `false` to
-            always SKIP it (faster, M26-style build; every record keeps its
-            original kind, which the target OSDU may not have registered, so
-            ingestion could reject them).
-          example: true
+            edge/load-balancer timeout that fronts the platform ingress.
+          example: false
       required:
         - uris
     ManifestDataDto:

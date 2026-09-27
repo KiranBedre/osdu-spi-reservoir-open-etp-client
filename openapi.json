@@ -368,7 +368,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -380,7 +380,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -2620,7 +2620,7 @@
     },
     "/manifests/build": {
       "post": {
-        "description": "Generate an OSDU-compatible manifest from ETP dataspace resources. Converts RESQML, WITSML, PRODML, and EML objects to OSDU record format.\n\n**Supported source domains**: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. Use `GET /health/converters` to list all registered mappings.\n\n**Type filtering (opt-in)**: By default ALL types are included (representations, interpretations, properties, CRS, etc.). Filtering is opt-in via two independent controls:\n- `typePatterns`: restrict NON-property types (e.g. pass a curated list for top-level types only).\n- `propertyFilter`: `all` (default) | `canonical` (only standard-named properties like PORO/PERMX/SW) | `none` (exclude properties).\n\nCommon presets: all types + all properties (default); all types + no properties (`propertyFilter: none`); all types + canonical properties (`propertyFilter: canonical`); curated top-level + no properties (`typePatterns` + `propertyFilter: none`). CRS objects are always included regardless of the filter.\n\n**Key behaviors**:\n- Best-effort mode - partial results returned on converter errors (check `errors[]` in response)\n- Auto-generates deterministic collaboration UUID (v5 from dataspace name)\n- Uses `OSDU_MILESTONE` env var (default M27) for OSDU schema versions\n- GridConnectionSet records report `HasTransmissibilityMultipliers` when attached transmissibility properties are found\n- WellLog records populate TopMeasuredDepth/BottomMeasuredDepth from frame index arrays\n\n**createMissingReferences**: When true, creates placeholder records for unresolved data object references (DORs). When false, missing references appear in the error list.",
+        "description": "Generate an OSDU-compatible manifest from ETP dataspace resources. Converts RESQML, WITSML, PRODML, and EML objects to OSDU record format.\n\n**Supported source domains**: RESQML 2.0.1 & 2.2, PRODML 2.3, WITSML 2.1, EML 2.3. Use `GET /health/converters` to list all registered mappings.\n\n**Type filtering**: By DEFAULT a curated discovery set is emitted (M26 behaviour): top-level types (features, interpretations, representations, stratigraphic columns, collections, WITSML 2.1) with only canonical (standard-named) properties and CRS always included. Two independent controls override this:\n- `typePatterns`: restrict/expand NON-property types. Pass `[\"*\"]` to include EVERY type.\n- `propertyFilter`: `canonical` (default, only standard-named properties like PORO/PERMX/SW) | `none` (exclude properties) | `all` (every property).\n- `excludePatterns`: hard type exclusions. When omitted the default is property-aware - whenever `propertyFilter` is not `all` (e.g. the `canonical` default) `*Activity`/`*ActivityTemplate`/`*PropertySet`/`*WellboreFrameRepresentation`/`witsml21.Log` are excluded by default. Activity records reference every property they consumed (dangling once any property is dropped); well frames/logs convert to OSDU WellLog work-products, but wells are authoritative in the Wellbore DDMS and their curves stay searchable here in RDDMS, so a redundant OSDU copy is skipped (its orphaned curve properties are auto-suppressed to avoid dangling references). With `propertyFilter:\"all\"` nothing is dropped and Activities/wells are kept. Pass `[]` to opt out.\n\nTo reproduce the M27 \"everything\" build, pass `typePatterns: [\"*\"]` and `propertyFilter: \"all\"` (this also retains Activities and wells). CRS objects are always included regardless of the filter.\n\n**Key behaviors**:\n- Best-effort mode - partial results returned on converter errors (check `errors[]` in response)\n- Auto-generates deterministic collaboration UUID (v5 from dataspace name)\n- Uses `OSDU_MILESTONE` env var (default M27) for OSDU schema versions\n- GridConnectionSet records report `HasTransmissibilityMultipliers` when attached transmissibility properties are found\n- WellLog records populate TopMeasuredDepth/BottomMeasuredDepth from frame index arrays\n\n**createMissingReferences**: When true, creates placeholder records for unresolved data object references (DORs). When false, missing references appear in the error list.",
         "operationId": "ObjectsManifestAPI_GetManifest",
         "parameters": [
           {
@@ -3280,7 +3280,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -3292,7 +3292,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -3338,7 +3338,7 @@
             "description": "If present, indicate the number of recursive levels when looking for relations",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 1000
             }
@@ -3430,14 +3430,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -3529,14 +3529,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -3628,14 +3628,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -3727,14 +3727,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -3826,14 +3826,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -3925,14 +3925,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -4819,7 +4819,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -4831,7 +4831,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -4868,7 +4868,7 @@
                       },
                       "count": {
                         "type": "number",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 1,
                         "maximum": 1000000,
                         "example": 2
@@ -5200,7 +5200,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -5212,7 +5212,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -5301,14 +5301,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -6428,7 +6428,7 @@
     },
     "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/targets": {
       "get": {
-        "description": "Flat list of resources that this object references (e.g., a Property's supporting Representation, or a Representation's CRS). Follows relationships forward (parent → child).\n\n**depth**: 1 = immediate targets only, N = recursive (e.g., depth=2 gets targets of targets).\n\n**List vs graph**: Set `edges=true` to also return the relationship edges (equivalent to the deprecated `GET /graph/{type}/{guid}/targets`).",
+        "description": "Flat list of resources that this object references (e.g., a Property's supporting Representation, or a Representation's CRS). Follows relationships forward (parent \u2192 child).\n\n**depth**: 1 = immediate targets only, N = recursive (e.g., depth=2 gets targets of targets).\n\n**List vs graph**: Set `edges=true` to also return the relationship edges (equivalent to the deprecated `GET /graph/{type}/{guid}/targets`).",
         "operationId": "ResourcesReadAPI_ListTargets",
         "parameters": [
           {
@@ -6496,7 +6496,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -6508,7 +6508,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -6554,7 +6554,7 @@
             "description": "If present, indicate the number of recursive levels when looking for relations",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 1000
             }
@@ -6640,14 +6640,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -6977,7 +6977,7 @@
     },
     "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/sources": {
       "get": {
-        "description": "Flat list of resources that reference this object (e.g., Properties attached to a Representation). Follows relationships backward (child → parent).\n\n**depth**: 1 = immediate sources only, N = recursive.\n\n**List vs graph**: Set `edges=true` to also return the relationship edges (equivalent to the deprecated `GET /graph/{type}/{guid}/sources`).",
+        "description": "Flat list of resources that reference this object (e.g., Properties attached to a Representation). Follows relationships backward (child \u2192 parent).\n\n**depth**: 1 = immediate sources only, N = recursive.\n\n**List vs graph**: Set `edges=true` to also return the relationship edges (equivalent to the deprecated `GET /graph/{type}/{guid}/sources`).",
         "operationId": "ResourcesReadAPI_ListSources",
         "parameters": [
           {
@@ -7045,7 +7045,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -7057,7 +7057,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -7103,7 +7103,7 @@
             "description": "If present, indicate the number of recursive levels when looking for relations",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 1000
             }
@@ -7189,14 +7189,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -7594,7 +7594,7 @@
             "description": "If present, indicate the number of recursive levels when looking for relations",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 1000
             }
@@ -8797,7 +8797,7 @@
     },
     "/dataspaces/{dataspaceId}/resources/{dataObjectType}/{guid}/arrays/{pathInResource}": {
       "put": {
-        "description": "Binary counterpart to `PUT /resources/arrays` for a **single** array. The request body is the raw little-endian bytes of the array (no JSON envelope, no base64), and the array identity/shape are passed as path and query parameters. This avoids base64's ~33% size inflation and JSON parsing for large numeric arrays.\n\n**arrayType**: element type of the bytes (e.g. `Float64Array`).\n**dimensions**: repeat per dimension, e.g. `dimensions=100&dimensions=3`.\n**starts/counts**: optional, to write a subarray slice (both required together, matching `dimensions` length).\n**Empty body**: creates an empty array of the given dimensions and type.\n**Transaction**: should be done within a transaction — pass `transactionId` from `POST /dataspaces/{ds}/transactions`.",
+        "description": "Binary counterpart to `PUT /resources/arrays` for a **single** array. The request body is the raw little-endian bytes of the array (no JSON envelope, no base64), and the array identity/shape are passed as path and query parameters. This avoids base64's ~33% size inflation and JSON parsing for large numeric arrays.\n\n**arrayType**: element type of the bytes (e.g. `Float64Array`).\n**dimensions**: repeat per dimension, e.g. `dimensions=100&dimensions=3`.\n**starts/counts**: optional, to write a subarray slice (both required together, matching `dimensions` length).\n**Empty body**: creates an empty array of the given dimensions and type.\n**Transaction**: should be done within a transaction \u2014 pass `transactionId` from `POST /dataspaces/{ds}/transactions`.",
         "operationId": "MutationsAPI_PutDataArrayBinary",
         "parameters": [
           {
@@ -9231,7 +9231,7 @@
         ]
       },
       "get": {
-        "description": "Retrieve the numeric data of an array. For large arrays, use `starts` and `counts` to fetch slices (subarrays) instead of the full dataset.\n\n**starts/counts**: Must be used together. Each is a comma-separated list matching the array dimensions (e.g., `starts=0,0&counts=100,3` for first 100 rows × 3 columns).\n\n**format**: `json` (default) returns a number array; `base64` returns a base64-encoded binary string (more efficient for large transfers).\n\n**Chunking**: The ETP layer automatically chunks large arrays (~10 MB per WebSocket message) and reassembles on the server side.",
+        "description": "Retrieve the numeric data of an array. For large arrays, use `starts` and `counts` to fetch slices (subarrays) instead of the full dataset.\n\n**starts/counts**: Must be used together. Each is a comma-separated list matching the array dimensions (e.g., `starts=0,0&counts=100,3` for first 100 rows \u00d7 3 columns).\n\n**format**: `json` (default) returns a number array; `base64` returns a base64-encoded binary string (more efficient for large transfers).\n\n**Chunking**: The ETP layer automatically chunks large arrays (~10 MB per WebSocket message) and reassembles on the server side.",
         "operationId": "DataArrayReadAPI_GetArray",
         "parameters": [
           {
@@ -10223,7 +10223,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -10235,7 +10235,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -10281,7 +10281,7 @@
             "description": "If present, indicate the number of recursive levels when looking for relations",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 1000
             }
@@ -10363,14 +10363,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -10462,14 +10462,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -10561,14 +10561,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -10660,14 +10660,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -10759,14 +10759,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -10858,14 +10858,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -11264,7 +11264,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -11276,7 +11276,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -11322,7 +11322,7 @@
             "description": "If present, indicate the number of recursive levels when looking for relations",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 1000
             }
@@ -11398,14 +11398,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -11804,7 +11804,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -11816,7 +11816,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -11862,7 +11862,7 @@
             "description": "If present, indicate the number of recursive levels when looking for relations",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 1000
             }
@@ -11938,14 +11938,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -13267,7 +13267,7 @@
     },
     "/dataspaces/{dataspaceId}/transactions": {
       "post": {
-        "description": "Start a new transaction for atomic write operations in this dataspace.\n\nReturns a `transactionId` UUID. Pass it to write/array endpoints as a query parameter.\n\n**Lifecycle**: commit with `PUT …/transactions/{txId}`, rollback with `DELETE …/transactions/{txId}`.\n\n**Timeout**: Auto-rollback after `TimeoutPeriod` seconds (default 300) if no new transaction messages occur.\n\n**Constraint**: Only one transaction can be active per dataspace at a time.\n\n**Typical write workflow**:\n```\nPOST  /dataspaces/{ds}/transactions              → transactionId\nPUT   /dataspaces/{ds}/resources?transactionId=…  → put objects (JSON array)\nPUT   /dataspaces/{ds}/resources/arrays?transactionId=… → put arrays (one per channel)\nPUT   /dataspaces/{ds}/transactions/{txId}        → commit\n```",
+        "description": "Start a new transaction for atomic write operations in this dataspace.\n\nReturns a `transactionId` UUID. Pass it to write/array endpoints as a query parameter.\n\n**Lifecycle**: commit with `PUT \u2026/transactions/{txId}`, rollback with `DELETE \u2026/transactions/{txId}`.\n\n**Timeout**: Auto-rollback after `TimeoutPeriod` seconds (default 300) if no new transaction messages occur.\n\n**Constraint**: Only one transaction can be active per dataspace at a time.\n\n**Typical write workflow**:\n```\nPOST  /dataspaces/{ds}/transactions              \u2192 transactionId\nPUT   /dataspaces/{ds}/resources?transactionId=\u2026  \u2192 put objects (JSON array)\nPUT   /dataspaces/{ds}/resources/arrays?transactionId=\u2026 \u2192 put arrays (one per channel)\nPUT   /dataspaces/{ds}/transactions/{txId}        \u2192 commit\n```",
         "operationId": "TransactionsAPI_PostTransaction",
         "parameters": [
           {
@@ -14311,7 +14311,7 @@
                           "additionalProperties": false,
                           "items": {
                             "type": "number",
-                            "format": "integer",
+                            "format": "int32",
                             "minimum": 0,
                             "maximum": 1000000
                           }
@@ -14331,7 +14331,7 @@
                       "type": "array",
                       "items": {
                         "type": "number",
-                        "format": "integer",
+                        "format": "int32",
                         "maximum": 1000000,
                         "minimum": 0
                       }
@@ -14343,7 +14343,7 @@
                       "type": "array",
                       "items": {
                         "type": "number",
-                        "format": "integer",
+                        "format": "int32",
                         "maximum": 1000000,
                         "minimum": 0
                       }
@@ -14691,7 +14691,7 @@
     },
     "/dataspaces/{dataspaceId}/epc/upload": {
       "post": {
-        "description": "Upload a RESQML EPC file (ZIP with XML objects) and an optional HDF5 companion file.\n\n**Processing flow**:\n1. Validate file sizes against configured limits\n2. Unzip EPC → parse `[Content_Types].xml` manifest\n3. Extract XML objects, identify `EpcExternalPartReference` entries\n4. Scan XML for `<Hdf5Dataset>` blocks → collect H5 dataset paths\n5. Open H5 file, pre-scan dataset metadata\n6. Ensure dataspace exists (auto-create if needed)\n7. Start transaction (or reuse caller's)\n8. PUT objects in batches of 100 (avoids ETP message size limits)\n9. PUT arrays one-by-one from H5 file (bounded memory)\n10. Commit transaction\n11. Auto-ingest to OSDU catalog (if `autoIngest` is set)\n\n**Dataspace resolution**:\n- Use `/dataspaces/auto/epc/upload` to auto-generate the dataspace as `{username}/{epc_name}`\n- Override with `?dataspace=my/space` to use a specific name\n- The dataspace is auto-created if it doesn't exist\n\n**Auto-ingest modes**:\n- `false` (default) - no catalog registration\n- `true` / `records` - builds manifest → pushes records via Storage Service (data immediately searchable)\n- `workflow` - builds manifest → submits to OSDU ingestion workflow DAG\n\n**Note**: `autoIngest` requires an internal transaction (omit `transactionId`). When using an external transaction, auto-ingest is skipped because the data may not be committed yet.\n\n**Performance**: H5 file is written to disk (not buffered in memory). Arrays are read and sent one at a time. Duplicate H5 dataset references are deduplicated.",
+        "description": "Upload a RESQML EPC file (ZIP with XML objects) and an optional HDF5 companion file.\n\n**Processing flow**:\n1. Validate file sizes against configured limits\n2. Unzip EPC \u2192 parse `[Content_Types].xml` manifest\n3. Extract XML objects, identify `EpcExternalPartReference` entries\n4. Scan XML for `<Hdf5Dataset>` blocks \u2192 collect H5 dataset paths\n5. Open H5 file, pre-scan dataset metadata\n6. Ensure dataspace exists (auto-create if needed)\n7. Start transaction (or reuse caller's)\n8. PUT objects in batches of 100 (avoids ETP message size limits)\n9. PUT arrays one-by-one from H5 file (bounded memory)\n10. Commit transaction\n11. Auto-ingest to OSDU catalog (if `autoIngest` is set)\n\n**Dataspace resolution**:\n- Use `/dataspaces/auto/epc/upload` to auto-generate the dataspace as `{username}/{epc_name}`\n- Override with `?dataspace=my/space` to use a specific name\n- The dataspace is auto-created if it doesn't exist\n\n**Auto-ingest modes**:\n- `false` (default) - no catalog registration\n- `true` / `records` - builds manifest \u2192 pushes records via Storage Service (data immediately searchable)\n- `workflow` - builds manifest \u2192 submits to OSDU ingestion workflow DAG\n\n**Note**: `autoIngest` requires an internal transaction (omit `transactionId`). When using an external transaction, auto-ingest is skipped because the data may not be committed yet.\n\n**Performance**: H5 file is written to disk (not buffered in memory). Arrays are read and sent one at a time. Duplicate H5 dataset references are deduplicated.",
         "operationId": "EpcUploadAPI_uploadEpc",
         "parameters": [
           {
@@ -14814,6 +14814,42 @@
             "schema": {
               "type": "string",
               "default": "*Activity,*ActivityTemplate"
+            }
+          },
+          {
+            "name": "owners",
+            "required": false,
+            "in": "query",
+            "description": "OSDU ACL owner group(s) stamped into the dataspace governance **only when this upload auto-creates a new dataspace** (an existing dataspace is left untouched). Comma-separated. Overrides the `RDMS_DEFAULT_OWNERS` env fallback. On OSDU-backed ETP servers a dataspace created without owners/legaltags rejects subsequent writes with \"Permission denied\", so supply these when uploading to a brand-new dataspace.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "viewers",
+            "required": false,
+            "in": "query",
+            "description": "OSDU ACL viewer group(s) for a newly auto-created dataspace (see `owners`). Comma-separated. Overrides the `RDMS_DEFAULT_VIEWERS` env fallback.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "legaltags",
+            "required": false,
+            "in": "query",
+            "description": "OSDU legal tag(s) for a newly auto-created dataspace (see `owners`). Comma-separated. Overrides the `RDMS_DEFAULT_LEGAL_TAGS` env fallback.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "otherRelevantDataCountries",
+            "required": false,
+            "in": "query",
+            "description": "OSDU other-relevant-data-country code(s) (e.g. `US`) for a newly auto-created dataspace (see `owners`). Comma-separated. Overrides the `RDMS_DEFAULT_DATA_COUNTRIES` env fallback.",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -15318,7 +15354,7 @@
     },
     "/witsml/store": {
       "put": {
-        "description": "Store WITSML 2.1 (or 1.4.1 container) objects as ETP data objects. Provide the payload as `xml` or as a `json` array of Energistics objects (each with `$type` and `Uuid`). If no transactionId is provided, automatically wraps the write in a transaction (start → put → commit).\n\n**Key features**:\n- **XML or JSON input**: Send raw WITSML/EnergyML XML in `xml`, or an array of parsed objects in `json` (converted to XML server-side)\n- **WITSML 1.4.1 support**: Detects plural container wrappers (`<wells>`, `<logs>`, etc.) and splits into individual WITSML 2.1 objects with deterministic UUID v5 from uid\n- **Channel data extraction**: Automatically extracts `<logData><data>` rows (1.4.1) or ChannelSet data (2.1) as separate ETP data arrays\n- **Trajectory support**: Extracts MD/Inclination/Azimuth from `<trajectoryStation>` elements as arrays\n- **Auto-transaction**: If no `transactionId` is provided, the write is wrapped in an internal transaction. If provided, the caller manages commit/rollback.",
+        "description": "Store WITSML 2.1 (or 1.4.1 container) objects as ETP data objects. Provide the payload as `xml` or as a `json` array of Energistics objects (each with `$type` and `Uuid`). If no transactionId is provided, automatically wraps the write in a transaction (start \u2192 put \u2192 commit).\n\n**Key features**:\n- **XML or JSON input**: Send raw WITSML/EnergyML XML in `xml`, or an array of parsed objects in `json` (converted to XML server-side)\n- **WITSML 1.4.1 support**: Detects plural container wrappers (`<wells>`, `<logs>`, etc.) and splits into individual WITSML 2.1 objects with deterministic UUID v5 from uid\n- **Channel data extraction**: Automatically extracts `<logData><data>` rows (1.4.1) or ChannelSet data (2.1) as separate ETP data arrays\n- **Trajectory support**: Extracts MD/Inclination/Azimuth from `<trajectoryStation>` elements as arrays\n- **Auto-transaction**: If no `transactionId` is provided, the write is wrapped in an internal transaction. If provided, the caller manages commit/rollback.",
         "operationId": "WitsmlController_putWitsmlObjects",
         "parameters": [
           {
@@ -17620,7 +17656,7 @@
     },
     "/health/converters": {
       "get": {
-        "description": "Returns all registered RESQML/WITSML → OSDU type converters for diagnostics and validation.",
+        "description": "Returns all registered RESQML/WITSML \u2192 OSDU type converters for diagnostics and validation.",
         "operationId": "HealthAPI_Converters",
         "parameters": [],
         "responses": {
@@ -17990,6 +18026,169 @@
           "Metrics"
         ]
       }
+    },
+    "/pwls/hierarchy": {
+      "get": {
+        "description": "Resolves a mnemonic or property to its PWLS v4 ancestry chain (self first, up towards the abstract 'property' root). Depth is variable - PWLS v4 is a recursive tree, not a fixed 3-tier taxonomy. Provide either 'mnemonic' or 'property'.",
+        "operationId": "PwlsController_hierarchy",
+        "parameters": [
+          {
+            "name": "mnemonic",
+            "required": false,
+            "in": "query",
+            "description": "Curve mnemonic to resolve first (e.g. RHOB, NPHI)",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "property",
+            "required": false,
+            "in": "query",
+            "description": "PWLS property name (e.g. 'bulk density')",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Vendor-neutral property ancestry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PwlsHierarchyResultDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 404,
+                      "maximum": 404,
+                      "example": 404
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "406": {
+            "description": "Not acceptable response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 406,
+                      "maximum": 406,
+                      "example": 406
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 429,
+                      "maximum": 429,
+                      "example": 429
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unknown Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 500,
+                      "maximum": 500,
+                      "example": 500
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Get the property ancestry (vendor-neutral tree)",
+        "tags": [
+          "PWLS"
+        ]
+      }
     }
   },
   "info": {
@@ -18005,7 +18204,7 @@
   "tags": [
     {
       "name": "Health",
-      "description": "Liveness, readiness probes, and server metadata. Use `GET /health/converters` to list all registered RESQML/WITSML → OSDU converter mappings."
+      "description": "Liveness, readiness probes, and server metadata. Use `GET /health/converters` to list all registered RESQML/WITSML \u2192 OSDU converter mappings."
     },
     {
       "name": "Authentication",
@@ -18025,11 +18224,11 @@
     },
     {
       "name": "Resources",
-      "description": "Read-only access to ETP dataspaces, objects, relationships, and data arrays. Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`). **When to use which:** list a dataspace's contents with `GET …/resources` (types) or `…/resources/all` (flat); fetch a single known object with `…/resources/{type}/{guid}`; traverse a known object's relationships via its `…/targets` (referenced by) and `…/sources` (referencing) sub-resources. When you do **not** know the exact path and need to filter or search, use the **Query** tag (`POST /query/objects/find`) instead; for a batch graph walk across many URIs use `POST /query/graph/search`. The top-level `/graph/…` endpoints are **deprecated** aliases of the per-object `/targets` and `/sources` routes - prefer the latter. **Depth**: 1 = immediate, N = recursive, 0 = unlimited (may timeout). **Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP has no server-side pagination). No transaction required."
+      "description": "Read-only access to ETP dataspaces, objects, relationships, and data arrays. Use `dataspaceId` as a URL-encoded path (e.g., `foo%2Fdrogon` for `foo/drogon`). **When to use which:** list a dataspace's contents with `GET \u2026/resources` (types) or `\u2026/resources/all` (flat); fetch a single known object with `\u2026/resources/{type}/{guid}`; traverse a known object's relationships via its `\u2026/targets` (referenced by) and `\u2026/sources` (referencing) sub-resources. When you do **not** know the exact path and need to filter or search, use the **Query** tag (`POST /query/objects/find`) instead; for a batch graph walk across many URIs use `POST /query/graph/search`. The top-level `/graph/\u2026` endpoints are **deprecated** aliases of the per-object `/targets` and `/sources` routes - prefer the latter. **Depth**: 1 = immediate, N = recursive, 0 = unlimited (may timeout). **Pagination**: `$skip`/`$top` are applied client-side after fetch (ETP has no server-side pagination). No transaction required."
     },
     {
       "name": "Query",
-      "description": "Body-driven search across a dataspace or a batch of URIs (ETP Discovery + Store). `POST /query/objects/find` returns matching objects with full content; `POST /query/graph/search` runs a batch graph search across multiple URIs (Discovery Protocol 3). Use these when a filter or multi-URI batch does not fit a path-addressed `GET /resources/…` call."
+      "description": "Body-driven search across a dataspace or a batch of URIs (ETP Discovery + Store). `POST /query/objects/find` returns matching objects with full content; `POST /query/graph/search` runs a batch graph search across multiple URIs (Discovery Protocol 3). Use these when a filter or multi-URI batch does not fit a path-addressed `GET /resources/\u2026` call."
     },
     {
       "name": "Transactions",
@@ -18037,7 +18236,7 @@
     },
     {
       "name": "Write",
-      "description": "Create, update, and delete objects and upload EPC+H5 files. **Requires a transaction** - start one first via Transactions, then pass `transactionId`. Typical flow: create dataspace → start transaction → put objects → put arrays → commit."
+      "description": "Create, update, and delete objects and upload EPC+H5 files. **Requires a transaction** - start one first via Transactions, then pass `transactionId`. Typical flow: create dataspace \u2192 start transaction \u2192 put objects \u2192 put arrays \u2192 commit."
     },
     {
       "name": "WITSML",
@@ -18049,7 +18248,7 @@
     },
     {
       "name": "Linked Data",
-      "description": "Public, read-only semantic-web metadata: the JSON-LD context, the graph ontology, and the RESQML→OSDU OWL alignment. Complements the RDF/CSV/GraphML serializations of the resource graph."
+      "description": "Public, read-only semantic-web metadata: the JSON-LD context, the graph ontology, and the RESQML\u2192OSDU OWL alignment. Complements the RDF/CSV/GraphML serializations of the resource graph."
     }
   ],
   "servers": [
@@ -18267,6 +18466,16 @@
             "type": "string",
             "example": "uuid-string"
           },
+          "parent": {
+            "type": "string",
+            "example": "density",
+            "description": "Immediate parent PWLS property (v4 recursive tree)"
+          },
+          "parentPropertyTypeId": {
+            "type": "string",
+            "example": "fd8a4e2e-63d7-43d9-926a-a23da337dc6c",
+            "description": "OSDU PropertyType UUID of the parent"
+          },
           "resolved": {
             "type": "boolean",
             "example": true
@@ -18274,6 +18483,58 @@
         },
         "required": [
           "mnemonic",
+          "resolved"
+        ]
+      },
+      "PwlsHierarchyNodeDto": {
+        "type": "object",
+        "properties": {
+          "property": {
+            "type": "string",
+            "example": "bulk density"
+          },
+          "propertyTypeId": {
+            "type": "string",
+            "example": "8cf38da3-e98e-4134-a186-1c6f562d6430"
+          },
+          "quantityClass": {
+            "type": "string",
+            "example": "mass per volume"
+          }
+        },
+        "required": [
+          "property",
+          "quantityClass"
+        ]
+      },
+      "PwlsHierarchyResultDto": {
+        "type": "object",
+        "properties": {
+          "property": {
+            "type": "string",
+            "example": "bulk density"
+          },
+          "depth": {
+            "type": "number",
+            "example": 2,
+            "description": "Number of levels in the ancestry chain"
+          },
+          "hierarchy": {
+            "description": "Ancestry from the property itself up towards the root (abstract 'property' root omitted)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PwlsHierarchyNodeDto"
+            }
+          },
+          "resolved": {
+            "type": "boolean",
+            "example": true
+          }
+        },
+        "required": [
+          "property",
+          "depth",
+          "hierarchy",
           "resolved"
         ]
       },
@@ -18597,7 +18858,7 @@
           },
           "typePatterns": {
             "maxItems": 99999,
-            "description": "Optional filter restricting NON-property types when indexing entire dataspaces (accepts * and ? wildcards). When omitted, ALL types are included. Pass a curated list to restrict, e.g. [\"*Feature\",\"*Interpretation*\",\"*Representation\",\"*StratigraphicColumn\",\"*Activity*\",\"*Collection\",\"witsml21.*\"] for top-level types only. CRS objects are always included regardless of this filter.",
+            "description": "Optional filter restricting NON-property types when indexing entire dataspaces (accepts * and ? wildcards). When omitted, a curated M26 default set is used: [\"*Feature\",\"*Interpretation*\",\"*Representation\",\"*StratigraphicColumn\",\"*Activity*\",\"*Collection\",\"witsml21.*\"] (top-level types only). Pass [\"*\"] to include EVERY type. CRS objects are always included regardless of this filter.",
             "example": [
               "resqml20.obj_*Representation"
             ],
@@ -18615,15 +18876,16 @@
               "none",
               "all"
             ],
-            "description": "Controls property inclusion, independent of typePatterns. \"all\" (default): include every property. \"canonical\": include only properties with standard names (PWLS, OSDU, simulator abbreviations like PORO, PERMX, SW). \"none\": exclude all properties. Combine with typePatterns to build presets, e.g. all types + no properties, or curated top-level + no properties.",
-            "example": "all"
+            "description": "Controls property inclusion, independent of typePatterns. \"canonical\" (default): include only properties with standard names (PWLS, OSDU, simulator abbreviations like PORO, PERMX, SW). \"none\": exclude all properties (fastest). \"all\": include every property. Combine with typePatterns to build presets, e.g. all types + all properties (typePatterns:[\"*\"] + propertyFilter:\"all\").",
+            "example": "canonical"
           },
           "excludePatterns": {
             "maxItems": 99999,
-            "description": "Optional list of type patterns (accepts * and ? wildcards) that HARD-exclude matching types, applied before every inclusion rule except CRS (always kept). Use to drop noisy/low-value types that would otherwise bloat the manifest or introduce dangling references, e.g. [\"*Activity\",\"*ActivityTemplate\"] (Activity records reference every property they consumed, which become dangling when propertyFilter=\"canonical\"), or [\"*GridConnectionSet\"] when connection-set counts explode.",
+            "description": "Optional list of type patterns (accepts * and ? wildcards) that HARD-exclude matching types, applied before every inclusion rule except CRS (always kept). When OMITTED, the default is property-aware: with propertyFilter other than \"all\" (e.g. the \"canonical\" default) it defaults to [\"*Activity\",\"*ActivityTemplate\",\"*PropertySet\",\"*WellboreFrameRepresentation\",\"witsml21.Log\"] so the manifest stays self-consistent and free of redundant well-log copies. Activity records reference every property they consumed (dangling once any property is dropped); WellboreFrameRepresentation / witsml Log objects convert to OSDU WellLog work-products, but wells are authoritative in the Wellbore DDMS and their curves remain searchable here in RDDMS, so a second copy adds no discovery value while multiplying record count and build time. Excluding a well frame/log also auto-suppresses its orphaned curve properties so no dangling SupportingRepresentation reference is emitted. With propertyFilter:\"all\" it defaults to empty (nothing is dropped, so Activities and wells are kept). Pass an explicit list to override, or [] to opt out of the default exclusions entirely. Also useful to drop other noisy types, e.g. [\"*GridConnectionSet\"] when connection-set counts explode.",
             "example": [
               "*Activity",
-              "*ActivityTemplate"
+              "*WellboreFrameRepresentation",
+              "witsml21.Log"
             ],
             "type": "array",
             "items": {
@@ -18665,13 +18927,13 @@
           },
           "async": {
             "type": "boolean",
-            "description": "When true, build the manifest asynchronously: the request returns `202 Accepted` with a `jobId` immediately and the build continues in-process, so it is not bound by the ~60s edge/load-balancer request timeout that fronts the platform ingress. Poll `GET /manifests/jobs/{jobId}` for status and, once `completed`, the manifest + build diagnostics. When false (default) the build runs synchronously and the manifest is returned in the response body.",
+            "description": "Controls synchronous vs asynchronous build. When `true`, the request returns `202 Accepted` with a `jobId` immediately and the build continues in-process, so it is not bound by the ~60s edge/load-balancer request timeout that fronts the platform ingress; poll `GET /manifests/jobs/{jobId}` for status and, once `completed`, the manifest + build diagnostics. When OMITTED or `false` (default), the mode is chosen automatically: a cheap pre-count of filtered input resources selects async for large dataspaces (>= 1000 resources, e.g. Volve) so they never hit the timeout, and returns the manifest synchronously in the response body for smaller ones (e.g. Dani). There is no \"force synchronous\" mode: forcing sync on a large dataspace would only guarantee a timeout, so `false` behaves the same as omitted. Use `true` when you always want a job handle regardless of size.",
             "example": false
           },
           "schemaCompat": {
             "type": "boolean",
-            "description": "Controls the schema-compatibility pass that resolves each record's kind against the target OSDU schema service and remaps/normalizes it to a registered kind (maximizes ingestibility). Tri-state: omit (default) for AUTO — the pass runs for normal builds but is automatically SKIPPED for large datasets (assembled record count over `MANIFEST_SCHEMA_COMPAT_MAX_RECORDS`, default 500) because the per-kind schema-service round-trips can push the build past the ~60s edge/load-balancer timeout that fronts the platform ingress. Set `true` to FORCE the pass on even for large datasets. Set `false` to always SKIP it (faster, M26-style build; every record keeps its original kind, which the target OSDU may not have registered, so ingestion could reject them).",
-            "example": true
+            "description": "Opt-in (default OFF, M26 behaviour). Controls the schema-compatibility pass that resolves each record's kind against the target OSDU schema service and remaps/normalizes it to a registered kind (maximizes ingestibility). Omit or set `false` (default) to SKIP it for a faster M26-style build \u2014 every record keeps its original kind, which the target OSDU may not have registered, so ingestion could reject them. Set `true` to RUN the pass; when forced on it is still auto-skipped for very large datasets (assembled record count over `MANIFEST_SCHEMA_COMPAT_MAX_RECORDS`, default 500) because the per-kind schema-service round-trips can push the build past the ~60s edge/load-balancer timeout that fronts the platform ingress.",
+            "example": false
           }
         },
         "required": [

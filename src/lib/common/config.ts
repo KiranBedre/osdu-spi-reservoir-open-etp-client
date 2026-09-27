@@ -29,7 +29,7 @@ const unsetEnvVars: string[] = [];
 if (unsetEnvVars.length > 0) {
   throw new Error(
     "The following environment variables must be set: " +
-      unsetEnvVars.join(", ")
+    unsetEnvVars.join(", ")
   );
 }
 
@@ -68,10 +68,33 @@ export const restApiServerPath =
   process.env.RDMS_REST_SERVER_PATH !== undefined
     ? process.env.RDMS_REST_SERVER_PATH
     : restApiRoutePath.endsWith("/")
-    ? restApiRoutePath.substring(0, restApiRoutePath.length - 1)
-    : restApiRoutePath;
+      ? restApiRoutePath.substring(0, restApiRoutePath.length - 1)
+      : restApiRoutePath;
 export const restApiPort = parseInt(process.env.RDMS_REST_PORT as string);
 export const openApiPort =
   parseInt(process.env.OPEN_API_PORT as string) || restApiPort;
 
 export const osduUrl = (process.env.RDMS_OSDU_URL as string) || restApiMainUrl;
+
+/**
+ * Default OSDU governance (ACL + legal) stamped onto a dataspace's ETP
+ * CustomData **only when the gateway auto-creates a new dataspace** (e.g. via
+ * `POST /dataspaces/{id}/epc/upload`). Existing dataspaces keep their own
+ * governance untouched. Each is an optional comma-separated env var; when unset
+ * the corresponding CustomData key is simply omitted.
+ *
+ * On OSDU-backed ETP servers a dataspace created without owners/legaltags is
+ * rejected on subsequent writes ("Permission denied"), so supplying these lets
+ * an upload to a brand-new dataspace succeed without a separate create call.
+ */
+const parseCsvEnv = (value?: string): string[] | undefined => {
+  if (value === undefined) return undefined;
+  const list = value.split(",").map(s => s.trim()).filter(s => s.length > 0);
+  return list.length > 0 ? list : undefined;
+};
+export const defaultDataspaceOwners = parseCsvEnv(process.env.RDMS_DEFAULT_OWNERS);
+export const defaultDataspaceViewers = parseCsvEnv(process.env.RDMS_DEFAULT_VIEWERS);
+export const defaultDataspaceLegalTags = parseCsvEnv(process.env.RDMS_DEFAULT_LEGAL_TAGS);
+export const defaultDataspaceDataCountries = parseCsvEnv(
+  process.env.RDMS_DEFAULT_DATA_COUNTRIES
+);

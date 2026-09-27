@@ -146,11 +146,22 @@ export class OSDUContext {
   public references: Set<string> = new Set();
   public srnToUri: Map<string, string> = new Map();
   public uriToObject: Map<string, IResqmlDataObject> = new Map();
+  /**
+   * WellLog curve index built once per whole-dataspace build. Maps a
+   * WellboreFrameRepresentation UUID -> the Continuous/Discrete/Categorical
+   * Property objects whose SupportingRepresentation is that frame. The WellLog
+   * converter uses this to assemble Curves[] from memory instead of issuing a
+   * per-frame getResources(sources) + getResolvedObjects ETP round-trip.
+   * Undefined = not built (targeted/single-object builds fall back to the
+   * per-frame network path). Keyed by UUID to stay robust against URI
+   * version/format differences.
+   */
+  public frameCurveProps?: Map<string, IResqmlDataObject[]>;
   public createMissingReferences?: boolean = true;
-  // Tri-state schema-compatibility pass control:
-  //   undefined -> auto (run the pass, but auto-skip for large datasets)
-  //   true      -> force the pass on (even for large datasets)
-  //   false     -> skip the pass entirely (M26-style fast build)
+  // Schema-compatibility pass control (OFF by default; opt-in):
+  //   undefined/false -> skip the pass (fast build; every record keeps its
+  //                      original kind)
+  //   true            -> run the pass (auto-skipped for very large datasets)
   public schemaCompat?: boolean;
   public useDataArrayForManifest: boolean = false;
   public bearer?: string;
@@ -158,6 +169,14 @@ export class OSDUContext {
   public generateLineageActivity: boolean = true;
 
   public created: Map<string, OSDUResourceType> = new Map();
+
+  /**
+   * Per-build memoization of getOSDUResourceVersion. Keyed by the clean id
+   * (no trailing ':'). Master-data converters and reconciliation can look up
+   * the same id repeatedly; caching the in-flight Promise collapses those to a
+   * single Storage round-trip per id.
+   */
+  private osduVersionCache = new Map<string, Promise<number | undefined>>();
 
   /**
    * Memoized spatial info (SpatialPoint/SpatialArea/CRS meta) keyed by
@@ -253,37 +272,19 @@ export class OSDUContext {
       return eCRS;
     }
 
-    const query = `id:"${id}"`;
-
-    const body = {
-      kind: `*:*:reference-data--CoordinateReferenceSystem:*`,
-      query
-    };
-    const bodyString = JSON.stringify(body);
-    const r = await this.fetchOSDU<{ results: OSDUResourceType[] }>(
-      "/api/search/v2/query",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": `application/json`,
-          "Content-Length": `${bodyString.length}`
-        },
-        body: bodyString
-      }
+    // The record id is fully deterministic from the EPSG code, so fetch it
+    // directly from the authoritative Storage service instead of Elasticsearch.
+    const crs = await this.fetchOSDU<CoordinateReferenceSystem>(
+      `/api/storage/v2/records/${id}`
     );
-    if (r === undefined) {
-      return undefined;
-    }
-    for (const e of r.results) {
-      const crs = e as CoordinateReferenceSystem;
-      if (
-        crs.id !== undefined &&
-        crs.data !== undefined &&
-        crs.data.CodeAsNumber === epsgCode
-      ) {
-        this.projectedCRS.set(id, crs);
-        return crs;
-      }
+    if (
+      crs !== undefined &&
+      crs.id !== undefined &&
+      crs.data !== undefined &&
+      crs.data.CodeAsNumber === epsgCode
+    ) {
+      this.projectedCRS.set(id, crs);
+      return crs;
     }
     return undefined;
   }
@@ -503,8 +504,8 @@ export class OSDUContext {
 
   /**
    * Filter out all resources already in OSDU catalog.
-   * Uses batched OSDU search queries instead of individual record lookups
-   * for O(N/batch) HTTP calls instead of O(N).
+   * Uses the authoritative Storage batch fetch endpoint (source of truth,
+   * no Search index lag) for O(N/batch) HTTP calls instead of O(N).
    *
    * @param {string[]} srn
    * @return {Promise<string[]>}
@@ -512,49 +513,50 @@ export class OSDUContext {
    */
   public async filterOSDUResources(srn: string[]): Promise<string[]> {
     if (srn.length === 0) return [];
-    const chunks = this.divideIntoChunks(srn, 20);
-    const foundIds = new Set<string>();
+    // Authoritative existence check against the Storage service (source of
+    // truth). Unlike Search, Storage has no index lag, so records written
+    // moments earlier in the same build are reliably seen and not re-created.
+    const found = await this.batchOsduRecordVersions(srn);
+    return srn.filter(
+      s => !found.has(s.endsWith(":") ? s.slice(0, -1) : s)
+    );
+  }
+
+  /**
+   * Authoritatively resolve which ids already exist in the OSDU Storage
+   * service, along with their current version, using the Storage batch fetch
+   * endpoint (POST /api/storage/v2/query/records). This reads the source of
+   * truth directly (no Search/ES index lag), so records written moments
+   * earlier are reliably seen.
+   *
+   * Ids may be passed with or without a trailing ':'. The returned Map is
+   * keyed by the clean id (no trailing ':').
+   *
+   * @param {string[]} ids
+   * @return {Promise<Map<string, number>>}
+   * @memberof OSDUContext
+   */
+  public async batchOsduRecordVersions(
+    ids: string[]
+  ): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    if (ids.length === 0) return result;
+    const clean = ids.map(i => (i.endsWith(":") ? i.slice(0, -1) : i));
+    const chunks = this.divideIntoChunks(clean, 20);
     await Promise.all(
       chunks.map(async chunk => {
-        // Strip trailing ':' for search, then search by id
-        const queryString = chunk
-          .map(c => {
-            const clean = c.endsWith(":") ? c.slice(0, -1) : c;
-            return `id:"${clean}"`;
-          })
-          .join(" OR ");
-        const query = {
-          kind: "*:*:*--*:*",
-          offset: 0,
-          limit: chunk.length,
-          query: queryString,
-          returnedFields: ["id"]
-        };
-        try {
-          const bodyString = JSON.stringify(query);
-          const found = await this.fetchOSDU<{ results: { id: string }[] }>(
-            `/api/search/v2/query`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": `application/json`,
-                "Content-Length": `${bodyString.length}`
-              },
-              body: bodyString
-            }
-          );
-          if (found?.results) {
-            for (const r of found.results) {
-              foundIds.add(r.id);
-              foundIds.add(r.id + ":");
-            }
+        const found = await this.pushOSDU<
+          { records: string[] },
+          { records: { id: string; version: number }[] }
+        >(`/api/storage/v2/query/records`, { records: chunk });
+        found?.records?.forEach(r => {
+          if (r?.id !== undefined) {
+            result.set(r.id, r.version);
           }
-        } catch {
-          // Treat search failure as "not found" - conservative
-        }
+        });
       })
     );
-    return srn.filter(s => !foundIds.has(s));
+    return result;
   }
 
   /**
@@ -565,6 +567,19 @@ export class OSDUContext {
    * @memberof OSDUContext
    */
   public async getOSDUResourceVersion(
+    srn: string
+  ): Promise<number | undefined> {
+    const key = srn.endsWith(":") ? srn.slice(0, -1) : srn;
+    const cached = this.osduVersionCache.get(key);
+    if (cached !== undefined) {
+      return cached;
+    }
+    const pending = this.getOSDUResourceVersionUncached(srn);
+    this.osduVersionCache.set(key, pending);
+    return pending;
+  }
+
+  private async getOSDUResourceVersionUncached(
     srn: string
   ): Promise<number | undefined> {
     try {
@@ -627,84 +642,33 @@ export class OSDUContext {
         return s;
       })
       .filter(s => this.created.get(s.slice(0, -1)) === undefined);
-    const chunks = this.divideIntoChunks(srn, 20);
-    return Promise.all(
-      chunks.map(async chunk => {
-        const queryString = chunk
-          .map(c => `id: "${c.slice(0, -1)}"`)
-          .join(" OR ");
-        const query = {
-          kind: "*:*:reference-data--*:*",
-          offset: 0,
-          limit: 20,
-          aggregateBy: "kind",
-          query: queryString,
-          returnedFields: ["id"]
-        };
-        try {
-          const bodyString = JSON.stringify(query);
-          const found = await this.fetchOSDU<{ results: { id: string }[] }>(
-            `/api/search/v2/query`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": `application/json`,
-                "Content-Length": `${bodyString.length}`
-              },
-              body: bodyString
-            }
-          );
-          return found === undefined ? [] : found.results.map(f => f.id);
-        } catch (e) {
-          return [];
-        }
-      })
-    ).then(results => {
-      const dataFound = results.flat().map(v => v + ":");
-      return srn.filter(v => !dataFound.includes(v));
-    });
+    if (srn.length === 0) return [];
+    // Authoritative existence check against the Storage service (source of
+    // truth). Unlike Search, Storage has no index lag, so reference-data
+    // written moments earlier is reliably seen and not falsely reported as
+    // "missing" (which, in strict mode, would raise a bogus "Missing
+    // reference(s)" failure).
+    const found = await this.batchOsduRecordVersions(srn);
+    return srn.filter(s => !found.has(s.endsWith(":") ? s.slice(0, -1) : s));
   }
 
   /**
-   * Get the known versions associated with id
+   * Get the current version of each id already present in OSDU.
+   *
+   * Uses the authoritative Storage batch fetch endpoint
+   * (POST /api/storage/v2/query/records) rather than Elasticsearch Search.
+   * This reads the source of truth directly (no Search/ES index lag, so a
+   * record written moments earlier in the same build is reliably seen) and
+   * collapses the previous ~N/20 slow Search queries into faster concurrent
+   * Storage batch fetches. The returned Map is keyed by the clean id (no
+   * trailing ':'); ids may be passed with or without one.
    *
    * @param {string[]} ids
-   * @return {Promise<string[]>}
+   * @return {Promise<Map<string, number>>}
    * @memberof OSDUContext
    */
   public async getVersions(ids: string[]): Promise<Map<string, number>> {
-    const chunks = this.divideIntoChunks(ids, 20);
-    const versions: Map<string, number> = new Map();
-    await Promise.all(
-      chunks.map(async chunk => {
-        const queryString = chunk.map(c => `id: "${c}"`).join(" OR ");
-        const query = {
-          kind: "*:*:*--*:*",
-          offset: 0,
-          limit: 20,
-          aggregateBy: "kind",
-          query: queryString,
-          returnedFields: ["id", "version"]
-        };
-        try {
-          const bodyString = JSON.stringify(query);
-          const found = await this.fetchOSDU<{
-            results: { id: string; version: number }[];
-          }>(`/api/search/v2/query`, {
-            method: "POST",
-            headers: {
-              "Content-Type": `application/json`,
-              "Content-Length": `${bodyString.length}`
-            },
-            body: bodyString
-          });
-          found?.results.forEach(r => versions.set(r.id, r.version));
-        } catch (e) {
-          // Do nothing
-        }
-      })
-    );
-    return versions;
+    return this.batchOsduRecordVersions(ids);
   }
 
   /**

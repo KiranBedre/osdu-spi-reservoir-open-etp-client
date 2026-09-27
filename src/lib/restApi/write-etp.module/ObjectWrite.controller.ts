@@ -196,7 +196,7 @@ export class DataArrayDto {
         additionalProperties: false,
         items: {
           type: "number",
-          format: "integer",
+          format: "int32",
           minimum: 0,
           maximum: 1000000
         }
@@ -219,7 +219,7 @@ export class DataArrayDto {
     isArray: true,
     maxItems: 256,
     type: "number",
-    format: "integer",
+    format: "int32",
     minimum: 0,
     maximum: 1000000,
     additionalProperties: false
@@ -236,7 +236,7 @@ export class DataArrayDto {
     isArray: true,
     maxItems: 256,
     type: "number",
-    format: "integer",
+    format: "int32",
     minimum: 0,
     maximum: 1000000,
     additionalProperties: false

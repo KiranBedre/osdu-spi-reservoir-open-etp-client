@@ -136,17 +136,35 @@ export const DEFAULT_DATASPACE_TYPE_PATTERNS: string[] = [
 ];
 
 /**
- * Types that reference other data objects but carry little standalone
- * discovery value and frequently introduce referential-integrity noise when
- * combined with property filtering (e.g. Activity records reference every
- * property they consumed; with `propertyFilter="canonical"` those references
- * become dangling). Excluded by default on the auto-ingest path so the emitted
- * manifest stays self-consistent for the OSDU ingestion workflow (Airflow DAG).
+ * Types excluded by default whenever property filtering is active
+ * (`propertyFilter` !== "all"). Two rationales:
+ *
+ *  1. Referential-integrity noise: types that reference other data objects but
+ *     carry little standalone discovery value (e.g. Activity records reference
+ *     every property they consumed; with `propertyFilter="canonical"` those
+ *     references become dangling).
+ *
+ *  2. Well-log data authority: RESQML `WellboreFrameRepresentation` and WITSML
+ *     `Log` objects convert to OSDU `WellLog` work-products (curve data). Wells
+ *     and their logs are authoritative in the Wellbore DDMS, and the curves
+ *     remain directly searchable/retrievable here in RDDMS, so mirroring a
+ *     second copy into the OSDU manifest adds no discovery value while
+ *     multiplying record count and build time. Excluding the frame/log also
+ *     requires suppressing its orphaned curve properties (see the convert-phase
+ *     supporting-representation check in `createManifest`) so no dangling
+ *     `SupportingRepresentation` reference is emitted.
+ *
+ * Excluded by default on the auto-ingest path so the emitted manifest stays
+ * self-consistent for the OSDU ingestion workflow (Airflow DAG). Pass
+ * `propertyFilter:"all"` (or an explicit `excludePatterns`) to override — the
+ * "everything" build (M27 preship) retains wells and activities.
  */
 export const DEFAULT_INGEST_EXCLUDE_PATTERNS: string[] = [
   "*Activity", // resqml20.obj_Activity / eml23.Activity
   "*ActivityTemplate", // resqml20.obj_ActivityTemplate / eml23.ActivityTemplate
-  "*PropertySet" // resqml20.obj_PropertySet -> PersistedCollection (pure grouping container)
+  "*PropertySet", // resqml20.obj_PropertySet -> PersistedCollection (pure grouping container)
+  "*WellboreFrameRepresentation", // RESQML well logs -> WellLog; authoritative in Wellbore DDMS, searchable in RDDMS
+  "witsml21.Log" // WITSML well logs -> WellLog; same rationale
 ];
 
 /** Property type pattern for secondary filter matching */
@@ -335,6 +353,82 @@ function compilePatterns(patterns: string[]): RegExp[] {
 }
 
 /**
+ * True when a referenced object type must NOT be resurrected by the
+ * reference-resolution wave, because the active build filter deliberately
+ * excluded it. This makes `propertyFilter` and `excludePatterns` authoritative
+ * for the WHOLE build (not only the primary selection): a property dropped by
+ * `propertyFilter:"none"`, or any type matched by `excludePatterns`, stays out
+ * even when a kept object (e.g. an Activity) references it. CRS is always kept.
+ */
+function isReferenceSuppressed(
+  dataObjectType: string,
+  propertyFilter: PropertyFilter,
+  excludePatterns?: string[]
+): boolean {
+  if (ALWAYS_INCLUDE_PATTERN.test(dataObjectType)) return false;
+  if (excludePatterns && excludePatterns.length > 0) {
+    for (const p of compilePatterns(excludePatterns)) {
+      if (dataObjectType.match(p)) return true;
+    }
+  }
+  if (propertyFilter === "none" && PROPERTY_TYPE_PATTERN.test(dataObjectType)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Cheap pre-flight estimate of how many input resources a build would process,
+ * applying the SAME type/property/exclude filter as {@link createManifest} (so
+ * the count matches what the build actually iterates - e.g. Dani ~938 vs Volve
+ * ~3520). Used by the REST layer to auto-select an asynchronous build for large
+ * dataspaces that would otherwise exceed the ~60s edge/LB request timeout.
+ *
+ * Whole-dataspace URIs are expanded and filtered via one discovery round-trip
+ * each; explicit object URIs count as one and incur NO network call. Nothing is
+ * fetched, converted, or resolved beyond the dataspace resource listing.
+ */
+export const estimateManifestInputCount = async (
+  client: ResqmlClient,
+  uris: URI[],
+  typePatterns?: string[],
+  propertyFilter: PropertyFilter = "canonical",
+  excludePatterns?: string[]
+): Promise<number> => {
+  const allUris = new Set<string>();
+  for (const uri of uris) {
+    const etpUri = new EtpUri(uri);
+    if (!etpUri.isValid) {
+      continue;
+    }
+    if (etpUri.domain === "") {
+      // Whole dataspace: list + filter exactly like createManifest's discovery.
+      const dataspaceUri = EtpUri.createDataSpaceUri(etpUri.dataSpace);
+      const dataspaceUris = await client.getDataspaceResources(
+        dataspaceUri.uri
+      );
+      for (const f of dataspaceUris) {
+        const u = new EtpUri(f.uri);
+        if (
+          manifestFilterMatches(
+            u.dataObjectType,
+            f.name,
+            typePatterns,
+            propertyFilter,
+            excludePatterns
+          )
+        ) {
+          allUris.add(f.uri);
+        }
+      }
+    } else {
+      allUris.add(etpUri.uri);
+    }
+  }
+  return allUris.size;
+};
+
+/**
  * Create a manifest for a list of uris
  *
  * @param {ResqmlClient} client linked to ETP server
@@ -360,7 +454,7 @@ export const createManifest = async (
   context: OSDUContext,
   typePatterns?: string[],
   maxManifestSize: number = 1000,
-  propertyFilter: PropertyFilter = "all",
+  propertyFilter: PropertyFilter = "canonical",
   excludePatterns?: string[]
 ): Promise<Manifest> => {
   if (uris.length === 0) {
@@ -382,6 +476,12 @@ export const createManifest = async (
     // manifest with zero explanation. Counting it turns that blind spot into an
     // actionable, surfaced diagnostic.
     const convertFailed = new Map<string, number>();
+    // `suppressedExcludedSupport` = a property object whose supporting
+    // representation type is excluded from this build (e.g. a WellLog curve
+    // whose `WellboreFrameRepresentation` frame is excluded by default). We
+    // deliberately drop the property so it does not emit a work-product with a
+    // dangling `SupportingRepresentation` reference to a record we never ingest.
+    const suppressedExcludedSupport = new Map<string, number>();
     // Total objects that had a resolvable $type and were therefore eligible for
     // conversion. Compared against `context.created.size` to detect the
     // pathological "N inputs, 0 outputs" case and raise a loud warning.
@@ -389,17 +489,18 @@ export const createManifest = async (
     const bumpSkip = (m: Map<string, number>, key: string): void => {
       m.set(key, (m.get(key) ?? 0) + 1);
     };
-    // Align stamped kind versions with the live target instance using the
-    // request token. The startup init (RestServer) runs unauthenticated and
-    // silently no-ops on secured instances, so without this the builder stays on
-    // the static fallback table - producing wrong schema versions and emitting
-    // work-product-component types that are absent on the target. Once resolved,
-    // getKind()/getKindOrFallback() return registered versions and unknown WPC
-    // types fall back to GenericRepresentation.
-    try {
-      await ensureSchemaVersions(osduUrl, context.bearer, context.partition);
-    } catch {
-      // Keep the static fallback table if resolution fails.
+    // M26 parity (default): make NO schema-service calls - stamp kinds straight
+    // from the static fallback table, exactly like the M26 boundary. Only when
+    // schemaCompat:true is explicitly requested do we align stamped kind
+    // versions with the live target instance (resolving registered versions and
+    // falling back GenericRepresentation for unknown WPC types). This keeps the
+    // default build path free of every schema-service round-trip.
+    if (context.schemaCompat === true) {
+      try {
+        await ensureSchemaVersions(osduUrl, context.bearer, context.partition);
+      } catch {
+        // Keep the static fallback table if resolution fails.
+      }
     }
     try {
       await registerDMS(context);
@@ -580,53 +681,68 @@ export const createManifest = async (
       // Batch size: use larger batches to minimize ETP round-trips.
       // The ETP protocol layer already handles message-size splitting internally.
       const BATCH_SIZE = 50;
-      while (tmpUris.length > 0) {
-        const batch = tmpUris.splice(0, BATCH_SIZE);
-        logger.info(
-          `[perf] Fetching batch of ${batch.length
-          } URIs from ${dataspace}, first: ${batch[0]?.substring(
-            batch[0].lastIndexOf("/")
-          )}`
-        );
-        try {
-          const t1 = Date.now();
-          const arr = await client.getResolvedObjects(batch, objects, false);
-          const batchNulls = arr.filter(o => o === null).length;
-          logger.info(
-            `[perf] Batch result: ${arr.length
-            } items, ${batchNulls} nulls, objects map size=${objects.size
-            }, took ${Date.now() - t1}ms`
-          );
-          if (batchNulls > 0 && batchNulls === arr.length) {
-            // Try single fetch to diagnose
-            const testUri = batch[0];
-            logger.warn(
-              `[debug] All nulls! Trying single getObjects for: ${testUri}`
-            );
-            const singleMap = new Map<string, any>();
-            const single = await client.getResolvedObjects(
-              [testUri],
-              singleMap,
-              false
-            );
-            logger.warn(
-              `[debug] Single result: ${single.length} items, null=${single[0] === null
-              }, singleMap size=${singleMap.size}`
-            );
-          }
-          // Append in place (bounded batch): avoids O(n²) reallocation from
-          // resolvedObjects.concat in the batch loop
-          for (let i = 0; i < arr.length; i++) {
-            resolvedObjects.push(arr[i]);
-          }
-        } catch (e: any) {
-          logger.error(
-            `getResolvedObjects failed for batch: ${batch
-              .map(u => u.substring(u.lastIndexOf("/") + 1))
-              .join(", ")} - ${e?.message ?? e}`
-          );
-        }
+      // Fetch the batches with bounded concurrency instead of strictly serially.
+      // Each getResolvedObjects call is an independent, latency-dominated ETP
+      // round-trip (plus recursive target resolution) that only mutates the
+      // shared `objects` map synchronously, so overlapping them is safe on the
+      // single-threaded event loop and hides most of the per-batch latency.
+      // For large models (e.g. demo/Volve, ~3300 objects => ~67 batches) the
+      // previous one-at-a-time loop serialised that latency and dominated the
+      // whole build; running ~8 in flight collapses it into a handful of waves.
+      const FETCH_CONCURRENCY = 8;
+      const fetchBatches: string[][] = [];
+      for (let i = 0; i < tmpUris.length; i += BATCH_SIZE) {
+        fetchBatches.push(tmpUris.slice(i, i + BATCH_SIZE));
       }
+      let fetchCursor = 0;
+      const fetchWorker = async (): Promise<void> => {
+        while (fetchCursor < fetchBatches.length) {
+          const batch = fetchBatches[fetchCursor++];
+          try {
+            const t1 = Date.now();
+            const arr = await client.getResolvedObjects(batch, objects, false);
+            const batchNulls = arr.filter(o => o === null).length;
+            logger.info(
+              `[perf] Batch result: ${arr.length
+              } items, ${batchNulls} nulls, objects map size=${objects.size
+              }, took ${Date.now() - t1}ms`
+            );
+            if (batchNulls > 0 && batchNulls === arr.length) {
+              // Try single fetch to diagnose
+              const testUri = batch[0];
+              logger.warn(
+                `[debug] All nulls! Trying single getObjects for: ${testUri}`
+              );
+              const singleMap = new Map<string, any>();
+              const single = await client.getResolvedObjects(
+                [testUri],
+                singleMap,
+                false
+              );
+              logger.warn(
+                `[debug] Single result: ${single.length} items, null=${single[0] === null
+                }, singleMap size=${singleMap.size}`
+              );
+            }
+            // Append in place: avoids O(n²) reallocation from concat
+            for (let i = 0; i < arr.length; i++) {
+              resolvedObjects.push(arr[i]);
+            }
+          } catch (e: any) {
+            logger.error(
+              `getResolvedObjects failed for batch: ${batch
+                .map(u => u.substring(u.lastIndexOf("/") + 1))
+                .join(", ")} - ${e?.message ?? e}`
+            );
+          }
+        }
+      };
+      await Promise.all(
+        Array.from(
+          { length: Math.min(FETCH_CONCURRENCY, fetchBatches.length) },
+          () => fetchWorker()
+        )
+      );
 
       const nullCount = resolvedObjects.filter(o => o === null).length;
       const noTypeCount = resolvedObjects.filter(
@@ -656,6 +772,139 @@ export const createManifest = async (
         `[perf] Seeded DOR cache with ${seeded} objects (uriToObject size=${context.uriToObject.size})`
       );
 
+      // ---------------------------------------------------------------------
+      // WellLog curve-index pre-pass.
+      //
+      // The WellLog converter needs, per WellboreFrameRepresentation, the
+      // Continuous/Discrete/CategoricalProperty objects that reference it.
+      // Property objects are excluded from the primary object set by the
+      // manifest filter (propertyFilter), so without an index each frame issues
+      // its OWN getResources(sources) + getResolvedObjects round-trip — two ETP
+      // calls per WellLog. On dataspaces with hundreds of frames that dominates
+      // build time.
+      //
+      // Instead, when the set contains frames, enumerate ALL property objects
+      // in the dataspace once, bulk-fetch them with bounded concurrency, and
+      // invert them into a frame-UUID -> property[] index on the context. The
+      // converter then assembles Curves[] from memory (zero per-frame calls).
+      // Keyed by UUID to stay robust against URI version/format differences.
+      // ---------------------------------------------------------------------
+      const hasFrames = resolvedObjects.some(
+        o =>
+          o !== null &&
+          typeof (o as any)?.$type === "string" &&
+          (o as any).$type.includes("WellboreFrameRepresentation")
+      );
+      if (hasFrames) {
+        const tIdx = Date.now();
+        try {
+          if (context.frameCurveProps === undefined) {
+            context.frameCurveProps = new Map<string, IResqmlDataObject[]>();
+          }
+          const frameIndex = context.frameCurveProps;
+          const dsUri = EtpUri.createDataSpaceUri(dataspace).uri;
+          const propResources = await client.getDataspaceResources(dsUri);
+          const propUris = propResources
+            .map(r => r.uri)
+            .filter(
+              u =>
+                u.includes("ContinuousProperty") ||
+                u.includes("DiscreteProperty") ||
+                u.includes("CategoricalProperty")
+            );
+          if (propUris.length > 0) {
+            const propCache: Map<URI, IResqmlDataObject> = new Map<
+              URI,
+              IResqmlDataObject
+            >();
+            const IDX_BATCH = 50;
+            const IDX_CONCURRENCY = 8;
+            const idxBatches: string[][] = [];
+            for (let i = 0; i < propUris.length; i += IDX_BATCH) {
+              idxBatches.push(propUris.slice(i, i + IDX_BATCH));
+            }
+            let idxCursor = 0;
+            let idxFailed = false;
+            const idxWorker = async (): Promise<void> => {
+              while (idxCursor < idxBatches.length) {
+                const b = idxBatches[idxCursor++];
+                try {
+                  await client.getResolvedObjects(b, propCache, false);
+                } catch (e: any) {
+                  idxFailed = true;
+                  logger.warn(
+                    `[welllog-index] property fetch batch failed: ${e?.message ?? e
+                    }`
+                  );
+                }
+              }
+            };
+            await Promise.all(
+              Array.from(
+                { length: Math.min(IDX_CONCURRENCY, idxBatches.length) },
+                () => idxWorker()
+              )
+            );
+            if (idxFailed) {
+              // A batch failed: the index would be incomplete, which would make
+              // the converter silently drop curves. Discard it so every frame
+              // falls back to the resilient per-frame fetch path instead.
+              context.frameCurveProps = undefined;
+              logger.warn(
+                `[welllog-index] incomplete property fetch; discarding index and falling back to per-frame fetch`
+              );
+            } else {
+              let indexed = 0;
+              for (const [, propObj] of propCache) {
+                if (propObj === null || propObj === undefined) continue;
+                const t = (propObj as any).$type;
+                if (
+                  typeof t !== "string" ||
+                  !(
+                    t.includes("ContinuousProperty") ||
+                    t.includes("DiscreteProperty") ||
+                    t.includes("CategoricalProperty")
+                  )
+                ) {
+                  continue;
+                }
+                const targets = new Set<string>();
+                client.getObjectTargets(dataspace, propObj, targets);
+                for (const target of targets) {
+                  if (!target.includes("WellboreFrameRepresentation")) continue;
+                  const frameKey = new EtpUri(target).uuid;
+                  if (!frameKey) continue;
+                  const list = frameIndex.get(frameKey);
+                  if (list) {
+                    list.push(propObj);
+                  } else {
+                    frameIndex.set(frameKey, [propObj]);
+                  }
+                  indexed++;
+                }
+              }
+              logger.info(
+                `[welllog-index] indexed ${indexed} curve properties across ${frameIndex.size
+                } frames (${propUris.length} property objects, ${idxBatches.length
+                } batches) in ${Date.now() - tIdx}ms`
+              );
+            }
+          } else {
+            logger.info(
+              `[welllog-index] no property objects in ${dataspace}; frames have no curves`
+            );
+          }
+        } catch (e: any) {
+          // Enumeration itself failed: discard any partial index so the
+          // converter uses the resilient per-frame fetch path.
+          context.frameCurveProps = undefined;
+          logger.warn(
+            `[welllog-index] pre-pass failed; converter will fall back to per-frame fetch: ${e?.message ?? e
+            }`
+          );
+        }
+      }
+
       const tConvert = Date.now();
       // Convert objects with bounded concurrency. Each conversion is dominated
       // by independent network round-trips (ETP object/array fetches and OSDU
@@ -668,6 +917,13 @@ export const createManifest = async (
       // rather than CPU, so raising the number of in-flight requests on the
       // multiplexed ETP session hides more of that latency.
       const CONVERT_CONCURRENCY = 32;
+      // Precompile the exclude patterns once so the per-property
+      // supporting-representation check below is a cheap regex test rather than
+      // a recompile per object. Empty/undefined -> no suppression.
+      const compiledExcludeForSupport =
+        excludePatterns && excludePatterns.length > 0
+          ? compilePatterns(excludePatterns)
+          : undefined;
       const processOne = async (i: number): Promise<void> => {
         const resObj = resolvedObjects[i];
         if (resObj?.$type === undefined) {
@@ -686,6 +942,37 @@ export const createManifest = async (
           resObj.Uuid,
           resObj.ObjectVersion
         );
+
+        // Suppress properties whose supporting representation is excluded from
+        // this build. A property (e.g. a well-log curve) points at its parent
+        // representation via `SupportingRepresentation`; when that parent type
+        // is in `excludePatterns` (WellboreFrameRepresentation / witsml Log are
+        // excluded by default) the parent is never ingested, so emitting the
+        // property would leave a dangling reference. Only properties can carry a
+        // SupportingRepresentation, so gate on the property type first to avoid
+        // the target scan for every object.
+        if (
+          compiledExcludeForSupport !== undefined &&
+          PROPERTY_TYPE_PATTERN.test(etpUri.dataObjectType)
+        ) {
+          const supportTargets = new Set<string>();
+          client.getObjectTargets(dataspace, resObj, supportTargets);
+          let supportExcluded = false;
+          for (const target of supportTargets) {
+            const targetType = new EtpUri(target).dataObjectType;
+            if (
+              targetType &&
+              compiledExcludeForSupport.some((p) => targetType.match(p))
+            ) {
+              supportExcluded = true;
+              break;
+            }
+          }
+          if (supportExcluded) {
+            bumpSkip(suppressedExcludedSupport, etpUri.dataObjectType);
+            return;
+          }
+        }
 
         const c = ResqmlOSDU.get(etpUri.dataObjectType);
         if (c === undefined) {
@@ -769,38 +1056,37 @@ export const createManifest = async (
           try {
             // Check if it is an explicit osdu resource
             if (OSDUContext.osduAlias(resObj) !== undefined) {
-              //Check that a version exists
+              // Fetch the latest stored record directly (it carries both its
+              // version and data), collapsing the previous version-probe +
+              // record-GET into a single Storage round-trip.
               const d = res.id.split(":");
-              const version = await context.getOSDUResourceVersion(res.id);
-              if (version) {
-                const stored = await context.fetchOSDU<OSDUResourceType>(
-                  `/api/storage/v2/records/${d[0]}:${d[1]}:${d[2]}`
-                );
-                if (stored) {
-                  // If version exists, just update the DDMSDatasets field in the exiting record
-                  if (res && res.data?.DDMSDatasets?.length > 0) {
-                    if (!stored.data) {
-                      stored.data = {};
-                    }
-                    if (!stored.data.DDMSDatasets) {
-                      stored.data.DDMSDatasets = [];
-                    } else if (
-                      // If the DDMSDatasets already contain the current grid, skip it
-                      stored.data.DDMSDatasets.findIndex(
-                        (e: string) =>
-                          res?.data?.DDMSDatasets &&
-                          e === res.data.DDMSDatasets[0]
-                      ) !== -1
-                    ) {
-                      return;
-                    }
-                    stored.data.DDMSDatasets = [
-                      ...stored.data.DDMSDatasets,
-                      ...res.data.DDMSDatasets
-                    ];
+              const stored = await context.fetchOSDU<OSDUResourceType>(
+                `/api/storage/v2/records/${d[0]}:${d[1]}:${d[2]}`
+              );
+              if (stored) {
+                // If version exists, just update the DDMSDatasets field in the exiting record
+                if (res && res.data?.DDMSDatasets?.length > 0) {
+                  if (!stored.data) {
+                    stored.data = {};
                   }
-                  res = stored;
+                  if (!stored.data.DDMSDatasets) {
+                    stored.data.DDMSDatasets = [];
+                  } else if (
+                    // If the DDMSDatasets already contain the current grid, skip it
+                    stored.data.DDMSDatasets.findIndex(
+                      (e: string) =>
+                        res?.data?.DDMSDatasets &&
+                        e === res.data.DDMSDatasets[0]
+                    ) !== -1
+                  ) {
+                    return;
+                  }
+                  stored.data.DDMSDatasets = [
+                    ...stored.data.DDMSDatasets,
+                    ...res.data.DDMSDatasets
+                  ];
                 }
+                res = stored;
               }
             }
           } catch (osduErr: any) {
@@ -916,6 +1202,21 @@ export const createManifest = async (
     let missingSrn: string[] = Array.from(context.srnToUri.keys()).filter(
       k => generatedSrn.get(k) === undefined
     );
+    // Honor the build filter across the reference wave: never resurrect a type
+    // that propertyFilter/excludePatterns deliberately excluded (e.g. properties
+    // referenced by an Activity under propertyFilter:"none"). Cheap in-memory
+    // filter, and shrinks the filterOSDUResources network call below.
+    missingSrn = missingSrn.filter(k => {
+      const u = context.srnToUri.get(k);
+      return (
+        u === undefined ||
+        !isReferenceSuppressed(
+          new EtpUri(u).dataObjectType,
+          propertyFilter,
+          excludePatterns
+        )
+      );
+    });
     missingSrn = await context.filterOSDUResources(missingSrn);
 
     const unknownSrn = new Set<string>();
@@ -947,19 +1248,32 @@ export const createManifest = async (
           }
         }
 
-        // 2. Batch-fetch uncached objects via ETP (50 per batch)
+        // 2. Batch-fetch uncached objects via ETP (50 per batch). Fire the
+        //    batches with bounded concurrency instead of one-at-a-time: a
+        //    Well/log-heavy dataspace can need ~20+ batches per wave, and the
+        //    old sequential loop paid every ETP round-trip end to end.
         const FETCH_BATCH = 50;
+        const FETCH_CONCURRENCY = 16;
         if (toResolve.length > 0) {
           const t0 = Date.now();
+          const batches: string[][] = [];
           for (let i = 0; i < toResolve.length; i += FETCH_BATCH) {
-            const batch = toResolve.slice(i, i + FETCH_BATCH);
-            const batchUris = batch.map(r => r.uri);
-            try {
-              await client.getResolvedObjects(batchUris, objects, false);
-            } catch (e: any) {
-              logger.warn(`[perf] Batch ETP fetch failed: ${e?.message ?? e}`);
-            }
+            batches.push(toResolve.slice(i, i + FETCH_BATCH).map(r => r.uri));
           }
+          let cursor = 0;
+          const worker = async (): Promise<void> => {
+            while (cursor < batches.length) {
+              const batchUris = batches[cursor++];
+              try {
+                await client.getResolvedObjects(batchUris, objects, false);
+              } catch (e: any) {
+                logger.warn(`[perf] Batch ETP fetch failed: ${e?.message ?? e}`);
+              }
+            }
+          };
+          await Promise.all(
+            Array.from({ length: Math.min(FETCH_CONCURRENCY, batches.length) }, () => worker())
+          );
           logger.info(
             `[perf] Fetched ${toResolve.length} objects in ${Date.now() - t0}ms`
           );
@@ -1061,6 +1375,18 @@ export const createManifest = async (
         );
         // Remove references that cannot be resolved
         missingSrn = missingSrn.filter(k => !unknownSrn.has(k));
+        // Keep the build filter authoritative for newly discovered refs too.
+        missingSrn = missingSrn.filter(k => {
+          const u = context.srnToUri.get(k);
+          return (
+            u === undefined ||
+            !isReferenceSuppressed(
+              new EtpUri(u).dataObjectType,
+              propertyFilter,
+              excludePatterns
+            )
+          );
+        });
         missingSrn = await context.filterOSDUResources(missingSrn);
       }
     }
@@ -1248,14 +1574,16 @@ export const createManifest = async (
         skipped: boolean;
       }
       | undefined;
-    // Large-dataset default: the schema-compatibility pass probes every record's
-    // kind against the target schema service (and does NOT negatively cache a
-    // 404), so a big dataspace fans out to hundreds/thousands of schema GETs and
-    // can push the build past the ~60s edge/LB timeout that fronts the platform
-    // ingress (observed on SKUA/Dani whole-dataspace builds that regressed from
-    // ~57s to >60s -> HTTP 500). Auto-skip the pass once the assembled record
-    // count exceeds MANIFEST_SCHEMA_COMPAT_MAX_RECORDS (default 500) unless the
-    // caller explicitly forces it with `schemaCompat: true`.
+    // OFF BY DEFAULT (M26 behaviour): the schema-compatibility pass probes every
+    // DISTINCT record kind against the target schema service. Results are cached
+    // per kind (both 200 and 404 are cached, see isSchemaRegistered), but on a
+    // cold cache the round-trips still add latency and, on whole-dataspace
+    // builds, can push past the ~60s edge/LB timeout that fronts the platform
+    // ingress (observed on SKUA/Dani builds that regressed from ~57s to >60s ->
+    // HTTP 500). The pass is therefore OPT-IN: it runs only when the caller sets
+    // `schemaCompat: true`. When forced on it is still auto-skipped for very
+    // large datasets (assembled record count over
+    // MANIFEST_SCHEMA_COMPAT_MAX_RECORDS, default 500) to stay under the timeout.
     const schemaCompatMaxRecordsRaw =
       process.env.MANIFEST_SCHEMA_COMPAT_MAX_RECORDS;
     const schemaCompatMaxRecords =
@@ -1268,13 +1596,13 @@ export const createManifest = async (
       assembledCounts.workProductComponents +
       assembledCounts.masterData +
       assembledCounts.referenceData;
-    if (context.schemaCompat === false) {
-      // Opt-out (M26-style fast path): skip the live schema-service kind
-      // resolution/normalize pass entirely. Every record keeps its original
-      // kind - no per-kind schema GETs - which is materially faster on
-      // high-latency links, at the cost of NOT remapping kinds to what the
-      // target OSDU actually has registered (ingestion may reject unknown
-      // kinds). Default remains true (remap on) for ingestion fidelity.
+    if (context.schemaCompat !== true) {
+      // OFF by default (M26-style fast path): skip the live schema-service kind
+      // resolution/normalize pass unless the caller explicitly opts in with
+      // `schemaCompat: true`. Every record keeps its original kind - no per-kind
+      // schema GETs - which keeps whole-dataspace builds under the ~60s ingress
+      // timeout, at the cost of NOT remapping kinds to what the target OSDU has
+      // registered (ingestion may reject unknown kinds).
       schemaCompatDiag = {
         masterData: { remap: 0, drop: 0 },
         referenceData: { remap: 0, drop: 0 },
@@ -1283,17 +1611,14 @@ export const createManifest = async (
         skipped: true
       };
       logger.info(
-        "[schema-compat] SKIPPED by request (schemaCompat=false): keeping every " +
-        "record's original kind for a faster (M26-style) build; ensure the " +
-        "target OSDU has these kinds registered or ingestion may reject them."
+        "[schema-compat] SKIPPED (off by default; pass schemaCompat:true to " +
+        "enable live kind remapping). Ensure the target OSDU has these kinds " +
+        "registered or ingestion may reject them."
       );
-    } else if (
-      context.schemaCompat !== true &&
-      assembledTotal > schemaCompatMaxRecords
-    ) {
-      // Auto-skip for large datasets (see note above). Pass `schemaCompat: true`
-      // to force the remap pass on a large build, or tune the threshold with
-      // MANIFEST_SCHEMA_COMPAT_MAX_RECORDS.
+    } else if (assembledTotal > schemaCompatMaxRecords) {
+      // Forced on (schemaCompat:true) but auto-skip very large builds so the
+      // per-kind schema GETs cannot push the build past the ~60s ingress
+      // timeout. Tune the threshold with MANIFEST_SCHEMA_COMPAT_MAX_RECORDS.
       schemaCompatDiag = {
         masterData: { remap: 0, drop: 0 },
         referenceData: { remap: 0, drop: 0 },
@@ -1302,10 +1627,10 @@ export const createManifest = async (
         skipped: true
       };
       logger.info(
-        `[schema-compat] SKIPPED (large dataset: ${assembledTotal} assembled ` +
-        `record(s) > MANIFEST_SCHEMA_COMPAT_MAX_RECORDS=${schemaCompatMaxRecords}) ` +
-        "to stay under the ~60s ingress timeout; pass schemaCompat:true to force " +
-        "the kind-remap pass on a large build."
+        `[schema-compat] SKIPPED (schemaCompat:true but large dataset: ` +
+        `${assembledTotal} assembled record(s) > ` +
+        `MANIFEST_SCHEMA_COMPAT_MAX_RECORDS=${schemaCompatMaxRecords}) to stay ` +
+        "under the ~60s ingress timeout."
       );
     } else if (osduUrl && osduUrl !== "http://localhost") {
       const bearer = context.bearer;
@@ -1526,7 +1851,8 @@ export const createManifest = async (
     if (
       skippedNoConverter.size > 0 ||
       skippedConverterUndefined.size > 0 ||
-      convertFailed.size > 0
+      convertFailed.size > 0 ||
+      suppressedExcludedSupport.size > 0
     ) {
       logger.info(
         `[skip] no-converter=${sumMap(skippedNoConverter)} [${fmtMap(
@@ -1535,7 +1861,10 @@ export const createManifest = async (
         `converter-skipped=${sumMap(skippedConverterUndefined)} [${fmtMap(
           skippedConverterUndefined
         )}] ` +
-        `convert-failed=${sumMap(convertFailed)} [${fmtMap(convertFailed)}]`
+        `convert-failed=${sumMap(convertFailed)} [${fmtMap(convertFailed)}] ` +
+        `excluded-support=${sumMap(suppressedExcludedSupport)} [${fmtMap(
+          suppressedExcludedSupport
+        )}]`
       );
     }
 
@@ -1546,6 +1875,7 @@ export const createManifest = async (
     const noConverterN = sumMap(skippedNoConverter);
     const converterSkippedN = sumMap(skippedConverterUndefined);
     const convertFailedN = sumMap(convertFailed);
+    const excludedSupportN = sumMap(suppressedExcludedSupport);
     const createdN = context.created.size;
     const buildDiagnostics = {
       inputObjects: attemptedConversions,
@@ -1553,6 +1883,7 @@ export const createManifest = async (
       noConverter: noConverterN,
       converterSkipped: converterSkippedN,
       convertFailed: convertFailedN,
+      excludedSupport: excludedSupportN,
       noConverterTypes: Array.from(skippedNoConverter.keys()),
       convertFailedTypes: Array.from(convertFailed.keys()),
       // Post-assembly visibility: `created` is counted before the

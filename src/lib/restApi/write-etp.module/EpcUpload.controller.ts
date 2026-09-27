@@ -59,11 +59,14 @@ import { XMLParser } from "fast-xml-parser";
 
 import {
     DataObject,
+    DataValue,
     Energistics,
     EtpUri,
     IArrayId,
     ResqmlClient
 } from "../../client/ResqmlClient";
+
+import { EtpDataValue } from "../../common/EtpTypes";
 
 import {
     FindInDataSpaceParams,
@@ -85,7 +88,13 @@ import { qualifiedTypeRegex } from "../../common/EtpQualifiedType";
 
 import { createManifest, DEFAULT_DATASPACE_TYPE_PATTERNS, DEFAULT_INGEST_EXCLUDE_PATTERNS, PropertyFilter } from "../../jsonTypes/Manifest";
 import { OSDUContext } from "../../jsonTypes/OsduContext";
-import { osduUrl } from "../../common/config";
+import {
+    osduUrl,
+    defaultDataspaceOwners,
+    defaultDataspaceViewers,
+    defaultDataspaceLegalTags,
+    defaultDataspaceDataCountries
+} from "../../common/config";
 import { bigIntToString } from "../../mlTypes/XmlJsonUtil";
 import {
     ensureSchemaVersions,
@@ -218,6 +227,8 @@ interface CatalogIngestionResult {
     failedCount?: number;
     /** Sample of per-record failures (capped). */
     failures?: Array<{ id?: string; kind?: string; status: number; error: string }>;
+    /** Number of reference-data records skipped because they already exist in Storage (not overwritten). */
+    skippedExisting?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -355,6 +366,43 @@ function cleanupFiles(files: { epc?: Express.Multer.File[]; h5?: Express.Multer.
             fs.rmdirSync(path.dirname(f.path));
         } catch { /* best effort - may not be empty */ }
     }
+}
+
+/**
+ * Build the ETP CustomData governance map (owners / viewers / legaltags /
+ * otherRelevantDataCountries) applied when auto-creating a NEW dataspace during
+ * an EPC upload. Per-request comma-separated query values take precedence over
+ * the `RDMS_DEFAULT_*` env fallbacks. Returns an empty Map when nothing is
+ * configured, in which case dataspace auto-create behaves exactly as before
+ * (no governance stamped).
+ */
+function buildDataspaceGovernance(overrides: {
+    owners?: string;
+    viewers?: string;
+    legaltags?: string;
+    otherRelevantDataCountries?: string;
+}): Map<string, DataValue> {
+    const customData = new Map<string, DataValue>();
+    const csv = (v?: string): string[] | undefined => {
+        if (v === undefined) return undefined;
+        const list = v.split(",").map(s => s.trim()).filter(s => s.length > 0);
+        return list.length > 0 ? list : undefined;
+    };
+    const entries: [string, string[] | undefined][] = [
+        ["owners", csv(overrides.owners) ?? defaultDataspaceOwners],
+        ["viewers", csv(overrides.viewers) ?? defaultDataspaceViewers],
+        ["legaltags", csv(overrides.legaltags) ?? defaultDataspaceLegalTags],
+        [
+            "otherRelevantDataCountries",
+            csv(overrides.otherRelevantDataCountries) ?? defaultDataspaceDataCountries
+        ]
+    ];
+    for (const [key, value] of entries) {
+        if (value && value.length > 0) {
+            customData.set(key, EtpDataValue.fromUnknown(value));
+        }
+    }
+    return customData;
 }
 
 // ---------------------------------------------------------------------------
@@ -506,6 +554,40 @@ export default class EpcUploadAPI {
             + "ingestion workflow) when `propertyFilter=canonical`. Pass an empty value to disable exclusions.",
         schema: { type: "string", default: "*Activity,*ActivityTemplate" }
     })
+    @ApiQuery({
+        name: "owners",
+        required: false,
+        description:
+            "OSDU ACL owner group(s) stamped into the dataspace governance **only when this upload auto-creates a "
+            + "new dataspace** (an existing dataspace is left untouched). Comma-separated. Overrides the `RDMS_DEFAULT_OWNERS` "
+            + "env fallback. On OSDU-backed ETP servers a dataspace created without owners/legaltags rejects subsequent "
+            + "writes with \"Permission denied\", so supply these when uploading to a brand-new dataspace.",
+        schema: { type: "string" }
+    })
+    @ApiQuery({
+        name: "viewers",
+        required: false,
+        description:
+            "OSDU ACL viewer group(s) for a newly auto-created dataspace (see `owners`). Comma-separated. "
+            + "Overrides the `RDMS_DEFAULT_VIEWERS` env fallback.",
+        schema: { type: "string" }
+    })
+    @ApiQuery({
+        name: "legaltags",
+        required: false,
+        description:
+            "OSDU legal tag(s) for a newly auto-created dataspace (see `owners`). Comma-separated. "
+            + "Overrides the `RDMS_DEFAULT_LEGAL_TAGS` env fallback.",
+        schema: { type: "string" }
+    })
+    @ApiQuery({
+        name: "otherRelevantDataCountries",
+        required: false,
+        description:
+            "OSDU other-relevant-data-country code(s) (e.g. `US`) for a newly auto-created dataspace (see `owners`). "
+            + "Comma-separated. Overrides the `RDMS_DEFAULT_DATA_COUNTRIES` env fallback.",
+        schema: { type: "string" }
+    })
     @ApiOkResponse({
         description: "Ingest result summary",
         schema: {
@@ -654,6 +736,10 @@ export default class EpcUploadAPI {
         @Query("typePatterns") typePatterns?: string,
         @Query("propertyFilter") propertyFilter?: string,
         @Query("excludePatterns") excludePatterns?: string,
+        @Query("owners") owners?: string,
+        @Query("viewers") viewers?: string,
+        @Query("legaltags") legaltags?: string,
+        @Query("otherRelevantDataCountries") otherRelevantDataCountries?: string,
         @Req() request?: express.Request
     ) {
         // ── Resolve dataspace name ──
@@ -1061,7 +1147,25 @@ export default class EpcUploadAPI {
             // ── 5b. Auto-create dataspace if it doesn't exist ──
             const dataspaceUri = `eml:///dataspace('${params.dataspaceId}')`;
             try {
-                const created = await c.findOrCreateDataspace(params.dataspaceId, params.dataspaceId);
+                // Governance (ACL + legal) is stamped into the new dataspace's
+                // ETP CustomData ONLY when it does not already exist — an
+                // existing dataspace keeps its own governance. Sources (each
+                // optional): request query params override the RDMS_DEFAULT_*
+                // env fallbacks. On OSDU-backed ETP servers a dataspace created
+                // without owners/legaltags rejects the subsequent writes with
+                // "Permission denied", so this lets an upload to a brand-new
+                // dataspace succeed without a separate create call.
+                const govCustomData = buildDataspaceGovernance({
+                    owners,
+                    viewers,
+                    legaltags,
+                    otherRelevantDataCountries
+                });
+                const created = await c.findOrCreateDataspace(
+                    params.dataspaceId,
+                    params.dataspaceId,
+                    govCustomData
+                );
                 if (created) {
                     logger.info(`Dataspace '${params.dataspaceId}' ensured (findOrCreate)`);
                 }
@@ -1804,8 +1908,41 @@ export default class EpcUploadAPI {
             logger.info(`[autoIngest] Deduplicated ${records.length - uniqueRecords.length} duplicate record(s)`);
         }
 
-        for (let i = 0; i < uniqueRecords.length; i += STORAGE_BATCH_SIZE) {
-            const batch = uniqueRecords.slice(i, i + STORAGE_BATCH_SIZE);
+        // Never overwrite shared reference-data catalog records (e.g. CoordinateReferenceSystem)
+        // that already exist in Storage. The manifest builder synthesizes a low-fidelity
+        // reference-data stub purely so downstream object references resolve; PUTting it over an
+        // authoritative catalog record (loaded by the OSDU datafier from the IOGP manifests)
+        // both clobbers the real content (nulling BaseCRS/PersistableReference/Wgs84Coordinates/…)
+        // and churns the version history, stamping the ingesting user as the modifier. So we only
+        // create reference-data records that are MISSING; existing ones are left untouched.
+        // (Fail-open: if the existence check errors, we still PUT so genuine creates are not lost.)
+        let skippedExisting = 0;
+        const pushRecords: unknown[] = [];
+        {
+            const SKIP_CHECK_CONCURRENCY = 8;
+            const checks: Array<{ rec: unknown; skip: boolean }> = uniqueRecords.map(rec => ({ rec, skip: false }));
+            for (let i = 0; i < checks.length; i += SKIP_CHECK_CONCURRENCY) {
+                const slice = checks.slice(i, i + SKIP_CHECK_CONCURRENCY);
+                await Promise.all(slice.map(async entry => {
+                    if (this.isReferenceDataRecord(entry.rec)) {
+                        entry.skip = await this.referenceDataExists(entry.rec, bearer, partitionStr);
+                    }
+                }));
+            }
+            for (const { rec, skip } of checks) {
+                if (skip) {
+                    skippedExisting += 1;
+                } else {
+                    pushRecords.push(rec);
+                }
+            }
+        }
+        if (skippedExisting > 0) {
+            logger.info(`[autoIngest] Skipped ${skippedExisting} existing reference-data catalog record(s) (not overwriting authoritative content)`);
+        }
+
+        for (let i = 0; i < pushRecords.length; i += STORAGE_BATCH_SIZE) {
+            const batch = pushRecords.slice(i, i + STORAGE_BATCH_SIZE);
             const res = await this.putRecords(batch, bearer, partitionStr);
             if (res.ok) {
                 const result = await res.json() as { recordCount?: number };
@@ -1849,13 +1986,52 @@ export default class EpcUploadAPI {
             );
         }
 
-        logger.info(`[autoIngest] Pushed ${totalPushed}/${uniqueRecords.length} records via Storage Service`);
+        logger.info(`[autoIngest] Pushed ${totalPushed}/${pushRecords.length} records via Storage Service`);
         return {
             status: failures.length > 0 ? "partial" : "completed",
             mode: "records",
             recordCount: totalPushed,
+            ...(skippedExisting > 0 ? { skippedExisting } : {}),
             ...(failures.length > 0 ? { failedCount: failures.length, failures: failures.slice(0, 20) } : {})
         };
+    }
+
+    /** True when the record is an OSDU reference-data catalog record. */
+    private isReferenceDataRecord(rec: unknown): boolean {
+        const kind = (rec as { kind?: unknown })?.kind;
+        return typeof kind === "string" && kind.includes("reference-data--");
+    }
+
+    /**
+     * Return true when the reference-data record already exists in Storage, so it must
+     * NOT be overwritten by the manifest's synthesized stub. Returns false when the record
+     * is missing (404) or the check cannot be made (fail-open so genuine creates still PUT).
+     */
+    private async referenceDataExists(
+        rec: unknown,
+        bearer: string | undefined,
+        partition: string
+    ): Promise<boolean> {
+        const id = (rec as { id?: unknown })?.id;
+        if (typeof id !== "string" || id.length === 0) {
+            return false;
+        }
+        try {
+            const res = await fetch(
+                `${osduUrl}/api/storage/v2/records/${encodeURIComponent(id)}`,
+                {
+                    method: "GET",
+                    headers: {
+                        "Authorization": `Bearer ${bearer}`,
+                        "data-partition-id": partition
+                    }
+                }
+            );
+            // 200 → exists (skip); 404 → missing (create); anything else → fail-open (PUT).
+            return res.ok;
+        } catch {
+            return false;
+        }
     }
 
     /** PUT a batch of records to the OSDU Storage Service. */

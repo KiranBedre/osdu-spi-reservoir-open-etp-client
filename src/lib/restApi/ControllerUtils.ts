@@ -1356,6 +1356,22 @@ export const httpErrorFromEtpError = (
     rawMessage = String((error as { message: unknown }).message ?? "");
   }
 
+  // ETP ProtocolException objects decoded off the wire may expose the numeric
+  // code under `errorCode` rather than `code` (e.g. the "Permission denied"
+  // governance rejection: `{ errorCode: 27, message: "Permission denied" }`).
+  // Without this normalisation such errors miss `isEtpError` and collapse into
+  // an opaque HTTP 500, instead of the correct 401/403/... from the table
+  // below. Copy `errorCode` onto `code` so it maps like any other EtpError.
+  if (
+    !isEtpError(error) &&
+    error &&
+    typeof error === "object" &&
+    "errorCode" in error &&
+    typeof (error as { errorCode?: unknown }).errorCode === "number"
+  ) {
+    (error as { code?: number }).code = (error as { errorCode: number }).errorCode;
+  }
+
   if (isEtpError(error)) {
     logger.error(
       context
