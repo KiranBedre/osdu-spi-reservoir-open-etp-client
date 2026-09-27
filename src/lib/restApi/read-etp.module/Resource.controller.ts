@@ -376,7 +376,7 @@ class ResourceDto {
   @ApiPropertyOptional({
     name: "sourceCount",
     description: "Number of objects referencing the resource",
-    format: "integer",
+    format: "int32",
     minimum: 0,
     maximum: 1000000
   })
@@ -386,7 +386,7 @@ class ResourceDto {
   @ApiPropertyOptional({
     name: "targetCount",
     description: "Number of objects referenced by the resource",
-    format: "integer",
+    format: "int32",
     minimum: 0,
     maximum: 1000000
   })
@@ -613,7 +613,7 @@ export class TypeCountDto {
   @ApiProperty({
     name: "count",
     type: "number",
-    format: "integer",
+    format: "int32",
     minimum: 1,
     maximum: 1000000,
     example: 2
@@ -629,7 +629,7 @@ export const skipQueryParam: ApiQueryOptions = {
   example: 0,
   schema: {
     type: "number",
-    format: "integer",
+    format: "int32",
     minimum: 0,
     maximum: 100000
   }
@@ -642,7 +642,7 @@ export const topQueryParam: ApiQueryOptions = {
   example: 10,
   schema: {
     type: "number",
-    format: "integer",
+    format: "int32",
     minimum: 1,
     maximum: 10000
   }
@@ -718,7 +718,7 @@ export const depthQueryParam: ApiQueryOptions = {
   example: 10,
   schema: {
     type: "number",
-    format: "integer",
+    format: "int32",
     minimum: 1,
     maximum: 1000
   }

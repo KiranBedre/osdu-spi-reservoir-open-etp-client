@@ -368,7 +368,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -380,7 +380,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -3280,7 +3280,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -3292,7 +3292,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -3338,7 +3338,7 @@
             "description": "If present, indicate the number of recursive levels when looking for relations",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 1000
             }
@@ -3430,14 +3430,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -3529,14 +3529,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -3628,14 +3628,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -3727,14 +3727,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -3826,14 +3826,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -3925,14 +3925,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -4819,7 +4819,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -4831,7 +4831,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -4868,7 +4868,7 @@
                       },
                       "count": {
                         "type": "number",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 1,
                         "maximum": 1000000,
                         "example": 2
@@ -5200,7 +5200,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -5212,7 +5212,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -5301,14 +5301,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -6496,7 +6496,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -6508,7 +6508,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -6554,7 +6554,7 @@
             "description": "If present, indicate the number of recursive levels when looking for relations",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 1000
             }
@@ -6640,14 +6640,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -7045,7 +7045,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -7057,7 +7057,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -7103,7 +7103,7 @@
             "description": "If present, indicate the number of recursive levels when looking for relations",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 1000
             }
@@ -7189,14 +7189,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -7594,7 +7594,7 @@
             "description": "If present, indicate the number of recursive levels when looking for relations",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 1000
             }
@@ -10223,7 +10223,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -10235,7 +10235,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -10281,7 +10281,7 @@
             "description": "If present, indicate the number of recursive levels when looking for relations",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 1000
             }
@@ -10363,14 +10363,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -10462,14 +10462,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -10561,14 +10561,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -10660,14 +10660,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -10759,14 +10759,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -10858,14 +10858,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -11264,7 +11264,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -11276,7 +11276,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -11322,7 +11322,7 @@
             "description": "If present, indicate the number of recursive levels when looking for relations",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 1000
             }
@@ -11398,14 +11398,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -11804,7 +11804,7 @@
             "description": "ODATA Pagination: Index of first item returned. [0..100000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 0,
               "maximum": 100000
             }
@@ -11816,7 +11816,7 @@
             "description": "ODATA Pagination: Maximum number of items returned. [1..10000]",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 10000
             }
@@ -11862,7 +11862,7 @@
             "description": "If present, indicate the number of recursive levels when looking for relations",
             "schema": {
               "type": "number",
-              "format": "integer",
+              "format": "int32",
               "minimum": 1,
               "maximum": 1000
             }
@@ -11938,14 +11938,14 @@
                       "sourceCount": {
                         "type": "number",
                         "description": "Number of objects referencing the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
                       "targetCount": {
                         "type": "number",
                         "description": "Number of objects referenced by the resource",
-                        "format": "integer",
+                        "format": "int32",
                         "minimum": 0,
                         "maximum": 1000000
                       },
@@ -14311,7 +14311,7 @@
                           "additionalProperties": false,
                           "items": {
                             "type": "number",
-                            "format": "integer",
+                            "format": "int32",
                             "minimum": 0,
                             "maximum": 1000000
                           }
@@ -14331,7 +14331,7 @@
                       "type": "array",
                       "items": {
                         "type": "number",
-                        "format": "integer",
+                        "format": "int32",
                         "maximum": 1000000,
                         "minimum": 0
                       }
@@ -14343,7 +14343,7 @@
                       "type": "array",
                       "items": {
                         "type": "number",
-                        "format": "integer",
+                        "format": "int32",
                         "maximum": 1000000,
                         "minimum": 0
                       }
