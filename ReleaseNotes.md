@@ -51,13 +51,10 @@ governance across boundaries. **Build one manifest per dataspace instead.**
   Pass an empty value to disable.
 - **`includeArrayData`** - opt-in to bulk array reads during manifest build.
 - **OSDU self-identity precedence** - when resolving an object's OSDU SRN,
-  `OSDUContext.osduAlias()` now prefers the RESQML 2.3.0 `OSDURecordID` element
-  and falls back to `Aliases[Authority="osdu"].Identifier`. `OSDURecordID` is
-  `String256`, so it carries a full partition-qualified SRN
-  (e.g. `opendes:master-data--Wellbore:<uuid>:`) that overflows the alias
-  `Identifier`. RESQML 2.0.1 / 2.2 objects are unaffected — they keep using the
-  alias. Additive: manifest builds gain no new required input. Pairs with the
-  `open-etp-server` `OES_GOVERNANCE_STRICT_SRN` guard on `PutDataObjects`.
+  `OSDUContext.osduAlias()` reads the `Aliases[Authority="osdu"].Identifier`
+  carrier, so RESQML 2.0.1 and 2.2 objects that already carry an OSDU alias
+  resolve to their partition-qualified SRN instead of the bare UUID. Additive:
+  manifest builds gain no new required input.
 
 <details>
 <summary>Converter internals & round-trip fidelity (developer detail)</summary>
@@ -363,9 +360,6 @@ the OpenAPI decorators.
   read → drill-down → traverse flow; the deprecated `/graph/*` aliases are grouped
   after the canonical per-object `/targets` and `/sources` routes, and the
   rarely-used deleted-resources (tombstone) query is placed last in the section.
-- **"When to use which" guidance** - the Resources tag description now
-  distinguishes path-addressed reads, relationship traversal, and body-driven
-  `POST /query/*` search, so callers can tell which endpoint fits their context.
 - **Neutral examples** - request/response examples use neutral placeholder
   values rather than named products or vendors.
 - **Regenerated specs** - `openapi.json`, `openapi.yaml`, and `swagger.json`
@@ -468,4 +462,3 @@ quick to diagnose.
 | **ETP interop URL** | WebSocket connect returns `404` | The interop ETP URL requires a **trailing slash**: `wss://<host>/api/reservoir-ddms-etp/v2/`. |
 | **`Error: Cannot read part: xml`** | Warning during ETP EPC import | Harmless - refers to an unrecognized `<Default Extension="xml">` entry; the import still succeeds. |
 | **Local Postgres port clash** | Docker-compose ETP server fails to bind `5432` | The host already runs PostgreSQL. Map an alternate port, e.g. `-p 5433:5432`. |
-| **No channel streaming** | GrowingObject (6) / ChannelSubscribe (21) unavailable | Out of scope - RDDMS is a modelling store; use a Wellbore DDMS / WITSML Server for real-time rig data. |
