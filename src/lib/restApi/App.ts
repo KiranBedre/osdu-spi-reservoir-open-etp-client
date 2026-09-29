@@ -30,6 +30,7 @@ import { NestExpressApplication } from "@nestjs/platform-express";
 import express from "express";
 import { globSync } from "glob";
 import helmet from "helmet";
+import compression from "compression";
 
 import { bigIntToString } from "../mlTypes/XmlJsonUtil";
 
@@ -226,6 +227,7 @@ export default async function app(): Promise<NestExpressApplication> {
       "/dataspaces/{dataspaceId}",                                                                // delete
       // ── Manifest ──
       "/manifests/build",
+      "/manifests/jobs/{jobId}",
       // ── Resources: read / drill-down ──
       "/dataspaces/{dataspaceId}/resources/all",                                                  // all resources in a dataspace
       "/dataspaces/{dataspaceId}/resources",                                                      // resource types (+ put objects)
@@ -289,7 +291,17 @@ export default async function app(): Promise<NestExpressApplication> {
     fs.writeFileSync("./swagger.json", JSON.stringify(document, null, 2));
   }
 
+  // Serve the raw OpenAPI documents UNDER the REST route prefix. NestJS's
+  // default document URLs are siblings of the UI path ("<path>-json"/"-yaml"),
+  // e.g. "/api/reservoir-ddms/v2-json". Prefix-scoped ingress (the cimpl Istio
+  // VirtualService matches the segment-aware prefix "/api/reservoir-ddms/v2")
+  // does NOT route that sibling segment, so the spec 404s at the gateway.
+  // Nesting the documents under the prefix keeps the raw JSON/YAML reachable
+  // through the ingress ("<path>/openapi.json" and "<path>/openapi.yaml").
+  const specBase = restApiRoutePath.replace(/\/+$/, "");
   SwaggerModule.setup(restApiRoutePath, nestApp, document, {
+    jsonDocumentUrl: `${specBase}/openapi.json`,
+    yamlDocumentUrl: `${specBase}/openapi.yaml`,
     swaggerOptions: {
       apisSorter: "alpha",
       // Preserve the spec (workflow) order of operations within each tag
@@ -327,6 +339,33 @@ export default async function app(): Promise<NestExpressApplication> {
 
   nestApp.use(express.json({ limit: "50mb" }));
   nestApp.use(express.urlencoded({ limit: "50mb", extended: true }));
+  // Raw body parser for binary array uploads (PUT .../arrays/:path with
+  // `Content-Type: application/octet-stream`). Only octet-stream requests are
+  // matched, so JSON/urlencoded routes are unaffected.
+  nestApp.use(
+    express.raw({ type: "application/octet-stream", limit: "50mb" })
+  );
+  // Compress responses (gzip/brotli via Accept-Encoding negotiation). This is a
+  // pure bytes-on-wire win for the JSON routes — especially large numeric array
+  // payloads, which compress very well. We explicitly skip
+  // `application/octet-stream` (our raw binary array responses) so we don't burn
+  // CPU gzipping already-compact, poorly-compressible float/int buffers and can
+  // keep streaming them straight through. `Cache-Control: no-transform` is still
+  // honoured by the default filter for every other type.
+  nestApp.use(
+    compression({
+      filter: (req, res) => {
+        const type = res.getHeader("Content-Type");
+        if (
+          typeof type === "string" &&
+          type.includes("application/octet-stream")
+        ) {
+          return false;
+        }
+        return compression.filter(req, res);
+      }
+    })
+  );
   nestApp.use(helmet());
   nestApp.use(helmet.hidePoweredBy());
   nestApp.use(helmet.noSniff());

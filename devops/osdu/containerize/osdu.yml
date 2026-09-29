@@ -14,7 +14,8 @@ push_runtime_image:
   script:
     # Gitlab Container Registry
     - ls -l
-    - docker build -t $RDMS_REST_RUNTIME_IMAGE --file devops/osdu/docker/Dockerfile.runtime --build-arg DIST=dist.tgz  .
+    - export BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+    - docker build -t $RDMS_REST_RUNTIME_IMAGE --file devops/osdu/docker/Dockerfile.runtime --build-arg DIST=dist.tgz --build-arg GIT_COMMIT_HASH=${CI_COMMIT_SHA} --build-arg GIT_COMMIT_TIMESTAMP=${CI_COMMIT_TIMESTAMP} --build-arg BUILD_TIME=${BUILD_TIME}  .
     - docker tag $RDMS_REST_RUNTIME_IMAGE $CI_REGISTRY_IMAGE/$SHA_IMAGE
     - docker push $CI_REGISTRY_IMAGE/$SHA_IMAGE
     - docker tag $RDMS_REST_RUNTIME_IMAGE $CI_REGISTRY_IMAGE/$LATEST_IMAGE

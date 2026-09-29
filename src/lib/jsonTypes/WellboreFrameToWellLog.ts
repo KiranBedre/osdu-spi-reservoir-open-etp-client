@@ -9,7 +9,7 @@
  * separate OSDU record, and aligns with WITSML Log semantics.
  */
 import * as resqml20 from "../mlTypes/xmlns/www.energistics.org/energyml/resqmlv201/resqmlv2";
-import { ResqmlClient } from "../client/ResqmlClient";
+import { EtpUri, ResqmlClient } from "../client/ResqmlClient";
 import { Energistics } from "../common/Etp12";
 import type { IDataArray } from "../common/EtpTypes";
 import type { SimpleJson } from "../mlTypes/XmlJsonUtil";
@@ -227,35 +227,53 @@ export class WellboreFrameToWellLogOSDU
   ): Promise<Curves[]> {
     const curves: Curves[] = [];
 
-    // Get resources that target this frame (properties referencing the frame)
-    let relatedUris: string[];
-    try {
-      const related = await client.getResources(
-        frameUri,
-        Energistics.Etp.v12.Datatypes.Object.ContextScopeKind.sources
-      );
-      relatedUris = related
-        .filter(
-          (r: any) =>
-            r.uri.includes("ContinuousProperty") ||
-            r.uri.includes("DiscreteProperty") ||
-            r.uri.includes("CategoricalProperty")
-        )
-        .map((r: any) => r.uri);
-    } catch {
-      return curves;
+    // Fast path: a dataspace pre-pass built a frame(UUID) -> property[] index,
+    // so assemble curves from memory with zero ETP round-trips. When the index
+    // exists but this frame is absent from it, the frame genuinely has no curve
+    // properties (empty list) and we skip the network entirely.
+    let propObjs: any[] | undefined;
+    if (context.frameCurveProps !== undefined) {
+      propObjs = context.frameCurveProps.get(new EtpUri(frameUri).uuid) ?? [];
     }
 
-    if (relatedUris.length === 0) {
-      return curves;
+    // Fallback (targeted/single-object builds, or index unavailable): discover
+    // the properties that target this frame and fetch them directly.
+    if (propObjs === undefined) {
+      let relatedUris: string[];
+      try {
+        const related = await client.getResources(
+          frameUri,
+          Energistics.Etp.v12.Datatypes.Object.ContextScopeKind.sources
+        );
+        relatedUris = related
+          .filter(
+            (r: any) =>
+              r.uri.includes("ContinuousProperty") ||
+              r.uri.includes("DiscreteProperty") ||
+              r.uri.includes("CategoricalProperty")
+          )
+          .map((r: any) => r.uri);
+      } catch {
+        return curves;
+      }
+
+      if (relatedUris.length === 0) {
+        return curves;
+      }
+
+      // Resolve objects in batches
+      const objects = new Map<string, any>();
+      const batch = relatedUris.slice(0, 50);
+      try {
+        const resolved = await client.getResolvedObjects(batch, objects, false);
+        propObjs = resolved.filter(o => o !== null && o !== undefined);
+      } catch {
+        return curves;
+      }
     }
 
-    // Resolve objects in batches
-    const objects = new Map<string, any>();
-    const batch = relatedUris.slice(0, 50);
     try {
-      const resolved = await client.getResolvedObjects(batch, objects, false);
-      for (const obj of resolved) {
+      for (const obj of propObjs) {
         if (obj === null || obj === undefined) continue;
         const o = obj as any;
 
@@ -314,5 +332,23 @@ export const WellboreFrameToWellLogManifest = async (
   xml: SimpleJson<resqml20.obj_WellboreFrameRepresentation>,
   context: OSDUContext,
   client: ResqmlClient
-): Promise<WellboreFrameToWellLogOSDU> =>
-  new WellboreFrameToWellLogOSDU(xml, context).initData(uri, xml, client);
+): Promise<WellboreFrameToWellLogOSDU | undefined> => {
+  const result = await new WellboreFrameToWellLogOSDU(xml, context).initData(
+    uri,
+    xml,
+    client
+  );
+  // Do not emit an empty WellLog: a WellboreFrameRepresentation with neither a
+  // resolvable wellbore (RepresentedInterpretation) nor any attached curves
+  // produces a record with no useful content. Skipping keeps the manifest to
+  // representations that actually carry log data.
+  const curves = result.data.Curves;
+  if (
+    result.data.WellboreID === undefined &&
+    (curves === undefined || curves.length === 0)
+  ) {
+    logger.info(`[skip] Empty WellLog (no wellbore, no curves) for ${uri}`);
+    return undefined;
+  }
+  return result;
+};

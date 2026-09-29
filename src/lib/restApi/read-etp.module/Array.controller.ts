@@ -24,6 +24,7 @@ import {
   Param,
   Query,
   Req,
+  Res,
   UseGuards
 } from "@nestjs/common";
 
@@ -489,11 +490,15 @@ export const countsQueryParam: ApiQueryOptions = {
 export const formatQueryParam: ApiQueryOptions = {
   name: "format",
   required: false,
-  description: "Representation of the array: JSON(default) or base64",
+  description:
+    "Representation of the array: JSON (default), base64, or binary. " +
+    "`binary` returns the raw little-endian bytes as `application/octet-stream` " +
+    "(no base64 inflation or JSON parsing) with the element type in the " +
+    "`X-Array-Type` response header and the shape in `X-Array-Dimensions`.",
   example: "json",
   schema: {
     type: "string",
-    enum: ["json", "base64"]
+    enum: ["json", "base64", "binary"]
   }
 };
 
@@ -655,13 +660,14 @@ export default class DataArrayReadAPI {
   @ApiOperation({ servers: swaggerServers })
   public async GetArray(
     @Param() params: DataArrayParams,
+    @Res() res: express.Response,
     @Query("version") version?: string,
     @Query("starts", OptionalParseIntArrayPipe) starts?: Index32[],
     @Query("counts", OptionalParseIntArrayPipe) counts?: Integer32[],
-    @Query("format") format?: ArrayFormat,
+    @Query("format") format?: ArrayFormat | "binary",
     @Query("transactionId") transactionId?: string,
     @Req() request?: express.Request
-  ): Promise<DataArrayDto> {
+  ): Promise<void> {
     const m = dataObjectTypeRegexp.exec(params.dataObjectType);
     const uri = EtpUri.createObjectUri(
       params.dataspaceId,
@@ -685,6 +691,48 @@ export default class DataArrayReadAPI {
           description: `Cannot get subarray metadata`
         });
       }
+
+      // Serialise the fetched array either as the JSON envelope (json/base64) or
+      // as a raw octet-stream (binary). Kept as a local closure so both the
+      // sub-array and full-array branches below share identical formatting.
+      const session = c;
+      const sendArray = (
+        uid: IArrayId,
+        data: Energistics.Etp.v12.Datatypes.AnyArray,
+        dimensions: number[]
+      ): void => {
+        if (format === "binary") {
+          const encoded = session.arrayDataToBuffer(data);
+          if (!encoded) {
+            throw new InternalServerErrorException({
+              description: "Cannot encode array as binary"
+            });
+          }
+          res.setHeader("Content-Type", "application/octet-stream");
+          // Describe the actual emitted bytes (transport element type), which
+          // can differ from the logical array type in the metadata.
+          res.setHeader(
+            "X-Array-Type",
+            encoded.arrayType ??
+            toArrayTypeString(metadata.logicalArrayType) ??
+            ""
+          );
+          res.setHeader("X-Array-Dimensions", dimensions.join(","));
+          res.send(encoded.buffer);
+          return;
+        }
+        res.json({
+          uid,
+          data: {
+            data: session.formatArrayData(
+              data,
+              (format as ArrayFormat) || "json"
+            ),
+            dimensions
+          }
+        });
+      };
+
       if (starts && counts) {
         if (
           metadata.dimensions?.length !== starts.length ||
@@ -717,18 +765,16 @@ export default class DataArrayReadAPI {
             description: "Cannot fetch subarray"
           });
         }
-        const res = {
-          uid: subArray.uid,
-          data: {
-            data: c.formatArrayData(subArray.data.data, format || "json"),
-            dimensions: subArray.data.dimensions.map(Number)
-          }
-        };
+        sendArray(
+          subArray.uid,
+          subArray.data.data,
+          subArray.data.dimensions.map(Number)
+        );
         if (!transactionId) {
           await c.closeSession();
         }
         c = undefined;
-        return res;
+        return;
       }
       const a = await c.getDataArray(uri, params.pathInResource, metadata);
       if (
@@ -740,18 +786,12 @@ export default class DataArrayReadAPI {
           description: "Cannot fetch array"
         });
       }
-      const res = {
-        uid: a.uid,
-        data: {
-          data: c.formatArrayData(a.data.data, format || "json"),
-          dimensions: a.data.dimensions.map(Number)
-        }
-      };
+      sendArray(a.uid, a.data.data, a.data.dimensions.map(Number));
       if (!transactionId) {
         await c.closeSession();
       }
       c = undefined;
-      return res;
+      return;
     } catch (err) {
       if (!transactionId) {
         await c?.closeSession();

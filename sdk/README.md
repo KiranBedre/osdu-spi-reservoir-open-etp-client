@@ -146,9 +146,21 @@ new RddmsClient(options: RddmsClientOptions)
 
 #### `rddms.manifest`
 
-| Method          | Returns  | Description            |
-| --------------- | -------- | ---------------------- |
-| `.build(input)` | `object` | OSDU manifest from ETP |
+| Method          | Returns                     | Description                              |
+| --------------- | --------------------------- | ---------------------------------------- |
+| `.build(input)` | `object` \| `ManifestJobAccepted` | OSDU manifest from ETP (async when `input.async`) |
+| `.job(jobId)`   | `ManifestJobStatus`         | Poll an async build started with `async: true` |
+
+Sync build returns the manifest. For large dataspaces that risk the ~60s ingress
+timeout, set `async: true` to get a `202` + `jobId`, then poll `.job(jobId)` until
+`status === "completed"`. Set `schemaCompat: false` to skip the schema-service
+normalize pass for a faster (M26-style) build.
+
+```typescript
+const started = await rddms.manifest.build({ uris, async: true }) as ManifestJobAccepted;
+let job = await rddms.manifest.job(started.jobId);
+while (job.status === "running") job = await rddms.manifest.job(started.jobId);
+```
 
 ### Helper
 

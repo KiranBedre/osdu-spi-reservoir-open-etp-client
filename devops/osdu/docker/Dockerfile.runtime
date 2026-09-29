@@ -45,6 +45,16 @@ RUN npm update -g
 ARG VERSION=0.1
 ARG DIST=dist.tgz
 
+# Build identity (git commit + build time), injected by the containerize CI job.
+# Same env-var names as open-etp-server so `GET /health/info` reports the build
+# the same way on both services. Default to "unknown" for local docker builds.
+ARG GIT_COMMIT_HASH=unknown
+ARG GIT_COMMIT_TIMESTAMP=unknown
+ARG BUILD_TIME=unknown
+ENV GIT_COMMIT_HASH=${GIT_COMMIT_HASH}
+ENV GIT_COMMIT_TIMESTAMP=${GIT_COMMIT_TIMESTAMP}
+ENV BUILD_TIME=${BUILD_TIME}
+
 LABEL version="${VERSION}"
 LABEL vendor="OSDU Reservoir DMS"
 LABEL description="Open ETP Client Runtime Image"

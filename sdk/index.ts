@@ -10,5 +10,7 @@ export type {
     ArrayResult,
     DataspaceInput,
     ManifestInput,
+    ManifestJobAccepted,
+    ManifestJobStatus,
     FindResourcesInput,
 } from "./RddmsClient";
