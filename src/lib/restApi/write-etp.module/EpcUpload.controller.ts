@@ -1079,8 +1079,12 @@ export default class EpcUploadAPI {
                 h5wasm = await import(h5NodeEntry);
                 await h5wasm.ready;
 
-                // h5wasm uses an emscripten virtual FS - we need to mount the file
-                const h5FileName = path.basename(h5File.path);
+                // h5wasm's node build uses NODERAWFS, so the emscripten FS maps
+                // directly onto the real filesystem and relative paths resolve
+                // against process.cwd() (read-only in the container). Use the
+                // absolute temp path (already under os.tmpdir()) so the write and
+                // open target a writable location.
+                const h5FileName = h5File.path;
                 // Buffer IS a Uint8Array - pass directly, avoid an extra copy
                 const h5Data = fs.readFileSync(h5File.path);
                 h5wasm.FS.writeFile(h5FileName, h5Data);
