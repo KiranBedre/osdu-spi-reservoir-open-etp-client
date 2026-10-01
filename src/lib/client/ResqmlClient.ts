@@ -3573,21 +3573,30 @@ export class ResqmlClient {
     resolved: Map<URI, IResqmlDataObject>,
     arrayFormat: ArrayFormat,
     includeReferences: boolean,
-    inProgress?: Set<string>
+    inProgress?: Set<string>,
+    // The cycle guard and resolved cache are keyed per data object. Only the
+    // call that starts resolving a data object (the top-level entry point and
+    // the DataObjectReference branch) is a "root"; the structural recursion
+    // into a data object's own nested objects/arrays carries the parent's URI
+    // and must NOT touch the guard/cache, otherwise every nested element looks
+    // like a cycle and is returned unresolved.
+    isDataObjectRoot: boolean = true
   ): Record<string, any> {
     const etpUri = new EtpUri(uri);
-    const r = resolved.get(etpUri.uriPath);
-    if (r) {
-      return r;
-    }
 
-    // Track objects currently being resolved to detect circular refs
     if (!inProgress) inProgress = new Set<string>();
-    if (inProgress.has(etpUri.uriPath)) {
-      // Circular reference detected - return obj as-is without further resolution
-      return obj;
+
+    if (isDataObjectRoot) {
+      const r = resolved.get(etpUri.uriPath);
+      if (r) {
+        return r;
+      }
+      if (inProgress.has(etpUri.uriPath)) {
+        // Circular reference detected - return obj as-is without further resolution
+        return obj;
+      }
+      inProgress.add(etpUri.uriPath);
     }
-    inProgress.add(etpUri.uriPath);
 
     if (
       // EML2.3 Array
@@ -3624,7 +3633,8 @@ export class ResqmlClient {
               resolved,
               arrayFormat,
               includeReferences,
-              inProgress
+              inProgress,
+              false
             )
           );
         } else if (
@@ -3716,7 +3726,8 @@ export class ResqmlClient {
                   resolved,
                   arrayFormat,
                   includeReferences,
-                  inProgress
+                  inProgress,
+                  true
                 ) as IResqmlDataObject;
                 obj[key] = { ...obj[key], _data: res };
                 resolved.set(nURI.uri, res);
@@ -3732,14 +3743,17 @@ export class ResqmlClient {
             resolved,
             arrayFormat,
             includeReferences,
-            inProgress
+            inProgress,
+            false
           );
         }
       });
     }
-    // Mark as fully resolved and remove from in-progress
-    resolved.set(etpUri.uriPath, obj as IResqmlDataObject);
-    inProgress!.delete(etpUri.uriPath);
+
+    if (isDataObjectRoot) {
+      resolved.set(etpUri.uriPath, obj as IResqmlDataObject);
+      inProgress!.delete(etpUri.uriPath);
+    }
     return obj;
   }
 
