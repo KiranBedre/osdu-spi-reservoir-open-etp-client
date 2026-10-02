@@ -179,38 +179,26 @@ export async function seedReferenceDataIfNeeded(
     }
   }
 
-  // Batch-check which already exist using OSDU search
+  // Batch-check which already exist using the authoritative Storage service
+  // (source of truth, no Elasticsearch index lag) so records written moments
+  // earlier are reliably seen and not re-seeded.
   const existingIds = new Set<string>();
-  const SEARCH_BATCH = 20;
-  for (let i = 0; i < allRecords.length; i += SEARCH_BATCH) {
-    const batch = allRecords.slice(i, i + SEARCH_BATCH);
-    const queryString = batch.map(r => `id:"${r.id}"`).join(" OR ");
-    try {
-      const body = JSON.stringify({
-        kind: "*:*:reference-data--*:*",
-        query: queryString,
-        limit: SEARCH_BATCH,
-        returnedFields: ["id"],
-      });
-      const found = await context.fetchOSDU<{ results: { id: string }[] }>(
-        "/api/search/v2/query",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Content-Length": `${body.length}`,
-          },
-          body,
-        }
-      );
-      if (found?.results) {
-        for (const r of found.results) {
-          existingIds.add(r.id);
-        }
-      }
-    } catch {
-      // Search failure - conservative: skip these, they'll be created by createMissingReferences
+  try {
+    const found = await context.batchOsduRecordVersions(
+      allRecords.map(r => r.id)
+    );
+    for (const id of found.keys()) {
+      existingIds.add(id);
     }
+  } catch (e: any) {
+    // Storage lookup failed: we cannot tell which records already exist, so we
+    // MUST NOT proceed - PUTting the stub payload blindly would clobber any
+    // authoritative catalog records that are already present. Abort seeding and
+    // let createMissingReferences handle genuinely-missing vocabulary later.
+    logger.warn(
+      `[seed] Existence check failed for partition '${partition}', skipping seed to avoid overwriting catalog records: ${e?.message ?? e}`
+    );
+    return;
   }
 
   // Filter to only missing records

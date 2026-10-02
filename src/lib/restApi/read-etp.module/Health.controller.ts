@@ -74,30 +74,30 @@ export class ClientInfoDto {
   artifactId!: string;
   @ApiProperty({
     name: "version",
-    example: "1.0.1",
+    example: "1.3.0",
     maxLength: 2048,
     pattern: patternString(/^[0-9.]+$/)
   })
   version!: string;
   @ApiProperty({
     name: "commitId",
-    example: "1.0.1",
+    example: "26e4115",
     maxLength: 2048,
     pattern: patternString(/^[0-9a-fA-F]+$/)
   })
   commitId!: string;
   @ApiProperty({
     name: "commitTime",
-    example: "2023-07-24 20:53:33 -0500",
+    example: "2026-09-22T08:40:14+02:00",
     maxLength: 2048,
-    pattern: patternString(/^[0-9a-zA-Z \-:]+$/)
+    pattern: patternString(/^[0-9a-zA-Z +\-:]+$/)
   })
   commitTime!: string;
   @ApiProperty({
     name: "buildTime",
-    example: "2023-07-24 20:53:33 -0500",
+    example: "2026-09-22T06:49:22Z",
     maxLength: 2048,
-    pattern: patternString(/^[0-9a-zA-Z \-:]+$/)
+    pattern: patternString(/^[0-9a-zA-Z +\-:]+$/)
   })
   buildTime!: string;
 }
@@ -223,22 +223,38 @@ export default class HealthAPI {
         );
         const version = packageJson.version;
         const artifactId = packageJson.name;
-        let commitId = "unknown";
-        let commitTime = "unknown";
 
-        //Get commitId, commitTime and buildTime from env variables
-        // get commit info from Git
-        try {
-          commitId = child_process
-            .execSync("git rev-parse HEAD")
-            .toString()
-            .trim();
-          commitTime = child_process
-            .execSync("git log -1 --format=%ci")
-            .toString()
-            .trim();
-        } catch (e) {
-          //Nothing
+        // Build identity is injected at container-build time via env vars, using
+        // the SAME names as open-etp-server (GIT_COMMIT_HASH / GIT_COMMIT_TIMESTAMP
+        // / BUILD_TIME) so client and server report their build the same way.
+        // GitLab-native vars (CI_COMMIT_SHA / CI_COMMIT_TIMESTAMP) are accepted as
+        // a fallback, and a runtime `git` lookup covers local dev checkouts.
+        let commitId =
+          process.env.GIT_COMMIT_HASH || process.env.CI_COMMIT_SHA || "unknown";
+        let commitTime =
+          process.env.GIT_COMMIT_TIMESTAMP ||
+          process.env.CI_COMMIT_TIMESTAMP ||
+          "unknown";
+        const buildTime = process.env.BUILD_TIME || "unknown";
+
+        if (commitId === "unknown" || commitTime === "unknown") {
+          // get commit info from Git (local dev fallback)
+          try {
+            if (commitId === "unknown") {
+              commitId = child_process
+                .execSync("git rev-parse HEAD")
+                .toString()
+                .trim();
+            }
+            if (commitTime === "unknown") {
+              commitTime = child_process
+                .execSync("git log -1 --format=%ci")
+                .toString()
+                .trim();
+            }
+          } catch (e) {
+            //Nothing
+          }
         }
 
         resolve({
@@ -246,7 +262,8 @@ export default class HealthAPI {
           artifactId,
           version,
           commitId,
-          commitTime
+          commitTime,
+          buildTime
         });
       } catch (e) {
         throw new InternalServerErrorException({

@@ -11,6 +11,7 @@ Changes in the `open-etp-client` REST gateway since the M27 baseline (`cfffaa2`)
 5. [Optimizations](#5-optimizations)
 6. [Bug Fixes](#6-bug-fixes)
 7. [Behavioral Changes ⚠️](#7-behavioral-changes-️)
+8. [Known Issues & Authoring Gotchas](#8-known-issues--authoring-gotchas)
 
 ---
 
@@ -49,6 +50,11 @@ governance across boundaries. **Build one manifest per dataspace instead.**
   consumed, which become dangling references under `propertyFilter=canonical`).
   Pass an empty value to disable.
 - **`includeArrayData`** - opt-in to bulk array reads during manifest build.
+- **OSDU self-identity precedence** - when resolving an object's OSDU SRN,
+  `OSDUContext.osduAlias()` reads the `Aliases[Authority="osdu"].Identifier`
+  carrier, so RESQML 2.0.1 and 2.2 objects that already carry an OSDU alias
+  resolve to their partition-qualified SRN instead of the bare UUID. Additive:
+  manifest builds gain no new required input.
 
 <details>
 <summary>Converter internals & round-trip fidelity (developer detail)</summary>
@@ -239,6 +245,24 @@ runtime dependencies.
   documents (`type`, `title`, `status`, `detail`, `instance`); otherwise the
   default error shape is unchanged.
 
+### Binary array transport (non-breaking, opt-in)
+
+Raw-bytes array I/O for large numeric arrays, additive to the existing JSON
+paths. Default responses are unchanged; binary is opt-in per request.
+
+- **Binary read** - `GET .../resources/{dataObjectType}/{guid}/arrays/{path}?format=binary`
+  streams the array as little-endian `application/octet-stream`, with
+  `X-Array-Type` (the transport element type, e.g. `Float64Array`) and
+  `X-Array-Dimensions` response headers. `format=json` (default) and
+  `format=base64` are unchanged.
+- **Binary write** - new `PUT .../resources/{dataObjectType}/{guid}/arrays/{path}`
+  consumes `application/octet-stream`; `arrayType` and repeated `dimensions`
+  (optional `starts`/`counts` for a subarray slice, `transactionId`) are query
+  parameters. An empty body creates an empty array of the given shape. The
+  existing batch `PUT .../resources/arrays` (JSON) is unchanged.
+- **Why** - avoids base64's ~33% size inflation and JSON parsing for large
+  numeric arrays, and lets the raw buffer stream straight through.
+
 ### Operational
 
 - **Converter registry** - `GET /health/converters` lists all registered source
@@ -336,14 +360,13 @@ the OpenAPI decorators.
   read → drill-down → traverse flow; the deprecated `/graph/*` aliases are grouped
   after the canonical per-object `/targets` and `/sources` routes, and the
   rarely-used deleted-resources (tombstone) query is placed last in the section.
-- **"When to use which" guidance** - the Resources tag description now
-  distinguishes path-addressed reads, relationship traversal, and body-driven
-  `POST /query/*` search, so callers can tell which endpoint fits their context.
 - **Neutral examples** - request/response examples use neutral placeholder
   values rather than named products or vendors.
 - **Regenerated specs** - `openapi.json`, `openapi.yaml`, and `swagger.json`
-  reflect the enriched descriptions, WITSML `$format` flag, JSON store input, and
-  enriched query filters. Suitable for client generation.
+  reflect the enriched descriptions, WITSML `$format` flag, JSON store input,
+  enriched query filters, and the opt-in binary array I/O (`?format=binary`
+  read and the octet-stream `PUT .../arrays/{path}` write). Suitable for client
+  generation.
 
 ---
 
@@ -373,6 +396,7 @@ internal; no API changes.
 | 11 | `new Array(n)` pre-allocation for chunked slices | Faster allocation for sub-array slicing |
 | 12 | Parallel array uploads with bounded concurrency (default 5) | 3–5× faster for many small arrays |
 | 13 | Zero-copy TypedArray chunking + Avro memcpy for float/double | 15% faster putArrays; ~1 GB less heap for large datasets |
+| 14 | HTTP response compression (gzip/brotli) via `Accept-Encoding`, JSON only - raw `application/octet-stream` array streams are explicitly excluded | Smaller JSON on the wire; no CPU wasted gzipping incompressible binary array buffers |
 
 </details>
 
@@ -396,7 +420,11 @@ change emitted coordinates for affected CRS and grids.
 | [#130](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/issues/130) | DELETE locked dataspace → 204 | Now propagates 403 |
 | - | Duplicate `WorkProductComponent` ids in built manifests | A post-remap dedup pass drops duplicate WPC ids created when the schema-compatibility rewrite re-mints ids for unregistered kinds (e.g. repeated `HorizonControlPoints`) |
 | - | Schema-existence cache poisoning → empty manifests | `isSchemaRegistered` only caches definitive answers (200 registered / 404 not-registered); transient auth/server failures (401/403/5xx) are treated as "assume present" and no longer cached, so a single stale-token schema lookup can no longer silently drop every WPC/MasterData/ReferenceData record until process restart |
+| - | Schema-compatibility pass could empty a fully-converted manifest | The post-assembly schema-compat pass now reverts to the pre-pass records (and warns) when a normalize would drop **100%** of a non-empty `MasterData`/`ReferenceData`/`WorkProductComponents` array, so a mis-resolving schema service can no longer ship an empty manifest despite a successful conversion. `X-Manifest-Build-Diagnostics` gains `assembled`, `schemaCompat`, `finalCounts`, and `osduUrl` to pinpoint where records are dropped |
+| - | Stale `GET /health/info` example in OpenAPI/Swagger docs | The `ClientInfoDto` schema example advertised a 2023 `version`/`commitId`/`commitTime`/`buildTime` (and a `commitId` that violated its own hex pattern); examples now reflect the real build-identity shape and the timestamp pattern accepts timezone-offset (`+`) values |
 | - | `GET /dataspaces/{id}/deleted` hung forever on a missing dataspace | A server `ProtocolException` (e.g. `ENOT_FOUND`) to a `GetDeletedResources` request is now offered to the deleted-resources handler as well as the resources handler, so the request rejects with the proper HTTP error instead of waiting for the response timeout |
+| - | Schema-compat pass wasted a round-trip storm when the schema service has nothing registered | When the pre-warm probe shows **every** distinct kind returns a definitive `404`, the normalize pass is now skipped wholesale (no per-record `resolveKind`, no drop-then-revert churn) and `X-Manifest-Build-Diagnostics.schemaCompat` reports `skipped:true`. Transient/unreachable errors are treated as "assume present" (never `false`), so a flaky OSDU cannot trip the skip |
+| - | Large-dataspace manifest builds dropped mid-flight (HTTP 000/500) | The core-plus Istio `VirtualService` route now sets `timeout: 300s`; the mesh default (~15s) was severing long linear builds (ETP fetch + convert per object) before completion |
 
 ---
 
@@ -418,3 +446,19 @@ These may affect existing consumers.
 | **Protocol negotiation** ([!289](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/289)) | `RDMS_ETP_EXTENDED_PROTOCOLS` env var | Auto-negotiated, env var removed | - |
 | **Dataspace ACL override** ([!207](https://community.opengroup.org/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client/-/merge_requests/207)) | ETP customData always overrode pre-configured ACLs | Pre-configured ACLs take priority | - |
 | **Clone re-identify** | `clone?reidentify=true` on a server that cannot copy dataspace content silently returned an identity-preserving clone | Now fails loud with `501 ENOTSUPPORTED` so callers do not get colliding UUIDs | Retry without `reidentify` for a reference snapshot |
+
+---
+
+## 8. Known Issues & Authoring Gotchas
+
+**Highlights:** most of these are **EPC-authoring** pitfalls that surface as import or
+commit errors rather than client defects. They are collected here so an ingest failure is
+quick to diagnose.
+
+| Area | Symptom | Cause & workaround |
+| --- | --- | --- |
+| **Mixed DOR format** | `"N Missing reference(s)"` on `CommitTransaction` | A v2.0.1 `<eml:ContentType>…type=obj_TypeName</eml:ContentType>` DOR left inside a v2.2 EPC resolves against `TypeName` (no `obj_`) and cannot match a stored object. Convert **all** DORs to the v2.2 form (`<eml:Uuid>` + `<eml:QualifiedType>resqml22.TypeName</eml:QualifiedType>`) before upload. |
+| **`<Default Extension="xml">`** | Server misidentifies object types / parse issues | A `<Default Extension="xml">` entry in `[Content_Types].xml` overrides every per-part `<Override>`. Use `<Override>` entries only. |
+| **ETP interop URL** | WebSocket connect returns `404` | The interop ETP URL requires a **trailing slash**: `wss://<host>/api/reservoir-ddms-etp/v2/`. |
+| **`Error: Cannot read part: xml`** | Warning during ETP EPC import | Harmless - refers to an unrecognized `<Default Extension="xml">` entry; the import still succeeds. |
+| **Local Postgres port clash** | Docker-compose ETP server fails to bind `5432` | The host already runs PostgreSQL. Map an alternate port, e.g. `-p 5433:5432`. |

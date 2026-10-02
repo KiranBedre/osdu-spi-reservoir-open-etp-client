@@ -470,7 +470,7 @@ export class ResourceGraph extends Map<string, Resource> {
       let previousTargets = new Set<string>();
       uris.forEach(u => previousTargets.add(u));
 
-      let targetSet = new Set<string>();
+      const targetSet = new Set<string>();
       if (depth === 1) {
         previousTargets.forEach(p => {
           const targets = targetMap.get(p);
@@ -489,7 +489,7 @@ export class ResourceGraph extends Map<string, Resource> {
             }
           });
           // Add current targets to the set
-          targetSet = new Set([...targetSet, ...currentTargets]);
+          currentTargets.forEach(t => targetSet.add(t));
           previousTargets = currentTargets;
         }
       }
@@ -498,8 +498,8 @@ export class ResourceGraph extends Map<string, Resource> {
     return dataObjectTypes.length === 0
       ? targets
       : targets.filter(t =>
-          dataObjectTypes.includes(new EtpUri(t).dataObjectType)
-        );
+        dataObjectTypes.includes(new EtpUri(t).dataObjectType)
+      );
   }
 
   /**
@@ -554,7 +554,7 @@ export class ResourceGraph extends Map<string, Resource> {
       let previousSources = new Set<string>();
       uris.forEach(u => previousSources.add(u));
 
-      let sourceSet = new Set<string>();
+      const sourceSet = new Set<string>();
       if (depth === 1) {
         previousSources.forEach(p => {
           const sources = sourceMap.get(p);
@@ -572,7 +572,7 @@ export class ResourceGraph extends Map<string, Resource> {
             }
           });
           // Add current sources to the set
-          sourceSet = new Set([...sourceSet, ...currentSources]);
+          currentSources.forEach(t => sourceSet.add(t));
           previousSources = currentSources;
         }
       }
@@ -581,8 +581,8 @@ export class ResourceGraph extends Map<string, Resource> {
     return dataObjectTypes.length === 0
       ? sources
       : sources.filter(t =>
-          dataObjectTypes.includes(new EtpUri(t).dataObjectType)
-        );
+        dataObjectTypes.includes(new EtpUri(t).dataObjectType)
+      );
   }
 
   /**

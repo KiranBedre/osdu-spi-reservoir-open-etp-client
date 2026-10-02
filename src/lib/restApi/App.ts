@@ -30,6 +30,7 @@ import { NestExpressApplication } from "@nestjs/platform-express";
 import express from "express";
 import { globSync } from "glob";
 import helmet from "helmet";
+import compression from "compression";
 
 import { bigIntToString } from "../mlTypes/XmlJsonUtil";
 
@@ -226,6 +227,7 @@ export default async function app(): Promise<NestExpressApplication> {
       "/dataspaces/{dataspaceId}",                                                                // delete
       // ── Manifest ──
       "/manifests/build",
+      "/manifests/jobs/{jobId}",
       // ── Resources: read / drill-down ──
       "/dataspaces/{dataspaceId}/resources/all",                                                  // all resources in a dataspace
       "/dataspaces/{dataspaceId}/resources",                                                      // resource types (+ put objects)
@@ -337,6 +339,33 @@ export default async function app(): Promise<NestExpressApplication> {
 
   nestApp.use(express.json({ limit: "50mb" }));
   nestApp.use(express.urlencoded({ limit: "50mb", extended: true }));
+  // Raw body parser for binary array uploads (PUT .../arrays/:path with
+  // `Content-Type: application/octet-stream`). Only octet-stream requests are
+  // matched, so JSON/urlencoded routes are unaffected.
+  nestApp.use(
+    express.raw({ type: "application/octet-stream", limit: "50mb" })
+  );
+  // Compress responses (gzip/brotli via Accept-Encoding negotiation). This is a
+  // pure bytes-on-wire win for the JSON routes — especially large numeric array
+  // payloads, which compress very well. We explicitly skip
+  // `application/octet-stream` (our raw binary array responses) so we don't burn
+  // CPU gzipping already-compact, poorly-compressible float/int buffers and can
+  // keep streaming them straight through. `Cache-Control: no-transform` is still
+  // honoured by the default filter for every other type.
+  nestApp.use(
+    compression({
+      filter: (req, res) => {
+        const type = res.getHeader("Content-Type");
+        if (
+          typeof type === "string" &&
+          type.includes("application/octet-stream")
+        ) {
+          return false;
+        }
+        return compression.filter(req, res);
+      }
+    })
+  );
   nestApp.use(helmet());
   nestApp.use(helmet.hidePoweredBy());
   nestApp.use(helmet.noSniff());

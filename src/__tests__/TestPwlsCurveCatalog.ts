@@ -12,6 +12,9 @@ import {
   hasVendorCatalog,
   getLoadedVendors,
   getPwlsStatus,
+  getParentProperty,
+  getParentPropertyTypeId,
+  getPropertyHierarchy,
   PwlsPropertyNames
 } from "../lib/jsonTypes/PwlsCurveCatalog";
 
@@ -228,5 +231,44 @@ describe("PwlsCurveCatalog", () => {
         expect(uuid).toBeDefined();
       });
     }
+  });
+
+  describe("Vendor-neutral parent lineage (PWLS v4 PropertyKind tree)", () => {
+    it("should expose the immediate parent for a child property", () => {
+      expect(getParentProperty("bulk density")).toBe("density");
+      expect(getParentPropertyTypeId("bulk density")).toBe(
+        "fd8a4e2e-63d7-43d9-926a-a23da337dc6c"
+      );
+    });
+
+    it("should be case-insensitive on the property name", () => {
+      expect(getParentProperty("Bulk Density")).toBe("density");
+    });
+
+    it("should return undefined parent for a top-level property", () => {
+      expect(getParentProperty("density")).toBeUndefined();
+      expect(getParentPropertyTypeId("density")).toBeUndefined();
+    });
+
+    it("should return undefined for unknown properties", () => {
+      expect(getParentProperty("foobar_unknown")).toBeUndefined();
+    });
+
+    it("should walk the full ancestry chain (self first, root omitted)", () => {
+      const chain = getPropertyHierarchy("bulk density");
+      expect(chain.map(n => n.property)).toEqual(["bulk density", "density"]);
+      expect(chain[0].propertyTypeId).toBe("8cf38da3-e98e-4134-a186-1c6f562d6430");
+      expect(chain[1].propertyTypeId).toBe("fd8a4e2e-63d7-43d9-926a-a23da337dc6c");
+    });
+
+    it("should return a single-element chain for a top-level property", () => {
+      const chain = getPropertyHierarchy("density");
+      expect(chain).toHaveLength(1);
+      expect(chain[0].property).toBe("density");
+    });
+
+    it("should return an empty chain for unknown properties", () => {
+      expect(getPropertyHierarchy("foobar_unknown")).toEqual([]);
+    });
   });
 });

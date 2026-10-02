@@ -21,9 +21,11 @@ import {
   Get,
   HttpCode,
   Param,
+  PayloadTooLargeException,
   Post,
   Query,
   Req,
+  RequestTimeoutException,
   Res,
   UseGuards
 } from "@nestjs/common";
@@ -122,6 +124,32 @@ import {
 import { createHash } from "crypto";
 
 const logger = logging.getLogger("EtpClient");
+
+/**
+ * Rejection raised by {@link raceWithTimeout} when a wrapped promise does not
+ * settle within its deadline. Callers distinguish it via `instanceof` so a
+ * slow ETP round-trip can be surfaced as an HTTP 408 instead of hanging until
+ * the edge/LB timeout fires.
+ */
+class OperationTimeoutError extends Error {}
+
+/**
+ * Race a promise against a wall-clock deadline. On timeout the returned
+ * promise rejects with an {@link OperationTimeoutError}; the underlying
+ * promise keeps running (the caller is expected to tear down its ETP session
+ * to abort the in-flight work). The timer is always cleared so it cannot keep
+ * the event loop alive.
+ */
+function raceWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new OperationTimeoutError()),
+      Math.max(0, ms)
+    );
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
 
 /** RDF alternate representations advertised via the `Link` header. */
 const RDF_ALTERNATES: ReadonlyArray<readonly [RdfFormat, string]> = [
@@ -348,7 +376,7 @@ class ResourceDto {
   @ApiPropertyOptional({
     name: "sourceCount",
     description: "Number of objects referencing the resource",
-    format: "integer",
+    format: "int32",
     minimum: 0,
     maximum: 1000000
   })
@@ -358,7 +386,7 @@ class ResourceDto {
   @ApiPropertyOptional({
     name: "targetCount",
     description: "Number of objects referenced by the resource",
-    format: "integer",
+    format: "int32",
     minimum: 0,
     maximum: 1000000
   })
@@ -585,7 +613,7 @@ export class TypeCountDto {
   @ApiProperty({
     name: "count",
     type: "number",
-    format: "integer",
+    format: "int32",
     minimum: 1,
     maximum: 1000000,
     example: 2
@@ -601,7 +629,7 @@ export const skipQueryParam: ApiQueryOptions = {
   example: 0,
   schema: {
     type: "number",
-    format: "integer",
+    format: "int32",
     minimum: 0,
     maximum: 100000
   }
@@ -614,7 +642,7 @@ export const topQueryParam: ApiQueryOptions = {
   example: 10,
   schema: {
     type: "number",
-    format: "integer",
+    format: "int32",
     minimum: 1,
     maximum: 10000
   }
@@ -690,7 +718,7 @@ export const depthQueryParam: ApiQueryOptions = {
   example: 10,
   schema: {
     type: "number",
-    format: "integer",
+    format: "int32",
     minimum: 1,
     maximum: 1000
   }
@@ -934,8 +962,12 @@ export default class ResourcesReadAPI {
       "Fetches all data objects from the dataspace via ETP and runs RESQML strict validation " +
       "(XSD schema, DOR integrity, cross-object consistency, business rules). " +
       "Read-only - does not modify any data.\n\n" +
-      "**Performance**: Fetches full XML for every object in the dataspace. " +
-      "For large dataspaces (>1000 objects), this may take several seconds.",
+      "**Performance / limits**: Object bodies are fetched in batches. To protect " +
+      "the shared service, dataspaces with more than `VALIDATE_MAX_OBJECTS` objects " +
+      "(default 2000) return **413**, and a run that exceeds `VALIDATE_TIME_BUDGET_MS` " +
+      "(default 45s) returns **408**. The time budget also bounds the initial object " +
+      "enumeration, so very large dataspaces fail fast instead of overrunning the " +
+      "request budget.",
     servers: swaggerServers
   })
   public async ValidateDataspace(
@@ -964,12 +996,46 @@ export default class ResourcesReadAPI {
         includeSecondarySources: false
       };
 
-      const resources = await c.discovery.getResources(
-        context,
-        Energistics.Etp.v12.Datatypes.Object.ContextScopeKind.targets,
-        false,
-        null
+      // Single wall-clock budget for the whole validation. Enumerating a very
+      // large dataspace can itself overrun the edge/LB timeout long before the
+      // object cap below gets a chance to reject it, so the enumeration, the
+      // batched body fetch and the (synchronous) parse all draw from one
+      // shared deadline. Overrunning it returns a clean 408 instead of a dead
+      // request that keeps the shared pod busy.
+      const TIME_BUDGET_MS = Number(
+        process.env.VALIDATE_TIME_BUDGET_MS ?? 45000
       );
+      const validateStartedAt = Date.now();
+      const remainingBudgetMs = () =>
+        TIME_BUDGET_MS - (Date.now() - validateStartedAt);
+
+      let resources: Resource[];
+      try {
+        resources = await raceWithTimeout(
+          c.discovery.getResources(
+            context,
+            Energistics.Etp.v12.Datatypes.Object.ContextScopeKind.targets,
+            false,
+            null
+          ),
+          remainingBudgetMs()
+        );
+      } catch (enumErr) {
+        if (enumErr instanceof OperationTimeoutError) {
+          await c.closeSession();
+          c = undefined;
+          throw new RequestTimeoutException({
+            statusCode: 408,
+            message:
+              `Validation exceeded the ${Math.round(TIME_BUDGET_MS / 1000)}s ` +
+              `time budget while enumerating dataspace objects. This ` +
+              `dataspace is too large to validate synchronously; validate a ` +
+              `smaller dataspace or raise VALIDATE_TIME_BUDGET_MS.`,
+            phase: "enumeration"
+          });
+        }
+        throw enumErr;
+      }
 
       if (resources.length === 0) {
         return {
@@ -983,17 +1049,57 @@ export default class ResourcesReadAPI {
         };
       }
 
-      // Fetch all object bodies
+      // Fetch object bodies in batches. Fetching every object at once
+      // previously loaded the whole dataspace into memory and could OOM/crash
+      // the pod on large dataspaces (which then broke unrelated in-flight
+      // requests). A hard object cap guards against pathological sizes.
       const uris = resources.map(r => r.uri);
-      const objects = await c.getDataObjects(uris);
-      await c.closeSession();
-      c = undefined;
+      const MAX_OBJECTS = Number(process.env.VALIDATE_MAX_OBJECTS ?? 2000);
+      if (uris.length > MAX_OBJECTS) {
+        await c.closeSession();
+        c = undefined;
+        throw new PayloadTooLargeException({
+          statusCode: 413,
+          message:
+            `Dataspace has ${uris.length} objects which exceeds the ` +
+            `validation limit of ${MAX_OBJECTS}. Validate a smaller ` +
+            `dataspace or raise the VALIDATE_MAX_OBJECTS limit.`,
+          object_count: uris.length,
+          limit: MAX_OBJECTS
+        });
+      }
+      const BATCH_SIZE = Math.max(
+        1,
+        Number(process.env.VALIDATE_BATCH_SIZE ?? 50)
+      );
 
-      // Convert to validator format
-      const xmlPayloads = objects
-        .filter(o => o !== null)
-        .map(o => {
-          const uri = o!.resource.uri;
+      // Convert to validator format, batch by batch. The fetch loop draws from
+      // the same wall-clock budget as the enumeration above, so the whole
+      // request can never overrun VALIDATE_TIME_BUDGET_MS. Overrunning stops
+      // with a clean 408 instead of keeping the shared pod busy on a request
+      // the client already abandoned.
+      const xmlPayloads: { content_type: string; uuid: string; xml: string }[] =
+        [];
+      for (let i = 0; i < uris.length; i += BATCH_SIZE) {
+        if (remainingBudgetMs() <= 0) {
+          await c.closeSession();
+          c = undefined;
+          throw new RequestTimeoutException({
+            statusCode: 408,
+            message:
+              `Validation exceeded the ${Math.round(TIME_BUDGET_MS / 1000)}s ` +
+              `time budget after fetching ${i} of ${uris.length} objects. ` +
+              `This dataspace is too large to validate synchronously; validate ` +
+              `a smaller dataspace or raise VALIDATE_TIME_BUDGET_MS.`,
+            fetched: i,
+            object_count: uris.length
+          });
+        }
+        const chunk = uris.slice(i, i + BATCH_SIZE);
+        const objects = await c.getDataObjects(chunk);
+        for (const o of objects) {
+          if (o === null) continue;
+          const uri = o.resource.uri;
           // Extract content type from URI pattern: /resqml20.obj_Foo(uuid)
           const uriMatch = uri.match(
             /\/(?<domain>resqml|eml|witsml|prodml)(?<ver>\d+)\.(?<type>(?:obj_)?\w+)\(/
@@ -1007,13 +1113,18 @@ export default class ResourcesReadAPI {
           const uuidMatch = uri.match(
             /\(([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\)/
           );
-          return {
-            content_type: contentType,
-            uuid: uuidMatch?.[1] ?? "",
-            xml: o!.data ? Buffer.from(o!.data).toString("utf-8") : ""
-          };
-        })
-        .filter(o => o.xml.length > 0);
+          const xml = o.data ? Buffer.from(o.data).toString("utf-8") : "";
+          if (xml.length > 0) {
+            xmlPayloads.push({
+              content_type: contentType,
+              uuid: uuidMatch?.[1] ?? "",
+              xml
+            });
+          }
+        }
+      }
+      await c.closeSession();
+      c = undefined;
 
       logger.info(`Validating ${xmlPayloads.length} objects from dataspace ${params.dataspaceId}...`);
       const { ValidatorClient } = await import("../../client/ValidatorClient");
