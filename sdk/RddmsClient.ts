@@ -243,6 +243,27 @@ function qs(params: Record<string, unknown>): string {
     return parts.length ? `?${parts.join("&")}` : "";
 }
 
+/**
+ * SSRF guard: validate that a fully-constructed request URL is a well-formed
+ * http/https URL before it is handed to `fetch`. The base URL is supplied by
+ * the SDK consumer, but validating here keeps user-controlled values from
+ * reaching the HTTP client as, e.g., `file:` or `gopher:` scheme requests.
+ */
+function assertHttpUrl(url: string): string {
+    let parsed: URL;
+    try {
+        parsed = new URL(url);
+    } catch {
+        throw new Error(`RDDMS client: malformed request URL: ${url}`);
+    }
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+        throw new Error(
+            `RDDMS client: unsupported URL scheme '${parsed.protocol}' (only http/https allowed)`,
+        );
+    }
+    return parsed.toString();
+}
+
 // ---------------------------------------------------------------------------
 // SDK Client
 // ---------------------------------------------------------------------------
@@ -255,6 +276,8 @@ export class RddmsClient {
 
     constructor(opts: RddmsClientOptions) {
         this.base = opts.baseUrl.replace(/\/+$/, "");
+        // Fail fast on a malformed or non-http(s) base URL (SSRF guard).
+        assertHttpUrl(`${this.base}/`);
         this.partitionId = opts.partitionId ?? "opendes";
         this.token = opts.token;
         this.extraHeaders = opts.headers ?? {};
@@ -265,7 +288,7 @@ export class RddmsClient {
     private async headers(): Promise<Record<string, string>> {
         if (!this.token) {
             // Auto-fetch dev token
-            const res = await fetch(`${this.base}/auth/token`, {
+            const res = await fetch(assertHttpUrl(`${this.base}/auth/token`), {
                 headers: { "data-partition-id": this.partitionId },
             });
             if (res.ok) {
@@ -283,7 +306,7 @@ export class RddmsClient {
     private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
         const h = await this.headers();
         if (body !== undefined) h["Content-Type"] = "application/json";
-        const res = await fetch(`${this.base}${path}`, {
+        const res = await fetch(assertHttpUrl(`${this.base}${path}`), {
             method,
             headers: h,
             body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -305,7 +328,7 @@ export class RddmsClient {
     /** Multipart POST (e.g. EPC upload). Lets fetch set the boundary. */
     private async upload<T>(path: string, form: FormData): Promise<T> {
         const h = await this.headers();
-        const res = await fetch(`${this.base}${path}`, { method: "POST", headers: h, body: form });
+        const res = await fetch(assertHttpUrl(`${this.base}${path}`), { method: "POST", headers: h, body: form });
         if (!res.ok) {
             const text = await res.text();
             throw new Error(`RDDMS POST ${path} \u2192 ${res.status}: ${text}`);
