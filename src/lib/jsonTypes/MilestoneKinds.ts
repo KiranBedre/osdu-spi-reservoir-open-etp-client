@@ -17,6 +17,7 @@
  */
 
 import logging from "../common/Logging";
+import { safeFetch } from "../common/SafeFetch";
 const logger = logging.getLogger({ name: "MilestoneKinds", level: "info" });
 
 /** Runtime-resolved kinds from Schema Service (populated by initSchemaVersions). */
@@ -74,7 +75,7 @@ export async function initSchemaVersions(
       entityPrefixes.map(async entityPrefix => {
         const url = `${schemaUrl}?authority=osdu&source=wks&entityType=${entityPrefix}--*&status=PUBLISHED&limit=1000`;
         try {
-          const resp = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+          const resp = await safeFetch(url, { headers, signal: AbortSignal.timeout(10000) });
           if (!resp.ok) {
             logger.warn(`Schema Service returned ${resp.status} for ${entityPrefix} - skipping`);
             return [] as Array<{ schemaIdentity: { id: string } }>;
@@ -320,7 +321,7 @@ export async function isSchemaRegistered(
   if (dataPartitionId) headers["data-partition-id"] = dataPartitionId;
 
   try {
-    const resp = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+    const resp = await safeFetch(url, { headers, signal: AbortSignal.timeout(10000) });
     // Only cache DEFINITIVE answers: 200 = registered, 404 = not registered.
     // Transient/auth failures (401/403/5xx/etc.) must NOT poison the cache with
     // `false`, otherwise a single stale-token lookup would silently drop every
@@ -392,7 +393,7 @@ export async function listRegisteredVersions(
   if (dataPartitionId) headers["data-partition-id"] = dataPartitionId;
 
   try {
-    const resp = await fetch(url, { headers, signal: AbortSignal.timeout(10000) });
+    const resp = await safeFetch(url, { headers, signal: AbortSignal.timeout(10000) });
     if (resp.status !== 200) {
       schemaVersionsCache.set(cacheKey, []);
       return [];

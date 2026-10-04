@@ -96,6 +96,7 @@ import {
     defaultDataspaceDataCountries
 } from "../../common/config";
 import { bigIntToString } from "../../mlTypes/XmlJsonUtil";
+import { safeFetch } from "../../common/SafeFetch";
 import {
     ensureSchemaVersions,
     isSchemaRegistered,
@@ -1821,7 +1822,7 @@ export default class EpcUploadAPI {
         }, bigIntToString);
 
         try {
-            const res = await fetch(`${osduUrl}/api/schema-service/v1/schema`, {
+            const res = await safeFetch(`${osduUrl}/api/schema-service/v1/schema`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -2021,7 +2022,7 @@ export default class EpcUploadAPI {
             return false;
         }
         try {
-            const res = await fetch(
+            const res = await safeFetch(
                 `${osduUrl}/api/storage/v2/records/${encodeURIComponent(id)}`,
                 {
                     method: "GET",
@@ -2045,7 +2046,7 @@ export default class EpcUploadAPI {
         partition: string
     ): Promise<Response> {
         const body = JSON.stringify(batch, bigIntToString);
-        return fetch(`${osduUrl}/api/storage/v2/records`, {
+        return safeFetch(`${osduUrl}/api/storage/v2/records`, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json",
@@ -2069,7 +2070,7 @@ export default class EpcUploadAPI {
             }
         }, bigIntToString);
 
-        const res = await fetch(
+        const res = await safeFetch(
             `${osduUrl}/api/workflow/v1/workflow/Osdu_ingest/workflowRun`,
             {
                 method: "POST",
