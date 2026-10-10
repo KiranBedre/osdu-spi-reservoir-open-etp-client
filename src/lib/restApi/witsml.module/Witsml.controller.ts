@@ -265,6 +265,15 @@ function microsToIso(lastChanged: unknown): string | null {
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+// Upper bound (bytes/chars) on the XML fed to the backtracking-prone WITSML
+// element regexes below. Several of them use nested `[\s\S]*?` / `(...)+`
+// repetition that degrades to high-order polynomial / exponential time on
+// malformed input with missing closing tags (CWE-1333). Bounding the input
+// keeps worst-case matching time flat regardless of caller input.
+const MAX_WITSML_REGEX_INPUT = Number(
+  process.env.RDMS_MAX_WITSML_REGEX_INPUT ?? 5 * 1024 * 1024
+);
+
 interface ParsedWitsmlObject {
   objectType: string;
   uuid: string;
@@ -546,6 +555,13 @@ function parseDataRow(row: string): (number | number[])[] {
  * Returns per-channel Float64Array for each mnemonic (including the index curve).
  */
 function extractChannelArrays(xml: string): ChannelArray[] {
+  // Bound the input fed to the backtracking-prone element regexes (CWE-1333).
+  if (xml.length > MAX_WITSML_REGEX_INPUT) {
+    throw new EtpError(
+      `WITSML payload too large to parse (max ${MAX_WITSML_REGEX_INPUT} bytes)`,
+      ErrorCode.EINVALID_ARGUMENT
+    );
+  }
   // --- WITSML 1.4.1 format ---
   // <logCurveInfo><mnemonic>GR</mnemonic>...</logCurveInfo>
   // <logData><data>1000.0, 45.2, 105.3</data>...</logData>
@@ -858,17 +874,21 @@ export default class WitsmlController {
       for (const obj of parsedObjects) {
         const entry = objectArrayMap.get(obj.uuid);
         if (entry && entry.arrays.length > 0) {
-          // Strip WITSML 1.4.1 <logData>...</logData> blocks
-          obj.xml = obj.xml.replace(
-            /<(?:[\w]+:)?logData\b[^>]*>[\s\S]*?<\/(?:[\w]+:)?logData>/gi,
-            ""
-          );
-          // Strip WITSML 2.1 ChannelSet <Data><Data>rows</Data>...</Data> container
-          // Match the outer <Data> that wraps multiple <Data> row elements
-          obj.xml = obj.xml.replace(
-            /<(?:[\w]+:)?Data>\s*(?:<(?:[\w]+:)?(?:MnemonicList|Data)>[\s\S]*?<\/(?:[\w]+:)?Data>\s*)+<\/(?:[\w]+:)?Data>/gi,
-            ""
-          );
+          // Skip the backtracking-prone inline-strip regexes on oversized XML
+          // to avoid catastrophic matching time (CWE-1333).
+          if (obj.xml.length <= MAX_WITSML_REGEX_INPUT) {
+            // Strip WITSML 1.4.1 <logData>...</logData> blocks
+            obj.xml = obj.xml.replace(
+              /<(?:[\w]+:)?logData\b[^>]*>[\s\S]*?<\/(?:[\w]+:)?logData>/gi,
+              ""
+            );
+            // Strip WITSML 2.1 ChannelSet <Data><Data>rows</Data>...</Data> container
+            // Match the outer <Data> that wraps multiple <Data> row elements
+            obj.xml = obj.xml.replace(
+              /<(?:[\w]+:)?Data>\s*(?:<(?:[\w]+:)?(?:MnemonicList|Data)>[\s\S]*?<\/(?:[\w]+:)?Data>\s*)+<\/(?:[\w]+:)?Data>/gi,
+              ""
+            );
+          }
           obj.xml = injectExternalArrayRefs(obj.xml, obj.uuid, entry.arrays);
         }
       }

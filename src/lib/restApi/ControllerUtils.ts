@@ -25,6 +25,8 @@ import {
 
 import { EtpUri } from "../common/EtpUri";
 
+import { createHash } from "crypto";
+
 import express from "express";
 
 import {
@@ -91,6 +93,41 @@ export const swaggerServers: any = undefined;
 
 let userInfo: string;
 
+/**
+ * Derive a stable, non-reversible owner fingerprint for a caller from their
+ * bearer token (or Basic header) and data partition. Used to bind a pooled
+ * transaction to the identity that created it so a different caller cannot
+ * reuse it by quoting only the transactionId (CWE-287).
+ */
+const computeOwnerKey = (
+  jwt: string,
+  dataPartitionId?: string,
+  basicUserInfo?: string
+): string => {
+  // Prefer a stable principal (JWT `sub`/`oid`/`upn`) over the raw token so a
+  // legitimate caller is not locked out of their own transaction after a token
+  // refresh. Fall back to the Basic header, then the raw token.
+  let principal = basicUserInfo ?? "";
+  if (jwt) {
+    try {
+      const parts = jwt.split(".");
+      if (parts.length === 3) {
+        const payload = JSON.parse(
+          Buffer.from(parts[1], "base64url").toString("utf-8")
+        );
+        principal =
+          payload?.sub ?? payload?.oid ?? payload?.upn ?? (principal || jwt);
+      } else if (!principal) {
+        principal = jwt;
+      }
+    } catch {
+      principal = principal || jwt;
+    }
+  }
+  const material = `${principal}|${dataPartitionId ?? ""}`;
+  return createHash("sha256").update(material).digest("hex");
+};
+
 const PING_INTERVAL_MS = 30000;
 
 const etpClients = new Map<
@@ -101,6 +138,7 @@ const etpClients = new Map<
     pingIntervalId: NodeJS.Timeout;
     timeoutPeriod: number;
     dataspaceUri: string;
+    ownerKey: string;
     onDisconnect: (
       connection?: unknown,
       closeCode?: number,
@@ -380,6 +418,11 @@ export const extractToken = (request?: express.Request): string => {
   if (token.length < 2) {
     return "";
   }
+  // Require the Bearer scheme explicitly - do not accept an arbitrary
+  // two-part header (CWE-287).
+  if (token[0].toLowerCase() !== "bearer") {
+    return "";
+  }
   // Check token respects base64 format.
   if (!RegExp(/^[a-zA-Z0-9._-]+$/).exec(token[1])) {
     // Throw an HttpException so callers catching with httpErrorFromEtpError
@@ -390,6 +433,22 @@ export const extractToken = (request?: express.Request): string => {
   }
   // Snyk is reporting this as an XSS issue, but as we ensure token as the right format it can be ignored.
   return token[1];
+};
+
+/**
+ * Extract the raw Basic `Authorization` header for the current request without
+ * relying on shared module-level state (CWE-488). Callers pass the result
+ * explicitly to {@link createSession} / {@link createTransaction}.
+ *
+ * @param {express.Request} [request]
+ * @returns {string}
+ */
+export const extractUserInfo = (request?: express.Request): string => {
+  const authHeader = request?.headers?.authorization;
+  if (authHeader && authHeader.includes("Basic")) {
+    return authHeader;
+  }
+  return "";
 };
 
 /**
@@ -547,7 +606,16 @@ export const HasBearerGuard: (type?: string | string[]) => CanActivate = (
         return false;
       }
       const token = authHeader.split(" ");
-      return token.length === 2;
+      if (token.length !== 2) {
+        return false;
+      }
+      const scheme = token[0].toLowerCase();
+      // Accept only recognised auth schemes with a non-empty credential,
+      // instead of any two space-separated parts (CWE-287).
+      if (scheme !== "bearer" && scheme !== "basic") {
+        return false;
+      }
+      return token[1].length > 0;
     }
   };
 };
@@ -790,8 +858,10 @@ export const createSession = async (
   jwt: string,
   dataPartitionId?: string,
   options?: IOptions,
-  transactionId?: string
+  transactionId?: string,
+  userInfoArg?: string
 ) => {
+  const callerUserInfo = userInfoArg ?? userInfo;
   if (transactionId) {
     throwIfTerminated(transactionId);
     const c1 = etpClients.get(transactionId);
@@ -800,6 +870,15 @@ export const createSession = async (
         `Transaction ${transactionId} does not exists`,
         ErrorCode.ENOT_FOUND
       );
+    }
+    // Bind the pooled transaction to the identity that created it: a caller
+    // who only knows the transactionId but is a different principal must not
+    // be able to reuse it (CWE-287).
+    const callerKey = computeOwnerKey(jwt, dataPartitionId, callerUserInfo);
+    if (c1.ownerKey && c1.ownerKey !== callerKey) {
+      throw new ForbiddenException({
+        description: `Transaction ${transactionId} does not belong to the caller`
+      });
     }
     if (!c1.client.isConnected()) {
       cleanupTransaction(transactionId);
@@ -821,7 +900,7 @@ export const createSession = async (
   } else {
     const c = new ResqmlClient(options);
     await c
-      .openSession(etpServerUrl, jwt, dataPartitionId, userInfo)
+      .openSession(etpServerUrl, jwt, dataPartitionId, callerUserInfo)
       .catch(err => {
         // EtpError comes from a ProtocolException sent back by the ETP
         // server (errorFromProtocolException) - its message is an
@@ -868,11 +947,14 @@ export const createTransaction = async (
   options?: IOptions,
   dataPartitionId?: string,
   timeoutPeriod: number = 300,
-  retries = 6
+  retries = 6,
+  userInfoArg?: string
 ): Promise<string> => {
+  const callerUserInfo = userInfoArg ?? userInfo;
+  const ownerKey = computeOwnerKey(jwt, dataPartitionId, callerUserInfo);
   const c = new ResqmlClient(options);
   return c
-    .openSession(etpServerUrl, jwt, dataPartitionId)
+    .openSession(etpServerUrl, jwt, dataPartitionId, callerUserInfo)
     .then(async () => {
       // Validate the dataspace exists before starting a transaction (#78)
       const info = await c.getDataspaceInfo([dataspace]);
@@ -929,6 +1011,7 @@ export const createTransaction = async (
         pingIntervalId,
         timeoutPeriod,
         dataspaceUri: dataspace,
+        ownerKey,
         onDisconnect
       });
       return idString;

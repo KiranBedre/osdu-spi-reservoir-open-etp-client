@@ -76,6 +76,7 @@ import {
     errorMessageSchema,
     extractDataPartitionId,
     extractToken,
+    extractUserInfo,
     httpErrorFromEtpError,
     partitionPattern,
     patternString,
@@ -157,6 +158,66 @@ const UPLOAD_TIMEOUT_MS = parseInt(
 const ARRAY_FAILURE_THRESHOLD = parseFloat(
     process.env.RDMS_ARRAY_FAILURE_THRESHOLD ?? "0.5"
 );
+
+/** Max decompressed size of a single EPC zip entry (default 500 MB, CWE-409) */
+const MAX_EPC_ENTRY_BYTES = parseInt(
+    process.env.RDMS_EPC_MAX_ENTRY_SIZE_MB ?? "500",
+    10
+) * 1024 * 1024;
+
+/** Max cumulative decompressed size across all EPC entries (default 2 GB) */
+const MAX_EPC_TOTAL_INFLATED_BYTES = parseInt(
+    process.env.RDMS_EPC_MAX_TOTAL_INFLATED_MB ?? "2048",
+    10
+) * 1024 * 1024;
+
+/**
+ * Minimal structural view of an adm-zip entry (adm-zip is dynamically imported).
+ */
+interface SafeZipEntry {
+    entryName: string;
+    header?: { size?: number };
+    getData(): Buffer;
+}
+
+/**
+ * Inflate a single EPC zip entry while enforcing per-entry and cumulative
+ * decompressed-size limits to defeat zip-bomb / decompression-amplification
+ * attacks (CWE-409). The compressed upload size is already capped elsewhere,
+ * but that does not bound the inflated size of the entries inside.
+ *
+ * @param counter mutable accumulator of total inflated bytes across the upload
+ */
+function readZipEntrySafely(
+    entry: SafeZipEntry,
+    counter: { total: number }
+): Buffer {
+    const declared = entry.header?.size ?? 0;
+    if (declared > MAX_EPC_ENTRY_BYTES) {
+        throw new BadRequestException({
+            description:
+                `EPC entry '${entry.entryName}' declares an uncompressed size ` +
+                `(${declared} bytes) above the limit of ${MAX_EPC_ENTRY_BYTES} bytes`
+        });
+    }
+    const data = entry.getData();
+    if (data.length > MAX_EPC_ENTRY_BYTES) {
+        throw new BadRequestException({
+            description:
+                `EPC entry '${entry.entryName}' inflated to ${data.length} bytes, ` +
+                `above the limit of ${MAX_EPC_ENTRY_BYTES} bytes`
+        });
+    }
+    counter.total += data.length;
+    if (counter.total > MAX_EPC_TOTAL_INFLATED_BYTES) {
+        throw new BadRequestException({
+            description:
+                `EPC archive inflates to more than the allowed ` +
+                `${MAX_EPC_TOTAL_INFLATED_BYTES} bytes in total`
+        });
+    }
+    return data;
+}
 
 /** Max concurrent array uploads (default 5) */
 const ARRAY_CONCURRENCY = parseInt(
@@ -822,6 +883,8 @@ export default class EpcUploadAPI {
             const AdmZip = (await import("adm-zip")).default;
             const zip = new AdmZip(epcFile.path);
             const zipEntries = zip.getEntries();
+            // Tracks cumulative decompressed bytes to enforce a zip-bomb cap (CWE-409)
+            const inflatedCounter = { total: 0 };
 
             // Find [Content_Types].xml
             const ctEntry = zipEntries.find(
@@ -836,7 +899,7 @@ export default class EpcUploadAPI {
                         "Invalid EPC file: missing [Content_Types].xml manifest"
                 });
             }
-            const contentTypes = parseContentTypes(ctEntry.getData().toString("utf-8"));
+            const contentTypes = parseContentTypes(readZipEntrySafely(ctEntry, inflatedCounter).toString("utf-8"));
             logger.info(`Found ${contentTypes.size} part(s) in [Content_Types].xml`);
             timings.unzip = performance.now() - phaseStart;
 
@@ -872,7 +935,7 @@ export default class EpcUploadAPI {
                 );
                 if (!entry || entry.isDirectory) continue;
 
-                const xmlStr = entry.getData().toString("utf-8");
+                const xmlStr = readZipEntrySafely(entry, inflatedCounter).toString("utf-8");
                 const uuid = extractUuidFromXml(xmlStr);
                 if (!uuid) {
                     warnings.push({ phase: "extract", message: `Skipping ${partName}: no UUID found in XML` });
@@ -1542,6 +1605,9 @@ export default class EpcUploadAPI {
         const bearer = extractToken(request);
         const partition = extractDataPartitionId(request);
         const partitionStr = typeof partition === "string" ? partition : "osdu";
+        // Capture Basic-auth info synchronously for this request so it is not
+        // read from shared module state after the awaits below (CWE-488).
+        const reqUserInfo = extractUserInfo(request);
 
         if (!osduUrl || osduUrl === "http://localhost") {
             return {
@@ -1559,7 +1625,7 @@ export default class EpcUploadAPI {
             logger.info(`[autoIngest] Building manifest for dataspace '${dataspaceId}' (mode=${mode})...`);
 
             // Create a fresh ETP session for manifest building
-            const manifestClient = await createSession(bearer, partition);
+            const manifestClient = await createSession(bearer, partition, undefined, undefined, reqUserInfo);
             if (!manifestClient) {
                 return { status: "failed", mode, error: "Failed to create ETP session for manifest" };
             }

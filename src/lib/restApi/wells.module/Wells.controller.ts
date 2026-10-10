@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Controller,
   Get,
   Query,
@@ -132,8 +133,22 @@ export default class WellsController {
         include ? include.split(",").map(s => s.trim().toLowerCase()) : ["logs", "trajectories", "channelsets"]
       );
 
-      // Convert user wildcard to regex for client-side name filtering
-      const nameRegex = new RegExp("^" + namePattern.replace(/\*/g, ".*") + "$", "i");
+      // Convert user wildcard to regex for client-side name filtering.
+      // Escape ALL regex metacharacters first so caller input cannot inject a
+      // catastrophic-backtracking pattern (CWE-1333), then re-enable only the
+      // `*` wildcard as a linear-time `.*`. Bound the length as defence in depth.
+      if (namePattern.length > 1024) {
+        throw new BadRequestException("name filter is too long (max 1024 chars)");
+      }
+      const escapedPattern = namePattern
+        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+        .replace(/\\\*/g, ".*");
+      let nameRegex: RegExp;
+      try {
+        nameRegex = new RegExp("^" + escapedPattern + "$", "i");
+      } catch {
+        throw new BadRequestException("invalid name filter");
+      }
 
       const results: WellResult[] = [];
 
