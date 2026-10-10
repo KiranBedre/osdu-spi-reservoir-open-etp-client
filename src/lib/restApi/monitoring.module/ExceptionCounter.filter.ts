@@ -20,6 +20,7 @@ import { BaseExceptionFilter } from '@nestjs/core';
 import { Request, Response } from 'express';
 
 import MetricsProvider from './Metrics.provider';
+import { normalizeMetricRoute } from './normalizeMetricRoute';
 import Logging from '../../common/Logging';
 
 const logger = Logging.getLogger("EtpClient");
@@ -68,7 +69,7 @@ export default class ExceptionCounterFilter extends BaseExceptionFilter {
 
     const ctx = host.switchToHttp();
     const req = ctx.getRequest<Request>();
-    const reqPathname = req?.originalUrl?.split('?')[0] ?? '';
+    const reqPathname = normalizeMetricRoute(req?.originalUrl);
 
     if (exception instanceof HttpException) {
       errorLabels.push('http_exception');

@@ -1064,13 +1064,29 @@ Each object must conform to the Energistics JSON schema for its type and include
                 ErrorCode.EINVALID_ARGUMENT
               );
             }
+            // Validate per-dimension bounds and reject negative / NaN values
+            // for EVERY dimension (CWE-1284). Runs independently of full-array
+            // detection, otherwise the bounds check becomes dead code as soon as
+            // the first non-full dimension is seen (the original `break`).
             let fullArray = true;
             for (let d = 0; d < a.Dimensions.length; d++) {
-              if (a.Starts[d] !== 0 || a.Counts[d] !== a.Dimensions[d]) {
-                fullArray = false;
-                break;
+              const start = a.Starts[d];
+              const count = a.Counts[d];
+              if (
+                !Number.isInteger(start) ||
+                !Number.isInteger(count) ||
+                start < 0 ||
+                count < 0
+              ) {
+                logger.error(
+                  "Validation Failed: Starts and Counts must be non-negative integers."
+                );
+                throw new EtpError(
+                  `Validation Failed: Invalid Range: Starts and Counts must be non-negative integers`,
+                  ErrorCode.EINVALID_ARGUMENT
+                );
               }
-              if (a.Starts[d] + a.Counts[d] > a.Dimensions[d]) {
+              if (start + count > a.Dimensions[d]) {
                 logger.error(
                   "Validation Failed: Starts + Counts exceed Dimensions."
                 );
@@ -1078,6 +1094,9 @@ Each object must conform to the Energistics JSON schema for its type and include
                   `Validation Failed: Invalid Range: Starts + Counts exceed Dimensions`,
                   ErrorCode.EINVALID_ARGUMENT
                 );
+              }
+              if (start !== 0 || count !== a.Dimensions[d]) {
+                fullArray = false;
               }
             }
             if (
@@ -1273,14 +1292,27 @@ Each object must conform to the Energistics JSON schema for its type and include
           }
           let fullArray = true;
           for (let d = 0; d < dims.length; d++) {
-            if (startsArr[d] !== 0 || countsArr[d] !== dims[d]) {
-              fullArray = false;
+            const start = startsArr[d];
+            const count = countsArr[d];
+            if (
+              !Number.isInteger(start) ||
+              !Number.isInteger(count) ||
+              start < 0 ||
+              count < 0
+            ) {
+              throw new EtpError(
+                `Validation Failed: Invalid Range: Starts and Counts must be non-negative integers`,
+                ErrorCode.EINVALID_ARGUMENT
+              );
             }
-            if (startsArr[d] + countsArr[d] > dims[d]) {
+            if (start + count > dims[d]) {
               throw new EtpError(
                 `Validation Failed: Invalid Range: Starts + Counts exceed Dimensions`,
                 ErrorCode.EINVALID_ARGUMENT
               );
+            }
+            if (start !== 0 || count !== dims[d]) {
+              fullArray = false;
             }
           }
           if (countsArr.reduce((p, cur) => p * cur, 1) !== dataArr.length) {

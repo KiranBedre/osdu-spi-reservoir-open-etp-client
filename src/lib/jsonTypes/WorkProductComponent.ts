@@ -33,6 +33,17 @@ import { AbstractWorkProductComponent } from "./Generated/abstract/AbstractWorkP
 import { CoordinateReferenceSystem } from "./Generated/reference-data/CoordinateReferenceSystem.1.1.0";
 import { context } from "../cxml/cxml";
 
+/**
+ * Property-name segments that must never be used as a destination key when
+ * walking a caller-controlled property path, to prevent prototype pollution
+ * (CWE-1321). Matching any of these aborts the assignment for that entry.
+ */
+const UNSAFE_PROPERTY_KEYS = new Set<string>([
+  "__proto__",
+  "constructor",
+  "prototype"
+]);
+
 enum AnyCRSGeoJSONPointType {
   AnyCRSGeometryCollection = "AnyCrsGeometryCollection",
   AnyCRSLineString = "AnyCrsLineString",
@@ -1284,6 +1295,12 @@ export class ResqmlResource<RES_TYPE extends IResqmlDataObject> {
         const path = x.Name.split("/");
         path.shift(); // remove the "osdu" prefix
 
+        // Reject any caller-controlled segment that could pollute a prototype
+        // (CWE-1321). Applies to the whole path, including the final segment.
+        if (path.some(seg => UNSAFE_PROPERTY_KEYS.has(seg))) {
+          return;
+        }
+
         // check that the decomposed path corresponds to a valid path in the object prototype
         // eslint-disable-next-line @typescript-eslint/no-this-alias
         let curObj: Record<string, any> = this;
@@ -1291,7 +1308,7 @@ export class ResqmlResource<RES_TYPE extends IResqmlDataObject> {
         const lastindex = path.length - 1;
 
         for (let i = 0; i < lastindex; i++) {
-          if (path[i] in curObj) {
+          if (Object.prototype.hasOwnProperty.call(curObj, path[i])) {
             const key = path[i];
             if (curObj[key] === undefined) {
               curObj[key] = {};
@@ -1346,6 +1363,10 @@ export class ResqmlResource<RES_TYPE extends IResqmlDataObject> {
       const resqmlMeta: Record<string, unknown> =
         (data.ExtensionProperties["ResqmlMetadata"] as Record<string, unknown>) ?? {};
       for (const entry of nonOsduEntries) {
+        // Never allow a caller-controlled name to pollute a prototype (CWE-1321).
+        if (UNSAFE_PROPERTY_KEYS.has(entry.Name)) {
+          continue;
+        }
         let value: unknown = entry.Value;
         try {
           if (typeof entry.Value === "object") {

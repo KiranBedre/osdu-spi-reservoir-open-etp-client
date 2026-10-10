@@ -19,6 +19,7 @@ import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 
 import MetricsProvider from './Metrics.provider';
+import { normalizeMetricRoute } from './normalizeMetricRoute';
 
 const NS_PER_SEC = 1e9;
 const NS_TO_MS = 1e6;
@@ -51,7 +52,7 @@ export default class ResponseDurationMiddleware implements NestMiddleware {
   }
 
   handleResponse(req: Request, startReqTime: [number, number], eventName: string) {
-    const reqPathname = req.originalUrl.split('?')[0];
+    const reqPathname = normalizeMetricRoute(req.originalUrl);
     const durationInMilliseconds = getDurationInMilliseconds(startReqTime);
 
     this.metricsProvider.registerHistogram(

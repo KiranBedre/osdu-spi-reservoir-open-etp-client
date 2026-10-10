@@ -361,9 +361,9 @@ export class XMLBuilder {
       if (mlTypes) {
         xmlType = mlTypes[type.split(":")[1]];
       }
-      attrStr += ` xsi:type="${type}"`;
+      attrStr += ` xsi:type="${this.escapeXmlAttr(type)}"`;
     } else {
-      attrStr += ` xsi:type="${this.xsiType(xmlType, version)}"`;
+      attrStr += ` xsi:type="${this.escapeXmlAttr(this.xsiType(xmlType, version))}"`;
     }
 
     const rule = xmlType?.rule;
@@ -485,10 +485,13 @@ export class XMLBuilder {
               continue;
             }
             if (key2 === "$type") {
-              attr2 += ` xsi:type="${jObj[key][key2].replace(".", ":")}"`;
+              attr2 += ` xsi:type="${this.escapeXmlAttr(
+                String(jObj[key][key2]).replace(".", ":")
+              )}"`;
             } else {
-              attr2 += ` ${key2.charAt(0).toLowerCase() + key2.slice(1)}="${jObj[key][key2]
-                }"`;
+              attr2 += ` ${key2.charAt(0).toLowerCase() + key2.slice(1)}="${this.escapeXmlAttr(
+                jObj[key][key2]
+              )}"`;
             }
           }
           valParts.push(this.buildTextValueNode(jObj[key]["_"], curKey, attr2, level));
@@ -665,6 +668,9 @@ export class XMLBuilder {
    */
   private replaceEntitiesValue(textValue: string): string {
     const entities: { regex: RegExp; val: string }[] = [
+      // `&` MUST be replaced first, otherwise the ampersands introduced by the
+      // subsequent replacements would be double-escaped (CWE-116).
+      { regex: /&/g, val: "&amp;" },
       { regex: />/g, val: "&gt;" },
       { regex: /</g, val: "&lt;" },
       { regex: /'/g, val: "&apos;" },
@@ -676,6 +682,24 @@ export class XMLBuilder {
       }
     }
     return textValue;
+  }
+
+  /**
+   * Escape a string for safe use inside a double-quoted XML attribute value
+   * (CWE-91/CWE-116). Escapes `&` first, then `<`, `>`, `"` and `'`.
+   *
+   * @private
+   * @param {unknown} value
+   * @returns {string}
+   * @memberof XMLBuilder
+   */
+  private escapeXmlAttr(value: unknown): string {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&apos;");
   }
 
   /**

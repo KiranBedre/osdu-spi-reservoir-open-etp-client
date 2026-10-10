@@ -26,6 +26,7 @@ import {
 } from "./PropertyTypes";
 
 import fetch, { HeadersInit, RequestInit } from "node-fetch";
+import { assertSafeOutboundUrl } from "../common/SafeFetch";
 
 export type OSDUResourceType = {
   acl: AccessControlList;
@@ -700,6 +701,9 @@ export class OSDUContext {
       }
     }
     const url = this.osduUrl + path;
+    // SSRF guard (CWE-918): reject non-http(s) schemes / malformed URLs and,
+    // when RDMS_OUTBOUND_ALLOWED_HOSTS is set, non-allowlisted hosts.
+    assertSafeOutboundUrl(url);
     return fetch(url, init)
       .then(async r => {
         if (r.status < 200 || r.status >= 300) {

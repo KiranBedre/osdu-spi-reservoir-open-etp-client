@@ -19,13 +19,14 @@ import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 
 import MetricsProvider from './Metrics.provider';
+import { normalizeMetricRoute } from './normalizeMetricRoute';
 
 @Injectable()
 export default class ResponseCounterMiddleware implements NestMiddleware {
   constructor(private metricsProvider: MetricsProvider) { }
 
   use(req: Request, _res: Response, next: NextFunction) {
-    const reqPathname = req.originalUrl.split('?')[0];
+    const reqPathname = normalizeMetricRoute(req.originalUrl);
 
     this.metricsProvider.registerCounterMetric(
       'http_request_counter',
