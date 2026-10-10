@@ -21,11 +21,15 @@ import MsgDeleteDataObjectsResponseTypeId = Energistics.Etp.v12.Protocol.Store.M
 import MsgPutDataObjectsResponseTypeId = Energistics.Etp.v12.Protocol.Store.MsgPutDataObjectsResponse;
 import DataObject = Energistics.Etp.v12.Datatypes.Object.DataObject;
 
-const volveWellUuid = 'ca96314d-a048-46bf-9a1e-a27edd9bac09';
-const volveWellboreUuid = '1f86e6c8-9de9-47fb-a4b0-cd74c74fc96d';
-const invalidUri = "eml://invalidUri";
-const invalidUuid = "invalid";
-const unsupportedDataObjectUri = "eml:///witsml21.Unsupported(301b6ebe-a211-49e2-a556-f7378576ddc9)";
+// Sub-protocol parameters. Each may be overridden via the test config
+// (protocols.store.*); when absent we fall back to the historical default
+// so existing certification configs keep working unchanged.
+const volveWellUuid = config.protocols.store.wellUuidForGet ?? 'ca96314d-a048-46bf-9a1e-a27edd9bac09';
+const volveWellboreUuid = config.protocols.store.wellboreUuidForGet ?? '1f86e6c8-9de9-47fb-a4b0-cd74c74fc96d';
+const invalidUri = config.protocols.store.invalidUri ?? "eml://invalidUri";
+const invalidUuid = config.protocols.store.invalidUuid ?? "invalid";
+const unsupportedDataObjectUri =
+  config.protocols.store.unsupportedDataObjectUri ?? "eml:///witsml21.Unsupported(301b6ebe-a211-49e2-a556-f7378576ddc9)";
 
 jest.setTimeout(3 * 1000);
 

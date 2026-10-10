@@ -13,7 +13,12 @@
 
     "store": {
       "supported": true,
-      "supportsWrite": false
+      "supportsWrite": false,
+      "wellUuidForGet": "ca96314d-a048-46bf-9a1e-a27edd9bac09",
+      "wellboreUuidForGet": "1f86e6c8-9de9-47fb-a4b0-cd74c74fc96d",
+      "invalidUri": "eml://invalidUri",
+      "invalidUuid": "invalid",
+      "unsupportedDataObjectUri": "eml:///witsml21.Unsupported(301b6ebe-a211-49e2-a556-f7378576ddc9)"
     }
   }
 }
