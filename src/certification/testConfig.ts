@@ -27,15 +27,23 @@ const config: {
     store: {
       supported: boolean;
       supportsWrite: boolean;
-      wellUriForGet: string;
-      trajectoryUriForGet: string;
-      wellBoreUriForGet: string;
-      channelUriForGet: string;
-      unsupportedDataObjectUri: string;
-      resourceNotFoundUri: string;
-      unsupportedDeleteUri: string;
-      uriForDelete1: string;
-      uriForDelete2: string;
+      // Optional sub-protocol parameters. When omitted, the store
+      // certification tests fall back to their built-in default values,
+      // so existing configurations remain fully backward compatible.
+      wellUriForGet?: string;
+      trajectoryUriForGet?: string;
+      wellBoreUriForGet?: string;
+      channelUriForGet?: string;
+      unsupportedDataObjectUri?: string;
+      resourceNotFoundUri?: string;
+      unsupportedDeleteUri?: string;
+      uriForDelete1?: string;
+      uriForDelete2?: string;
+      // Tunables consumed directly by 4.storeProtocol.cert.ts
+      wellUuidForGet?: string;
+      wellboreUuidForGet?: string;
+      invalidUri?: string;
+      invalidUuid?: string;
     };
   };
 } = JSON.parse(fs.readFileSync(fileName, "utf8"));

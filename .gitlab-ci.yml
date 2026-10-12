@@ -1,6 +1,14 @@
 variables:
   #azure
   AZURE_SWAGGER_PATH: api/reservoir-ddms/v2/
+  # cimpl-check-openapi-spec onboarding (#139)
+  # NestJS does not match the shared job's auto-discovery, so point it directly
+  # at the live spec. The documents are nested UNDER the route prefix (see
+  # App.ts: yamlDocumentUrl = "<prefix>/openapi.yaml"); the default "<prefix>-yaml"
+  # sibling 404s at the cimpl Istio ingress. The baseline lives outside the
+  # gitignored docs/ tree (docs/ holds regenerated typedoc output).
+  CIMPL_OPENAPI_YAML_ROUTE: "/api/reservoir-ddms/v2/openapi.yaml"
+  CIMPL_OPENAPI_SPEC_PATH: "api/community/v2/openapi.yaml"
 # Stub: upstream cimpl-global.yml defines jobs that `extends: .maven`, which is
 # only available for Java services. Define a minimal hidden template so YAML
 # validation passes; the individual cimpl-dev-* jobs are disabled via rules below.
