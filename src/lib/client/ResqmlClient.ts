@@ -1103,7 +1103,9 @@ export class ResqmlClient {
             // The server-side copy preserves the source object UUIDs. When the
             // caller wants an independent, re-ingestable copy, rewrite every
             // object in the freshly copied dataspace with brand new identities.
-            await this.reidentifyDataspaceObjects(uri);
+            // The origin URI is required so the array bytes can be sourced from
+            // it (copyDataspacesContent imports arrays by reference only).
+            await this.reidentifyDataspaceObjects(uri, originURI);
           }
           return true;
         })
@@ -1182,11 +1184,22 @@ export class ResqmlClient {
    * @returns {Promise<boolean>} success
    * @memberof ResqmlClient
    */
-  public async reidentifyDataspaceObjects(targetUri: URI): Promise<boolean> {
+  public async reidentifyDataspaceObjects(
+    targetUri: URI,
+    originURI: URI
+  ): Promise<boolean> {
     const resources = await this.getDataspaceResources(targetUri);
     if (resources.length === 0) {
       return true;
     }
+
+    // copyDataspacesContent imports objects *by reference*: the physical HDF5
+    // array bytes live only in the origin dataspace, not the freshly created
+    // destination. Re-identification therefore reads each array from the origin
+    // and re-puts it under the destination (new) identity. Capture both
+    // dataspace names so the array reader can target the origin.
+    const targetDataspace = new EtpUri(targetUri).dataSpace;
+    const originDataspace = new EtpUri(originURI).dataSpace;
 
     // 1. Mint a new uuid for every object in the dataspace.
     const uuidMap = new Map<string, string>();
@@ -1249,7 +1262,12 @@ export class ResqmlClient {
       }
 
       for (const array of oldArrays.values()) {
-        await this.reidentifyDataArray(array.uid, uuidMap);
+        await this.reidentifyDataArray(
+          array.uid,
+          uuidMap,
+          originDataspace,
+          targetDataspace
+        );
       }
 
       await this.deleteObjects(oldUris).then(this.checkErrors.bind(this));
@@ -1277,7 +1295,9 @@ export class ResqmlClient {
    */
   private async reidentifyDataArray(
     oldUid: IArrayId,
-    uuidMap: Map<string, string>
+    uuidMap: Map<string, string>,
+    originDataspace: string,
+    targetDataspace: string
   ): Promise<void> {
     const newUid: IArrayId = {
       uri: EtpUri.remapUuids(oldUid.uri, uuidMap),
@@ -1291,12 +1311,26 @@ export class ResqmlClient {
       return;
     }
 
-    const array = await this.getDataArray(oldUid.uri, oldUid.pathInResource);
+    // Read the physical bytes from the ORIGIN dataspace. The destination only
+    // holds a by-reference import, so getDataArray against the destination URI
+    // returns nothing; swap the dataspace token to point at the source.
+    const sourceUri =
+      originDataspace && targetDataspace && originDataspace !== targetDataspace
+        ? oldUid.uri.replace(
+            `dataspace('${targetDataspace}')`,
+            `dataspace('${originDataspace}')`
+          )
+        : oldUid.uri;
+
+    const array = await this.getDataArray(sourceUri, oldUid.pathInResource);
     if (!array?.data) {
-      this.logger.warn(
-        `Skipping array re-association, no content for ${oldUid.uri}${oldUid.pathInResource}`
+      // Fail loudly: silently skipping leaves the clone missing arrays, which
+      // the server rejects post-commit with an opaque "Missing array(s)" error.
+      throw new EtpError(
+        `Clone re-identify could not read source array ${sourceUri}${oldUid.pathInResource}; ` +
+          `cannot produce a self-contained copy`,
+        ErrorCode.EINVALID_STATE
       );
-      return;
     }
 
     // Faithful, type-agnostic passthrough: re-send the exact array payload
