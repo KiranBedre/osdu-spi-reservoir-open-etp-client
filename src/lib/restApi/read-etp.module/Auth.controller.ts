@@ -14,7 +14,7 @@
 // limitations under the License.
 // ============================================================================
 
-import { Controller, Get } from "@nestjs/common";
+import { Controller, Get, NotFoundException } from "@nestjs/common";
 
 import {
   ApiDefaultResponse,
@@ -88,6 +88,9 @@ export default class Authentication {
     servers: swaggerServers
   })
   public async GetToken(): Promise<TokenDto> {
+    if (process.env.RDMS_ENABLE_LOCAL_TOKEN_ENDPOINT !== "true") {
+      throw new NotFoundException();
+    }
     logger.info("Processing request for authentication token...");
     const token = XmlUtils.createDefaultJWT();
     logger.info("Authentication token request processed.");

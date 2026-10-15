@@ -1,0 +1,41 @@
+meta {
+  name: Start Transaction
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/transactions
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  if (res.getStatus() === 200 || res.getStatus() === 201) {
+    const body = res.getBody();
+    // Server may return plain string or {transactionId: ...}
+    const txId = typeof body === "string" ? body.trim().replace(/"/g, "") : body.transactionId;
+    if (txId) {
+      bru.setVar("transactionId", txId);
+    }
+  }
+}
+
+tests {
+  test("status is 200 or 201 or 404 or 412", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 404, 412]);
+  });
+
+  test("returns transactionId", function () {
+    if (res.getStatus() === 200 || res.getStatus() === 201) {
+      const body = res.getBody();
+      const txId = typeof body === "string" ? body.trim() : body.transactionId;
+      expect(txId).to.be.a("string").and.not.be.empty;
+    }
+  });
+}

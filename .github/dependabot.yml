@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # Workflow and action updates arrive through template sync. The package
+  # manifest is upstream-owned, so keep automated changes to patch releases.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    target-branch: "main"
+    labels:
+      - "dependencies"
+    ignore:
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
+          - "version-update:semver-minor"

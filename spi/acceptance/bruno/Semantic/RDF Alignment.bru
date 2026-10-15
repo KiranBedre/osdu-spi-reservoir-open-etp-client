@@ -1,0 +1,24 @@
+meta {
+  name: RDF Alignment
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{host}}/rdf/alignment
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: text/turtle
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+  test("contains an owl:equivalentClass link", function () {
+    expect(res.getBody()).to.include("owl:equivalentClass");
+  });
+}

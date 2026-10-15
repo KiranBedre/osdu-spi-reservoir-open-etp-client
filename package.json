@@ -28,10 +28,11 @@
     "test": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit",
     "test:integration": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit --testPathPattern='TestClient|TestWitsmlQuery'",
     "test:cov": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit --coverage",
+    "test-coverage": "npm run test:cov",
     "test:debug": "npm run env:set -- node --inspect-brk ./node_modules/jest/bin/jest.js --coverage=false --runInBand",
     "test:single": "npm run env:set -- jest --coverage=false --runInBand",
     "test:single:debug": "npm run env:set -- node --inspect-brk ./node_modules/jest/bin/jest.js --coverage=false --runInBand --",
-    "lint": "npm-run-all -nlpc --aggregate-output",
+    "lint": "npm run lint:verbose",
     "lint:verbose": "eslint -f stylish .",
     "lint:junit": "eslint -f junit -o lint-junit.xml .",
     "lint:strict": "npm-run-all -nlpc --aggregate-output lint:verbose:strict",
@@ -259,7 +260,13 @@
     },
     "reporters": [
       "default",
-      "jest-junit"
+      [
+        "jest-junit",
+        {
+          "outputDirectory": ".",
+          "outputName": "test-results.xml"
+        }
+      ]
     ],
     "collectCoverage": false,
     "collectCoverageFrom": [

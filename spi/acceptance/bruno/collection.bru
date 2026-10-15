@@ -1,0 +1,90 @@
+headers {
+  Authorization: Bearer {{access_token}}
+  data-partition-id: {{data-partition-id}}
+}
+
+script:pre-request {
+  // Ensure dataspace vars used by _Setup are always present in CI.
+  // Values may be injected at runtime via --env-var (getVar) or defined in the
+  // selected environment file (getEnvVar) - check both.
+  // Priority:
+  // 1) explicit testDataspaceIdRaw
+  // 2) dataspaceIdRaw
+  // 3) dataspaceId
+  // 4) fallback default
+  // Must be a two-segment "folder/name" id: transactions reject a bare id
+  // (server enforces /^[^/]+\/[^/]+$/), even though create is lenient.
+  const val = (name) => bru.getVar(name) || bru.getEnvVar(name);
+  const dsRaw =
+    val("testDataspaceIdRaw") ||
+    val("dataspaceIdRaw") ||
+    val("dataspaceId") ||
+    "test/ci-bruno";
+  bru.setVar("testDataspaceIdRaw", dsRaw);
+  if (!bru.getVar("testDataspaceId")) {
+    bru.setVar("testDataspaceId", encodeURIComponent(dsRaw));
+  }
+
+  // Auto-refresh Keycloak token if expired or missing.
+  // Check runtime vars (CI `--env-var key=value`, read via getVar) first, then
+  // fall back to the selected environment file (getEnvVar). Secrets like the
+  // refresh token are injected at runtime and never committed, so getVar must
+  // win - otherwise the empty env-file value shadows the injected credential.
+  const tokenUrl = bru.getVar("token_url") || bru.getEnvVar("token_url");
+  const refreshToken = bru.getVar("refresh_token") || bru.getEnvVar("refresh_token");
+  const clientId = bru.getVar("client_id") || bru.getEnvVar("client_id");
+  const currentToken = bru.getVar("access_token");
+
+  // Refresh if no token or if we haven't refreshed in the last 55 minutes
+  const lastRefresh = bru.getVar("_token_ts") || 0;
+  const now = Date.now();
+  const clientSecret = bru.getVar("client_secret") || bru.getEnvVar("client_secret");
+  const clientScope = bru.getVar("client_scope") || bru.getEnvVar("client_scope");
+  if (!currentToken || (now - lastRefresh) > 55 * 60 * 1000) {
+    if (tokenUrl && clientId) {
+      try {
+        let body;
+        if (clientSecret) {
+          // Azure AD client_credentials flow
+          body = `grant_type=client_credentials&client_id=${clientId}&client_secret=${encodeURIComponent(clientSecret)}&scope=${encodeURIComponent(clientScope || clientId + '/.default')}`;
+        } else if (refreshToken) {
+          // Keycloak refresh_token flow
+          body = `grant_type=refresh_token&client_id=${clientId}&refresh_token=${refreshToken}&scope=email openid profile`;
+        }
+        if (body) {
+          const resp = await require("axios").post(tokenUrl, body,
+            { headers: { "Content-Type": "application/x-www-form-urlencoded" } }
+          );
+          if (resp.data && resp.data.access_token) {
+            bru.setVar("access_token", resp.data.access_token);
+            bru.setVar("_token_ts", now);
+            // Store any rotated refresh token as a RUNTIME var only. Never write
+            // it back with setEnvVar - in the CLI that persists the secret into
+            // the committed environment file. Keycloak offline tokens are
+            // reusable, so runtime scope is sufficient for the rest of the run.
+            if (resp.data.refresh_token) {
+              bru.setVar("refresh_token", resp.data.refresh_token);
+            }
+          }
+        }
+      } catch (e) {
+        console.log("[TOKEN REFRESH FAILED] " + (e.message || e));
+      }
+    }
+  }
+}
+
+script:post-response {
+  // CI diagnostics: on any error status, log the method/URL and response body so
+  // failures in the pipeline trace are actionable (e.g. 403 vs 404 vs 400 cause).
+  try {
+    if (res && typeof res.getStatus === "function" && res.getStatus() >= 400) {
+      const method = (req && (req.method || (req.getMethod && req.getMethod()))) || "?";
+      const url = (req && (req.url || (req.getUrl && req.getUrl()))) || "?";
+      let body = res.getBody();
+      if (typeof body !== "string") { body = JSON.stringify(body); }
+      console.log("[HTTP " + res.getStatus() + "] " + method + " " + url);
+      console.log("[RESP BODY] " + body);
+    }
+  } catch (e) { /* never fail a request because of diagnostics */ }
+}

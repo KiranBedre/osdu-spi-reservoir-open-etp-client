@@ -1,0 +1,37 @@
+meta {
+  name: G05 Drogon Grid Arrays
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonGridType}}/{{drogonGridGuid}}/arrays
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    if (Array.isArray(body) && body.length > 0 && body[0].pathInResource) {
+      bru.setVar("drogonArrayPath", encodeURIComponent(body[0].pathInResource));
+    }
+  }
+}
+
+docs {
+  Drogon lifecycle (grid arrays). Lists the arrays attached to the Drogon grid and
+  captures the first pathInResource for the metadata + content reads below.
+  Tolerant of 400/404.
+}
+
+tests {
+  test("status is documented (200/400/404)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 400, 404]);
+  });
+}

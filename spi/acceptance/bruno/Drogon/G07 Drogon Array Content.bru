@@ -1,0 +1,28 @@
+meta {
+  name: G07 Drogon Array Content
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonGridType}}/{{drogonGridGuid}}/arrays/{{drogonArrayPath}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (array data). Reads the actual array VALUES (GetDataArray) for
+  the path captured in G05 - companion to the G06 metadata read. Tolerant of
+  400/404.
+}
+
+tests {
+  test("status is documented (200/400/404)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 400, 404]);
+  });
+}

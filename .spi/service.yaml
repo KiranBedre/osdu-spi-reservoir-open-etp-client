@@ -1,0 +1,46 @@
+schemaVersion: 4
+service:
+  name: open-etp-client
+  archetype: node-typescript-azure
+  sourcePath: .
+  nodeVersion: "22"
+  image:
+    context: .
+    dockerfile: spi/runtime.Dockerfile
+tests:
+  acceptance:
+    type: script
+    path: spi/acceptance
+    entrypoint: run_spi.mjs
+    arguments:
+      - "--gateway"
+      - "${GATEWAY}"
+      - "--partition"
+      - "${PARTITION}"
+      - "--token"
+      - "${TOKEN}"
+      - "--domain"
+      - "${DOMAIN}"
+      - "--legal-tag"
+      - "${LEGAL_TAG}"
+    reportPaths:
+      - "results/reservoir-client.xml"
+    requires:
+      loads: []
+      groups: []
+    dependencies:
+      - entitlements
+      - legal
+      - open-etp
+      - partition
+      - schema
+      - search
+      - storage
+      - workflow
+    timeoutMinutes: 120
+    bindings:
+      GATEWAY: { source: gateway }
+      PARTITION: { source: partition }
+      TOKEN: { source: token }
+      DOMAIN: { source: domain }
+      LEGAL_TAG: { source: legalTag }

@@ -1,0 +1,50 @@
+meta {
+  name: G13 Drogon Batch Graph Search
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{host}}/query/graph/search
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "uris": [
+      "eml:///dataspace('{{drogonDataspaceIdRaw}}')/{{drogonGridType}}({{drogonGridGuid}})"
+    ],
+    "scope": "targets",
+    "depth": 2,
+    "dataObjectTypes": [],
+    "countObjects": true,
+    "includeSecondaryTargets": false,
+    "includeSecondarySources": false
+  }
+}
+
+docs {
+  Drogon lifecycle (batch graph search). Discovery Protocol 3 batch search from the
+  captured Drogon grid uri (query/graph/search). Tolerant of 404/501.
+}
+
+tests {
+  test("status is documented (200/404/501)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404, 501]);
+  });
+
+  test("returns resources and links when 200", function () {
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body).to.have.property("resources");
+      expect(body).to.have.property("links");
+    }
+  });
+}
