@@ -17,8 +17,10 @@
     "docs",
     "coverage",
     "commitlint.config.js",
+    "build",
     "devops",
     "sdk",
+    "spi",
     "src/examples/sdk",
     "tests",
     "src/lib/jsonTypes/Generated/"
