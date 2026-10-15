@@ -46,6 +46,10 @@
     "@typescript-eslint/no-explicit-any": "off",
     // FIXME: temporary, to be reviewed
     "@typescript-eslint/no-redeclare": "off",
+    // Preserve existing CommonJS fixtures while keeping them visible in lint output
+    "@typescript-eslint/no-var-requires": "warn",
+    // Preserve the existing XML parser alias while keeping it visible in lint output
+    "@typescript-eslint/no-this-alias": "warn",
     // FIXME: temporary, to be reviewed
     "import/first": "off",
     // Allow unused variables that start with an underscore
