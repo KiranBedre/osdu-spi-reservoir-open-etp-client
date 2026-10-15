@@ -17,7 +17,7 @@ Three parties own different parts of this tree. `.github/CODEOWNERS` maps the pa
 
 | Area | Owner | What to do with a change |
 |---|---|---|
-| Shared service code (everything not listed below) | Upstream OSDU | Do not edit here. Contribute the change upstream, or port a specific upstream fix and add the `port` label to the PR (ADR-038). The next sync will conflict with anything else. |
+| Shared service code (everything not listed below) | Upstream OSDU | Contribute changes upstream when possible. SPI-required hardening must explain why it remains fork-local and how upstream sync conflicts will be handled. |
 | `.spi/`, `spi/`, `.github/upstream-filter.yml`, `.github/CODEOWNERS`, `CONTRIBUTING.md`, `README.md` | This fork | Normal feature work. |
 | `.github/` (except the two fork-owned files above), `build/`, `.release-please-config.json` | The template (`Azure/osdu-spi`) | Do not edit here. Template sync overwrites these files; change the template instead. |
 
@@ -90,7 +90,7 @@ chore/update-dependencies
 | Workflow              | Purpose                                      |
 | --------------------- | -------------------------------------------- |
 | `sync.yml`            | Sync from upstream; auto-create PRs          |
-| `build.yml`           | Build/test Java Maven projects               |
+| `build.yml`           | Build, lint, and test the Node service        |
 | `validate.yml`        | Commit message validation and conflict check |
 | `release.yml`         | Automate semantic version releases           |
 | `sync-template.yml`   | Update from fork templates                   |
@@ -101,15 +101,16 @@ chore/update-dependencies
 
 ## Testing Standards
 
-* Behavior-driven development (BDD)
-* Maintain 80%+ test coverage
+* Keep lint, build, unit tests, JUnit output, and LCOV coverage passing.
+* Keep the SPI Bruno acceptance collection aligned with production behavior.
 
 **Local Test Commands:**
 
 ```bash
-mvn clean install
-mvn test
-mvn versions:display-dependency-updates
+npm ci
+npm run lint
+npm run build
+npm run test-coverage
 ```
 
 ---
