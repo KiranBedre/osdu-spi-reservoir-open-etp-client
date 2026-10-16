@@ -1,0 +1,39 @@
+meta {
+  name: G24 Drogon Start Delete Transaction
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonThrowawayId}}/transactions
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  if (res.getStatus() === 200 || res.getStatus() === 201) {
+    const body = res.getBody();
+    const txId = typeof body === "string" ? body.trim().replace(/"/g, "") : (body && body.transactionId);
+    if (txId) bru.setVar("drogonDelTxnId", txId);
+  }
+}
+
+docs {
+  Drogon lifecycle (delete 1/4). Opens a transaction to delete the committed CRS
+  object (G17/G18), then commit (G26) and list deleted (G27).
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("captured delete transactionId", function () {
+    expect(bru.getVar("drogonDelTxnId"), "delete txn id").to.be.a("string").and.not.be.empty;
+  });
+}

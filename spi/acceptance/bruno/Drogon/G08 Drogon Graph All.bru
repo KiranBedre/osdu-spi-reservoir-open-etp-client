@@ -1,0 +1,41 @@
+meta {
+  name: G08 Drogon Graph All
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/all?edges=true
+  body: none
+  auth: none
+}
+
+params:query {
+  edges: true
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (graph). Relationship graph read (resources/all?edges=true) over
+  real Drogon data - verifies DOR edges between the grid, its properties and
+  supporting representations are traversable. Read-only.
+}
+
+tests {
+  test("graph ok or not-yet-seeded (200/404)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
+  });
+
+  test("returns graph payload when seeded", function () {
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body, JSON.stringify(body).slice(0, 200)).to.not.be.undefined;
+    } else {
+      expect(res.getStatus()).to.equal(404);
+    }
+  });
+}

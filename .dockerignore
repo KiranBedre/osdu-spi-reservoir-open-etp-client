@@ -1,0 +1,17 @@
+.git
+.github
+bruno
+coverage
+data
+devops
+docs
+node_modules
+src
+
+*.log
+test-results.xml
+
+!dist
+!package.json
+!package-lock.json
+!spi

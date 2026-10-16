@@ -1,0 +1,38 @@
+meta {
+  name: G12 Drogon Find Objects
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{host}}/query/objects/find
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "uri": "eml:///dataspace('{{drogonDataspaceIdRaw}}')",
+    "scope": "self",
+    "depth": 1,
+    "dataObjectTypes": ["{{drogonGridType}}"]
+  }
+}
+
+docs {
+  Drogon lifecycle (find objects). ETP Discovery + Store search for the captured
+  grid type in the Drogon dataspace (query/objects/find) - the M27 replacement for
+  the M28 GraphQL step. Tolerant of 404/501.
+}
+
+tests {
+  test("status is documented (200/404/501)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404, 501]);
+  });
+}

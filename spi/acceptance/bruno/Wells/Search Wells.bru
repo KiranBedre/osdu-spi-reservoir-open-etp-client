@@ -1,0 +1,35 @@
+meta {
+  name: Search Wells
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{host}}/wells?name=*&dataspace={{dataspaceIdRaw}}&include=logs,trajectories
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:pre-request {
+  if (!bru.getEnvVar("dataspaceIdRaw") && !bru.getVar("dataspaceIdRaw")) {
+    console.warn("Search Wells: dataspaceIdRaw not set. Run _Setup (Create Test Dataspace) first, or set dataspaceIdRaw in the environment.");
+  }
+}
+
+tests {
+  test("status is 200 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
+  });
+
+  test("returns wells array", function () {
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body).to.be.an("array");
+    }
+  });
+}

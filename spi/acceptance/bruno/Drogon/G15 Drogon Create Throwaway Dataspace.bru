@@ -1,0 +1,43 @@
+meta {
+  name: G15 Drogon Create Throwaway Dataspace
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{host}}/dataspaces
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  [
+    {
+      "DataspaceId": "{{drogonThrowawayIdRaw}}",
+      "Path": "{{drogonThrowawayIdRaw}}",
+      "CustomData": {
+        "viewers": ["{{defaultViewers}}"],
+        "owners": ["{{defaultOwners}}"],
+        "legaltags": ["{{defaultLegalTag}}"],
+        "otherRelevantDataCountries": ["US"]
+      }
+    }
+  ]
+}
+
+docs {
+  Drogon lifecycle (write 1/14). Creates a throwaway dataspace for the transaction
+  write/rollback/delete round-trip so the shared seeded Drogon dataspace is never
+  mutated. Accepts 409 (already exists) so reruns are safe.
+}
+
+tests {
+  test("status is 200/201 (400/403/409 tolerated)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 400, 403, 409]);
+  });
+}

@@ -32,6 +32,8 @@ coverage/
 *junit.xml
 *lint-junit.xml
 *lint-report.json
+test-results.xml
+spi/acceptance/results/
 
 # env environment variables file
 **/.env*

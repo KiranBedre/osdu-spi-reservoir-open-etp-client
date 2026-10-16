@@ -1,0 +1,37 @@
+meta {
+  name: Error as problem+json
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{host}}/does-not-exist
+  body: none
+  auth: none
+}
+
+headers {
+  Accept: application/problem+json
+}
+
+docs {
+  Demonstrates the opt-in RFC 7807 error representation. Any error response is
+  returned as `application/problem+json` (type/title/status/detail/instance)
+  when the client sends `Accept: application/problem+json`. Without that header
+  the default NestJS error shape is preserved.
+}
+
+tests {
+  test("status is 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+  test("content-type is problem+json", function () {
+    expect(res.getHeader("content-type") || "").to.include("application/problem+json");
+  });
+  test("body is RFC 7807 shape", function () {
+    const b = res.getBody();
+    expect(b).to.have.property("title");
+    expect(b).to.have.property("status");
+    expect(b).to.have.property("detail");
+  });
+}

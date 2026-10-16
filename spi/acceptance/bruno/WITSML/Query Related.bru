@@ -1,0 +1,49 @@
+meta {
+  name: Query Related
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{host}}/witsml/query
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Traverse relationships from a single object instead of listing the whole
+  dataspace. `relatedTo` accepts a bare UUID (resolved within the dataspace)
+  or a full ETP URI. Use `scope` to pick direction:
+  self | sources | targets | sourcesOrSelf | targetsOrSelf.
+
+  Example use case: return all Wellbores / WellLogs / Trajectories that hang
+  off a given Well.
+}
+
+body:json {
+  {
+    "dataspace": "{{dataspaceIdRaw}}",
+    "relatedTo": "00000000-0000-0000-0000-000000000001",
+    "scope": "targets",
+    "format": "json"
+  }
+}
+
+tests {
+  test("status is 200 or 400 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 400, 404]);
+  });
+
+  test("relationship query returns an envelope", function () {
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body).to.have.property("total");
+      expect(body.objects).to.be.an("array");
+    }
+  });
+}

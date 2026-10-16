@@ -1,0 +1,37 @@
+meta {
+  name: G01 Drogon Dataspace Info
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/info
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (info). Reads dataspace metadata for the self-seeded Drogon
+  dataspace (test/drogon-seed, created + uploaded by the DrogonSeed folder) before
+  the rich reads below. Tolerant of a not-yet-seeded dataspace (404). Read-only.
+}
+
+tests {
+  test("dataspace info ok or not-yet-seeded (200/404)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
+  });
+
+  test("returns a dataspace info object when seeded", function () {
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body, JSON.stringify(body).slice(0, 200)).to.not.be.undefined;
+    } else {
+      expect(res.getStatus()).to.equal(404);
+    }
+  });
+}

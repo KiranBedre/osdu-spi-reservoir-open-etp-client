@@ -1,0 +1,5 @@
+# The community tree already contains its Azure implementation. Passthrough
+# sync owns the upstream branch; switching to filter mode requires an explicit
+# ownership split before this fail-closed placeholder may be expanded.
+service: open-etp-client
+top_level: {}

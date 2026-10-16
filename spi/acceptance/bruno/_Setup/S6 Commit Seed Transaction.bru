@@ -1,0 +1,22 @@
+meta {
+  name: S6 Commit Seed Transaction
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/transactions/{{transactionId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+tests {
+  test("status is 200 (404 if no transaction)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
+  });
+}

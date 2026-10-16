@@ -1,0 +1,37 @@
+meta {
+  name: S2 Create Test Dataspace
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{host}}/dataspaces
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  [
+    {
+      "DataspaceId": "{{testDataspaceIdRaw}}",
+      "Path": "{{testDataspaceIdRaw}}",
+      "CustomData": {
+        "viewers": ["{{defaultViewers}}"],
+        "owners": ["{{defaultOwners}}"],
+        "legaltags": ["{{defaultLegalTag}}"],
+        "otherRelevantDataCountries": ["US"]
+      }
+    }
+  ]
+}
+
+tests {
+  test("status is 200 or 201 (400/403 = no create permission)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 400, 403, 409]);
+  });
+}
