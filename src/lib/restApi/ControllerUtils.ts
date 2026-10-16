@@ -26,17 +26,12 @@ import {
 import { EtpUri } from "../common/EtpUri";
 
 import { createHash } from "crypto";
+import { createRequire } from "module";
+import { dirname, join } from "path";
 
 import express from "express";
 
-import {
-  SchemaObject,
-  SchemasObject
-} from "@nestjs/swagger/dist/interfaces/open-api-spec.interface";
-
-import { ModelPropertiesAccessor } from "@nestjs/swagger/dist/services/model-properties-accessor";
-import { SchemaObjectFactory } from "@nestjs/swagger/dist/services/schema-object-factory";
-import { SwaggerTypesMapper } from "@nestjs/swagger/dist/services/swagger-types-mapper";
+import { SchemaObject, SchemasObject } from "@nestjs/swagger";
 
 import {
   BadGatewayException,
@@ -818,6 +813,24 @@ export const transactionIdQueryParam: ApiQueryOptions = {
     pattern: patternString(uuidPattern)
   }
 };
+
+const requireModule = createRequire(__filename);
+const swaggerRoot = dirname(
+  requireModule.resolve("@nestjs/swagger/package.json")
+);
+const swaggerService = (name: string) =>
+  join(swaggerRoot, "dist", "services", name);
+
+// @nestjs/swagger does not export its schema factory, and 11.4.7 blocks deep package imports.
+const { ModelPropertiesAccessor } = requireModule(
+  swaggerService("model-properties-accessor")
+) as typeof import("@nestjs/swagger/dist/services/model-properties-accessor");
+const { SchemaObjectFactory } = requireModule(
+  swaggerService("schema-object-factory")
+) as typeof import("@nestjs/swagger/dist/services/schema-object-factory");
+const { SwaggerTypesMapper } = requireModule(
+  swaggerService("swagger-types-mapper")
+) as typeof import("@nestjs/swagger/dist/services/swagger-types-mapper");
 
 const modelPropertiesAccessor = new ModelPropertiesAccessor();
 const swaggerTypesMapper = new SwaggerTypesMapper();
