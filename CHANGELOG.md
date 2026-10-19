@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.2.1](https://github.com/KiranBedre/osdu-spi-reservoir-open-etp-client/compare/v0.2.0...v0.2.1) (2026-10-19)
+
+
+### 🐛 Bug Fixes
+
+* Replay snapshot template update ([#9](https://github.com/KiranBedre/osdu-spi-reservoir-open-etp-client/issues/9)) ([06999d7](https://github.com/KiranBedre/osdu-spi-reservoir-open-etp-client/commit/06999d7d89242077d05f7884c7e4752d9dc34cff))
+
+
+### 🔧 Miscellaneous
+
+* **deps:** Bump @nestjs/core from 11.1.20 to 11.1.29 ([#12](https://github.com/KiranBedre/osdu-spi-reservoir-open-etp-client/issues/12)) ([b7cab48](https://github.com/KiranBedre/osdu-spi-reservoir-open-etp-client/commit/b7cab487bf7b162205c2d5f2cf5f1fd0d6158633))
+* **deps:** Bump @nestjs/platform-express from 11.1.20 to 11.1.29 ([#11](https://github.com/KiranBedre/osdu-spi-reservoir-open-etp-client/issues/11)) ([7bb3b9d](https://github.com/KiranBedre/osdu-spi-reservoir-open-etp-client/commit/7bb3b9de725427a337a9aea0fabd42d257eb446f))
+* Sync template updates ([#10](https://github.com/KiranBedre/osdu-spi-reservoir-open-etp-client/issues/10)) ([d669c5d](https://github.com/KiranBedre/osdu-spi-reservoir-open-etp-client/commit/d669c5d9df799a3d0113fa9b88dc085ac617df6b))
+* Sync template updates ([#14](https://github.com/KiranBedre/osdu-spi-reservoir-open-etp-client/issues/14)) ([4953a0b](https://github.com/KiranBedre/osdu-spi-reservoir-open-etp-client/commit/4953a0b2d989edffadd73f97db31201b68ed8a65))
+* Sync template updates ([#15](https://github.com/KiranBedre/osdu-spi-reservoir-open-etp-client/issues/15)) ([e43f255](https://github.com/KiranBedre/osdu-spi-reservoir-open-etp-client/commit/e43f2554efb773176f53f4caea01af0cf9ea9c0a))
+
 ## [0.2.0](https://github.com/KiranBedre/osdu-spi-reservoir-open-etp-client/compare/v0.1.0...v0.2.0) (2026-10-19)
 
 
