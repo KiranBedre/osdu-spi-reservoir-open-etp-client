@@ -22,7 +22,7 @@ fail() {
 
 relative_path() {
   local name="$1" value="$2"
-  [[ "$value" == "." || "$value" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$ ]] \
+  [[ "$value" =~ ^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$ ]] \
     || fail "$name must be a repository-relative path"
   [[ "/$value/" != *"/../"* ]] || fail "$name must stay inside the repository"
 }
