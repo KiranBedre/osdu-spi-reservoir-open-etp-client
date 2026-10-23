@@ -40,7 +40,31 @@ spec:
             memory: {{ .Values.data.limitsMemory | quote }}
           {{- end }}
         ports:
-        - containerPort: 8003
+        - containerPort: {{ .Values.data.rdmsRestPort }}
+        {{- if .Values.conf.probes.readiness.enabled }}
+        readinessProbe:
+          httpGet:
+            path: {{ .Values.conf.probes.readiness.path | quote }}
+            port: {{ .Values.data.rdmsRestPort }}
+          periodSeconds: {{ .Values.conf.probes.readiness.periodSeconds }}
+          successThreshold: {{ .Values.conf.probes.readiness.successThreshold }}
+          timeoutSeconds: {{ .Values.conf.probes.readiness.timeoutSeconds }}
+        {{- end }}
+        {{- if .Values.conf.probes.liveness.enabled }}
+        livenessProbe:
+          httpGet:
+            path: {{ .Values.conf.probes.liveness.path | quote }}
+            port: {{ .Values.data.rdmsRestPort }}
+          periodSeconds: {{ .Values.conf.probes.liveness.periodSeconds }}
+          successThreshold: {{ .Values.conf.probes.liveness.successThreshold }}
+          timeoutSeconds: {{ .Values.conf.probes.liveness.timeoutSeconds }}
+        {{- end }}
+        volumeMounts:
+        - name: app-src-tmp
+          mountPath: /usr/src/api/src
+      volumes:
+      - name: app-src-tmp
+        emptyDir: {}
       serviceAccountName: {{ .Values.data.serviceAccountName | quote }}
   strategy:
     type: RollingUpdate

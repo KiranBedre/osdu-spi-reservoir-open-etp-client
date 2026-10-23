@@ -38,6 +38,7 @@
     "coverage",
     "commitlint.config.js",
     "devops",
+    "open-etp-client-acceptance-tests",
     "sdk",
     "src/examples/sdk",
     "tests"

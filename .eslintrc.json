@@ -28,6 +28,19 @@
     // Prettier config comes last as it disables conflicting ESLint rules enabled by other sets
     "prettier"
   ],
+  "overrides": [
+    {
+      "files": ["open-etp-client-acceptance-tests/*.cjs"],
+      "parserOptions": {
+        "project": null,
+        "ecmaVersion": 2022
+      },
+      "rules": {
+        "@typescript-eslint/no-var-requires": "off",
+        "no-console": "off"
+      }
+    }
+  ],
   "rules": {
     "curly": "warn",
     // Set console calls to emit warnings as not enabled by eslint:recommended
