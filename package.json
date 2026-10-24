@@ -30,6 +30,7 @@
     "test:cov": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit --coverage",
     "test:debug": "npm run env:set -- node --inspect-brk ./node_modules/jest/bin/jest.js --coverage=false --runInBand",
     "test:single": "npm run env:set -- jest --coverage=false --runInBand",
+    "test:acceptance": "node --test open-etp-client-acceptance-tests/acceptance-runner.check.cjs",
     "test:single:debug": "npm run env:set -- node --inspect-brk ./node_modules/jest/bin/jest.js --coverage=false --runInBand --",
     "lint": "npm-run-all -nlpc --aggregate-output",
     "lint:verbose": "eslint -f stylish .",

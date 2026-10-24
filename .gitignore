@@ -12,6 +12,7 @@ docs/
 # Local data and config
 data/*
 !data/Demo_Drogon.epc
+!data/Demo_Drogon.h5
 config.user.env
 test-local-integration.sh
 test-preship-integration.sh
@@ -24,8 +25,9 @@ scripts/
 *.bak
 *.epc
 *.h5
-# ...but keep the committed Drogon self-seed fixture (normal blob, see .gitattributes)
+# ...but keep the committed Drogon self-seed fixtures (normal blobs, see .gitattributes)
 !data/Demo_Drogon.epc
+!data/Demo_Drogon.h5
 
 # Coverage and test reports
 coverage/
@@ -41,3 +43,10 @@ coverage/
 
 # logs
 *.log
+
+# AI workspaces
+workspace/
+agents/
+
+# Acceptance runner output (may contain private runtime state)
+open-etp-client-acceptance-tests/results/

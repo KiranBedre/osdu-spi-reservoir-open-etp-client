@@ -378,6 +378,24 @@ describe("fesapi Compatibility", () => {
         expect(errors.some(e => e.severity === Severity.WARNING && e.message.includes("ExtraMetadata"))).toBe(true);
     });
 
+    it("does NOT flag ExtraMetadata-before-Value for StringTableLookup (XSD-correct)", () => {
+        const uuid = "22222222-2222-2222-2222-222222222222";
+        const xml = `<?xml version="1.0" encoding="UTF-8"?><StringTableLookup xmlns="${RESQML_NS}" uuid="${uuid}" schemaVersion="2.0"><Citation><Title>L</Title><Originator>t</Originator><Creation>2026-01-01T00:00:00Z</Creation><Format>t</Format></Citation><ExtraMetadata><Name>k</Name><Value>v</Value></ExtraMetadata><Value><Key>0</Key><Value>a</Value></Value><Value><Key>1</Key><Value>b</Value></Value></StringTableLookup>`;
+        const obj = makeEpcObj("StringTableLookup", uuid, xml, "2.0.1");
+        obj.qualifiedType = "resqml20.obj_StringTableLookup";
+        const errors = validateFesapiCompat([obj]);
+        expect(errors.some(e => e.message.includes("ExtraMetadata appears before"))).toBe(false);
+    });
+
+    it("still flags a StringTableLookup with a non-Value element after ExtraMetadata", () => {
+        const uuid = "33333333-3333-3333-3333-333333333333";
+        const xml = `<?xml version="1.0" encoding="UTF-8"?><StringTableLookup xmlns="${RESQML_NS}" uuid="${uuid}" schemaVersion="2.0"><Citation><Title>L</Title><Originator>t</Originator><Creation>2026-01-01T00:00:00Z</Creation><Format>t</Format></Citation><ExtraMetadata><Name>k</Name><Value>v</Value></ExtraMetadata><Value><Key>0</Key><Value>a</Value></Value><Bogus>x</Bogus></StringTableLookup>`;
+        const obj = makeEpcObj("StringTableLookup", uuid, xml, "2.0.1");
+        obj.qualifiedType = "resqml20.obj_StringTableLookup";
+        const errors = validateFesapiCompat([obj]);
+        expect(errors.some(e => e.message.includes("ExtraMetadata appears before"))).toBe(true);
+    });
+
     it("skips checks for version 2.2", () => {
         const uuid = "11111111-1111-1111-1111-111111111111";
         const xml = makeResqml201Xml("IjkGridRepresentation", uuid, "Grid");

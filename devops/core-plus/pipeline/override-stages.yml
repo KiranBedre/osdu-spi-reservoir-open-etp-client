@@ -1,6 +1,7 @@
 variables:
   CIMPL_SERVICE: "oetp-client"
   CIMPL_SUPPORTED_PLATFORM: "linux/amd64"
+  CIMPL_INFO_PATH: "/api/reservoir-ddms/v2/info"
   DATA_PARTITION_ID: "osdu"
   CIMPL_HELM_DEPLOYMENT_DIR: "devops/core-plus/deploy"
   CIMPL_HELM_PACKAGE_NAME: "cimpl-$CIMPL_SERVICE-deploy"
@@ -55,7 +56,7 @@ cimpl-containerize-bootstrap-gitlab:
     - bru run Health   $BRU_ENV
     - bru run Dataspaces $BRU_ENV
     # Drogon self-seed (create seed dataspace -> upload reduced EPC -> validate ->
-    # read -> delete). The 840 KB reduced EPC is committed at data/Demo_Drogon.epc
+    # read -> delete). The 370 KB reduced EPC is committed at data/Demo_Drogon.epc
     # (normal blob); a $DROGON_EPC_URL fallback can stage it otherwise. Guarded +
     # tolerant: run only when a REAL epc (not an LFS pointer, not truncated) is
     # present, and every assertion is oneOf(...) so a pre-upgrade server that 404s
@@ -127,13 +128,28 @@ cimpl-dev-test-postman:
 cimpl-dev-test:
   tags: ["osdu-small"]
   stage: integration
-  image: node:20-alpine
+  image: node:22.23.1-alpine
   allow_failure: true
   retry: 1
   extends:
     - .cimpl-dev-variables
   script:
-    - !reference [.cimpl_bruno_tests, script]
+    - npm install -g @usebruno/cli@4.2.1
+    - node --test open-etp-client-acceptance-tests/acceptance-runner.check.cjs
+    # The small curated Drogon fixture (data/Demo_Drogon.epc ~360 KB +
+    # data/Demo_Drogon.h5 ~2.2 MB; 22 RESQML kinds incl a 2x2x2 IJK grid) is
+    # committed as normal git blobs, so the real epc+h5 acceptance round-trip
+    # needs no external fixture download.
+    - node open-etp-client-acceptance-tests/cimpl-acceptance.cjs
+  after_script:
+    - node open-etp-client-acceptance-tests/cimpl-acceptance.cjs --cleanup
+  artifacts:
+    when: always
+    paths:
+      - open-etp-client-acceptance-tests/results/state.json
+      - open-etp-client-acceptance-tests/results/report.json
+      - open-etp-client-acceptance-tests/results/cleanup-report.json
+    expire_in: 15 days
 
 cimpl-dev-backup-test:
   tags: ["osdu-small"]

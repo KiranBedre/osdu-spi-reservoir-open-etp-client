@@ -18,5 +18,8 @@ headers {
 tests {
   test("status is 200 or 201 or 404 or 409", function () {
     expect(res.getStatus()).to.be.oneOf([200, 201, 404, 409]);
+    if (bru.getVar("acceptanceStrict") === "true" || bru.getEnvVar("acceptanceStrict") === "true") {
+      expect(res.getBody(), "dataspace locked").to.equal(true);
+    }
   });
 }

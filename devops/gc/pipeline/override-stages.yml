@@ -139,7 +139,7 @@ gc-containerize-bootstrap-gcr:
     - bru run Health   $BRU_ENV
     - bru run Dataspaces $BRU_ENV
     # Drogon self-seed (create seed dataspace -> upload reduced EPC -> validate ->
-    # read -> delete). The 840 KB reduced EPC is committed at data/Demo_Drogon.epc
+    # read -> delete). The 370 KB reduced EPC is committed at data/Demo_Drogon.epc
     # (normal blob); a $DROGON_EPC_URL fallback can stage it otherwise. Guarded +
     # tolerant: run only when a REAL epc (not an LFS pointer, not truncated) is
     # present, and every assertion is oneOf(...) so a pre-upgrade server that 404s
