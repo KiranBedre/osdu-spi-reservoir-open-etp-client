@@ -7,3 +7,7 @@ lib/** filter=lfs diff=lfs merge=lfs -text
 # Test fixture committed as a normal git blob (840 KB) so lightweight CI runners
 # without git-lfs still get real bytes for the Drogon self-seed EPC upload.
 data/Demo_Drogon.epc -filter -diff -merge -text
+# Small curated Drogon acceptance fixture (epc ~360 KB + h5 ~2.2 MB) committed as
+# normal git blobs so the Node epc+h5 round-trip runner gets real bytes without
+# git-lfs. 22 RESQML kinds incl a 2x2x2 IJK grid.
+data/Demo_Drogon.h5 -filter -diff -merge -text

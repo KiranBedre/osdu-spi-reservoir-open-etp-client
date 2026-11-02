@@ -48,7 +48,8 @@ tests {
 
   test("captured a seeded IjkGrid guid once upload is deployed", function () {
     const guid = bru.getVar("drogonSeedGridGuid");
-    if (guid) {
+    const strict = bru.getVar("acceptanceStrict") === "true" || bru.getEnvVar("acceptanceStrict") === "true";
+    if (guid || strict) {
       expect(guid, "seed grid guid").to.be.a("string").and.not.be.empty;
     } else {
       // Upload not yet deployed (preship pre-M27): empty dataspace is expected.

@@ -17,8 +17,8 @@ headers {
 
 body:json {
   {
-    "DataspaceId": "test/bruno-clone",
-    "Path": "test/bruno-clone",
+    "DataspaceId": "{{cloneDataspaceIdRaw}}",
+    "Path": "{{cloneDataspaceIdRaw}}",
     "CustomData": {
       "viewers": ["{{defaultViewers}}"],
       "owners": ["{{defaultOwners}}"],
@@ -26,6 +26,13 @@ body:json {
       "otherRelevantDataCountries": ["US"]
     }
   }
+}
+
+script:pre-request {
+  const strict = bru.getVar("acceptanceStrict") === "true" || bru.getEnvVar("acceptanceStrict") === "true";
+  const id = strict ? (bru.getVar("acceptanceCloneIdRaw") || bru.getEnvVar("acceptanceCloneIdRaw")) : "test/bruno-clone";
+  if (!id) throw new Error("Missing acceptance clone dataspace ID");
+  bru.setVar("cloneDataspaceIdRaw", id);
 }
 
 tests {

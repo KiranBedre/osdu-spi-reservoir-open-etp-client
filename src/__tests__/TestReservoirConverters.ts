@@ -14,12 +14,18 @@
 
 import "jest";
 
+import { FluidModelManifest } from "../lib/jsonTypes/FluidModel";
+import { GenericProperty22OSDU } from "../lib/jsonTypes/GenericProperty22";
 import { OSDUContext, ResqmlOSDUMap } from "../lib/jsonTypes/OsduContext";
-import { ResqmlWorkProductComponent } from "../lib/jsonTypes/WorkProductComponent";
-import type { SimpleJson } from "../lib/mlTypes/XmlJsonUtil";
+import { GenericPropertyOSDU } from "../lib/jsonTypes/GenericProperty";
+import { IjkGridRepresentationOSDU } from "../lib/jsonTypes/IjkGridRepresentation";
+import { IjkGridRepresentation22OSDU } from "../lib/jsonTypes/IjkGridRepresentation22";
+import { getKind, isKindAvailable } from "../lib/jsonTypes/MilestoneKinds";
+import { ProductionValuesManifest } from "../lib/jsonTypes/ProductionValues";
+import { ReservoirCompartmentInterpretation22Manifest } from "../lib/jsonTypes/ReservoirCompartmentInterpretation22";
 
 // Load the full registry
-require("../lib/jsonTypes/ResqmlOsdu");
+import "../lib/jsonTypes/ResqmlOsdu";
 
 const mockClient = {
   getDataArrayValues: async () => [],
@@ -36,8 +42,6 @@ describe("ExtraMetadata non-osdu preservation", () => {
     process.env.RDMS_PRESERVE_RESQML_METADATA = "true";
     try {
       const context = new OSDUContext("test-partition", "test-rddms");
-      // Use a minimal concrete class for testing
-      const { GenericPropertyOSDU } = require("../lib/jsonTypes/GenericProperty");
 
       const xml: any = {
         SchemaVersion: "2.0",
@@ -62,8 +66,12 @@ describe("ExtraMetadata non-osdu preservation", () => {
 
       // Non-osdu entries go to ResqmlMetadata sub-object
       expect(osdu.data.ExtensionProperties?.ResqmlMetadata).toBeDefined();
-      expect(osdu.data.ExtensionProperties.ResqmlMetadata["AuthoringSoftware"]).toEqual("Petrel 2023");
-      expect(osdu.data.ExtensionProperties.ResqmlMetadata["CustomField"]).toEqual("MyValue");
+      expect(
+        osdu.data.ExtensionProperties?.ResqmlMetadata["AuthoringSoftware"]
+      ).toEqual("Petrel 2023");
+      expect(
+        osdu.data.ExtensionProperties?.ResqmlMetadata["CustomField"]
+      ).toEqual("MyValue");
     } finally {
       if (prev === undefined) delete process.env.RDMS_PRESERVE_RESQML_METADATA;
       else process.env.RDMS_PRESERVE_RESQML_METADATA = prev;
@@ -75,7 +83,6 @@ describe("ExtraMetadata non-osdu preservation", () => {
     delete process.env.RDMS_PRESERVE_RESQML_METADATA;
     try {
       const context = new OSDUContext("test-partition", "test-rddms");
-      const { GenericPropertyOSDU } = require("../lib/jsonTypes/GenericProperty");
 
       const xml: any = {
         SchemaVersion: "2.0",
@@ -108,7 +115,6 @@ describe("ExtraMetadata non-osdu preservation", () => {
 
   it("preserves AuthoringSoftware from Citation.Format", () => {
     const context = new OSDUContext("test-partition", "test-rddms");
-    const { GenericPropertyOSDU } = require("../lib/jsonTypes/GenericProperty");
 
     const xml: any = {
       SchemaVersion: "2.0",
@@ -127,11 +133,12 @@ describe("ExtraMetadata non-osdu preservation", () => {
 
     const osdu = new GenericPropertyOSDU(xml, context);
     osdu.data = { ValueCount: 1 };
-    osdu.authoringSoftware = "ResInsight v2024.1";
 
     osdu.assignExtraMetaData([]);
 
-    expect(osdu.data.ExtensionProperties?.AuthoringSoftware).toEqual("ResInsight v2024.1");
+    expect(osdu.data.ExtensionProperties?.AuthoringSoftware).toEqual(
+      "ResInsight v2024.1"
+    );
   });
 
   it("does not leak authoringSoftware to the serialized record top level", () => {
@@ -140,7 +147,6 @@ describe("ExtraMetadata non-osdu preservation", () => {
     // SILENTLY DROP the record while Storage keeps it. The value must survive
     // only inside data.ExtensionProperties.AuthoringSoftware.
     const context = new OSDUContext("test-partition", "test-rddms");
-    const { GenericPropertyOSDU } = require("../lib/jsonTypes/GenericProperty");
 
     const xml: any = {
       SchemaVersion: "2.0",
@@ -174,7 +180,6 @@ describe("ExtraMetadata non-osdu preservation", () => {
 
   it("does not create ResqmlMetadata when all entries are osdu-prefixed", () => {
     const context = new OSDUContext("test-partition", "test-rddms");
-    const { GenericPropertyOSDU } = require("../lib/jsonTypes/GenericProperty");
 
     const xml: any = {
       SchemaVersion: "2.0",
@@ -189,9 +194,7 @@ describe("ExtraMetadata non-osdu preservation", () => {
     const osdu = new GenericPropertyOSDU(xml, context);
     osdu.data = { ValueCount: 1, ExtensionProperties: {} };
 
-    const extra = [
-      { Name: "osdu/tags/quality", Value: "verified" }
-    ];
+    const extra = [{ Name: "osdu/tags/quality", Value: "verified" }];
 
     osdu.assignExtraMetaData(extra);
 
@@ -203,8 +206,6 @@ describe("ExtraMetadata non-osdu preservation", () => {
 // IjkGrid v2.0 New Fields
 // ============================================================================
 describe("IjkGrid v2.0 new fields", () => {
-  const { IjkGridRepresentationOSDU } = require("../lib/jsonTypes/IjkGridRepresentation");
-
   const baseXml: any = {
     SchemaVersion: "2.0",
     Uuid: "9a487aca-44ca-4989-8ba7-653a5358ee80",
@@ -216,7 +217,8 @@ describe("IjkGrid v2.0 new fields", () => {
       LocalCrs: {
         UUID: "eeeeeeee-0000-0000-0000-000000000099",
         Title: "LocalCrs",
-        ContentType: "application/x-resqml+xml;version=2.0;type=obj_LocalDepth3dCrs"
+        ContentType:
+          "application/x-resqml+xml;version=2.0;type=obj_LocalDepth3dCrs"
       },
       Points: { $type: "Point3dParametricArray" },
       PillarShape: "straight",
@@ -246,10 +248,11 @@ describe("IjkGrid v2.0 new fields", () => {
       ...baseXml,
       Geometry: undefined,
       ParentWindow: {
-        ParentIjkGridRepresentation: {
+        ParentGrid: {
           UUID: parentId,
           Title: "ParentGrid",
-          ContentType: "application/x-resqml+xml;version=2.0;type=obj_IjkGridRepresentation"
+          ContentType:
+            "application/x-resqml+xml;version=2.0;type=obj_IjkGridRepresentation"
         }
       }
     };
@@ -261,7 +264,11 @@ describe("IjkGrid v2.0 new fields", () => {
 
   it("sets HasTruncations true when TruncationCells present", async () => {
     const context = new OSDUContext("test-partition", "test-rddms");
-    const xml = { ...baseXml, Geometry: undefined, TruncationCells: { Count: 3 } };
+    const xml = {
+      ...baseXml,
+      Geometry: undefined,
+      TruncationCells: { Count: 3 }
+    };
     const osdu = new IjkGridRepresentationOSDU(xml, context);
     await osdu.initData("eml:///dataspace('test')", xml, mockClient);
     expect(osdu.data.HasTruncations).toBe(true);
@@ -291,7 +298,8 @@ describe("IjkGrid v2.0 new fields", () => {
         FluidOrganization: {
           UUID: fluidOrgId,
           Title: "FluidOrg",
-          ContentType: "application/x-resqml+xml;version=2.0;type=obj_RockFluidOrganizationInterpretation"
+          ContentType:
+            "application/x-resqml+xml;version=2.0;type=obj_RockFluidOrganizationInterpretation"
         }
       }
     };
@@ -299,7 +307,9 @@ describe("IjkGrid v2.0 new fields", () => {
     await osdu.initData("eml:///dataspace('test')", xml, mockClient);
     expect(osdu.data.RockFluidOrganizationInterpretationIDS).toBeDefined();
     expect(osdu.data.RockFluidOrganizationInterpretationIDS?.length).toBe(1);
-    expect(osdu.data.RockFluidOrganizationInterpretationIDS![0]).toContain(fluidOrgId);
+    expect(osdu.data.RockFluidOrganizationInterpretationIDS![0]).toContain(
+      fluidOrgId
+    );
   });
 });
 
@@ -307,8 +317,6 @@ describe("IjkGrid v2.0 new fields", () => {
 // IjkGrid v2.2 New Fields
 // ============================================================================
 describe("IjkGrid v2.2 new fields", () => {
-  const { IjkGridRepresentation22OSDU } = require("../lib/jsonTypes/IjkGridRepresentation22");
-
   const baseXml22: any = {
     SchemaVersion: "2.2",
     Uuid: "22222222-aaaa-bbbb-cccc-dddddddddddd",
@@ -317,7 +325,11 @@ describe("IjkGrid v2.2 new fields", () => {
     Nj: 25,
     Nk: 8,
     Geometry: {
-      LocalCrs: { Uuid: "cccccccc-0000-0000-0000-000000000001", Title: "LocalCrs22", QualifiedType: "eml23.LocalEngineeringCompoundCrs" },
+      LocalCrs: {
+        Uuid: "cccccccc-0000-0000-0000-000000000001",
+        Title: "LocalCrs22",
+        QualifiedType: "eml23.LocalEngineeringCompoundCrs"
+      },
       Points: { $type: "Point3dParametricArray" },
       PillarShape: "curved",
       KDirection: "down"
@@ -361,7 +373,11 @@ describe("IjkGrid v2.2 new fields", () => {
 
   it("sets HasTruncations from TruncationCellPatch (v2.2 naming)", async () => {
     const context = new OSDUContext("test-partition", "test-rddms");
-    const xml = { ...baseXml22, Geometry: undefined, TruncationCellPatch: { Count: 2 } };
+    const xml = {
+      ...baseXml22,
+      Geometry: undefined,
+      TruncationCellPatch: { Count: 2 }
+    };
     const osdu = new IjkGridRepresentation22OSDU(xml, context);
     await osdu.initData("eml:///dataspace('test22')", xml, mockClient);
     expect(osdu.data.HasTruncations).toBe(true);
@@ -372,8 +388,6 @@ describe("IjkGrid v2.2 new fields", () => {
 // GenericProperty v2.0 FacetIDs
 // ============================================================================
 describe("GenericProperty v2.0 FacetIDs", () => {
-  const { GenericPropertyOSDU } = require("../lib/jsonTypes/GenericProperty");
-
   it("maps Facet array to FacetIDs with reference-data SRNs", async () => {
     const context = new OSDUContext("test-partition", "test-rddms");
     const gridId = "ffffffff-0000-0000-0000-000000000001";
@@ -389,7 +403,11 @@ describe("GenericProperty v2.0 FacetIDs", () => {
       $type: "resqml20.obj_ContinuousProperty",
       SchemaVersion: "2.0",
       Uuid: "ffffffff-0000-0000-0000-000000000002",
-      Citation: { Title: "FacetProp", Originator: "Test", Creation: new Date() },
+      Citation: {
+        Title: "FacetProp",
+        Originator: "Test",
+        Creation: new Date()
+      },
       IndexableElement: "cells",
       Count: 100,
       PropertyKind: { PropertyKind: "porosity" },
@@ -400,7 +418,8 @@ describe("GenericProperty v2.0 FacetIDs", () => {
       SupportingRepresentation: {
         UUID: gridId,
         Title: "Grid",
-        ContentType: "application/x-resqml+xml;version=2.0;type=obj_IjkGridRepresentation"
+        ContentType:
+          "application/x-resqml+xml;version=2.0;type=obj_IjkGridRepresentation"
       },
       PatchOfValues: [{ Values: {} }]
     };
@@ -437,7 +456,8 @@ describe("GenericProperty v2.0 FacetIDs", () => {
       SupportingRepresentation: {
         UUID: gridId,
         Title: "Grid2",
-        ContentType: "application/x-resqml+xml;version=2.0;type=obj_IjkGridRepresentation"
+        ContentType:
+          "application/x-resqml+xml;version=2.0;type=obj_IjkGridRepresentation"
       },
       PatchOfValues: [{ Values: {} }]
     };
@@ -453,8 +473,6 @@ describe("GenericProperty v2.0 FacetIDs", () => {
 // GenericProperty v2.2 FacetIDs + RealizationIndices
 // ============================================================================
 describe("GenericProperty v2.2 enhancements", () => {
-  const { GenericProperty22OSDU } = require("../lib/jsonTypes/GenericProperty22");
-
   const baseXml22: any = {
     $type: "resqml22.ContinuousProperty",
     SchemaVersion: "2.2",
@@ -462,10 +480,12 @@ describe("GenericProperty v2.2 enhancements", () => {
     Citation: { Title: "GP22Test", Originator: "Test", Creation: new Date() },
     IndexableElement: "cells",
     Count: 200,
-    PropertyKind: { Uuid: "dddddddd-0000-0000-0000-000000000002", Title: "porosity", QualifiedType: "resqml22.PropertyKind" },
-    Facet: [
-      { Facet: "what", Value: "net" }
-    ],
+    PropertyKind: {
+      Uuid: "dddddddd-0000-0000-0000-000000000002",
+      Title: "porosity",
+      QualifiedType: "resqml22.PropertyKind"
+    },
+    Facet: [{ Facet: "what", Value: "net" }],
     SupportingRepresentation: {
       Uuid: "dddddddd-0000-0000-0000-000000000003",
       Title: "Rep22",
@@ -477,7 +497,8 @@ describe("GenericProperty v2.2 enhancements", () => {
 
   function makeContext() {
     const context = new OSDUContext("test-partition", "test-rddms");
-    const repUri = "eml:///dataspace('test22')/resqml22.IjkGridRepresentation(dddddddd-0000-0000-0000-000000000003)";
+    const repUri =
+      "eml:///dataspace('test22')/resqml22.IjkGridRepresentation(dddddddd-0000-0000-0000-000000000003)";
     context.uriToObject.set(repUri, {
       objectType: "resqml22.IjkGridRepresentation",
       uuid: "dddddddd-0000-0000-0000-000000000003",
@@ -534,9 +555,6 @@ describe("ReservoirCompartmentInterpretation22 converter", () => {
   });
 
   it("converts basic ReservoirCompartmentInterpretation", async () => {
-    const { ReservoirCompartmentInterpretation22Manifest } = require(
-      "../lib/jsonTypes/ReservoirCompartmentInterpretation22"
-    );
     const context = new OSDUContext("test-partition", "test-rddms");
 
     const featureId = "bbbbbbbb-0000-0000-0000-000000000001";
@@ -578,18 +596,19 @@ describe("ReservoirCompartmentInterpretation22 converter", () => {
 
     expect(result).toBeDefined();
     expect(result.data).toBeDefined();
-    expect(result.data.GeologicUnitShapeTypeID).toContain("GeologicUnitShapeType");
+    expect(result.data.GeologicUnitShapeTypeID).toContain(
+      "GeologicUnitShapeType"
+    );
     expect(result.data.GeologicUnitShapeTypeID).toContain("Sheet");
     expect(result.data.LithologyTypeID).toContain("LithologyType");
     expect(result.data.LithologyTypeID).toContain("Ite");
-    expect(result.data.DepositionalEnvironmentTypeID).toContain("DepositionalEnvironmentType");
+    expect(result.data.DepositionalEnvironmentTypeID).toContain(
+      "DepositionalEnvironmentType"
+    );
     expect(result.data.DepositionalEnvironmentTypeID).toContain("Marine");
   });
 
   it("converts ReservoirCompartmentUnits", async () => {
-    const { ReservoirCompartmentInterpretation22Manifest } = require(
-      "../lib/jsonTypes/ReservoirCompartmentInterpretation22"
-    );
     const context = new OSDUContext("test-partition", "test-rddms");
 
     const featId = "aaaaaaaa-0000-0000-0000-000000000001";
@@ -600,11 +619,42 @@ describe("ReservoirCompartmentInterpretation22 converter", () => {
     const rciId = "aaaaaaaa-0000-0000-0000-000000000006";
 
     // Pre-populate referenced objects
-    context.uriToObject.set(`eml:///dataspace('test')/resqml22.RockVolumeFeature(${featId})`, { objectType: "resqml22.RockVolumeFeature", uuid: featId, xml: {} } as any);
-    context.uriToObject.set(`eml:///dataspace('test')/resqml22.RockFluidUnitInterpretation(${fluid1Id})`, { objectType: "resqml22.RockFluidUnitInterpretation", uuid: fluid1Id, xml: {} } as any);
-    context.uriToObject.set(`eml:///dataspace('test')/resqml22.RockFluidUnitInterpretation(${fluid2Id})`, { objectType: "resqml22.RockFluidUnitInterpretation", uuid: fluid2Id, xml: {} } as any);
-    context.uriToObject.set(`eml:///dataspace('test')/resqml22.GeologicUnitInterpretation(${geo1Id})`, { objectType: "resqml22.GeologicUnitInterpretation", uuid: geo1Id, xml: {} } as any);
-    context.uriToObject.set(`eml:///dataspace('test')/resqml22.GeologicUnitInterpretation(${geo2Id})`, { objectType: "resqml22.GeologicUnitInterpretation", uuid: geo2Id, xml: {} } as any);
+    context.uriToObject.set(
+      `eml:///dataspace('test')/resqml22.RockVolumeFeature(${featId})`,
+      { objectType: "resqml22.RockVolumeFeature", uuid: featId, xml: {} } as any
+    );
+    context.uriToObject.set(
+      `eml:///dataspace('test')/resqml22.RockFluidUnitInterpretation(${fluid1Id})`,
+      {
+        objectType: "resqml22.RockFluidUnitInterpretation",
+        uuid: fluid1Id,
+        xml: {}
+      } as any
+    );
+    context.uriToObject.set(
+      `eml:///dataspace('test')/resqml22.RockFluidUnitInterpretation(${fluid2Id})`,
+      {
+        objectType: "resqml22.RockFluidUnitInterpretation",
+        uuid: fluid2Id,
+        xml: {}
+      } as any
+    );
+    context.uriToObject.set(
+      `eml:///dataspace('test')/resqml22.GeologicUnitInterpretation(${geo1Id})`,
+      {
+        objectType: "resqml22.GeologicUnitInterpretation",
+        uuid: geo1Id,
+        xml: {}
+      } as any
+    );
+    context.uriToObject.set(
+      `eml:///dataspace('test')/resqml22.GeologicUnitInterpretation(${geo2Id})`,
+      {
+        objectType: "resqml22.GeologicUnitInterpretation",
+        uuid: geo2Id,
+        xml: {}
+      } as any
+    );
 
     const xml: any = {
       Uuid: rciId,
@@ -613,18 +663,38 @@ describe("ReservoirCompartmentInterpretation22 converter", () => {
         Originator: "Test",
         Creation: new Date("2024-01-01")
       },
-      InterpretedFeature: { Uuid: featId, Title: "Feat", QualifiedType: "resqml22.RockVolumeFeature" },
+      InterpretedFeature: {
+        Uuid: featId,
+        Title: "Feat",
+        QualifiedType: "resqml22.RockVolumeFeature"
+      },
       Domain: "depth",
       ReservoirCompartmentUnit: [
         {
           FluidUnits: [
-            { Uuid: fluid1Id, Title: "FluidUnit1", QualifiedType: "resqml22.RockFluidUnitInterpretation" }
+            {
+              Uuid: fluid1Id,
+              Title: "FluidUnit1",
+              QualifiedType: "resqml22.RockFluidUnitInterpretation"
+            }
           ],
-          GeologicUnitInterpretation: { Uuid: geo1Id, Title: "GeoUnit1", QualifiedType: "resqml22.GeologicUnitInterpretation" }
+          GeologicUnitInterpretation: {
+            Uuid: geo1Id,
+            Title: "GeoUnit1",
+            QualifiedType: "resqml22.GeologicUnitInterpretation"
+          }
         },
         {
-          FluidUnits: { Uuid: fluid2Id, Title: "FluidUnit2", QualifiedType: "resqml22.RockFluidUnitInterpretation" },
-          GeologicUnitInterpretation: { Uuid: geo2Id, Title: "GeoUnit2", QualifiedType: "resqml22.GeologicUnitInterpretation" }
+          FluidUnits: {
+            Uuid: fluid2Id,
+            Title: "FluidUnit2",
+            QualifiedType: "resqml22.RockFluidUnitInterpretation"
+          },
+          GeologicUnitInterpretation: {
+            Uuid: geo2Id,
+            Title: "GeoUnit2",
+            QualifiedType: "resqml22.GeologicUnitInterpretation"
+          }
         }
       ]
     };
@@ -639,12 +709,20 @@ describe("ReservoirCompartmentInterpretation22 converter", () => {
     expect(result.data.ReservoirCompartmentUnits).toBeDefined();
     expect(result.data.ReservoirCompartmentUnits!.length).toBe(2);
     // First unit has array of fluid units (RockFluidUnitInterpretation IS registered, so it resolves)
-    expect(result.data.ReservoirCompartmentUnits![0].FluidUnitIDs?.length).toBe(1);
-    expect(result.data.ReservoirCompartmentUnits![0].FluidUnitIDs![0]).toContain(fluid1Id);
+    expect(result.data.ReservoirCompartmentUnits![0].FluidUnitIDs?.length).toBe(
+      1
+    );
+    expect(
+      result.data.ReservoirCompartmentUnits![0].FluidUnitIDs![0]
+    ).toContain(fluid1Id);
     // GeologicUnitInterpretation is NOT registered in ResqmlOsdu.ts, so dorToSrn returns undefined
-    expect(result.data.ReservoirCompartmentUnits![0].GeologicUnitInterpretationID).toBeUndefined();
+    expect(
+      result.data.ReservoirCompartmentUnits![0].GeologicUnitInterpretationID
+    ).toBeUndefined();
     // Second unit has single fluid unit (not array)
-    expect(result.data.ReservoirCompartmentUnits![1].FluidUnitIDs?.length).toBe(1);
+    expect(result.data.ReservoirCompartmentUnits![1].FluidUnitIDs?.length).toBe(
+      1
+    );
   });
 });
 
@@ -667,7 +745,6 @@ describe("FluidModel (PRODML) converter", () => {
   });
 
   it("converts FluidCharacterization to FluidModel", async () => {
-    const { FluidModelManifest } = require("../lib/jsonTypes/FluidModel");
     const context = new OSDUContext("test-partition", "test-rddms");
 
     const xml: any = {
@@ -682,10 +759,7 @@ describe("FluidModel (PRODML) converter", () => {
       Remark: "High GOR fluid system",
       ApplicationTarget: "Eclipse",
       FluidComponentCatalog: { Component: [] },
-      Model: [
-        { Name: "Model1" },
-        { Name: "Model2" }
-      ],
+      Model: [{ Name: "Model1" }, { Name: "Model2" }],
       StandardConditions: { Temperature: 15.56, Pressure: 101.325 }
     };
 
@@ -704,10 +778,17 @@ describe("FluidModel (PRODML) converter", () => {
     expect(result.data.HasVariableDepthFluidProperties).toBe(true);
 
     // ExtensionProperties for round-trip
-    expect(result.data.ExtensionProperties?.ApplicationTarget).toEqual("Eclipse");
+    expect(result.data.ExtensionProperties?.ApplicationTarget).toEqual(
+      "Eclipse"
+    );
     expect(result.data.ExtensionProperties?.ModelCount).toBe(2);
-    expect(result.data.ExtensionProperties?.ModelNames).toEqual(["Model1", "Model2"]);
-    expect(result.data.ExtensionProperties?.HasFluidComponentCatalog).toBe(true);
+    expect(result.data.ExtensionProperties?.ModelNames).toEqual([
+      "Model1",
+      "Model2"
+    ]);
+    expect(result.data.ExtensionProperties?.HasFluidComponentCatalog).toBe(
+      true
+    );
     expect(result.data.ExtensionProperties?.StandardConditions).toBeDefined();
   });
 });
@@ -731,7 +812,6 @@ describe("ProductionValues (PRODML) converter", () => {
   });
 
   it("converts TimeSeriesData to ProductionValues", async () => {
-    const { ProductionValuesManifest } = require("../lib/jsonTypes/ProductionValues");
     const context = new OSDUContext("test-partition", "test-rddms");
 
     const xml: any = {
@@ -772,14 +852,17 @@ describe("ProductionValues (PRODML) converter", () => {
     expect(result.data.PropertyIDs![0]).toContain("ProductionMeasurement");
     expect(result.data.PropertyIDs![0]).toContain("Well");
     // ExtensionProperties
-    expect(result.data.ExtensionProperties?.Comment).toEqual("Daily oil production");
+    expect(result.data.ExtensionProperties?.Comment).toEqual(
+      "Daily oil production"
+    );
     expect(result.data.ExtensionProperties?.Uom).toEqual("m3/d");
-    expect(result.data.ExtensionProperties?.MeasureClass).toEqual("volume per time");
+    expect(result.data.ExtensionProperties?.MeasureClass).toEqual(
+      "volume per time"
+    );
     expect(result.data.ExtensionProperties?.SampleCount).toBe(3);
   });
 
   it("handles empty DataValue gracefully", async () => {
-    const { ProductionValuesManifest } = require("../lib/jsonTypes/ProductionValues");
     const context = new OSDUContext("test-partition", "test-rddms");
 
     const xml: any = {
@@ -809,8 +892,6 @@ describe("ProductionValues (PRODML) converter", () => {
 // MilestoneKinds Additions
 // ============================================================================
 describe("MilestoneKinds reservoir entries", () => {
-  const { getKind, isKindAvailable } = require("../lib/jsonTypes/MilestoneKinds");
-
   const expectedWpcKinds = [
     "ReservoirCompartmentInterpretation",
     "FluidModel",
@@ -825,14 +906,11 @@ describe("MilestoneKinds reservoir entries", () => {
     "GeoLabelSet"
   ];
 
-  it.each(expectedWpcKinds)(
-    "has %s in fallback kinds",
-    (kindName) => {
-      expect(isKindAvailable(kindName)).toBe(true);
-      const kind = getKind(kindName);
-      expect(kind).toContain(`work-product-component--${kindName}:`);
-    }
-  );
+  it.each(expectedWpcKinds)("has %s in fallback kinds", kindName => {
+    expect(isKindAvailable(kindName)).toBe(true);
+    const kind = getKind(kindName);
+    expect(kind).toContain(`work-product-component--${kindName}:`);
+  });
 
   it("has Reservoir master-data", () => {
     expect(isKindAvailable("Reservoir")).toBe(true);
@@ -841,6 +919,8 @@ describe("MilestoneKinds reservoir entries", () => {
 
   it("has ReservoirSegment master-data", () => {
     expect(isKindAvailable("ReservoirSegment")).toBe(true);
-    expect(getKind("ReservoirSegment")).toContain("master-data--ReservoirSegment:");
+    expect(getKind("ReservoirSegment")).toContain(
+      "master-data--ReservoirSegment:"
+    );
   });
 });

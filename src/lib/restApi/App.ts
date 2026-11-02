@@ -268,6 +268,7 @@ export default async function app(): Promise<NestExpressApplication> {
       "/rdf/ontology",
       "/rdf/alignment",
       // ── Operational ──
+      "/info",
       "/health/readiness",
       "/health/liveness",
       "/health/info",

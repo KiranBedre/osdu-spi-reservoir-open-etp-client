@@ -48,13 +48,67 @@ import https from "https";
 import fs from "fs";
 import * as child_process from "child_process";
 
-interface ClientInfo {
+export interface ClientInfo {
   groupId: string;
   artifactId: string;
   version: string;
   commitId: string;
   commitTime: string;
   buildTime?: string;
+}
+
+/**
+ * Collect service build identity (package + git) for the `/info` and
+ * `/health/info` endpoints. Build identity is injected at container-build time
+ * via env vars using the SAME names as open-etp-server (GIT_COMMIT_HASH /
+ * GIT_COMMIT_TIMESTAMP / BUILD_TIME) so client and server report their build
+ * the same way. GitLab-native vars (CI_COMMIT_SHA / CI_COMMIT_TIMESTAMP) are
+ * accepted as a fallback, and a runtime `git` lookup covers local dev checkouts.
+ */
+export function collectClientInfo(): ClientInfo {
+  const groupId = "org.opengroup.osdu";
+
+  // get info from package.json
+  const packageJson = JSON.parse(fs.readFileSync("./package.json", "utf8"));
+  const version = packageJson.version;
+  const artifactId = packageJson.name;
+
+  let commitId =
+    process.env.GIT_COMMIT_HASH || process.env.CI_COMMIT_SHA || "unknown";
+  let commitTime =
+    process.env.GIT_COMMIT_TIMESTAMP ||
+    process.env.CI_COMMIT_TIMESTAMP ||
+    "unknown";
+  const buildTime = process.env.BUILD_TIME || "unknown";
+
+  if (commitId === "unknown" || commitTime === "unknown") {
+    // get commit info from Git (local dev fallback)
+    try {
+      if (commitId === "unknown") {
+        commitId = child_process
+          .execSync("git rev-parse HEAD")
+          .toString()
+          .trim();
+      }
+      if (commitTime === "unknown") {
+        commitTime = child_process
+          .execSync("git log -1 --format=%ci")
+          .toString()
+          .trim();
+      }
+    } catch (e) {
+      //Nothing
+    }
+  }
+
+  return {
+    groupId,
+    artifactId,
+    version,
+    commitId,
+    commitTime,
+    buildTime
+  };
 }
 
 export class ClientInfoDto {
@@ -215,56 +269,7 @@ export default class HealthAPI {
   public Info(): Promise<ClientInfo> {
     return new Promise<ClientInfo>(resolve => {
       try {
-        const groupId = "org.opengroup.osdu";
-
-        // get info from package.json
-        const packageJson = JSON.parse(
-          fs.readFileSync("./package.json", "utf8")
-        );
-        const version = packageJson.version;
-        const artifactId = packageJson.name;
-
-        // Build identity is injected at container-build time via env vars, using
-        // the SAME names as open-etp-server (GIT_COMMIT_HASH / GIT_COMMIT_TIMESTAMP
-        // / BUILD_TIME) so client and server report their build the same way.
-        // GitLab-native vars (CI_COMMIT_SHA / CI_COMMIT_TIMESTAMP) are accepted as
-        // a fallback, and a runtime `git` lookup covers local dev checkouts.
-        let commitId =
-          process.env.GIT_COMMIT_HASH || process.env.CI_COMMIT_SHA || "unknown";
-        let commitTime =
-          process.env.GIT_COMMIT_TIMESTAMP ||
-          process.env.CI_COMMIT_TIMESTAMP ||
-          "unknown";
-        const buildTime = process.env.BUILD_TIME || "unknown";
-
-        if (commitId === "unknown" || commitTime === "unknown") {
-          // get commit info from Git (local dev fallback)
-          try {
-            if (commitId === "unknown") {
-              commitId = child_process
-                .execSync("git rev-parse HEAD")
-                .toString()
-                .trim();
-            }
-            if (commitTime === "unknown") {
-              commitTime = child_process
-                .execSync("git log -1 --format=%ci")
-                .toString()
-                .trim();
-            }
-          } catch (e) {
-            //Nothing
-          }
-        }
-
-        resolve({
-          groupId,
-          artifactId,
-          version,
-          commitId,
-          commitTime,
-          buildTime
-        });
+        resolve(collectClientInfo());
       } catch (e) {
         throw new InternalServerErrorException({
           description: "Unknown Server Error"
