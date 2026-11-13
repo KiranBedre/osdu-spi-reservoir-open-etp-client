@@ -18,8 +18,8 @@ headers {
 body:json {
   [
     {
-      "DataspaceId": "test/bruno-collection",
-      "Path": "test/bruno-collection",
+      "DataspaceId": "{{collectionDataspaceIdRaw}}",
+      "Path": "{{collectionDataspaceIdRaw}}",
       "CustomData": {
         "viewers": ["{{defaultViewers}}"],
         "owners": ["{{defaultOwners}}"],
@@ -30,9 +30,20 @@ body:json {
   ]
 }
 
+script:pre-request {
+  const strict = bru.getVar("acceptanceStrict") === "true" || bru.getEnvVar("acceptanceStrict") === "true";
+  const id = strict ? (bru.getVar("acceptanceCrudIdRaw") || bru.getEnvVar("acceptanceCrudIdRaw")) : "test/bruno-collection";
+  if (!id) throw new Error("Missing acceptance CRUD dataspace ID");
+  bru.setVar("collectionDataspaceIdRaw", id);
+}
+
 script:post-response {
   if (res.getStatus() === 200 || res.getStatus() === 201) {
-    bru.setVar("testDataspaceId", encodeURIComponent("test/bruno-collection"));
+    const id = bru.getVar("collectionDataspaceIdRaw");
+    bru.setVar("testDataspaceId", encodeURIComponent(id));
+    if (bru.getVar("acceptanceStrict") === "true" || bru.getEnvVar("acceptanceStrict") === "true") {
+      bru.setVar("testDataspaceIdRaw", id);
+    }
   }
 }
 

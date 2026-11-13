@@ -64,11 +64,6 @@ include:
 
   - local: "devops/gc/pipeline/override-stages.yml"
 
-  # ibm Disable IBM until fixed
-  # - local: "devops/ibm/pipeline/override-stages.yml"
-  # - project: "osdu/platform/ci-cd-pipelines"
-  #   file: "cloud-providers/ibm-open-etp-client.yml"
-
 # Override fossa-analyze: the upstream fossa-with-cache:v0.10 image ships Node 18.16.1
 # but our package.json requires node>=20 (NestJS 11). Disable engine-strict for this
 # job so npm ci can build the dependency tree fossa needs to analyze.

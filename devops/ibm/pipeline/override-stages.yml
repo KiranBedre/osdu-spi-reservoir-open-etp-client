@@ -1,6 +1,0 @@
-rdms_rest_compile-and-unit-test:
-  tags: ["osdu-small"]
-  needs: ["compile-and-unit-test"]
-  stage: build
-  script:
-    - echo "IBM expecting build stage named rdms_rest_compile-and-unit-test"

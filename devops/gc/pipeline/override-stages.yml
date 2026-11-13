@@ -139,7 +139,7 @@ gc-containerize-bootstrap-gcr:
     - bru run Health   $BRU_ENV
     - bru run Dataspaces $BRU_ENV
     # Drogon self-seed (create seed dataspace -> upload reduced EPC -> validate ->
-    # read -> delete). The 840 KB reduced EPC is committed at data/Demo_Drogon.epc
+    # read -> delete). The 370 KB reduced EPC is committed at data/Demo_Drogon.epc
     # (normal blob); a $DROGON_EPC_URL fallback can stage it otherwise. Guarded +
     # tolerant: run only when a REAL epc (not an LFS pointer, not truncated) is
     # present, and every assertion is oneOf(...) so a pre-upgrade server that 404s
@@ -196,3 +196,19 @@ gc-acceptance-test:
   extends: []
   rules:
     - when: never
+
+# Override: gc-helm-charts-gitlab (from the GC template) runs a guard that fails
+# when the branch is more than 30 commits behind master ("Please rebase your
+# branch"). Long-lived release/* branches are intentionally tens of commits
+# behind master, so this guard can never pass there. The real release deploy
+# path is cimpl-* (green); a GC helm-chart lint being behind master must not
+# block release MRs. Mark it non-blocking, matching gc-test.
+gc-helm-charts-gitlab:
+  allow_failure: true
+
+# Override: gc-deploy (from the GC template) targets a shared GCP Composer
+# environment and fails on infra issues unrelated to this repo (e.g. no RUNNING
+# Composer env / python3 missing in the gcloud image). validate already marks it
+# allow_failure; mirror that here so GC infra cannot block release MRs.
+gc-deploy:
+  allow_failure: true

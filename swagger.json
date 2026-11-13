@@ -17088,6 +17088,136 @@
         ]
       }
     },
+    "/info": {
+      "get": {
+        "description": "Returns package name, version, git commit hash, commit time, and build time from package.json and git. No authentication required. Use for deployment verification, client compatibility checks, and diagnostics.",
+        "operationId": "InfoAPI_Info",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "groupId": {
+                      "type": "string",
+                      "example": "org.opengroup.osdu",
+                      "maxLength": 2048,
+                      "pattern": "^[0-9a-zA-Z.]+$"
+                    },
+                    "artifactId": {
+                      "type": "string",
+                      "example": "@osdu/open-etp-client",
+                      "maxLength": 2048,
+                      "pattern": "^[0-9a-zA-Z@\\-/]+$"
+                    },
+                    "version": {
+                      "type": "string",
+                      "example": "1.3.0",
+                      "maxLength": 2048,
+                      "pattern": "^[0-9.]+$"
+                    },
+                    "commitId": {
+                      "type": "string",
+                      "example": "26e4115",
+                      "maxLength": 2048,
+                      "pattern": "^[0-9a-fA-F]+$"
+                    },
+                    "commitTime": {
+                      "type": "string",
+                      "example": "2026-09-22T08:40:14+02:00",
+                      "maxLength": 2048,
+                      "pattern": "^[0-9a-zA-Z +\\-:]+$"
+                    },
+                    "buildTime": {
+                      "type": "string",
+                      "example": "2026-09-22T06:49:22Z",
+                      "maxLength": 2048,
+                      "pattern": "^[0-9a-zA-Z +\\-:]+$"
+                    }
+                  },
+                  "required": [
+                    "groupId",
+                    "artifactId",
+                    "version",
+                    "commitId",
+                    "commitTime",
+                    "buildTime"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Unknown Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 100,
+                      "maximum": 511
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Unknown Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "statusCode": {
+                      "type": "integer",
+                      "format": "int32",
+                      "minimum": 500,
+                      "maximum": 500,
+                      "example": 500
+                    },
+                    "message": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    },
+                    "error": {
+                      "type": "string",
+                      "pattern": "^[a-zA-Z0-9 ]*$",
+                      "maxLength": 2048
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [],
+        "summary": "Get server version and build metadata.",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
     "/health/readiness": {
       "get": {
         "description": "Returns true if the underlying ETP WebSocket server is reachable and accepting connections. Returns 500 if the ETP server cannot be contacted.\n\n**Use case**: Kubernetes readiness probe - the pod is removed from service endpoints while the ETP backend is unreachable.",
@@ -18253,7 +18383,7 @@
   ],
   "servers": [
     {
-      "url": ""
+      "url": "/api/reservoir-ddms/v2"
     }
   ],
   "components": {

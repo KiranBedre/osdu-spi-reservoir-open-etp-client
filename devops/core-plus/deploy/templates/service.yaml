@@ -5,8 +5,8 @@ metadata:
   namespace: {{ .Release.Namespace | quote }}
 spec:
   ports:
-  - port: 8003
-    targetPort: 8003
+  - port: {{ .Values.data.rdmsRestPort }}
+    targetPort: {{ .Values.data.rdmsRestPort }}
     protocol: TCP
     name: http
   selector:

@@ -15,8 +15,23 @@ headers {
   Authorization: Bearer {{access_token}}
 }
 
+script:post-response {
+  const statePath = bru.getVar("acceptanceStatePath") || bru.getEnvVar("acceptanceStatePath");
+  if (statePath && res.getStatus() === 200 && res.getBody() === true) {
+    const fs = require("fs");
+    const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
+    const id = bru.getVar("testDataspaceIdRaw") || bru.getEnvVar("testDataspaceIdRaw");
+    delete state.transactions[id];
+    fs.writeFileSync(statePath + ".new", JSON.stringify(state), { mode: 0o600 });
+    fs.renameSync(statePath + ".new", statePath);
+  }
+}
+
 tests {
   test("status is 200 (404 if no transaction)", function () {
     expect(res.getStatus()).to.be.oneOf([200, 404]);
+    if (bru.getVar("acceptanceStrict") === "true" || bru.getEnvVar("acceptanceStrict") === "true") {
+      expect(res.getBody(), "transaction committed").to.equal(true);
+    }
   });
 }

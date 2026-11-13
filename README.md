@@ -216,6 +216,102 @@ npx bru run bruno/ --env Local            # headless CLI run
 
 Manual workflow: run `_Setup/` requests → test individual endpoints → run `_Cleanup/`.
 
+### CIMPL/Venus acceptance tests
+
+`cimpl-dev-test` runs the strict acceptance profile with Node 22 and Bruno CLI
+4.2.1. Other CI jobs and interactive Bruno environments retain their existing
+behavior. The acceptance runner has three external inputs:
+
+| Input | Meaning |
+| --- | --- |
+| `RESERVOIR_DDMS_HOST` | Full service base URL ending in `/api/reservoir-ddms/v2` |
+| `DATA_PARTITION_ID` | Target test partition |
+| `ACCESS_TOKEN` | Authorization token, optionally prefixed with `Bearer ` |
+
+The CIMPL CI adapter obtains the token from its existing client-credentials
+configuration. Provider credentials are not additional suite configuration.
+The runner queries the caller's memberships at `/api/entitlements/v2/groups`
+and requires exactly one returned group named `data.default.owners` and one
+named `data.default.viewers`, which also proves the principal belongs to the
+ACL groups it writes. It uses their actual email identifiers;
+`ENTITLEMENTS_DOMAIN` is not required by this profile. Missing/ambiguous groups
+and denied discovery are prerequisite failures, not skipped tests.
+
+Required access must be provisioned by the environment owner, not by the tests:
+
+| Operation | Required capability |
+| --- | --- |
+| Entitlements group discovery | List the principal's DATA memberships in the target partition, including the two groups above |
+| Legal tag lifecycle | Create, read, and delete a per-run tag through `/api/legal/v1/legaltags` |
+| Dataspace lifecycle | List, create, read, clone, lock/unlock, and delete run-owned dataspaces with the discovered owner/viewer ACLs |
+| Seed and readback | Start/commit/rollback transactions, write objects/arrays, upload EPC/H5, validate, list resources, and read object content |
+
+Exact service-role grants depend on the instance and still require maintainer
+verification. The runner does not create groups, change IAM, infer grants from
+token claims, or treat HTTP 403 as proof that a prerequisite exists.
+
+**Both `data/Demo_Drogon.epc` and its matching `data/Demo_Drogon.h5` are required.**
+Both are a small curated Drogon derived from the full fixture (epc ~360 KB +
+h5 ~2.2 MB, 22 RESQML kinds including a synthetic 2x2x2 IJK grid) and are
+committed directly as normal (non-LFS) git blobs, so no runtime download or
+checksum step is needed. Missing files, Git LFS pointers, or invalid
+ZIP/HDF5 signatures fail before test-created data is written. Drogon is not
+silently skipped. A successful upload must report stored objects and arrays and
+zero skipped arrays.
+
+```sh
+# Install the pinned CLI, then supply the three inputs through the environment.
+npm install -g @usebruno/cli@4.2.1
+node open-etp-client-acceptance-tests/acceptance-runner.cjs
+
+# Run isolated lifecycle/failure tests (no OSDU instance or credentials needed).
+npm run test:acceptance
+```
+
+The runner executes the existing `_Setup`, `Health`, `Dataspaces`, `DrogonSeed`,
+and `_Cleanup` scenarios. Legal-tag creation and Drogon create/upload are
+performed by the runner instead of the three equivalent Bruno request files;
+the upload sends the EPC/H5 pair using Node multipart streaming. It does not
+enable OSDU catalog auto-ingestion, which would create additional records
+outside this REST-to-ETP lifecycle. Required HTTP errors, failed assertions,
+missing reports, empty runs, and process errors all fail acceptance.
+
+Each run uses random pipeline/job-scoped IDs for setup, CRUD, clone, and Drogon
+dataspaces and its legal tag. An absence-checked ownership ledger is persisted
+before writes, so cleanup can reconcile timeout-after-create cases. Teardown
+runs even after a test failure, rolls back recorded transactions, removes only
+run-owned resources, verifies absence, and deletes its tag last. Cleanup errors
+fail the primary runner; the job's `after_script` retries cleanup independently
+with a fresh token. The existing `allow_failure`/retry policy is unchanged:
+a failed acceptance job may remain non-blocking, but it is not reported as passed.
+
+Sanitized artifacts are written to `open-etp-client-acceptance-tests/results/`
+(override with `ACCEPTANCE_RESULTS_DIR`, relative to the repository root):
+`state.json`, `report.json`, and `cleanup-report.json`. The private Bruno
+environment/raw reports in its `private/` subfolder contain
+sensitive runtime state, are excluded from artifacts, and are deleted on normal
+runner exit. Do not upload the entire working directory. A hard runner kill,
+revoked credentials, or unavailable service can prevent immediate cleanup;
+never interpret that as zero residual data.
+Individual API calls are bounded to 15 seconds (120 seconds for EPC/H5 upload),
+each Bruno invocation to 180 seconds, and cleanup to a 180-second budget plus
+at most one in-flight API call. Exhaustion fails visibly and retains recovery state.
+
+For recovery, restore the exact saved `state.json` to the path above, supply
+fresh authorization for the same instance and partition, then run:
+
+```sh
+node open-etp-client-acceptance-tests/acceptance-runner.cjs --cleanup
+# In CIMPL CI, reacquire authorization using the existing CI credentials:
+node open-etp-client-acceptance-tests/cimpl-acceptance.cjs --cleanup
+```
+
+Do not edit the ledger to adopt unrelated resources. An unfinished ledger must
+be cleaned before starting another run. Mock tests and a green build do not
+establish live cleanup or configuration compliance: a refreshed DoD still needs
+live CIMPL evidence and a declared completed-job denominator for the issue's
+100% pass-rate target.
+
 ### Local ETP Server (Docker)
 
 ```sh

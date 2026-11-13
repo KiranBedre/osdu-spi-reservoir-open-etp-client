@@ -22,7 +22,12 @@ tests {
 
   test("test dataspace no longer listed", function () {
     const body = res.getBody();
-    const ids = body.map(ds => ds.DataspaceId || ds.dataspaceId || ds.id || '');
+    expect(body).to.be.an("array");
+    const ids = body.map(ds => {
+      const fromUri = /^eml:\/\/\/dataspace\('([^']+)'\)$/.exec(ds.uri || "");
+      return fromUri && fromUri[1];
+    });
+    ids.forEach(id => expect(id).to.be.a("string").and.not.equal(""));
     const testDs = bru.getVar("testDataspaceIdRaw") || "test/bruno-collection";
     expect(ids).to.not.include(testDs);
   });

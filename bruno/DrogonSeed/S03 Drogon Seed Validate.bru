@@ -23,15 +23,36 @@ docs {
 
   NOTE: /validate is a limited-deployment endpoint and returns 404 on the current
   preship; tolerated so the suite stays green until the upgrade.
+
+  Strict (CIMPL acceptance) mode: Demo_Drogon.epc is not schema-valid
+  (is_valid=false, 55 errors, 316 warnings, 336 of 348 objects validated on
+  server 1.3.0; e.g. missing StratigraphicColumn uuid/schemaVersion,
+  NodeCount=0, nil Citation). Strict
+  mode asserts the validation contract plus a regression baseline: more than
+  55 errors or fewer than 336 validated objects fails the run.
 }
 
 tests {
+  const strict = bru.getVar("acceptanceStrict") === "true" || bru.getEnvVar("acceptanceStrict") === "true";
   test("validate ok or not-yet-deployed (200/404)", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 404]);
+    expect(res.getStatus()).to.be.oneOf(strict ? [200, 201] : [200, 404]);
   });
 
   test("dataspace is valid when validate is deployed", function () {
-    if (res.getStatus() === 200) {
+    if (strict) {
+      const knownFixtureErrors = 55;
+      const knownValidatedObjects = 336;
+      const b = res.getBody();
+      expect(b.is_valid, "is_valid").to.be.a("boolean");
+      expect(b.object_count, "object_count").to.be.a("number").and.greaterThan(0);
+      expect(b.validated_count, "validated_count").to.be.a("number").and.at.most(b.object_count);
+      expect(b.validated_count, "validated objects at or above the known baseline").to.be.at.least(knownValidatedObjects);
+      expect(b.error_count, "error_count").to.be.a("number").and.at.least(0);
+      expect(b.warning_count, "warning_count").to.be.a("number").and.at.least(0);
+      expect(b.errors, "errors").to.be.an("array");
+      expect(b.error_count, "no errors beyond the known fixture baseline").to.be.at.most(knownFixtureErrors);
+      expect(b.is_valid, "is_valid agrees with error_count").to.equal(b.error_count === 0);
+    } else if (res.getStatus() === 200) {
       const b = res.getBody() || {};
       const valid = b.is_valid ?? b.isValid;
       expect(valid, "is_valid").to.satisfy(function (v) {
