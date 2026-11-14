@@ -37,7 +37,8 @@ export class IjkGridRepresentationOSDU
   extends ResqmlWorkProductComponent<
     SimpleJson<resqml20.obj_IjkGridRepresentation>
   >
-  implements IjkGridRepresentation {
+  implements IjkGridRepresentation
+{
   public data: Abstract = {};
   public meta?: FrameOfReferenceMetaDataItem[];
 
@@ -146,10 +147,10 @@ export class IjkGridRepresentationOSDU
       ).uri;
       const stratiIndices = xml.IntervalStratigraphicUnits?.UnitIndices
         ? await getIntegerValues(
-          dataspaceUri,
-          xml.IntervalStratigraphicUnits?.UnitIndices,
-          client
-        )
+            dataspaceUri,
+            xml.IntervalStratigraphicUnits?.UnitIndices,
+            client
+          )
         : undefined;
 
       const context = this.__context;
@@ -223,22 +224,21 @@ export class IjkGridRepresentationOSDU
       HasNaNGeometry: undefined,
       ParentGridID: xml.ParentWindow
         ? await IjkGridRepresentationOSDU.dorToSrn(
-          ReservoirDMSUrl,
-          (xml.ParentWindow as any).ParentIjkGridRepresentation ??
-          (xml.ParentWindow as any).ParentColumnLayerGridRepresentation,
-          client,
-          context
-        )
-        : undefined,
-      RockFluidOrganizationInterpretationIDS: xml.CellFluidPhaseUnits
-        ? [
-          await IjkGridRepresentationOSDU.dorToSrn(
             ReservoirDMSUrl,
-            xml.CellFluidPhaseUnits.FluidOrganization,
+            (xml.ParentWindow as any).ParentGrid,
             client,
             context
           )
-        ].filter((x): x is string => x !== undefined)
+        : undefined,
+      RockFluidOrganizationInterpretationIDS: xml.CellFluidPhaseUnits
+        ? [
+            await IjkGridRepresentationOSDU.dorToSrn(
+              ReservoirDMSUrl,
+              xml.CellFluidPhaseUnits.FluidOrganization,
+              client,
+              context
+            )
+          ].filter((x): x is string => x !== undefined)
         : undefined,
       StratigraphicUnits: await this.stratigraphicUnits(
         ReservoirDMSUrl,

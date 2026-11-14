@@ -29,6 +29,18 @@ script:post-response {
           : undefined;
     if (transactionId) {
       bru.setVar("transactionId", transactionId);
+      const statePath = bru.getVar("acceptanceStatePath") || bru.getEnvVar("acceptanceStatePath");
+      if (statePath) {
+        const fs = require("fs");
+        const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
+        const id = bru.getVar("testDataspaceIdRaw") || bru.getEnvVar("testDataspaceIdRaw");
+        if (!state.resources.some(item => item.id === id && item.eligible)) {
+          throw new Error("Transaction dataspace is not owned by this run");
+        }
+        state.transactions[id] = transactionId;
+        fs.writeFileSync(statePath + ".new", JSON.stringify(state), { mode: 0o600 });
+        fs.renameSync(statePath + ".new", statePath);
+      }
     }
   }
 }

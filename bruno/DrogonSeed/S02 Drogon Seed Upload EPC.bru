@@ -24,7 +24,7 @@ body:multipart-form {
 }
 
 docs {
-  Drogon SELF-SEED (2/6). Uploads the Drogon EPC (Demo_Drogon.epc, 840 KB -
+  Drogon SELF-SEED (2/6). Uploads the Drogon EPC (Demo_Drogon.epc, 370 KB -
   the RESQML XML objects: grid, wells, property headers) into the fresh dataspace
   via POST /dataspaces/{ds}/epc/upload?autoIngest=true. EPC-ONLY on purpose (the
   H5 is intentionally omitted here - see the multipart note below). This makes the
@@ -44,7 +44,7 @@ docs {
 
   IMPORTANT - EPC-ONLY (single file part) and NO tests/script blocks on purpose.
   The Bruno CLI (@usebruno/cli, quickjs marshalling) CRASHES on a multipart body
-  with 2+ file parts whenever any NON-LAST part is more than a few KB - the 840 KB
+  with 2+ file parts whenever any NON-LAST part is more than a few KB - the 370 KB
   epc as the non-last part triggers it regardless of the H5 size, and it fires even
   with no user script (implicit post-response marshalling). So Bruno uploads are
   kept epc-only here; the full epc+h5 array round-trip is done under Newman/Postman.

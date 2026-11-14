@@ -1029,8 +1029,6 @@ export function validateFesapiCompat(
         }
 
         // Check 4: ExtraMetadata position (v2.0.1 + v2.2)
-        if (obj.objectType.includes("StringTableLookup")) continue; // XSD exception
-
         if (isV201 || isV22) {
             // Check ExtraMetadata position: must be last among top-level children.
             // We extract only top-level child element names (depth 1) by tracking
@@ -1055,14 +1053,22 @@ export function validateFesapiCompat(
             }
             let firstEmIdx = -1;
             let lastNonEmIdx = -1;
+            const trailingAfterEm: string[] = [];
             for (let i = 0; i < topLevelChildren.length; i++) {
                 if (topLevelChildren[i] === "ExtraMetadata") {
                     if (firstEmIdx === -1) firstEmIdx = i;
                 } else {
                     lastNonEmIdx = i;
+                    if (firstEmIdx !== -1) trailingAfterEm.push(topLevelChildren[i]);
                 }
             }
-            if (firstEmIdx !== -1 && lastNonEmIdx > firstEmIdx) {
+            // obj_StringTableLookup extends AbstractPropertyLookup and appends its
+            // <Value> (DoubleLookup) sequence AFTER the base-defined <ExtraMetadata>,
+            // so the XSD-correct order is Citation, ExtraMetadata*, Value*. Here
+            // ExtraMetadata legitimately precedes Value and must NOT be flagged.
+            const isLookup = obj.objectType.includes("StringTableLookup");
+            const lookupOk = isLookup && trailingAfterEm.every(t => t === "Value");
+            if (firstEmIdx !== -1 && lastNonEmIdx > firstEmIdx && !lookupOk) {
                 errors.push(makeError(
                     "ExtraMetadata appears before other elements. fesapi requires ExtraMetadata to be the last child elements.",
                     Severity.WARNING, C,

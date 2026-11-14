@@ -30,7 +30,13 @@ tests {
 
   test("returned the requested grid when seeded", function () {
     const guid = bru.getVar("drogonSeedGridGuid");
-    if (guid && res.getStatus() === 200) {
+    const strict = bru.getVar("acceptanceStrict") === "true" || bru.getEnvVar("acceptanceStrict") === "true";
+    if (strict) {
+      expect(guid, "captured grid UUID").to.be.a("string").and.not.be.empty;
+      expect(res.getStatus()).to.equal(200);
+      const body = res.getBody();
+      expect(JSON.stringify(body), "returned grid UUID").to.include(guid);
+    } else if (guid && res.getStatus() === 200) {
       const body = res.getBody();
       expect(body, "grid object body").to.exist;
     } else {

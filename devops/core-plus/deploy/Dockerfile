@@ -39,6 +39,16 @@ FROM node:${docker_node_image_version} as release
 ARG VERSION=0.1
 ARG DIST=dist.tgz
 
+# Build identity, injected by cimpl-containerize-gitlab (CIMPL_BUILD_ARGS) so
+# GET /health/info can report the real commit/build the same way open-etp-server
+# does. Uses the SAME env var names as the OSDU Dockerfile.runtime.
+ARG GIT_COMMIT_HASH=unknown
+ARG GIT_COMMIT_TIMESTAMP=unknown
+ARG BUILD_TIME=unknown
+ENV GIT_COMMIT_HASH=${GIT_COMMIT_HASH}
+ENV GIT_COMMIT_TIMESTAMP=${GIT_COMMIT_TIMESTAMP}
+ENV BUILD_TIME=${BUILD_TIME}
+
 LABEL version="${VERSION}"
 LABEL vendor="OSDU Reservoir DMS"
 LABEL description="Open ETP Client Runtime Image"
