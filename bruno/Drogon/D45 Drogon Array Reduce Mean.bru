@@ -1,0 +1,76 @@
+meta {
+  name: D45 Drogon Array Reduce Mean
+  type: http
+  seq: 45
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/arrays/compute
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "op": "reduce",
+    "target": {
+      "dataObjectType": "{{drogonPropType}}",
+      "guid": "{{drogonStatGuid}}",
+      "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0"
+    },
+    "reducer": "mean"
+  }
+}
+
+docs {
+  Array-compute coverage (5/31). POST .../arrays/compute (op=reduce) collapses the 3-D property
+  [Nk, Nj, Ni] down the K axis to a 2-D [Nj, Ni] column map. op=mean here;
+  sum/min/max share the same shape, count/net additionally take rangeLo/rangeHi.
+
+  Shape asserted against the D41 dimensions (ni/nj echo [Nj, Ni], map has
+  exactly nj*ni cells, columns <= nj*ni) and every column mean lies inside the
+  whole-array [minimum, maximum] of D42.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("2-D column map returned", function () {
+    const b = res.getBody();
+    expect(b.op).to.equal("mean");
+    expect(b.ni).to.be.a("number").greaterThan(0);
+    expect(b.nj).to.be.a("number").greaterThan(0);
+    expect(b.map).to.be.an("array").with.length.greaterThan(0);
+  });
+
+  test("map shape matches the grid [Nj, Ni]", function () {
+    const b = res.getBody();
+    const nj = Number(bru.getVar("drogonNj"));
+    const ni = Number(bru.getVar("drogonNi"));
+    if (nj > 0 && ni > 0) {
+      expect(b.nj).to.equal(nj);
+      expect(b.ni).to.equal(ni);
+    }
+    expect(b.map).to.have.lengthOf(b.nj * b.ni);
+    expect(b.columns).to.be.a("number").at.least(0).at.most(b.nj * b.ni);
+  });
+
+  test("every column mean lies within the global [min, max]", function () {
+    const b = res.getBody();
+    const lo = Number(bru.getVar("drogonStatMin"));
+    const hi = Number(bru.getVar("drogonStatMax"));
+    b.map.forEach(function (v) {
+      if (typeof v === "number" && !Number.isNaN(v)) {
+        expect(v).to.be.at.least(lo - 1e-12);
+        expect(v).to.be.at.most(hi + 1e-12);
+      }
+    });
+  });
+}

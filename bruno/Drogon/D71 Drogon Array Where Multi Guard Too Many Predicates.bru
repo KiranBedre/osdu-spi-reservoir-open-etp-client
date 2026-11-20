@@ -1,0 +1,162 @@
+meta {
+  name: D71 Drogon Array Where Multi Guard Too Many Predicates
+  type: http
+  seq: 71
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/arrays/compute
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "op": "where-multi",
+    "predicates": [
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        },
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        },
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        },
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        },
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        },
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        },
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        },
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        },
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        },
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        },
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        },
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        },
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        },
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        },
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        },
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        },
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0,
+          "rangeHi": 1
+        }
+    ]
+  }
+}
+
+docs {
+  Array-compute coverage (31/31). Guard: WHEREN accepts at most 16 predicates per request; 17
+      entries -> 400 naming the ceiling. Also covers the shape-mismatch rule
+      implicitly: all entries here are the same grid, so the ONLY reason to reject
+      is the entry count.
+}
+
+tests {
+  test("status is 400", function () {
+        expect(res.getStatus()).to.equal(400);
+      });
+
+      test("error message names the predicate ceiling", function () {
+        const b = res.getBody();
+        const msg = String((b && (b.description || b.message)) || "");
+        expect(msg).to.include("16");
+      });
+}

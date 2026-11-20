@@ -4,7 +4,8 @@ compile-and-unit-test:
   stage: build
   artifacts:
     reports:
-      junit: junit.xml
+      junit:
+        - junit.xml
       coverage_report:
         coverage_format: cobertura
         path: coverage/cobertura-coverage.xml
@@ -12,6 +13,7 @@ compile-and-unit-test:
       - coverage/
       - dist.tgz
     expire_in: 15 days
+    when: always
   script:
     - apk update && apk upgrade && apk add --no-cache python3 && ln -sf python3 /usr/bin/python
     - apk add --update docker docker-compose make g++ nodejs npm git
@@ -29,6 +31,132 @@ compile-and-unit-test:
     - npm run docker:compose:start
     - npm run test:cov
   rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+
+# Local REST -> ETP integration tests (GATING).
+#
+# Each job brings up the same docker-compose stack as compile-and-unit-test
+# (postgres + open-etp-server pinned in config.default.env + the init container
+# that imports data/Demo_Drogon.epc into demo/Drogon + the REST API image built
+# from the dist.tgz artifact) and tests the REST API *container* at
+# ${RDMS_REST_MAIN_URL}:${RDMS_REST_PORT}${RDMS_REST_ROOT_PATH}, i.e. the same
+# image/dist that gets shipped. devops/scripts/wait-for-rddms.sh waits for
+# readiness + the seeded dataspace and mints the dev JWT (GET /auth/token).
+#
+# Emergency bypass only (Settings -> CI/CD -> Variables, or "Run pipeline"):
+#   RUN_BRUNO_TESTS=0 / RUN_POSTMAN_TESTS=0 / RUN_JEST_INTEGRATION_TESTS=0
+.local-integration-base:
+  image: alpine:3.21
+  tags: ["osdu-medium"]
+  stage: integration
+  needs:
+    - job: compile-and-unit-test
+      artifacts: true
+  variables:
+    RDMS_DATA_PARTITION_MODE: single
+  before_script:
+    - apk update && apk add --no-cache python3 docker docker-compose nodejs npm curl bash git && ln -sf python3 /usr/bin/python
+    # Restore the built app (dist/ + node_modules/ + package*) from the build job.
+    - tar -xzf dist.tgz
+    - chmod o+rwx -R devops/scripts/init-db
+    - export DOCKER_GATEWAY_HOST=172.17.0.1
+    - export CONTAINER_ID=$(docker ps -q -f "label=com.gitlab.gitlab-runner.job.id=$CI_JOB_ID" -f "label=com.gitlab.gitlab-runner.type=build")
+    - export MOUNT_NAME=$(docker inspect $CONTAINER_ID -f "{{ range .Mounts }}{{ if eq .Destination \"/builds\" }}{{ .Source }}{{end}}{{end}}")
+    - export SOURCE_HOST_DIR=$MOUNT_NAME/osdu/platform/domain-data-mgmt-services/reservoir/open-etp-client
+    - npm run docker:compose:start
+    # Resolve the REST URL from the same env the compose stack was started with
+    # (CI variables win over config.default.env: env-cmd --no-override).
+    - npm run env:set -- sh -c 'devops/scripts/wait-for-rddms.sh "${RDMS_REST_MAIN_URL}:${RDMS_REST_PORT}${RDMS_REST_ROOT_PATH}" "${RDMS_SEED_DATASPACE}"'
+    - . /tmp/rddms.env
+  after_script:
+    - echo "=== etp-rest-api log tail ===" && docker logs --tail 60 etp-rest-api || true
+    - echo "=== etp-client-etp-server-init log tail ===" && docker logs --tail 20 etp-client-etp-server-init || true
+    - npm run docker:compose:stop || true
+  artifacts:
+    when: always
+    expire_in: 15 days
+
+# Bruno collection (bruno/): one `bru run` over every folder in dependency order
+# (_Setup ... _Cleanup) so runtime vars captured by _Setup are visible to all
+# later folders; devops/scripts/run-bruno-suites.sh fails the job on any failing
+# assertion/request and prints a per-folder summary.
+bruno-integration-test:
+  extends: .local-integration-base
+  script:
+    # Pinned: the Drogon folder uploads EPC + H5 as two multipart file parts and
+    # other @usebruno/cli releases crash marshalling multi-part bodies
+    # ("Cannot read properties of undefined (reading 'value')"); bump only
+    # after re-running the Drogon folder.
+    - npm install -g @usebruno/cli@4.0.0
+    - export BRU_ENV="--env CI --env-var access_token=${RDDMS_TOKEN} --env-var RESERVOIR_DDMS_HOST=${RDDMS_BASE_URL} --env-var graphqlHost=${RDDMS_GRAPHQL_URL} --env-var DATA_PARTITION_ID=osdu --env-var ENTITLEMENTS_DOMAIN=example.com"
+    - devops/scripts/run-bruno-suites.sh bruno-report
+  artifacts:
+    reports:
+      junit:
+        - bruno-report/bruno-report.xml
+    paths:
+      - bruno-report/
+  rules:
+    - if: '$RUN_BRUNO_TESTS == "0"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+
+# Postman/newman run of the full RDDMS_M28 collection (self-seeds test/Drogon
+# from data/Demo_Drogon.epc + data/drogon_small.h5; folders that need OSDU core
+# services skip themselves when LEGAL_URL / wdms_welllog_id are unset).
+# NON-GATING: route-template coverage is a subset of the Bruno collection
+# (same REST routes, only different RESQML type names); it is kept running so
+# the collection shipped for Postman users / osdu-qa stays verified, but only
+# Bruno + jest gate the pipeline.
+postman-integration-test:
+  extends: .local-integration-base
+  allow_failure: true
+  script:
+    - npm install -g newman newman-reporter-htmlextra
+    - >
+      newman run RDDMS_M28.postman_collection.json --working-dir .
+      --global-var "RDDMS_URL=${RDDMS_BASE_URL}"
+      --global-var "graphql_url=${RDDMS_GRAPHQL_URL}"
+      --global-var "access_token=${RDDMS_TOKEN}"
+      --reporters cli,junit,htmlextra
+      --reporter-junit-export postman-report.xml
+      --reporter-htmlextra-export postman-report.html
+      --reporter-htmlextra-title "RDDMS M28 - Postman route report"
+  artifacts:
+    reports:
+      junit:
+        - postman-report.xml
+    paths:
+      - postman-report.xml
+      - postman-report.html
+  rules:
+    - if: '$RUN_POSTMAN_TESTS == "0"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+
+# Jest integration suites (TestClient / TestWitsmlQuery / TestProtocolsIntegration):
+# REST routes against both the compose REST container ("http") and an in-process
+# Nest app ("app"), plus raw ETP protocol round-trips, all driven by the seeded
+# dataset descriptor (src/__tests__/fixtures/SeededDataset.ts, default drogon).
+jest-integration-test:
+  extends: .local-integration-base
+  script:
+    - npm run test:integration
+  artifacts:
+    reports:
+      junit:
+        - junit.xml
+    paths:
+      - junit.xml
+  rules:
+    - if: '$RUN_JEST_INTEGRATION_TESTS == "0"'
+      when: never
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
     - if: '$CI_COMMIT_BRANCH'
     - if: '$CI_COMMIT_TAG'

@@ -18,7 +18,7 @@ import { EventEmitter } from "events";
 import { w3cwebsocket } from "websocket";
 
 import { EtpSessionTerminatedError, MessageFlags } from "./EtpTypes";
-import { SchemaCache } from "./Util";
+import { SchemaCache, socketHighWaterMark } from "./Util";
 import { Energistics, Integer64 } from "./Etp12";
 
 import { BaseHandler } from "./BaseHandler";
@@ -38,28 +38,6 @@ export interface IPromiseTimeMap {
   initialTime: Integer64;
 }
 
-export interface IConnectionState {
-  readyState: "CONNECTING" | "OPEN" | "CLOSING" | "CLOSED" | "UNKNOWN";
-  sessionActive: boolean;
-}
-
-const readyStateName = (
-  readyState?: number
-): IConnectionState["readyState"] => {
-  switch (readyState) {
-    case 0:
-      return "CONNECTING";
-    case 1:
-      return "OPEN";
-    case 2:
-      return "CLOSING";
-    case 3:
-      return "CLOSED";
-    default:
-      return "UNKNOWN";
-  }
-};
-
 /// Base class for either a server or client, implements common core functionality
 export class ETPCore extends EventEmitter {
   public traceCalls: boolean;
@@ -68,6 +46,14 @@ export class ETPCore extends EventEmitter {
   public multipartMessageTimeoutPeriod = 1000; // Maximum wait between messages
   public messageQueueDepth = 100; // Maximum number of waiting message supported by server
   public enableCertificationTracing: boolean = false;
+  // Tri-state: undefined = capability not yet negotiated (no OpenSession seen),
+  // true = server advertised the `supportedArrayExtensions` endpoint capability
+  // (array-compute build), false = an OpenSession was received WITHOUT the key
+  // (an un-updated M27 store). Array-compute routes guard on the explicit
+  // `false` so compute is never sent to a known non-compute server.
+  public serverSupportsArrayExtensions?: boolean;
+  // Advisory comma-separated extension list from the advertisement, when present.
+  public serverArrayExtensions?: string;
   protected binary = true;
   protected connection: w3cwebsocket | null = null;
   protected handlers: BaseHandler[] = [];
@@ -108,7 +94,8 @@ export class ETPCore extends EventEmitter {
 
   /// Close the current Session. Other party should respond by closing the socket.
   public closeSession(): void {
-    if (this.hasActiveSession()) {
+    const closed = this.sessionId.every(v => v === 0);
+    if (!closed) {
       this.logTrace(`Session closure requested.`);
       this.send(
         this.createFinalMessageHeader(
@@ -166,19 +153,8 @@ export class ETPCore extends EventEmitter {
     return (
       this.connection != null &&
       this.connection.readyState === 1 &&
-      this.hasActiveSession()
+      this.sessionId !== EtpUri.invalidGuid()
     );
-  }
-
-  public getConnectionState(): IConnectionState {
-    return {
-      readyState: readyStateName(this.connection?.readyState),
-      sessionActive: this.hasActiveSession()
-    };
-  }
-
-  private hasActiveSession(): boolean {
-    return this.sessionId.some(value => value !== 0);
   }
 
   /// Handle a parsed message. Overloaded in all handlers.  Includes default handling for common messages
@@ -263,8 +239,7 @@ export class ETPCore extends EventEmitter {
       ? currentDateTime - message.currentDateTime
       : undefined;
     this.logTrace(
-      `Received Ping message for session ${this.sessionId} sent ${
-        deltaTime ?? "unknown"
+      `Received Ping message for session ${this.sessionId} sent ${deltaTime ?? "unknown"
       } microseconds ago`
     );
     const responseHeader = this.createFinalMessageHeader(
@@ -392,6 +367,54 @@ export class ETPCore extends EventEmitter {
     this.stats.messagesSent++;
     this.connection?.send(data);
     return id;
+  }
+
+  /**
+   * Resolve once the outbound WebSocket send buffer has drained below
+   * `highWaterMark` bytes. This is an additive backpressure hook: callers that
+   * emit large frames (bulk `DataArray` writes) await it before sending so a
+   * fast producer cannot balloon the socket send buffer / process memory.
+   *
+   * Safety / no-op conditions (never deadlocks a send):
+   *  * no connection, or the transport exposes no numeric `bufferedAmount`;
+   *  * `highWaterMark <= 0` (backpressure disabled);
+   *  * socket is CLOSING/CLOSED - returns immediately so `sendData` can raise
+   *    its own typed terminated-session error;
+   *  * `maxWaitMs` elapsed - returns so a stuck drain cannot hang forever.
+   *
+   * @param highWaterMark drain threshold in bytes (default `socketHighWaterMark()`)
+   * @param pollMs poll interval while waiting (default 5 ms)
+   * @param maxWaitMs hard cap on total wait (default 30 s)
+   */
+  public async awaitWritable(
+    highWaterMark = socketHighWaterMark(),
+    pollMs = 5,
+    maxWaitMs = 30000
+  ): Promise<void> {
+    const conn = this.connection as {
+      bufferedAmount?: number;
+      readyState?: number;
+    } | null;
+    if (
+      !conn ||
+      typeof conn.bufferedAmount !== "number" ||
+      highWaterMark <= 0
+    ) {
+      return;
+    }
+    const deadline = Date.now() + maxWaitMs;
+    while (conn.bufferedAmount > highWaterMark) {
+      if (
+        conn.readyState === w3cwebsocket.CLOSED ||
+        conn.readyState === w3cwebsocket.CLOSING
+      ) {
+        return;
+      }
+      if (Date.now() >= deadline) {
+        return;
+      }
+      await new Promise(resolve => setTimeout(resolve, pollMs));
+    }
   }
 
   /// Send an exception, either direction

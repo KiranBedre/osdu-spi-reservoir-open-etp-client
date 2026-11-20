@@ -1,0 +1,560 @@
+{
+  "version": "1.0.0",
+  "description": "Declarative catalog of RESQML validation rules beyond XSD structural checks, versioned independently of the RESQML XSDs. Applies to RESQML 2.0.1 - 2.2.0.",
+  "rules": [
+    {
+      "id": "S01",
+      "title": "IJK grid Ni must be positive",
+      "category": "resqml_business_rule",
+      "severity": "error",
+      "source": "XSD annotation",
+      "applies_to": {
+        "type_contains": [
+          "IjkGridRepresentation"
+        ]
+      },
+      "check": {
+        "field": "Ni",
+        "op": "gt",
+        "value": 0
+      },
+      "message": "IJK grid Ni must be positive, got {value}"
+    },
+    {
+      "id": "S02",
+      "title": "IJK grid Nj must be positive",
+      "category": "resqml_business_rule",
+      "severity": "error",
+      "source": "XSD annotation",
+      "applies_to": {
+        "type_contains": [
+          "IjkGridRepresentation"
+        ]
+      },
+      "check": {
+        "field": "Nj",
+        "op": "gt",
+        "value": 0
+      },
+      "message": "IJK grid Nj must be positive, got {value}"
+    },
+    {
+      "id": "S03",
+      "title": "Column-layer grid Nk must be positive",
+      "category": "resqml_business_rule",
+      "severity": "error",
+      "source": "XSD annotation",
+      "applies_to": {
+        "type_contains": [
+          "ColumnLayer",
+          "IjkGrid"
+        ]
+      },
+      "check": {
+        "field": "Nk",
+        "op": "gt",
+        "value": 0
+      },
+      "message": "Column-layer grid Nk must be positive, got {value}"
+    },
+    {
+      "id": "S04",
+      "title": "Unstructured grid CellCount must be positive",
+      "category": "resqml_business_rule",
+      "severity": "error",
+      "source": "XSD annotation",
+      "applies_to": {
+        "type_contains": [
+          "UnstructuredGridRepresentation"
+        ]
+      },
+      "check": {
+        "field": "CellCount",
+        "op": "gt",
+        "value": 0
+      },
+      "message": "Unstructured grid CellCount must be positive, got {value}"
+    },
+    {
+      "id": "S05",
+      "title": "TrianglePatch NodeCount must be positive",
+      "category": "resqml_business_rule",
+      "severity": "error",
+      "source": "XSD annotation",
+      "applies_to": {
+        "type_contains": [
+          "TriangulatedSetRepresentation"
+        ]
+      },
+      "check": {
+        "for_each": "TrianglePatch",
+        "satisfy": {
+          "field": "NodeCount",
+          "op": "gt",
+          "value": 0
+        }
+      },
+      "message": "TrianglePatch.NodeCount must be positive, got {value}"
+    },
+    {
+      "id": "S06",
+      "title": "TriangulatedSetRepresentation must have at least one TrianglePatch",
+      "category": "resqml_business_rule",
+      "severity": "error",
+      "source": "XSD min_occurs=1",
+      "applies_to": {
+        "type_contains": [
+          "TriangulatedSetRepresentation"
+        ]
+      },
+      "check": {
+        "count_of": "TrianglePatch",
+        "op": "ge",
+        "value": 1
+      },
+      "message": "TriangulatedSetRepresentation must have at least one TrianglePatch"
+    },
+    {
+      "id": "S07",
+      "title": "Property Count (values per element) must be positive",
+      "category": "resqml_business_rule",
+      "severity": "error",
+      "source": "XSD annotation",
+      "applies_to": {
+        "type_contains": [
+          "Property"
+        ]
+      },
+      "check": {
+        "field": "Count",
+        "op": "gt",
+        "value": 0
+      },
+      "message": "Property Count (values per element) must be positive, got {value}"
+    },
+    {
+      "id": "S08",
+      "title": "Property SupportingRepresentation must reference a known object",
+      "category": "resqml_business_rule",
+      "severity": "error",
+      "source": "Tech Ref",
+      "applies_to": {
+        "type_contains": [
+          "Property"
+        ]
+      },
+      "check": {
+        "ref": "SupportingRepresentation",
+        "must_resolve": true,
+        "allow_standard_property_kind": true
+      },
+      "message": "SupportingRepresentation references unknown object: uuid='{value}'"
+    },
+    {
+      "id": "S09",
+      "title": "UUID must be valid RFC 4122 format",
+      "category": "resqml_business_rule",
+      "severity": "error",
+      "source": "Identifier Spec",
+      "check": {
+        "field": "Uuid",
+        "op": "is_uuid"
+      },
+      "message": "UUID is not valid RFC 4122 format: '{value}'"
+    },
+    {
+      "id": "S10",
+      "title": "Citation.Title must not be empty",
+      "category": "resqml_business_rule",
+      "severity": "error",
+      "source": "Tech Ref",
+      "check": {
+        "field": "Citation.Title",
+        "op": "nonempty"
+      },
+      "message": "Citation.Title must not be empty"
+    },
+    {
+      "id": "S11",
+      "title": "Citation.Creation should be present",
+      "category": "resqml_business_rule",
+      "severity": "warning",
+      "source": "Tech Ref",
+      "check": {
+        "field": "Citation.Creation",
+        "op": "present"
+      },
+      "message": "Citation.Creation is missing (expected a valid datetime)"
+    },
+    {
+      "id": "S12",
+      "title": "schemaVersion should be present and non-empty",
+      "category": "resqml_business_rule",
+      "severity": "warning",
+      "source": "Tech Ref",
+      "check": {
+        "field": "SchemaVersion",
+        "op": "nonempty"
+      },
+      "message": "schemaVersion is present but empty"
+    },
+    {
+      "id": "S13",
+      "title": "Grid representations should reference an Interpretation",
+      "category": "resqml_business_rule",
+      "severity": "warning",
+      "source": "Tech Ref / FESAPI",
+      "applies_to": {
+        "type_contains": [
+          "IjkGrid",
+          "UnstructuredGrid"
+        ],
+        "type_excludes": [
+          "Sub"
+        ]
+      },
+      "check": {
+        "any_of": [
+          {
+            "field": "RepresentedInterpretation",
+            "op": "present"
+          },
+          {
+            "field": "RepresentedObject",
+            "op": "present"
+          }
+        ]
+      },
+      "message": "Grid representation should reference an Interpretation (RepresentedInterpretation/RepresentedObject)"
+    },
+    {
+      "id": "S19",
+      "title": "Surface/fault/point representations must reference an Interpretation",
+      "category": "resqml_business_rule",
+      "severity": "error",
+      "source": "Tech Ref / FESAPI (FIRP completeness)",
+      "applies_to": {
+        "type_contains": [
+          "TriangulatedSet",
+          "Grid2d",
+          "PolylineSet",
+          "PointSet"
+        ],
+        "type_excludes": [
+          "Sub"
+        ]
+      },
+      "check": {
+        "any_of": [
+          {
+            "field": "RepresentedInterpretation",
+            "op": "present"
+          },
+          {
+            "field": "RepresentedObject",
+            "op": "present"
+          }
+        ]
+      },
+      "message": "Surface/fault/point representation must reference an Interpretation (RepresentedInterpretation/RepresentedObject)"
+    },
+    {
+      "id": "S14",
+      "title": "PointGeometry must reference a LocalCRS",
+      "category": "resqml_business_rule",
+      "severity": "error",
+      "source": "FESAPI enforces",
+      "check": {
+        "for_each": "PointGeometry",
+        "satisfy": {
+          "field": "LocalCrs",
+          "op": "present"
+        }
+      },
+      "message": "PointGeometry must reference a LocalCRS"
+    },
+    {
+      "id": "S16",
+      "title": "Grid2dPatch axis counts must be positive",
+      "category": "resqml_business_rule",
+      "severity": "error",
+      "source": "XSD annotation",
+      "applies_to": {
+        "type_contains": [
+          "Grid2d"
+        ]
+      },
+      "check": {
+        "for_each": "Grid2DPatch",
+        "satisfy": {
+          "all_of": [
+            {
+              "field": "FastestAxisCount",
+              "op": "gt",
+              "value": 0
+            },
+            {
+              "field": "SlowestAxisCount",
+              "op": "gt",
+              "value": 0
+            }
+          ]
+        }
+      },
+      "message": "Grid2dPatch axis counts (FastestAxisCount/SlowestAxisCount) must be positive"
+    },
+    {
+      "id": "S18",
+      "title": "KGaps.Count must be non-negative",
+      "category": "resqml_business_rule",
+      "severity": "error",
+      "source": "XSD BUSINESS RULE",
+      "applies_to": {
+        "type_contains": [
+          "IjkGridRepresentation"
+        ]
+      },
+      "check": {
+        "field": "KGaps.Count",
+        "op": "ge",
+        "value": 0
+      },
+      "message": "KGaps.Count must be non-negative, got {value}"
+    },
+    {
+      "id": "S15",
+      "title": "Stratigraphic org ranks should be ordered (lower->upper)",
+      "category": "resqml_business_rule",
+      "severity": "warning",
+      "source": "XSD BUSINESS RULE",
+      "applies_to": {
+        "type_contains": [
+          "StratigraphicOrganization"
+        ]
+      },
+      "handler": "strat_rank_ordering",
+      "message": "Stratigraphic organization ranks must be ordered (lower to upper)"
+    },
+    {
+      "id": "S17",
+      "title": "SubRepresentation indices must be non-negative",
+      "category": "resqml_business_rule",
+      "severity": "error",
+      "source": "XSD BUSINESS RULE",
+      "applies_to": {
+        "type_contains": [
+          "SubRepresentation"
+        ]
+      },
+      "handler": "subrep_indices_nonnegative",
+      "message": "SubRepresentation element indices must be non-negative"
+    },
+    {
+      "id": "D01",
+      "title": "DOR UUID must reference an existing object in the EPC",
+      "category": "dor_integrity",
+      "severity": "error",
+      "source": "Geosiris energyml",
+      "handler": "dor_target_exists",
+      "message": "DOR references non-existent object: uuid='{value}'"
+    },
+    {
+      "id": "D02",
+      "title": "DOR Title should match referenced object's Citation.Title",
+      "category": "dor_integrity",
+      "severity": "warning",
+      "source": "Geosiris energyml",
+      "handler": "dor_title_match",
+      "message": "DOR Title does not match referenced object's Citation.Title"
+    },
+    {
+      "id": "D03",
+      "title": "DOR ContentType must match referenced object's content type",
+      "category": "dor_integrity",
+      "severity": "error",
+      "source": "Geosiris energyml",
+      "handler": "dor_content_type_match",
+      "message": "DOR ContentType does not match referenced object's content type"
+    },
+    {
+      "id": "D04",
+      "title": "DOR QualifiedType must match referenced object's qualified type",
+      "category": "dor_integrity",
+      "severity": "error",
+      "source": "Geosiris energyml",
+      "handler": "dor_qualified_type_match",
+      "message": "DOR QualifiedType does not match referenced object's qualified type"
+    },
+    {
+      "id": "D05",
+      "title": "DOR ObjectVersion should match referenced object's version",
+      "category": "dor_integrity",
+      "severity": "warning",
+      "source": "Geosiris energyml",
+      "handler": "dor_version_match",
+      "message": "DOR ObjectVersion does not match referenced object's version"
+    },
+    {
+      "id": "D06",
+      "title": "Multiple objects with same UUID is ambiguous",
+      "category": "dor_integrity",
+      "severity": "warning",
+      "source": "Geosiris energyml",
+      "handler": "dor_duplicate_uuid",
+      "message": "Multiple objects share UUID '{value}'"
+    },
+    {
+      "id": "D07",
+      "title": "DOR must have at least one of ContentType or QualifiedType",
+      "category": "dor_integrity",
+      "severity": "warning",
+      "source": "Geosiris energyml",
+      "handler": "dor_has_type",
+      "message": "DOR must have at least one of ContentType or QualifiedType"
+    },
+    {
+      "id": "D08",
+      "title": "Property kind UUID checked against Energistics standard dictionary",
+      "category": "pwls",
+      "severity": "info",
+      "source": "PWLS dictionary",
+      "handler": "property_kind_uuid_known",
+      "message": "PropertyKind UUID not found in Energistics standard dictionary"
+    },
+    {
+      "id": "X01",
+      "title": "UUID must be unique across all objects in the EPC",
+      "category": "cross_object",
+      "severity": "error",
+      "source": "Tech Ref",
+      "handler": "uuid_unique",
+      "message": "Duplicate UUID '{value}' used by multiple objects"
+    },
+    {
+      "id": "E01",
+      "title": "EPC must be a valid ZIP file",
+      "category": "epc_structure",
+      "severity": "error",
+      "source": "OPC spec",
+      "handler": "epc_valid_zip",
+      "message": "EPC is not a valid ZIP archive"
+    },
+    {
+      "id": "E02",
+      "title": "[Content_Types].xml must be present and well-formed",
+      "category": "epc_structure",
+      "severity": "error",
+      "source": "OPC spec",
+      "handler": "epc_content_types_present",
+      "message": "[Content_Types].xml missing or malformed"
+    },
+    {
+      "id": "E03",
+      "title": "_rels/.rels must be present",
+      "category": "epc_structure",
+      "severity": "warning",
+      "source": "OPC spec",
+      "handler": "epc_root_rels_present",
+      "message": "_rels/.rels is missing"
+    },
+    {
+      "id": "E04",
+      "title": "PartName must start with '/' per OPC spec",
+      "category": "epc_structure",
+      "severity": "warning",
+      "source": "OPC spec",
+      "handler": "epc_partname_leading_slash",
+      "message": "PartName does not start with '/'"
+    },
+    {
+      "id": "E05",
+      "title": "Parts referenced in Content_Types must exist in ZIP",
+      "category": "epc_structure",
+      "severity": "warning",
+      "source": "OPC spec",
+      "handler": "epc_parts_exist",
+      "message": "Content_Types references a part not present in the archive"
+    },
+    {
+      "id": "H01",
+      "title": "HDF5 dataset paths should start with '/'",
+      "category": "hdf5_reference",
+      "severity": "warning",
+      "source": "Tech Ref",
+      "handler": "hdf5_path_leading_slash",
+      "message": "HDF5 dataset path should start with '/'"
+    },
+    {
+      "id": "H02",
+      "title": "Referenced HDF5 datasets must exist in the H5 file",
+      "category": "hdf5_reference",
+      "severity": "error",
+      "source": "Tech Ref",
+      "handler": "hdf5_dataset_exists",
+      "message": "Referenced HDF5 dataset does not exist"
+    },
+    {
+      "id": "F01",
+      "title": "xsi:type attribute recommended on root element",
+      "category": "fesapi_compat",
+      "severity": "warning",
+      "source": "FESAPI",
+      "handler": "fesapi_root_xsi_type",
+      "message": "Root element should carry an xsi:type attribute"
+    },
+    {
+      "id": "F02",
+      "title": "Root element should not use obj_ prefix in tag name",
+      "category": "fesapi_compat",
+      "severity": "warning",
+      "source": "FESAPI",
+      "handler": "fesapi_no_obj_prefix",
+      "message": "Root element tag should not use the obj_ prefix"
+    },
+    {
+      "id": "F03",
+      "title": "ExtraMetadata must be the last child elements",
+      "category": "fesapi_compat",
+      "severity": "error",
+      "source": "FESAPI",
+      "handler": "fesapi_extrametadata_last",
+      "message": "ExtraMetadata must appear as the last child elements"
+    },
+    {
+      "id": "RC01",
+      "title": "ContentType must include version=2.0 and type=obj_",
+      "category": "rddms_compat",
+      "severity": "warning",
+      "source": "RDDMS/ETP",
+      "handler": "rddms_content_type_shape",
+      "message": "ContentType should include version and an obj_ type token"
+    },
+    {
+      "id": "RC02",
+      "title": "EPR .rels must map externalResource -> HDF5 with TargetMode=External",
+      "category": "rddms_compat",
+      "severity": "error",
+      "source": "RDDMS/ETP",
+      "handler": "rddms_external_resource_rel",
+      "message": "External HDF5 relationship must use TargetMode='External'"
+    },
+    {
+      "id": "RC03",
+      "title": "Root element must have xsi:type for server-side deserialization",
+      "category": "rddms_compat",
+      "severity": "error",
+      "source": "RDDMS/ETP",
+      "handler": "rddms_root_xsi_type",
+      "message": "Root element must carry xsi:type for ETP deserialization"
+    },
+    {
+      "id": "RC04",
+      "title": "Opening/closing XML tags must match (no obj_ mismatch)",
+      "category": "rddms_compat",
+      "severity": "error",
+      "source": "RDDMS/ETP",
+      "handler": "rddms_tag_match",
+      "message": "Opening/closing tag mismatch (obj_ prefix inconsistency)"
+    }
+  ]
+}

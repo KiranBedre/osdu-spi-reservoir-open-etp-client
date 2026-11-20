@@ -1,0 +1,40 @@
+meta {
+  name: S3 Create Test Dataspace
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{host}}/dataspaces
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  [
+    {
+      "DataspaceId": "{{testDataspaceIdRaw}}",
+      "Path": "{{testDataspaceIdRaw}}",
+      "CustomData": {
+        "viewers": ["{{defaultViewers}}"],
+        "owners": ["{{defaultOwners}}"],
+        "legaltags": ["{{defaultLegalTag}}"],
+        "otherRelevantDataCountries": ["US"]
+      }
+    }
+  ]
+}
+
+tests {
+  test("status is 200 or 201 (409 = left over from an aborted run, reused)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 409]);
+    if (res.getStatus() === 409) {
+      console.warn("_Setup: " + bru.getEnvVar("testDataspaceIdRaw") + " already exists; run _Cleanup to start from scratch");
+    }
+  });
+}

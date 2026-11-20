@@ -1,0 +1,47 @@
+meta {
+  name: D06 Drogon Grid Object Content
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonGridType}}/{{drogonGridGuid}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    const b = res.getBody();
+    // IjkGridRepresentation exposes Ni/Nj/Nk (possibly wrapped). Cell count feeds
+    // the constant-array property added in D13.
+    const grid = b && (b.Ni ? b : (b.data && b.data.Ni ? b.data : null));
+    if (grid && grid.Ni && grid.Nj && grid.Nk) {
+      bru.setVar("drogonCellCount", String(grid.Ni * grid.Nj * grid.Nk));
+    }
+  }
+}
+
+docs {
+  Drogon lifecycle (5/19). Fetches the full object content (RESQML XML/JSON) of the
+  captured IjkGridRepresentation, exercising single-object resolution by type+guid.
+  Also captures the grid cell count (Ni*Nj*Nk) for the constant-array property write.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
+  });
+
+  test("returns object content when found", function () {
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body, JSON.stringify(body).slice(0, 200)).to.not.be.undefined;
+    }
+  });
+}

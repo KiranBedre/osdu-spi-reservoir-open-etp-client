@@ -1,0 +1,41 @@
+meta {
+  name: Introspect Schema
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{graphqlHost}}
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "query": "{ __schema { queryType { name } types { name } } }"
+  }
+}
+
+docs {
+  Route coverage: POST /graphql (Apollo endpoint, mounted at root — outside the
+  REST /Reservoir/v2 global prefix). Introspection smoke test: proves the GraphQL
+  server is up and the code-first schema compiled, independent of any seeded data.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("no GraphQL errors and schema is introspectable", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("object");
+    expect(body.errors, JSON.stringify(body.errors)).to.equal(undefined);
+    expect(body.data.__schema.queryType.name).to.equal("Query");
+  });
+}

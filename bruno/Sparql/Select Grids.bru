@@ -1,0 +1,43 @@
+meta {
+  name: Select Grids
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/sparql
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "dataspaceUri": "eml:///dataspace('{{seededDataspaceIdRaw}}')",
+    "query": "SELECT ?g ?n WHERE { ?g a rddmst:resqml20.IjkGridRepresentation ; rdfs:label ?n } LIMIT 50"
+  }
+}
+
+docs {
+  Route coverage: POST /sparql — SELECT over the RESQML/ETP graph as RDF using
+  the pre-declared prefixes (rddmst: for data-object types, rdfs:label for the
+  citation title). Returns the W3C SPARQL 1.1 JSON results shape.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("SPARQL JSON results shape", function () {
+    const b = res.getBody();
+    expect(b.form).to.equal("SELECT");
+    expect(b.head.vars).to.eql(["g", "n"]);
+    expect(b.results.bindings).to.be.an("array");
+    expect(b.stats).to.be.an("object");
+  });
+}

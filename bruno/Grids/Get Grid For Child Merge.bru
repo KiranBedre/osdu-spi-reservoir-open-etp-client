@@ -1,0 +1,38 @@
+meta {
+  name: Get Grid For Child Merge
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/resqml20.obj_IjkGridRepresentation/{{gridsGridUuid}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  const b = res.getBody();
+  const g = Array.isArray(b) ? b[0] : b;
+  if (g && g.Uuid) bru.setVar("gridsGridJson", JSON.stringify(g));
+}
+
+docs {
+  IntervalStratigraphicUnits and CellFluidPhaseUnits are grid child elements, so the grid is fetched, patched and rewritten.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("grid JSON captured", function () {
+    const b = res.getBody();
+    const g = Array.isArray(b) ? b[0] : b;
+    expect(g.Uuid).to.equal(bru.getVar("gridsGridUuid"));
+  });
+}

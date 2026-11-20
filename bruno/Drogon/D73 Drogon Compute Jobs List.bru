@@ -1,0 +1,36 @@
+meta {
+  name: D73 Drogon Compute Jobs List
+  type: http
+  seq: 73
+}
+
+get {
+  url: {{host}}/compute/jobs
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Route coverage: GET /compute/jobs — lists every in-memory compute job of this
+  client instance. The job submitted in D72 must be present.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("lists the job submitted in D72", function () {
+    const jobs = res.getBody();
+    expect(jobs).to.be.an("array");
+    const id = bru.getVar("drogonComputeJobId");
+    const mine = jobs.find(function (j) { return j.id === id; });
+    expect(mine, "job " + id + " listed").to.be.an("object");
+    expect(mine.status).to.be.oneOf(["queued", "running", "succeeded", "failed", "canceled"]);
+  });
+}

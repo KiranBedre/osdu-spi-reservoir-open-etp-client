@@ -1,0 +1,39 @@
+meta {
+  name: D36 Drogon Read Back IJK Grid Continuous
+  type: http
+  seq: 36
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/resqml20.obj_ContinuousProperty/{{drogonStatGuid}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Geometry/property coverage (7/10). Reads back the HDF5-backed continuous
+  property added to the IJK grid in D31 (after commit D35), confirming the
+  object persisted with its HDF dataset reference intact.
+}
+
+tests {
+  test("status is 200 (grid continuous persisted)", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns the property with its HDF5 values reference", function () {
+    const body = res.getBody();
+    const b = Array.isArray(body) ? body[0] : body;
+    expect(b.Uuid).to.equal(bru.getVar("drogonStatGuid"));
+    expect(b.Citation.Title).to.equal("Bruno HDF5 Porosity");
+    expect(b.SupportingRepresentation.UUID).to.equal(bru.getVar("drogonGridGuid"));
+    const v = b.PatchOfValues[0].Values;
+    expect(v.$type).to.equal("resqml20.DoubleHdf5Array");
+    expect(v.Values.PathInHdfFile).to.equal("/RESQML/" + bru.getVar("drogonStatGuid") + "/values_patch0");
+  });
+}

@@ -1,0 +1,44 @@
+meta {
+  name: A7 Put Array Binary Int8
+  type: http
+  seq: 7
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/eml20.obj_EpcExternalPartReference/{{ext_guid}}/arrays/{{bin_array_path_encoded}}?arrayType=Int8Array&dimensions=2&dimensions=4
+  body: text
+  auth: none
+}
+
+params:query {
+  arrayType: Int8Array
+  dimensions: 2
+  dimensions: 4
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+  Content-Type: application/octet-stream
+}
+
+body:text {
+  ABCDEFGH
+}
+
+docs {
+  Raw binary write: the request body IS the little-endian typed-array bytes,
+  `arrayType` + `dimensions` query params describe them. "ABCDEFGH" is eight
+  Int8 values 65..72 laid out as 2x4. Int8 arrays travel over ETP as the
+  `_bytes` union branch, which is the regression path for the read-back in A8.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("store accepted the binary array", function () {
+    expect(res.getBody()).to.equal(true);
+  });
+}

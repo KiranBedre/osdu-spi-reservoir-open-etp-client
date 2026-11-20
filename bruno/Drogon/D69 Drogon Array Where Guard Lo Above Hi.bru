@@ -1,0 +1,38 @@
+meta {
+  name: D69 Drogon Array Where Guard Lo Above Hi
+  type: http
+  seq: 69
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonPropType}}/{{drogonStatGuid}}/arrays/{{drogonStatArray}}/compute?op=where&rangeLo=0.3&rangeHi=0.1
+  body: none
+  auth: none
+}
+
+params:query {
+  op: where
+  rangeLo: 0.3
+  rangeHi: 0.1
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Array-compute coverage (29/31). Guard: inverted window on WHERE -> 400 from the store.
+}
+
+tests {
+  test("status is 400", function () {
+        expect(res.getStatus()).to.equal(400);
+      });
+
+      test("error message names the violated rule", function () {
+        const b = res.getBody();
+        const msg = String((b && (b.description || b.message)) || "");
+        expect(msg.toLowerCase()).to.include('lo > hi');
+      });
+}

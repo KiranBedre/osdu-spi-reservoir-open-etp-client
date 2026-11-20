@@ -1,0 +1,32 @@
+meta {
+  name: D29 Drogon Commit Delete Transaction
+  type: http
+  seq: 29
+}
+
+put {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/transactions/{{drogonTxnId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle. Commits the delete transaction from D25, making the removal
+  of the added property and its auto-import Activity durable (net-zero change to
+  the original dataset).
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("commit acknowledged", function () {
+    expect(res.getBody()).to.equal(true);
+  });
+}

@@ -40,6 +40,7 @@ export enum ValidationCategory {
     PWLS = "pwls",
     FESAPI_COMPAT = "fesapi_compat",
     RDDMS_COMPAT = "rddms_compat",
+    WITSML = "witsml",
 }
 
 export interface ValidationError {
@@ -121,6 +122,60 @@ const XSI_NS = "http://www.w3.org/2001/XMLSchema-instance";
 // OPC relationship types
 const EXT_RESOURCE_TYPE = "http://schemas.energistics.org/package/2012/relationships/externalResource";
 
+// ─── PWLS PropertyKind dictionary (single source of truth) ───────────────────
+//
+// Generated from the official Energistics PWLS v4.0 EML2.3 PropertyKindDictionary
+// (PWLS_PropertyKindDictionary_v4.0_eml23.xml) via
+// devops/scripts/generate_pwls_property_kinds.py.
+// Provides the authoritative set of standard Energistics/PWLS PropertyKind
+// UUIDs and titles so DOR-integrity and PWLS layers agree with the Python
+// validator. Loaded lazily; falls back gracefully if the resource is absent.
+
+const RESOURCES_DIR = path.resolve(__dirname, "resources");
+
+interface PwlsPropertyKind {
+    uuid: string;
+    title: string;
+    is_abstract: boolean;
+    parent_uuid: string | null;
+    quantity_class: string | null;
+}
+
+interface PwlsDictionary {
+    byUuid: Map<string, PwlsPropertyKind>;
+    byTitle: Map<string, PwlsPropertyKind>;
+    abstractTitles: Set<string>;
+}
+
+let _pwlsDict: PwlsDictionary | null | undefined;
+
+/**
+ * Lazily load the full PWLS PropertyKind dictionary. Returns null if the
+ * resource file is unavailable (callers must degrade gracefully).
+ */
+export function loadPwlsDictionary(): PwlsDictionary | null {
+    if (_pwlsDict !== undefined) return _pwlsDict;
+    try {
+        const file = path.join(RESOURCES_DIR, "pwls_property_kinds.json");
+        const raw = JSON.parse(fs.readFileSync(file, "utf-8")) as {
+            entries: PwlsPropertyKind[];
+        };
+        const byUuid = new Map<string, PwlsPropertyKind>();
+        const byTitle = new Map<string, PwlsPropertyKind>();
+        const abstractTitles = new Set<string>();
+        for (const e of raw.entries) {
+            const uuid = e.uuid.toLowerCase();
+            byUuid.set(uuid, e);
+            if (e.title) byTitle.set(e.title.toLowerCase(), e);
+            if (e.is_abstract && e.title) abstractTitles.add(e.title.toLowerCase());
+        }
+        _pwlsDict = { byUuid, byTitle, abstractTitles };
+    } catch {
+        _pwlsDict = null;
+    }
+    return _pwlsDict;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function normalizeVersion(v: string | null): string | null {
@@ -128,6 +183,59 @@ function normalizeVersion(v: string | null): string | null {
     if (VERSION_MAP[v]) return VERSION_MAP[v];
     if (v.startsWith("2.0")) return "2.0.1";
     return null;
+}
+
+/**
+ * RESQML 2.0.1 and 2.0.2 are binary-compatible (2.0.2 is a small additive
+ * extension over 2.0.1, not a separately released line). Both normalise to the
+ * 2.0.1 schema family, so the whole 2.0.x family is treated uniformly (same
+ * content-type conventions, same EML 2.0 domain).
+ */
+function is201Family(version: string): boolean {
+    return version === "2.0" || version === "2.0.1";
+}
+
+/**
+ * True for EML/common (energyml commonv2) objects such as CRS and PropertyKind,
+ * as opposed to RESQML domain objects.
+ */
+function isEmlObject(obj: EpcObject): boolean {
+    return obj.qualifiedType?.startsWith("eml") === true
+        || /application\/x-eml\+xml/.test(obj.contentType ?? "");
+}
+
+/**
+ * Determine the RESQML package release version of an EPC (2.0.1, 2.2)
+ * from its RESQML domain objects.
+ *
+ * EML/common objects (CRS, PropertyKind, ...) live in the commonv2 namespace
+ * that is SHARED across the resqmlv2 lines, so an EML object's own schemaVersion
+ * cannot disambiguate the release; EML objects must be validated against the
+ * schema bundle of the RESQML package they ship in.
+ */
+function resqmlPackageVersion(objects: EpcObject[], fallback: string | null): string | null {
+    const counts = new Map<string, number>();
+    for (const obj of objects) {
+        if (isEmlObject(obj)) continue;
+        counts.set(obj.version, (counts.get(obj.version) ?? 0) + 1);
+    }
+    let best: string | null = fallback;
+    let max = 0;
+    for (const [v, c] of counts) {
+        if (c > max) { best = v; max = c; }
+    }
+    return best;
+}
+
+/**
+ * Choose the XSD schema-bundle version to validate a single object against.
+ * RESQML objects use their own version; EML/common objects follow the RESQML
+ * package release (see resqmlPackageVersion) so that e.g. a 2.2 EPC validates
+ * its EML objects against the 2.2 bundle.
+ */
+function schemaVersionForObject(obj: EpcObject, pkgVersion: string | null): string {
+    if (isEmlObject(obj) && pkgVersion) return pkgVersion;
+    return obj.version;
 }
 
 function makeError(
@@ -468,11 +576,8 @@ export function validateDorIntegrity(objects: EpcObject[]): ValidationError[] {
     return errors;
 }
 
-// Standard Energistics PropertyKind UUIDs. These are defined in the Energistics
-// standard PropertyKindDictionary and are referenced by properties by UUID, but
-// they legitimately live outside the EPC, so DOR-integrity must not flag them.
-// A minimal fallback list is kept in case the bundled dictionary is unavailable.
-const STANDARD_PK_UUIDS_FALLBACK = new Set([
+// Standard Energistics PropertyKind UUIDs (a subset - these are defined in the spec, not in EPCs)
+const STANDARD_PK_UUIDS = new Set([
     "a48c9c25-1e3a-43c8-be6a-044224cc69cb", // length
     "f6ad8329-4a87-4a08-8f11-db9ccc7bddbc", // dimensionless
     "742e9e25-6898-46b1-8098-a1c0a0034e81", // angle
@@ -488,31 +593,13 @@ const STANDARD_PK_UUIDS_FALLBACK = new Set([
     "71e52983-7da2-4f39-b4d5-f0e44f29cec6", // density
 ]);
 
-// Lazily-loaded full set of standard PropertyKind UUIDs from the bundled
-// Energistics PropertyKindDictionary_v2.3.xml (~3600 entries).
-let standardPkUuidsCache: Set<string> | null = null;
-function getStandardPropertyKindUuids(): Set<string> {
-    if (standardPkUuidsCache) return standardPkUuidsCache;
-    const set = new Set<string>(STANDARD_PK_UUIDS_FALLBACK);
-    try {
-        const dictPath = path.join(
-            SCHEMAS_DIR,
-            "2.2/common/v2.3/xsd_schemas/PropertyKindDictionary_v2.3.xml"
-        );
-        const xml = fs.readFileSync(dictPath, "utf-8");
-        // Each standard kind is declared as <eml:PropertyKind ... uuid="...">.
-        const re = /<(?:[\w-]+:)?PropertyKind\b[^>]*\buuid\s*=\s*"([0-9a-fA-F-]{36})"/g;
-        let m: RegExpExecArray | null;
-        while ((m = re.exec(xml)) !== null) set.add(m[1].toLowerCase());
-    } catch {
-        // Dictionary unavailable - fall back to the minimal hardcoded set.
-    }
-    standardPkUuidsCache = set;
-    return set;
-}
-
-function isStandardPropertyKindUuid(uuid: string): boolean {
-    return getStandardPropertyKindUuids().has(uuid.toLowerCase());
+export function isStandardPropertyKindUuid(uuid: string): boolean {
+    const key = uuid.toLowerCase();
+    // Prefer the full PWLS dictionary (single source of truth); fall back to the
+    // built-in subset when the resource is unavailable.
+    const dict = loadPwlsDictionary();
+    if (dict && dict.byUuid.has(key)) return true;
+    return STANDARD_PK_UUIDS.has(key);
 }
 
 // ─── Layer 4: HDF5 Reference Validation ─────────────────────────────────────
@@ -776,16 +863,24 @@ function validateGeometryRules(obj: EpcObject): ValidationError[] {
         }
     }
 
-    // S13: Key representations should reference an Interpretation
+    // S13 (grids) / S19 (surface, fault, point): representations should reference an Interpretation.
+    // Grids may reference an EarthModel/StratColumn instead, so remain a warning; geological
+    // surface/fault/point representations are interpretation-backed (FIRP) and are an error.
     if (t.includes("Representation") && !t.includes("Sub")) {
         const hasInterp = obj.xmlString.includes("RepresentedInterpretation") ||
             obj.xmlString.includes("RepresentedObject");
         if (!hasInterp) {
-            const needsInterp = ["IjkGrid", "UnstructuredGrid", "TriangulatedSet", "Grid2d", "PolylineSet"];
-            if (needsInterp.some(kw => t.includes(kw))) {
+            const gridTypes = ["IjkGrid", "UnstructuredGrid"];
+            const firpTypes = ["TriangulatedSet", "Grid2d", "PolylineSet", "PointSet"];
+            if (gridTypes.some(kw => t.includes(kw))) {
                 errors.push(brError("S13",
-                    "Representation should reference an Interpretation (RepresentedInterpretation/RepresentedObject)",
+                    "Grid representation should reference an Interpretation (RepresentedInterpretation/RepresentedObject)",
                     obj, Severity.WARNING
+                ));
+            } else if (firpTypes.some(kw => t.includes(kw))) {
+                errors.push(brError("S19",
+                    "Surface/fault/point representation must reference an Interpretation (RepresentedInterpretation/RepresentedObject)",
+                    obj, Severity.ERROR
                 ));
             }
         }
@@ -843,7 +938,9 @@ export function validatePwlsPropertyKinds(objects: EpcObject[]): ValidationError
             /<(?:[\w-]+:)?Title[^>]*>([^<]+)<\//i
         );
         const refTitle = titleMatch ? titleMatch[1].trim() : null;
-        if (refTitle && !isKnownPwls(refTitle)) {
+        const pwlsDict = loadPwlsDictionary();
+        const knownByTitle = !!(refTitle && pwlsDict && pwlsDict.byTitle.has(refTitle.toLowerCase()));
+        if (refTitle && !knownByTitle && !isKnownPwls(refTitle)) {
             errors.push(makeError(
                 `P01: PropertyKind reference uuid='${refUuid}' title='${refTitle}' not found in PWLS dictionary and not defined locally`,
                 Severity.WARNING, C,
@@ -941,9 +1038,12 @@ export function validatePropertyKindHierarchy(objects: EpcObject[]): ValidationE
         if (!kindName) continue;
 
         const kindLower = kindName.toLowerCase();
+        const pwlsDict = loadPwlsDictionary();
+        const isAbstractKind = ABSTRACT_PROPERTY_KINDS.has(kindLower) ||
+            !!(pwlsDict && pwlsDict.abstractTitles.has(kindLower));
 
         // P02: Abstract kind check
-        if (ABSTRACT_PROPERTY_KINDS.has(kindLower)) {
+        if (isAbstractKind) {
             errors.push(makeError(
                 `P02: PropertyKind "${kindName}" is abstract and must not be directly assigned to a property. Use a concrete descendant.`,
                 Severity.ERROR, C,
@@ -982,7 +1082,7 @@ export function validateFesapiCompat(
     const C = ValidationCategory.FESAPI_COMPAT;
 
     for (const obj of objects) {
-        const isV201 = obj.version === "2.0.1";
+        const isV201 = is201Family(obj.version);
         const isV22 = obj.version === "2.2" || obj.version === "2.2.0" || obj.version === "2.2.1";
         if (!isV201 && !isV22) continue;
 
@@ -1029,8 +1129,6 @@ export function validateFesapiCompat(
         }
 
         // Check 4: ExtraMetadata position (v2.0.1 + v2.2)
-        if (obj.objectType.includes("StringTableLookup")) continue; // XSD exception
-
         if (isV201 || isV22) {
             // Check ExtraMetadata position: must be last among top-level children.
             // We extract only top-level child element names (depth 1) by tracking
@@ -1055,14 +1153,22 @@ export function validateFesapiCompat(
             }
             let firstEmIdx = -1;
             let lastNonEmIdx = -1;
+            const trailingAfterEm: string[] = [];
             for (let i = 0; i < topLevelChildren.length; i++) {
                 if (topLevelChildren[i] === "ExtraMetadata") {
                     if (firstEmIdx === -1) firstEmIdx = i;
                 } else {
                     lastNonEmIdx = i;
+                    if (firstEmIdx !== -1) trailingAfterEm.push(topLevelChildren[i]);
                 }
             }
-            if (firstEmIdx !== -1 && lastNonEmIdx > firstEmIdx) {
+            // obj_StringTableLookup extends AbstractPropertyLookup and appends its
+            // <Value> (DoubleLookup) sequence AFTER the base-defined <ExtraMetadata>,
+            // so the XSD-correct order is Citation, ExtraMetadata*, Value*. Here
+            // ExtraMetadata legitimately precedes Value and must NOT be flagged.
+            const isLookup = obj.objectType.includes("StringTableLookup");
+            const lookupOk = isLookup && trailingAfterEm.every(t => t === "Value");
+            if (firstEmIdx !== -1 && lastNonEmIdx > firstEmIdx && !lookupOk) {
                 errors.push(makeError(
                     "ExtraMetadata appears before other elements. fesapi requires ExtraMetadata to be the last child elements.",
                     Severity.WARNING, C,
@@ -1103,7 +1209,7 @@ export function validateRddmsCompat(
     const errors: ValidationError[] = [];
     const C = ValidationCategory.RDDMS_COMPAT;
 
-    const has201 = objects.some(o => o.version === "2.0.1");
+    const has201 = objects.some(o => is201Family(o.version));
     const has22 = objects.some(o => o.version === "2.2" || o.version === "2.2.0" || o.version === "2.2.1");
     if (!has201 && !has22) return errors;
 
@@ -1295,7 +1401,7 @@ export function parseEpcObjects(epcPath: string): EpcObject[] {
 
         const objType = typeName.startsWith("obj_") ? typeName.slice(4) : typeName;
         const domainPrefix = resqmlMatch ? "resqml" : "eml";
-        const domainVersion = version === "2.0.1" ? "20" : "22";
+        const domainVersion = is201Family(version) ? "20" : "22";
 
         objects.push({
             uuid,
@@ -1367,8 +1473,11 @@ export function validateEpc(
 
     // 2. XSD schema validation (per-object version)
     if (!options.skip_xsd) {
+        // EML/common objects follow the RESQML package release, not their own
+        // (ambiguous) EML schemaVersion.
+        const pkgVersion = resqmlPackageVersion(objects, majorityVersion);
         // Pre-load XSD schemas to avoid repeated file I/O
-        const versionsPresent = new Set(objects.map(o => o.version));
+        const versionsPresent = new Set(objects.map(o => schemaVersionForObject(o, pkgVersion)));
         for (const v of versionsPresent) {
             try { loadXsdSchema(v); } catch { /* will report per-object below */ }
         }
@@ -1381,7 +1490,7 @@ export function validateEpc(
             }
             try {
                 const xsdErrors = validateXmlAgainstXsd(
-                    obj.xmlString, obj.version, obj.uuid, obj.objectType
+                    obj.xmlString, schemaVersionForObject(obj, pkgVersion), obj.uuid, obj.objectType
                 );
                 report.errors.push(...xsdErrors);
                 if (xsdErrors.filter(e => e.severity === Severity.ERROR).length === 0) {
@@ -1467,7 +1576,7 @@ export function validateObjects(
         const version = normalizeVersion(versionRaw) ?? detectVersionFromXml(o.xml) ?? "2.0.1";
         const objType = typeName.startsWith("obj_") ? typeName.slice(4) : typeName;
         const domainPrefix = resqmlMatch ? "resqml" : "eml";
-        const domainVersion = version === "2.0.1" ? "20" : "22";
+        const domainVersion = is201Family(version) ? "20" : "22";
 
         return {
             uuid: o.uuid,
@@ -1495,10 +1604,11 @@ export function validateObjects(
 
     // 2. XSD schema validation
     if (!options.skip_xsd) {
+        const pkgVersion = resqmlPackageVersion(objects, majorityVersion);
         for (const obj of objects) {
             try {
                 const xsdErrors = validateXmlAgainstXsd(
-                    obj.xmlString, obj.version, obj.uuid, obj.objectType
+                    obj.xmlString, schemaVersionForObject(obj, pkgVersion), obj.uuid, obj.objectType
                 );
                 report.errors.push(...xsdErrors);
                 if (xsdErrors.filter(e => e.severity === Severity.ERROR).length === 0) {

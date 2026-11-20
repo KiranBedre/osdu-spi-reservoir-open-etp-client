@@ -1,0 +1,41 @@
+meta {
+  name: Validate Seismic Kinds
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{host}}/seismic/validate
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+}
+
+body:json {
+  {
+    "properties": [
+      { "kind": "AI", "uom": "kg/(m2.s)", "name": "acoustic_impedance" },
+      { "kind": "RMS", "uom": "m/s" },
+      { "kind": "two-way time", "uom": "ms" },
+      { "kind": "made-up attribute" }
+    ]
+  }
+}
+
+tests {
+  test("status is 200 or 400", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 400]);
+  });
+
+  test("canonicalises aliases and flags the non-canonical kind", function () {
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body.total).to.equal(4);
+      expect(body.canonical).to.equal(3);
+      expect(body.results[0].kind).to.equal("acoustic impedance");
+    }
+  });
+}

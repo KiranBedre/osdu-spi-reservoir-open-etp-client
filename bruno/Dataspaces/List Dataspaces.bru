@@ -15,18 +15,10 @@ headers {
   Authorization: Bearer {{access_token}}
 }
 
-script:post-response {
-  if (res.getStatus() === 200) {
-    const body = res.getBody();
-    if (Array.isArray(body) && body.length > 0) {
-      // Dynamically pick the first dataspace for subsequent tests
-      const ds = body[0].path || body[0].Path || body[0].DataspaceId;
-      if (ds) {
-        bru.setVar("dataspaceId", encodeURIComponent(ds));
-        bru.setVar("dataspaceIdRaw", ds);
-      }
-    }
-  }
+docs {
+  Route coverage: GET /dataspaces. The seeded fixture dataspace and the _Setup
+  scratch dataspace must both be listed; ids are never derived from this list
+  (the environment is the single source of truth, see README "Dataspace contract").
 }
 
 tests {
@@ -34,8 +26,11 @@ tests {
     expect(res.getStatus()).to.equal(200);
   });
 
-  test("returns array of dataspaces", function () {
+  test("lists the seeded and the _Setup dataspaces", function () {
     const body = res.getBody();
     expect(body).to.be.an("array");
+    const paths = body.map(function (d) { return d.path; });
+    expect(paths).to.include(bru.getEnvVar("seededDataspaceIdRaw"));
+    expect(paths).to.include(bru.getEnvVar("testDataspaceIdRaw"));
   });
 }

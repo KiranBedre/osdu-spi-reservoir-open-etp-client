@@ -1,0 +1,53 @@
+meta {
+  name: D26 Drogon Find Property Referrers
+  type: http
+  seq: 26
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonPropType}}/{{drogonNewPropGuid}}/sources
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    const act = (Array.isArray(body) ? body : []).find(function (r) {
+      return /obj_Activity\(/.test(r.uri || "");
+    });
+    const m = act && /obj_Activity\(([0-9a-f-]{36})\)/.exec(act.uri);
+    if (m) bru.setVar("drogonImportActivityGuid", m[1]);
+  }
+}
+
+docs {
+  Drogon lifecycle. Lists the objects that reference the constant-array property
+  added in D18. The store (default `--check-activities true`) wraps every commit
+  in an auto-generated `Scenario_automated_import_*` Activity whose output
+  parameters point at the written objects, so the property has exactly one
+  referrer. Its guid is captured: an object cannot be deleted while a rel row
+  still targets it, so D27 removes the Activity before D28 removes the property.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("the only referrer is the auto-import Activity of the D19 commit", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("array").with.lengthOf(1);
+    expect(body[0].uri).to.match(/resqml20\.obj_Activity\([0-9a-f-]{36}\)$/);
+    expect(body[0].name).to.match(/^Scenario_automated_import_/);
+  });
+
+  test("captured the import Activity guid", function () {
+    expect(bru.getVar("drogonImportActivityGuid")).to.match(/^[0-9a-f-]{36}$/);
+  });
+}

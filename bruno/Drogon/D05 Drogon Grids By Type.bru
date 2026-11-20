@@ -1,0 +1,34 @@
+meta {
+  name: D05 Drogon Grids By Type
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonGridType}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (4/15). Type-filtered read for IjkGridRepresentation objects.
+  Confirms the by-type resource route surfaces the reservoir grid ingested from
+  the Drogon EPC (the reduced dataset keeps the corner-point IJK grid intact).
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns at least one IjkGridRepresentation", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("array");
+    expect(body.length).to.be.greaterThan(0);
+  });
+}

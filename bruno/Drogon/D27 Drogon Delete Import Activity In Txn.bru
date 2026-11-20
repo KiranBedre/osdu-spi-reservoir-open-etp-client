@@ -1,0 +1,32 @@
+meta {
+  name: D27 Drogon Delete Import Activity In Txn
+  type: http
+  seq: 27
+}
+
+delete {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/resqml20.obj_Activity/{{drogonImportActivityGuid}}?transactionId={{drogonTxnId}}
+  body: none
+  auth: none
+}
+
+params:query {
+  transactionId: {{drogonTxnId}}
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle. Inside the delete transaction (D25), removes the auto-import
+  Activity discovered in D26 so that the property it references can be deleted
+  in D28. Both deletes become durable with the commit in D29.
+}
+
+tests {
+  test("status is 204", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

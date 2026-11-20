@@ -1,0 +1,48 @@
+meta {
+  name: Put Cell Fluid Phase Units Array
+  type: http
+  seq: 15
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/arrays
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  [
+    {
+      "ContainerType": "eml20.obj_EpcExternalPartReference",
+      "ContainerUuid": "{{gridsProxyUuid}}",
+      "PathInResource": "/RESQML/{{gridsGridUuid}}/cellFluidPhaseUnits",
+      "Dimensions": [
+        4
+      ],
+      "Data": [
+        0,
+        0,
+        1,
+        -1
+      ],
+      "ArrayType": "Int32Array"
+    }
+  ]
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("store accepted every array (all true)", function () {
+    const b = res.getBody();
+    expect(b).to.be.an("array").that.is.not.empty;
+    b.forEach(function (ok, i) { expect(ok, "array " + i).to.equal(true); });
+  });
+}

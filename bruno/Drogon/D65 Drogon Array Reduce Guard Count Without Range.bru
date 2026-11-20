@@ -1,0 +1,45 @@
+meta {
+  name: D65 Drogon Array Reduce Guard Count Without Range
+  type: http
+  seq: 65
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/arrays/compute
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "op": "reduce",
+    "target": {
+      "dataObjectType": "{{drogonPropType}}",
+      "guid": "{{drogonStatGuid}}",
+      "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0"
+    },
+    "reducer": "count"
+  }
+}
+
+docs {
+  Array-compute coverage (25/31). Guard: op=count (and op=net) need the [rangeLo, rangeHi] window; without
+      it the gateway rejects with 400 before touching the store.
+}
+
+tests {
+  test("status is 400", function () {
+        expect(res.getStatus()).to.equal(400);
+      });
+
+      test("error message names the violated rule", function () {
+        const b = res.getBody();
+        const msg = String((b && (b.description || b.message)) || "");
+        expect(msg.toLowerCase()).to.include('rangelo');
+      });
+}

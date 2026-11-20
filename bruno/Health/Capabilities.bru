@@ -1,0 +1,52 @@
+meta {
+  name: Capabilities
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{host}}/health/capabilities
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Route coverage: GET /health/capabilities — proxies the ETP backend's
+  `.well-known/etp-server-capabilities` document. The M27 baseline protocols
+  (0, 3, 4, 9, 18) are mandatory. Protocol 13 (DiscoveryQuery), 6
+  (GrowingObject) and 21 (ChannelSubscribe) and the `supportedArrayExtensions`
+  endpoint capability are M28 additions: they are reported here and the suites
+  that need them derive their expectations from `storeProtocols` /
+  `storeArrayExtensions` captured by _Setup/S1.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("advertises the ETP baseline the REST surface negotiates", function () {
+    const b = res.getBody();
+    const protocols = Array.isArray(b.supportedProtocols) ? b.supportedProtocols : [];
+    expect(protocols.length, "supportedProtocols").to.be.greaterThan(0);
+    const ids = protocols.map(function (p) { return Number(p.protocol); });
+    [0, 3, 4, 9, 18].forEach(function (id) {
+      expect(ids, "protocol " + id).to.include(id);
+    });
+    const m28 = [6, 13, 21].filter(function (id) { return ids.indexOf(id) >= 0; });
+    console.log("M28 protocols advertised: " + (m28.join(",") || "none") +
+      "; array extensions: " + (bru.getVar("storeArrayExtensions") || "none"));
+  });
+
+  test("capability document is consistent with _Setup/S1 capture", function () {
+    const b = res.getBody();
+    const ext = b.endpointCapabilities && b.endpointCapabilities.supportedArrayExtensions;
+    const list = ext && ext.item && typeof ext.item.string === "string" ? ext.item.string : "";
+    expect(list).to.equal(bru.getVar("storeArrayExtensions") || "");
+  });
+}

@@ -1,0 +1,27 @@
+meta {
+  name: PWLS Resolve Missing Query 400
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{host}}/pwls/resolve?include=hierarchy
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Route coverage: GET /pwls/resolve without `mnemonic` or `property` is a
+  400 Bad Request (one of the two selectors is required).
+}
+
+tests {
+  test("status is 400", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+}

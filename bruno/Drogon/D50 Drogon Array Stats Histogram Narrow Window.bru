@@ -1,0 +1,62 @@
+meta {
+  name: D50 Drogon Array Stats Histogram Narrow Window
+  type: http
+  seq: 50
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonPropType}}/{{drogonStatGuid}}/arrays/{{drogonStatArray}}/compute?op=stats&rangeLo=0.2&rangeHi=0.4&bins=4
+  body: none
+  auth: none
+}
+
+params:query {
+  op: stats
+  rangeLo: 0.2
+  rangeHi: 0.4
+  bins: 4
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Array-compute coverage (10/31). A very narrow window [0.2, 0.21] inside the data range: both
+      tails are populated (mass below AND above the window) so the p10 falls in
+      the underflow tail and p90 in the overflow tail. Asserts the tails are
+      counted exactly (under + bins + over == count), the bins are non-empty, and
+      the percentiles are clamped to [minimum, maximum] rather than to the window.
+}
+
+tests {
+  test("status is 200", function () {
+        expect(res.getStatus()).to.equal(200);
+      });
+
+      test("both tails populated and accounted for", function () {
+        const b = res.getBody();
+        const inBins = b.histogram.reduce(function (a, c) { return a + c; }, 0);
+        expect(b.histogram).to.have.lengthOf(4);
+        expect(inBins).to.be.greaterThan(0);
+        expect(inBins).to.equal(b.inRangeCount);
+        expect(b.histUnderflow).to.be.greaterThan(0);
+        expect(b.histOverflow).to.be.greaterThan(0);
+        expect(b.histUnderflow + inBins + b.histOverflow).to.equal(b.count);
+      });
+
+      test("tail percentiles clamp to data bounds, not to the window", function () {
+        const b = res.getBody();
+        // >10% of the mass lies below 0.2 so p10 must come from the under tail.
+        expect(b.histUnderflow).to.be.greaterThan(0.1 * b.count);
+        expect(b.p10).to.be.below(0.2);
+        expect(b.p10).to.be.at.least(b.minimum);
+        // >10% of the mass lies above 0.4 so p90 must come from the over tail.
+        expect(b.histOverflow).to.be.greaterThan(0.1 * b.count);
+        expect(b.p90).to.be.above(0.4);
+        expect(b.p90).to.be.at.most(b.maximum);
+        expect(b.p10).to.be.at.most(b.p50);
+        expect(b.p50).to.be.at.most(b.p90);
+      });
+}

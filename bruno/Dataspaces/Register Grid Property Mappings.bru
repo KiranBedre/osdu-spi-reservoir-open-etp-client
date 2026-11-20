@@ -1,0 +1,43 @@
+meta {
+  name: Register Grid Property Mappings
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{host}}/dataspaces/grid-property-mappings
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "mappings": [
+      { "keyword": "BRUNOX", "resqmlKind": "porosity", "osdu": "Porosity", "pwls": "BRUNOX", "uom": "m3/m3" }
+    ]
+  }
+}
+
+docs {
+  Route coverage: POST /dataspaces/grid-property-mappings registers a custom
+  GRDECL keyword -> RESQML property-kind mapping (process-local registry). The
+  answer reports how many were added and the registry size; the next request
+  lists the registry and must find the keyword.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("reports the registration", function () {
+    const b = res.getBody();
+    expect(b.added).to.equal(1);
+    expect(b.count).to.be.a("number").and.to.be.at.least(44);
+  });
+}

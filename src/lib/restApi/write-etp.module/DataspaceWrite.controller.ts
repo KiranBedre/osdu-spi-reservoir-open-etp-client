@@ -99,7 +99,7 @@ export class DataspaceDto {
     name: "DataspaceId",
     description: "Name of dataspace",
     type: "string",
-    example: "demo/Volve",
+    example: "demo/drogon",
     maxLength: 2048,
     pattern: patternString(dataspaceNamePattern)
   })
@@ -113,7 +113,7 @@ export class DataspaceDto {
     name: "Path",
     description: "Path of dataspace",
     type: "string",
-    example: "demo/Volve",
+    example: "demo/drogon",
     maxLength: 2048,
     required: false,
     pattern: patternString(dataspacePathPattern)
@@ -127,7 +127,7 @@ export class DataspaceDto {
   @ApiProperty({
     name: "CustomData",
     description: "Additional data",
-    example: { key: "value" },
+    example: { project: "Drogon", discipline: "Reservoir" },
     type: "object",
     required: false,
     additionalProperties: alphaSpaceSchema
@@ -302,8 +302,8 @@ export default class DataspaceMutationsAPI {
   @Post(":dataspaceId/clone")
   @HttpCode(200)
   @ApiOperation({
-    summary: "Clone (duplicate) a dataspace",
-    description: `Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.\n\n**Prerequisites**:\n- The source dataspace is automatically locked during the clone and unlocked afterwards.\n- The target dataspace (DataspaceId) must not already exist.\n\n**Object identity**: By default the clone is a server-side deep copy that **reuses the source object UUIDs**. The two dataspaces are independent stores, so editing the clone never affects the source - but the copied objects keep the *same identity* as the originals. That is fine for isolated sandbox/scenario work, but the shared UUIDs collide if the clone is later merged back or re-ingested into OSDU (the manifest builder derives each OSDU record id from the object UUID).\n\n**?reidentify** (default \`false\`): when set to \`true\`, after the copy every object in the clone is rewritten with brand new UUIDs, remapping the object's own identity, all of its Data Object References (DORs) and its array paths, and re-associating the arrays. Use \`reidentify=true\` when you need an independently publishable / re-ingestable copy. Leave it \`false\` (the default) for a fast snapshot that stays linked in identity to the source.\n\n**Note**: This is a server-side deep copy via ETP - no object or array data is transferred through the REST layer (re-identification streams array bytes through the gateway).`,
+    summary: "Clone (duplicate) a dataspace, or copy its content into an existing one",
+    description: `Create a copy of an existing dataspace with all its objects and arrays. Useful for creating scenario branches or snapshots.\n\n**Prerequisites**:\n- The source dataspace is locked for the clone. Because the copy shares array data by reference, the store keeps the source locked for as long as the clone exists; unlock it (\`DELETE /dataspaces/{id}/lock\`) once the clone has been deleted.\n- The target dataspace (DataspaceId) must not already exist, unless \`intoExisting=true\`.\n\n**Object identity**: By default the clone is a server-side deep copy that **reuses the source object UUIDs**. The two dataspaces are independent stores, so editing the clone never affects the source - but the copied objects keep the *same identity* as the originals. That is fine for isolated sandbox/scenario work, but the shared UUIDs collide if the clone is later merged back or re-ingested into OSDU (the manifest builder derives each OSDU record id from the object UUID).\n\n**?reidentify** (default \`false\`): when set to \`true\`, after the copy every object in the clone is rewritten with brand new UUIDs, remapping the object's own identity, all of its Data Object References (DORs) and its array paths, and re-associating the arrays. Use \`reidentify=true\` when you need an independently publishable / re-ingestable copy. Leave it \`false\` (the default) for a fast snapshot that stays linked in identity to the source.\n\n**?intoExisting** (default \`false\`): when \`true\` the target dataspace \`DataspaceId\` must already exist and the source content is **imported into it** (objects keep their UUIDs, arrays are copied by reference, \`Path\`/\`CustomData\` of the body are ignored). The answer is then an object with the record count of the target instead of the bare target URI. \`reidentify\` is not supported together with \`intoExisting\`. Because the content is imported by reference, the server keeps the **source locked** for as long as the target exists; unlock it (\`DELETE /dataspaces/{id}/lock\`) after the target has been deleted.\n\n**Note**: This is a server-side deep copy via ETP - no object or array data is transferred through the REST layer (re-identification streams array bytes through the gateway).`,
     servers: swaggerServers
   })
   @ApiBody({
@@ -326,12 +326,37 @@ export default class DataspaceMutationsAPI {
     }
   })
   @ApiOkResponse({
-    description: "Success",
+    description:
+      "Success: the new dataspace URI (string), or with intoExisting=true a summary object",
     schema: {
-      type: "string",
-      maxLength: 2048,
-      pattern: patternString(dataspaceUriPattern)
+      oneOf: [
+        {
+          type: "string",
+          maxLength: 2048,
+          pattern: patternString(dataspaceUriPattern)
+        },
+        {
+          type: "object",
+          properties: {
+            status: { type: "string", example: "ok" },
+            sourceDataspace: { type: "string", example: "demo/drogon" },
+            targetDataspace: { type: "string", example: "sandbox/drogon-copy" },
+            recordCount: {
+              type: "integer",
+              description: "Number of data objects in the target dataspace after the copy",
+              example: 346
+            }
+          }
+        }
+      ]
     }
+  })
+  @ApiQuery({
+    name: "intoExisting",
+    required: false,
+    type: Boolean,
+    description:
+      "When true, import the source content into the already existing dataspace named by DataspaceId instead of creating it. Defaults to false."
   })
   @ApiQuery({
     name: "reidentify",
@@ -344,8 +369,17 @@ export default class DataspaceMutationsAPI {
     @Param() params: FindInDataSpaceParams,
     @Body() requestBody: DataspaceDto,
     @Query("reidentify", OptionalParseBoolPipe) reidentify = false,
+    @Query("intoExisting", OptionalParseBoolPipe) intoExisting = false,
     @Req() request?: express.Request
-  ): Promise<string> {
+  ): Promise<
+    | string
+    | {
+        status: string;
+        sourceDataspace: string;
+        targetDataspace: string;
+        recordCount: number;
+      }
+  > {
     if (
       typeof requestBody !== "object" ||
       requestBody === null ||
@@ -372,6 +406,19 @@ export default class DataspaceMutationsAPI {
       throw new BadRequestException({
         description: "CustomData must be a plain object"
       });
+    }
+    if (intoExisting) {
+      if (reidentify) {
+        throw new BadRequestException({
+          description: "reidentify is not supported together with intoExisting"
+        });
+      }
+      if (requestBody.DataspaceId === params.dataspaceId) {
+        throw new BadRequestException({
+          description: "DataspaceId must differ from the source dataspace"
+        });
+      }
+      return this.copyInto(params.dataspaceId, requestBody.DataspaceId, request);
     }
     let c: ResqmlClient | undefined = undefined;
     try {
@@ -428,6 +475,68 @@ export default class DataspaceMutationsAPI {
       }
       logger.error("Error cloning dataspace:", err);
       throw httpErrorFromEtpError(err);
+    }
+  }
+
+  /**
+   * Import the content of `sourceDataspace` into the existing `targetDataspace`
+   * (clone with intoExisting=true). Objects keep their UUIDs; arrays are copied
+   * by reference. The source is locked for the duration of the copy.
+   */
+  private async copyInto(
+    sourceDataspace: string,
+    targetDataspace: string,
+    request?: express.Request
+  ): Promise<{
+    status: string;
+    sourceDataspace: string;
+    targetDataspace: string;
+    recordCount: number;
+  }> {
+    let c: ResqmlClient | undefined = undefined;
+    try {
+      c = await createSession(
+        extractToken(request),
+        extractDataPartitionId(request)
+      );
+      const sourceUri = EtpUri.createDataSpaceUri(sourceDataspace).uri;
+      const targetUri = EtpUri.createDataSpaceUri(targetDataspace).uri;
+
+      // ETP requires the source to be read-only while its content is copied.
+      await c.lockDataspaces([sourceUri]);
+      try {
+        const copied = await c.copyDataspacesContent(targetUri, [sourceUri]);
+        if (!copied) {
+          throw new NotFoundException({
+            description: `Could not copy ${sourceDataspace} into ${targetDataspace}: source or target dataspace not found, or server lacks DataspaceOSDU copy support`
+          });
+        }
+      } finally {
+        try {
+          await c.unlockDataspaces([sourceUri]);
+        } catch (unlockErr) {
+          logger.error("Failed to unlock source dataspace after copy:", unlockErr);
+        }
+      }
+      const resources = await c.getResources(
+        targetUri,
+        Energistics.Etp.v12.Datatypes.Object.ContextScopeKind.self
+      );
+      return {
+        status: "ok",
+        sourceDataspace,
+        targetDataspace,
+        recordCount: resources.length
+      };
+    } catch (err) {
+      logger.error("Error copying dataspace content:", err);
+      throw httpErrorFromEtpError(err);
+    } finally {
+      try {
+        await c?.closeSession();
+      } catch {
+        // ignore close errors
+      }
     }
   }
 

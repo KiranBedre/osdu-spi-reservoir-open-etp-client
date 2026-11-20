@@ -2,6 +2,9 @@ import * as prodml23 from "../mlTypes/xmlns/www.energistics.org/energyml/prodmlv
 import { ResqmlClient } from "../client/ResqmlClient";
 import type { SimpleJson } from "../mlTypes/XmlJsonUtil";
 
+import { EtpUri } from "../common/EtpUri";
+import { qualifiedTypeRegex } from "../common/EtpQualifiedType";
+import { arrayPathFor } from "../restApi/shared/channelArrays";
 import { OSDUContext } from "./OsduContext";
 import { ResqmlWorkProductComponent } from "./WorkProductComponent";
 
@@ -20,8 +23,7 @@ import {
  */
 export class ProductionValuesOSDU
   extends ResqmlWorkProductComponent<SimpleJson<prodml23.TimeSeriesData>>
-  implements ProductionValues
-{
+  implements ProductionValues {
   public data: Data = {};
 
   constructor(
@@ -29,6 +31,62 @@ export class ProductionValuesOSDU
     context: OSDUContext
   ) {
     super(xml, context, "ProductionValues.1.1.1");
+  }
+
+  /**
+   * Try to obtain the time-series value summary from the store instead of
+   * folding the inline samples client-side. Applies when the object's samples
+   * were externalized into a server-backed array at `/PRODML/<uuid>/Value`
+   * (see ObjectWrite extraction): the store folds Min/Max/Mean/Sum without any
+   * bulk transfer. Mirrors {@link GenericPropertyOSDU}'s fast path and returns
+   * undefined for inline-only objects or stores without the STATS extension, so
+   * the caller falls back to the in-memory reduction.
+   */
+  private async tryServerTimeSeriesStats(
+    ReservoirDMSUrl: string,
+    xml: SimpleJson<prodml23.TimeSeriesData>,
+    client: ResqmlClient
+  ): Promise<
+    | { min?: number; max?: number; mean?: number; sum?: number; count: number }
+    | undefined
+  > {
+    if (typeof client.getDataArrayStats !== "function") {
+      return undefined;
+    }
+    const uuid = (xml as { Uuid?: string }).Uuid;
+    const type = (xml as { $type?: string }).$type;
+    if (!uuid || !type) {
+      return undefined;
+    }
+    const m = type.match(qualifiedTypeRegex);
+    if (!m?.groups) {
+      return undefined;
+    }
+    const objectUri = EtpUri.createObjectUri(
+      new EtpUri(ReservoirDMSUrl).dataSpace,
+      m.groups.domainFamily ?? "",
+      m.groups.domainVersion ?? "",
+      m.groups.dataType ?? "",
+      uuid
+    ).uri;
+    try {
+      const s = await client.getDataArrayStats(
+        objectUri,
+        arrayPathFor("PRODML", uuid, "Value")
+      );
+      if (!s || !s.valid || !s.count) {
+        return undefined;
+      }
+      return {
+        min: s.minimum,
+        max: s.maximum,
+        mean: s.mean,
+        sum: s.sum,
+        count: s.count
+      };
+    } catch {
+      return undefined;
+    }
   }
 
   public async initData(
@@ -100,7 +158,54 @@ export class ProductionValuesOSDU
       ext["MeasureClass"] = xml.MeasureClass;
     }
     if (xml.DataValue && Array.isArray(xml.DataValue)) {
-      ext["SampleCount"] = (xml.DataValue as any[]).length;
+      const samples = xml.DataValue as any[];
+      ext["SampleCount"] = samples.length;
+
+      // Prefer a store-folded summary when the samples were externalized into
+      // a server-backed array (no bulk transfer); mirrors GenericProperty's
+      // fast path. Falls back to the in-memory single pass below for inline
+      // objects or stores without the STATS extension.
+      const serverStats = await this.tryServerTimeSeriesStats(
+        ReservoirDMSUrl,
+        xml,
+        client
+      );
+      if (serverStats) {
+        ext["MinValue"] = serverStats.min;
+        ext["MaxValue"] = serverStats.max;
+        ext["MeanValue"] = serverStats.mean;
+        ext["Sum"] = serverStats.sum;
+        ext["ValueCount"] = serverStats.count;
+      } else {
+        // Fold the inline numeric samples into a small min/max/mean/sum
+        // summary so consumers get value ranges without re-reading every
+        // sample. The samples are inline (not a store-backed array), so this
+        // is an in-memory single pass; use a manual loop rather than
+        // Math.min(...arr) to stay safe for long series.
+        let mn = Number.POSITIVE_INFINITY;
+        let mx = Number.NEGATIVE_INFINITY;
+        let sum = 0;
+        let n = 0;
+        for (const s of samples) {
+          const raw =
+            s?.value ?? s?.DoubleValue?.value ?? s?.doubleValue?.value;
+          const v = typeof raw === "number" ? raw : Number(raw);
+          if (!Number.isFinite(v)) {
+            continue;
+          }
+          if (v < mn) mn = v;
+          if (v > mx) mx = v;
+          sum += v;
+          n++;
+        }
+        if (n > 0) {
+          ext["MinValue"] = mn;
+          ext["MaxValue"] = mx;
+          ext["MeanValue"] = sum / n;
+          ext["Sum"] = sum;
+          ext["ValueCount"] = n;
+        }
+      }
     }
     if (Object.keys(ext).length > 0) {
       this.data.ExtensionProperties = ext;

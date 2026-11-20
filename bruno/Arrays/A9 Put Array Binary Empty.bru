@@ -1,0 +1,38 @@
+meta {
+  name: A9 Put Array Binary Empty
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/eml20.obj_EpcExternalPartReference/{{ext_guid}}/arrays/{{empty_array_path_encoded}}?arrayType=Float32Array&dimensions=2&dimensions=2
+  body: none
+  auth: none
+}
+
+params:query {
+  arrayType: Float32Array
+  dimensions: 2
+  dimensions: 2
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+  Content-Type: application/octet-stream
+}
+
+docs {
+  An empty body on the binary PUT declares (pre-allocates) the array
+  (ETP PutUninitializedDataArrays); values can be streamed later as subarrays.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("store accepted the uninitialized array", function () {
+    expect(res.getBody()).to.equal(true);
+  });
+}

@@ -1,0 +1,57 @@
+meta {
+  name: D58 Drogon Array Reduce K-Zone Single Layer
+  type: http
+  seq: 58
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/arrays/compute
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "op": "reduce",
+    "target": {
+      "dataObjectType": "{{drogonPropType}}",
+      "guid": "{{drogonStatGuid}}",
+      "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0"
+    },
+    "reducer": "count",
+    "rangeLo": 0.1,
+    "rangeHi": 0.3,
+    "k0": 0,
+    "k1": 1
+  }
+}
+
+docs {
+  Array-compute coverage (18/31). Reduce restricted to a single layer [0, 1). With one layer
+      each column holds at most one cell, so every count is 0 or 1, columns ==
+      number of 1s, and the total is <= Nj*Ni and <= the full-stack total.
+}
+
+tests {
+  test("status is 200", function () {
+        expect(res.getStatus()).to.equal(200);
+      });
+
+      test("single-layer counts are 0/1 and bounded by the column count", function () {
+        const b = res.getBody();
+        let ones = 0;
+        b.map.forEach(function (v) {
+          expect([0, 1]).to.include(v);
+          ones += v;
+        });
+        expect(ones).to.be.greaterThan(0);
+        expect(ones).to.be.at.most(b.nj * b.ni);
+        expect(ones).to.be.at.most(Number(bru.getVar("drogonInRange")));
+        expect(b.columns).to.equal(ones);
+      });
+}

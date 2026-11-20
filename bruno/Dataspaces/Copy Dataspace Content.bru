@@ -1,0 +1,49 @@
+meta {
+  name: Copy Dataspace Content
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{host}}/dataspaces/{{seededDataspaceId}}/clone?intoExisting=true
+  body: json
+  auth: none
+}
+
+params:query {
+  intoExisting: true
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "DataspaceId": "{{copyDataspaceIdRaw}}"
+  }
+}
+
+docs {
+  Copy flow (2/4): POST /dataspaces/:source/clone?intoExisting=true imports
+  every object and array of the seeded dataspace into the target created by the
+  previous request (reference copy, same UUIDs; ETP DataspaceOSDU
+  CopyDataspacesContent). Because arrays are shared by reference the store
+  keeps the SOURCE locked for as long as the target exists - see "Copy Dataspace
+  Unlock Source". recordCount = objects now present in the target.
+}
+
+tests {
+  test("copy succeeds", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("reports status, dataspaces and the fixture's record count", function () {
+    const body = res.getBody();
+    expect(body.status).to.equal("ok");
+    expect(body.sourceDataspace).to.equal(bru.getEnvVar("seededDataspaceIdRaw"));
+    expect(body.targetDataspace).to.equal(bru.getEnvVar("copyDataspaceIdRaw"));
+    expect(body.recordCount).to.be.a("number").and.to.be.at.least(186);
+  });
+}

@@ -1,0 +1,27 @@
+meta {
+  name: D19 Drogon Commit Write Transaction
+  type: http
+  seq: 19
+}
+
+put {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/transactions/{{drogonTxnId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (14/19). Commits the write transaction opened in D12, making the
+  newly-added constant-array property durable on the Drogon grid.
+}
+
+tests {
+  test("status is 200 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
+  });
+}

@@ -1,7 +1,9 @@
-import { Controller, Get, Header, Query, Req, Res } from "@nestjs/common";
+import { Controller, Get, NotFoundException, Param, Query, Req, Res } from "@nestjs/common";
 import {
+    ApiNotFoundResponse,
     ApiOkResponse,
     ApiOperation,
+    ApiParam,
     ApiProduces,
     ApiQuery,
     ApiTags
@@ -41,7 +43,7 @@ const rdfFormatQuery = {
  * graph endpoints: the JSON-LD context, the ontology, and the RESQML→OSDU OWL
  * alignment. These are public, read-only documents and mint no data.
  */
-@ApiTags("Linked Data")
+@ApiTags("Query")
 @Controller("rdf")
 export default class LinkedDataController {
     private serialize(
@@ -58,64 +60,50 @@ export default class LinkedDataController {
     }
 
     /**
-     * JSON-LD context document for the compacted JSON-LD emitted by the graph
-     * endpoints.
+     * One route for the three vocabulary artifacts. `context` is always
+     * JSON-LD; `ontology` and `alignment` are content-negotiated.
      */
-    @Get("context")
-    @Header("Content-Type", RDF_MIME_JSONLD)
-    @ApiOkResponse({ description: "JSON-LD context document" })
-    @ApiOperation({
-        summary: "Get the JSON-LD context",
+    @Get(":artifact")
+    @ApiParam({
+        name: "artifact",
+        enum: ["context", "ontology", "alignment"],
         description:
-            "Returns the `@context` document that clients can use to interpret the compacted JSON-LD returned by the resource graph endpoints.",
-        security: [],
-        servers: swaggerServers
+            "`context`: the JSON-LD `@context` used by the compacted JSON-LD of the graph endpoints. " +
+            "`ontology`: the rddms: vocabulary (classes and properties) used by the RDF graph serializations. " +
+            "`alignment`: owl:equivalentClass links from Reservoir DDMS data-object-type classes to the OSDU kinds the Manifest Builder converts them to."
     })
-    public context(): Record<string, unknown> {
-        return jsonLdContextDocument();
-    }
-
-    /**
-     * The ontology (rddms: classes and properties).
-     */
-    @Get("ontology")
-    @ApiProduces(RDF_MIME_TURTLE, RDF_MIME_JSONLD, RDF_MIME_NTRIPLES)
+    @ApiProduces(RDF_MIME_JSONLD, RDF_MIME_TURTLE, RDF_MIME_NTRIPLES)
     @ApiQuery(rdfFormatQuery)
-    @ApiOkResponse({ description: "Ontology document (Turtle, JSON-LD or N-Triples)" })
-    @ApiOperation({
-        summary: "Get the Reservoir DDMS graph ontology",
+    @ApiOkResponse({
         description:
-            "Returns the vocabulary (classes and properties) used by the RDF graph serializations. Content-negotiated via the Accept header or the `format` query parameter.",
+            "Vocabulary document. `context` is JSON-LD; `ontology` and `alignment` are Turtle (default), JSON-LD or N-Triples"
+    })
+    @ApiNotFoundResponse({ description: "Unknown artifact" })
+    @ApiOperation({
+        summary: "Get a linked-data vocabulary artifact (context, ontology or alignment)",
+        description:
+            "Returns the static vocabulary that describes the RDF emitted by the resource graph endpoints. `ontology` and `alignment` are content-negotiated via the Accept header or the `format` query parameter; `context` is always JSON-LD.",
         security: [],
         servers: swaggerServers
     })
-    public ontology(
+    public artifact(
+        @Param("artifact") artifact: string,
         @Query("format") format?: string,
         @Req() request?: express.Request,
         @Res({ passthrough: true }) response?: express.Response
     ): string | Record<string, unknown> {
-        return this.serialize(buildOntologyDocument(), request, response, format);
-    }
-
-    /**
-     * The RESQML/WITSML → OSDU OWL alignment.
-     */
-    @Get("alignment")
-    @ApiProduces(RDF_MIME_TURTLE, RDF_MIME_JSONLD, RDF_MIME_NTRIPLES)
-    @ApiQuery(rdfFormatQuery)
-    @ApiOkResponse({ description: "OWL alignment document (Turtle, JSON-LD or N-Triples)" })
-    @ApiOperation({
-        summary: "Get the RESQML to OSDU class alignment",
-        description:
-            "Returns owl:equivalentClass links from Reservoir DDMS data-object-type classes to the OSDU kinds they are converted to by the Manifest Builder. Content-negotiated via the Accept header or the `format` query parameter.",
-        security: [],
-        servers: swaggerServers
-    })
-    public alignment(
-        @Query("format") format?: string,
-        @Req() request?: express.Request,
-        @Res({ passthrough: true }) response?: express.Response
-    ): string | Record<string, unknown> {
-        return this.serialize(buildAlignmentDocument(), request, response, format);
+        switch (artifact) {
+            case "context":
+                response?.type(RDF_MIME_JSONLD);
+                return jsonLdContextDocument();
+            case "ontology":
+                return this.serialize(buildOntologyDocument(), request, response, format);
+            case "alignment":
+                return this.serialize(buildAlignmentDocument(), request, response, format);
+            default:
+                throw new NotFoundException(
+                    `Unknown rdf artifact '${artifact}'; expected context, ontology or alignment`
+                );
+        }
     }
 }

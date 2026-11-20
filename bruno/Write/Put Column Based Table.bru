@@ -1,0 +1,56 @@
+meta {
+  name: Put Column Based Table
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/tables/column-based
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "title": "Bruno relperm table",
+    "version": "2.2.0",
+    "hdfUuid": "{{tableHdfUuid}}",
+    "keyColumns": [
+      { "propertyKind": "water saturation", "propertyKindUuid": "{{tableSwPkUuid}}", "uom": "euc", "values": [0.15, 0.30, 0.45, 0.60, 0.75, 0.90] }
+    ],
+    "columns": [
+      { "propertyKind": "relative permeability to water", "propertyKindUuid": "{{tableKrwPkUuid}}", "uom": "euc", "values": [0.0, 0.02, 0.08, 0.20, 0.42, 0.80] }
+    ],
+    "originator": "BrunoCLI"
+  }
+}
+
+script:post-response {
+  const b = res.getBody();
+  if (b && b.uuid) bru.setVar("tableUuid", b.uuid);
+}
+
+docs {
+  Route coverage: PUT /dataspaces/:ds/resources/tables/column-based —
+  RESQML 2.2 ColumnBasedTable (1 key column + 1 value column, 6 rows) with
+  one external array per column on the eml23 proxy seeded by seq 5.
+  Auto-commit (no transactionId): objects == 1, arrays == 2.
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("table and its two column arrays were written", function () {
+    const b = res.getBody();
+    expect(b.uuid).to.be.a("string").with.length(36);
+    expect(b.objects).to.equal(1);
+    expect(b.arrays).to.equal(2);
+  });
+}

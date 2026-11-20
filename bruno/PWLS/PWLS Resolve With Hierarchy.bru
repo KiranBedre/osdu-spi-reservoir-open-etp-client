@@ -1,0 +1,38 @@
+meta {
+  name: PWLS Resolve With Hierarchy
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{host}}/pwls/resolve?mnemonic=RHOB&include=hierarchy
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Route coverage: GET /pwls/resolve?include=hierarchy - resolves the RHOB mnemonic to its
+  vendor-neutral PWLS v4 property ancestry (self first, up to the abstract
+  root). RHOB is a standard mnemonic in the bundled PWLS catalog, so the
+  chain must resolve with depth >= 1. Replaces the former /pwls/hierarchy.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("RHOB resolves to a non-empty ancestry chain", function () {
+    const b = res.getBody();
+    expect(b.resolved).to.equal(true);
+    expect(b.property).to.be.a("string").with.length.greaterThan(0);
+    expect(b.depth).to.be.a("number").at.least(1);
+    expect(b.hierarchy).to.be.an("array").with.length(b.depth);
+    expect(b.hierarchy[0].property).to.equal(b.property);
+  });
+}

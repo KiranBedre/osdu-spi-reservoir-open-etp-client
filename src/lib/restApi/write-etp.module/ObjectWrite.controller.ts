@@ -81,10 +81,12 @@ import {
   errorMessageSchema,
   extractDataPartitionId,
   extractToken,
+  extractUserInfo,
   getSchemasForType,
   httpErrorFromEtpError,
   partitionPattern,
   patternString,
+  requireProtocol,
   swaggerServers,
   transactionIdQueryParam,
   uuidPattern,
@@ -113,8 +115,17 @@ import { versionQueryParam } from "../read-etp.module/Resource.controller";
 
 import { qualifiedTypeRegex } from "../../common/EtpQualifiedType";
 
+import {
+  arrayPathFor,
+  ChannelArray,
+  extractProdmlArrays,
+  injectExternalArrayRefs,
+  shouldExtractArrays
+} from "../shared/channelArrays";
+
 import logging from "../../common/Logging";
 import { ErrorCode, EtpDataValue, EtpError } from "../../common/EtpTypes";
+import { mapLimit, concurrency } from "../../common/Util";
 const logger = logging.getLogger("EtpClient");
 
 const base64Pattern =
@@ -409,6 +420,21 @@ export default class MutationsAPI {
   })
   @ApiQuery(transactionIdQueryParam)
   @ApiQuery({
+    name: "extractChannelArrays",
+    required: false,
+    description:
+      "Controls extraction of inline ProdML sample data into external ETP data " +
+      "arrays under `/PRODML/<uuid>/<mnemonic>` (replaced by `ExternalDataArrayPart` " +
+      "references, mirroring WITSML log channel handling): time-series " +
+      "(`<DataValue>`) → Time/Value channels; DTS (ChannelSet / MeasurementTrace) → " +
+      "per-mnemonic temperature channels. DAS (Raw/Fbe/Spectra) is skipped — its " +
+      "arrays are HDF5-only, ingested via `/epc/upload`. **Policy:** 'true' forces " +
+      "extraction at any size; 'false' disables it; when omitted, extraction is " +
+      "automatic only for ProdML payloads larger than the 64 KiB inline threshold. " +
+      "Non-ProdML objects are unaffected.",
+    schema: { type: "string", enum: ["false", "true"], default: "false" }
+  })
+  @ApiQuery({
     name: "validate",
     required: false,
     description:
@@ -468,6 +494,7 @@ Each object must conform to the Energistics JSON schema for its type and include
     @Param() params: FindInDataSpaceParams,
     @Query("transactionId") transactionId?: string,
     @Query("validate") validate?: string,
+    @Query("extractChannelArrays") extractChannelArrays?: string,
     @Req() request?: express.Request
   ): Promise<boolean | Record<string, unknown>> {
     logger.info(
@@ -503,9 +530,11 @@ Each object must conform to the Energistics JSON schema for its type and include
         extractToken(request),
         extractDataPartitionId(request),
         undefined,
-        transactionId
+        transactionId,
+        extractUserInfo(request)
       );
       logger.info("Session created successfully.");
+      requireProtocol(c, Energistics.Etp.v12.Datatypes.Protocol.Store);
 
       const builder = new XMLBuilder();
       const dataObjects = requestBody.map(b => {
@@ -581,6 +610,56 @@ Each object must conform to the Energistics JSON schema for its type and include
         };
       });
 
+      // ── Optional ProdML array extraction (time-series, DTS, DAS-aware) ──
+      // Mirrors WITSML log-channel handling: pull inline sample data out of
+      // ProdML objects into external ETP arrays so growing data is stored the
+      // same domain-neutral way. Opt-in and strictly gated to prodml objects, so
+      // default behavior for every other domain is unchanged.
+      //   • time-series (<DataValue>)      → aligned Time/Value channels
+      //   • DTS (ChannelSet / trace)       → per-mnemonic temperature channels
+      //   • DAS (Raw/Fbe/Spectra)          → skipped (arrays are HDF5-only; use
+      //                                       the /epc/upload route)
+      const prodmlArrayJobs: { uri: string; uuid: string; arrays: ChannelArray[] }[] = [];
+      if (extractChannelArrays !== "false") {
+        for (let i = 0; i < dataObjects.length; i++) {
+          const uri = dataObjects[i].resource.uri;
+          if (!/(?:^|\/)prodml\d+\./i.test(uri)) continue;
+          const buf = dataObjects[i].data as Buffer;
+          // First-class ingest policy: force with ?extractChannelArrays=true,
+          // opt out with =false, otherwise auto-extract only oversized payloads
+          // (the ary table inlines ≤64 KiB; bigger inline XML bloats obj + reparse).
+          if (!shouldExtractArrays({ override: extractChannelArrays, byteLength: buf.length })) {
+            continue;
+          }
+          let objXml = Buffer.from(buf).toString("utf-8");
+          const { arrays, kind } = extractProdmlArrays(objXml, uri);
+          // DAS objects (kind === "das") and objects with no inline samples are
+          // left untouched — DAS rides the HDF5/EPC ingest path.
+          if (arrays.length === 0) continue;
+          const uuid = String(requestBody[i].Uuid);
+          if (kind === "timeseries") {
+            // Strip inline <DataValue>...</DataValue> sample blocks now stored externally.
+            objXml = objXml.replace(
+              /<(?:[\w]+:)?DataValue\b[^>]*>[\s\S]*?<\/(?:[\w]+:)?DataValue>/gi,
+              ""
+            );
+          } else if (kind === "channel") {
+            // Strip DTS/ChannelSet inline <Data> row containers now stored externally.
+            objXml = objXml.replace(
+              /<(?:[\w]+:)?logData\b[^>]*>[\s\S]*?<\/(?:[\w]+:)?logData>/gi,
+              ""
+            );
+            objXml = objXml.replace(
+              /<(?:[\w]+:)?Data>\s*(?:<(?:[\w]+:)?(?:MnemonicList|Data)>[\s\S]*?<\/(?:[\w]+:)?Data>\s*)+<\/(?:[\w]+:)?Data>/gi,
+              ""
+            );
+          }
+          objXml = injectExternalArrayRefs(objXml, uuid, arrays, "PRODML");
+          dataObjects[i].data = Buffer.from(objXml, "utf-8");
+          prodmlArrayJobs.push({ uri, uuid, arrays });
+        }
+      }
+
       // ── Optional RESQML validation ──
       let validationReport: ValidationReport | undefined;
       const doValidate = validate === "true" || validate === "strict";
@@ -631,8 +710,32 @@ Each object must conform to the Energistics JSON schema for its type and include
       }
 
       logger.info("Sending data objects...");
-      const r = await c.putDataObjects(dataObjects as DataObject[]);
+      // Rethrow store rejections (dangling references, bad UUIDs, unknown
+      // dataspace) so they reach the caller as 4xx with the ETP reason instead
+      // of an HTTP 200 whose body is `false`.
+      const r = await c.putDataObjects(dataObjects as DataObject[], {
+        throwOnError: true
+      });
       logger.info("Data objects sent successfully.");
+
+      // Store extracted ProdML time-series arrays in the same session/transaction.
+      const prodmlJobs = prodmlArrayJobs.flatMap(job =>
+        job.arrays.map(ch => ({ job, ch }))
+      );
+      // Bounded-concurrency fan-out (RDMS_CONCURRENCY_FETCH). Fail-fast: the
+      // first array failure propagates to the outer handler (which closes the
+      // session / aborts the uncommitted work) so no partial series is kept.
+      await mapLimit(prodmlJobs, concurrency.fetch, async ({ job, ch }) => {
+          const arrayId: IArrayId = {
+            uri: job.uri,
+            pathInResource: arrayPathFor("PRODML", job.uuid, ch.mnemonic)
+          };
+          await c!.putDataArray(arrayId, ch.dimensions, ch.values);
+          logger.info(
+            `  Stored ProdML array ${ch.mnemonic} (${ch.dimensions.join("×")}) for ${job.uuid}`
+          );
+      });
+
       if (!transactionId) {
         logger.info("Closing session...");
         await c.closeSession();
@@ -693,9 +796,11 @@ Each object must conform to the Energistics JSON schema for its type and include
         extractToken(request),
         extractDataPartitionId(request),
         undefined,
-        transactionId
+        transactionId,
+        extractUserInfo(request)
       );
       logger.info("Session created successfully.");
+      requireProtocol(c, Energistics.Etp.v12.Datatypes.Protocol.Store);
       logger.info("Deleting data object...");
       await c.deleteObjects(uris);
       logger.info("Data object deleted successfully.");
@@ -974,7 +1079,8 @@ Each object must conform to the Energistics JSON schema for its type and include
         extractToken(request),
         extractDataPartitionId(request),
         undefined,
-        transactionId
+        transactionId,
+        extractUserInfo(request)
       );
       if (!c) {
         throw new InternalServerErrorException({
@@ -982,6 +1088,7 @@ Each object must conform to the Energistics JSON schema for its type and include
         });
       }
       logger.info("Session created successfully.");
+      requireProtocol(c, Energistics.Etp.v12.Datatypes.Protocol.DataArray);
       // Pre-validate: check that referenced container objects exist in the dataspace
       // This catches mismatched UUIDs early with a clear error instead of an opaque ETP failure
       const uniqueContainers = new Map<string, string>();
@@ -1016,8 +1123,12 @@ Each object must conform to the Energistics JSON schema for its type and include
           }
         }
       }
-      const r = await Promise.all(
-        requestBody.map(async a => {
+      // Bounded-concurrency fan-out (RDMS_CONCURRENCY_FETCH) instead of an
+      // unbounded Promise.all, so a large array batch cannot exhaust sockets.
+      const r = await mapLimit(
+        requestBody,
+        concurrency.fetch,
+        async a => {
           const m = qualifiedTypeRegex.exec(a.ContainerType);
           const uri = EtpUri.createObjectUri(
             params.dataspaceId,
@@ -1132,7 +1243,7 @@ Each object must conform to the Energistics JSON schema for its type and include
           }
           logger.info("Creating full data array...");
           return c!.putDataArray(dataArray, a.Dimensions, dataArr);
-        })
+        }
       );
       logger.info("Data arrays processed successfully.");
       if (!transactionId) {
@@ -1262,7 +1373,8 @@ Each object must conform to the Energistics JSON schema for its type and include
         extractToken(request),
         extractDataPartitionId(request),
         undefined,
-        transactionId
+        transactionId,
+        extractUserInfo(request)
       );
 
       let result: boolean;

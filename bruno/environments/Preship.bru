@@ -1,40 +1,62 @@
 vars {
   host: https://qa.osdu-m27.osdu-cimpl.opengroup.org/api/reservoir-ddms/v2
-  access_token: 
+  access_token:
   data-partition-id: osdu
-  dataspaceId: test%2Fbruno-collection
-  dataspaceIdRaw: test/bruno-collection
+  seededDataspaceId: demo%2FDrogon
+  seededDataspaceIdRaw: demo/Drogon
+  testDataspaceId: test%2Fbruno
+  testDataspaceIdRaw: test/bruno
+  crudDataspaceId: test%2Fbruno-crud
+  crudDataspaceIdRaw: test/bruno-crud
+  cloneDataspaceId: test%2Fbruno-clone
+  cloneDataspaceIdRaw: test/bruno-clone
+  copyDataspaceId: test%2Fbruno-copy
+  copyDataspaceIdRaw: test/bruno-copy
+  drogonDataspaceId: test%2FDrogon
+  drogonDataspaceIdRaw: test/Drogon
+  witsmlDataspaceId: test%2Fwitsml
+  witsmlDataspaceIdRaw: test/witsml
+  prodmlDataspaceId: test%2Fprodml
+  prodmlDataspaceIdRaw: test/prodml
   dataObjectType: resqml20.obj_PointSetRepresentation
-  guid: 
-  pathInResource: 
-  testDataspaceId: test%2Fbruno-collection
-  testDataspaceIdRaw: test/bruno-collection
-  transactionId: 
+  guid:
+  pathInResource:
+  crs_guid:
+  ext_guid:
+  psr_guid:
+  array_path_encoded:
+  i32_array_path_encoded:
+  bin_array_path_encoded:
+  empty_array_path_encoded:
+  transactionId:
   defaultLegalTag: osdu-demo-legaltag
   defaultOwners: data.default.owners@osdu.group
   defaultViewers: data.default.viewers@osdu.group
-  drogonDataspaceId: test%2Fdrogon-seed
-  drogonDataspaceIdRaw: test/drogon-seed
-  drogonThrowawayId: test%2Fdrogon-lifecycle
-  drogonThrowawayIdRaw: test/drogon-lifecycle
-  drogonSeedId: test%2Fdrogon-seed
-  drogonSeedIdRaw: test/drogon-seed
-  drogonSeedGridType: 
-  drogonSeedGridGuid: 
-  drogonSeedStored: 
-  drogonGridType: 
-  drogonGridGuid: 
-  drogonPropType: 
-  drogonPropGuid: 
-  drogonArrayPath: 
-  drogonObjGuid: 
-  drogonRbObjGuid: 
-  drogonWriteTxnId: 
-  drogonRbTxnId: 
-  drogonDelTxnId: 
-  token_url: https://keycloak-qa.osdu-m27.osdu-cimpl.opengroup.org/realms/osdu/protocol/openid-connect/token
-  client_id: cimpl-users
+  drogonGridType: resqml22.IjkGridRepresentation
+  drogonGridGuid:
+  drogonPropType: resqml22.ContinuousProperty
+  drogonPropGuid:
+  drogonArrayPath:
+  drogonTxnId:
+  drogonNewPropGuid:
+  drogonCellCount:
+  drogonGridUri:
+  drogonRbTxnId:
+  drogonRbPropGuid:
+  witsmlWellGuid:
+  witsmlTrajGuid:
+  witsmlGrowingUri:
+  ~autoIngest: false
+  ~aclOwners: {{defaultOwners}}
+  ~aclViewers: {{defaultViewers}}
+  ~legalTag: {{defaultLegalTag}}
+  ~ingestDagId: Osdu_ingest
+  ~catalogHost:
+  ~searchHost:
+  ~storageHost:
 }
 vars:secret [
+  token_url:https://keycloak-qa.osdu-m27.osdu-cimpl.opengroup.org/realms/osdu/protocol/openid-connect/token,
+  client_id:cimpl-users,
   refresh_token:
 ]

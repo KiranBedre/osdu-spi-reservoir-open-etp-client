@@ -12,11 +12,13 @@
   "scripts": {
     "all": "npm run git:hooks && npm run build && npm run validate",
     "build:dts": "cpy \"src/lib/mlTypes/xmlns/**\" dist/src/lib/mlTypes/xmlns",
-    "build:quick": "git clean -xdff dist && tsc && cp -r src/lib/validation/schemas dist/src/lib/validation/ && npm run build:dts",
-    "build": "npm run build:quick && npm run openAPI && npm run docs",
+    "build:sdk": "tsc -p sdk/tsconfig.json",
+    "build:quick": "git clean -xdff dist && tsc && cp -r src/lib/validation/schemas dist/src/lib/validation/ && cp -r src/lib/validation/resources dist/src/lib/validation/ && npm run build:dts",
+    "build": "npm run build:quick && npm run openAPI && npm run schema && npm run docs",
     "build:noclean": "npx tsc && npm run build:dts && npm run openAPI && typedoc src",
-    "docs": "git clean -xdff docs/ && typedoc src",
+    "docs": "git clean -xdff docs/typedoc/ && typedoc src",
     "openAPI": "npm run env:set -- ts-node src/examples/openApi.ts",
+    "schema": "ts-node src/examples/emitSchema.ts",
     "start": "npm run docker:compose:stop:app && npm run env:set -- node dist/src/lib/restApi/RestServer.js",
     "start:dev": "npm run docker:compose:stop:app && npm run env:set -- ts-node-dev --poll --debug --inspect=9271 -- src/lib/restApi/RestServer.ts",
     "example1": "npm run env:set -- ts-node src/examples/Example1.ts",
@@ -26,11 +28,13 @@
     "docker:compose:start": "npm run docker:compose:base -- up -d -V --force-recreate --remove-orphans",
     "docker:compose:stop": "npm run docker:compose:base -- down --volumes --remove-orphans",
     "test": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit",
-    "test:integration": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit --testPathPattern='TestClient|TestWitsmlQuery'",
+    "test:integration": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit --testPathIgnorePatterns '<rootDir>/node_modules' '<rootDir>/dist' '<rootDir>/docs/' '<rootDir>/src/__tests__/fixtures/' --testPathPattern='TestClient|TestWitsmlQuery|TestProtocolsIntegration'",
     "test:cov": "npm run env:set -- jest --clearCache && npm run env:set -- jest --detectOpenHandles --forceExit --coverage",
     "test:debug": "npm run env:set -- node --inspect-brk ./node_modules/jest/bin/jest.js --coverage=false --runInBand",
     "test:single": "npm run env:set -- jest --coverage=false --runInBand",
     "test:single:debug": "npm run env:set -- node --inspect-brk ./node_modules/jest/bin/jest.js --coverage=false --runInBand --",
+    "typecheck": "tsc --noEmit",
+    "typecheck:strict": "tsc -p tsconfig.strict.json",
     "lint": "npm-run-all -nlpc --aggregate-output",
     "lint:verbose": "eslint -f stylish .",
     "lint:junit": "eslint -f junit -o lint-junit.xml .",
@@ -83,7 +87,7 @@
     "@nestjs/graphql": "~13.4.2",
     "@nestjs/platform-express": "^11.1.19",
     "@nestjs/swagger": "^11.4.2",
-    "adm-zip": "~0.6.1",
+    "adm-zip": "~0.6.0",
     "bunyan": "~1.8.15",
     "class-transformer": "~0.5.1",
     "class-validator": "~0.14.1",
@@ -109,7 +113,7 @@
     "websocket": "~1.0.35"
   },
   "devDependencies": {
-    "@babel/core": "~7.29.7",
+    "@babel/core": "~7.23.9",
     "@commitlint/cli": "~18.2.0",
     "@commitlint/config-conventional": "~18.1.0",
     "@commitlint/cz-commitlint": "~18.2.0",
@@ -120,6 +124,7 @@
     "@types/compression": "~1.7.5",
     "@types/express": "~4.17.21",
     "@types/jest": "~29.5.14",
+    "@types/js-yaml": "~4.0.9",
     "@types/jsonwebtoken": "~9.0.9",
     "@types/lodash": "~4.14.202",
     "@types/multer": "~2.2.0",
@@ -162,17 +167,15 @@
     "@typescript-eslint/typescript-estree": {
       "minimatch": "3.1.4"
     },
-    "body-parser": "2.3.0",
+    "body-parser": "2.2.1",
     "tmp": "0.2.7",
-    "qs": "6.16.0",
-    "moment": "2.31.0",
-    "ip-address": "10.7.3",
+    "qs": "6.15.2",
     "jest-junit": {
       "uuid": "11.1.1"
     },
     "lodash": "4.18.1",
     "minimatch": "9.0.7",
-    "js-yaml": "4.3.2",
+    "js-yaml": "4.3.1",
     "cross-spawn": "7.0.5",
     "npm-run-all": {
       "cross-spawn": "7.0.5",
@@ -187,7 +190,7 @@
     "lint-staged": {
       "cross-spawn": "7.0.5"
     },
-    "multer": "2.4.0",
+    "multer": "2.2.0",
     "ajv": "8.18.0",
     "jws": "3.2.3",
     "validator": "13.15.22",
@@ -202,10 +205,10 @@
     "flatted": "3.4.2",
     "file-type": "21.3.4",
     "picomatch": "2.3.2",
-    "brace-expansion": "5.0.12",
+    "brace-expansion": "5.0.9",
     "yaml": "2.8.3",
-    "fast-xml-builder": "1.3.1",
-    "fast-uri": "3.1.8",
+    "fast-xml-builder": "1.1.7",
+    "fast-uri": "3.1.6",
     "shell-quote": "1.11.0",
     "proxy-addr": "2.0.8",
     "tar": "7.5.21",
@@ -220,6 +223,7 @@
   },
   "jest": {
     "preset": "ts-jest",
+    "globalSetup": "<rootDir>/src/__tests__/fixtures/EtpCapabilities.ts",
     "globals": {
       "NODE_ENV": "test"
     },
@@ -239,9 +243,10 @@
       "<rootDir>/node_modules",
       "<rootDir>/dist",
       "<rootDir>/docs/",
+      "<rootDir>/src/__tests__/fixtures/",
       "<rootDir>/src/__tests__/TestClient.ts",
-      "<rootDir>/src/__tests__/TestProtocols.ts",
       "<rootDir>/src/__tests__/TestWitsmlQuery.ts",
+      "<rootDir>/src/__tests__/TestProtocolsIntegration.ts",
       "<rootDir>/src/__tests__/TestResqmlValidatorDatasets.ts"
     ],
     "testEnvironmentOptions": {

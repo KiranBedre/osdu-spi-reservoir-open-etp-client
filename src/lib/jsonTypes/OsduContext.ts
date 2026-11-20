@@ -248,8 +248,7 @@ export class OSDUContext {
     // id that downstream services (e.g. the Osdu_ingest DAG CRS validation)
     // reject. Preserve literal colons while still escaping other unsafe chars.
     const encodedValue = encodeURIComponent(value).replace(/%3A/g, ":");
-    const ref = `${this.partition
-      }:reference-data--${referenceType}:${encodedValue}:`;
+    const ref = `${this.partition}:reference-data--${referenceType}:${encodedValue}:`;
     if (referenceType !== "PropertyType" || PropertyTypesIds.has(value)) {
       // Do not create reference for Standards Resqml PropertyTypes
       this.references.add(ref);
@@ -382,15 +381,11 @@ export class OSDUContext {
   }
 
   /**
-   * Get the osdu self-identity (SRN) of a data object.
-   *
-   * For EML 2.3+ objects the dedicated OSDURecordID element is preferred; for
-   * all versions it falls back to the Aliases[Authority="osdu"].Identifier
-   * carrier, keeping RESQML 2.0.1/2.2 objects working unchanged.
+   * Get the osdu alias
    *
    * @static
    * @param {IResqmlDataObject} dataObject
-   * @return {string|undefined} the osdu SRN if present
+   * @return {string|undefined} alias if exists
    * @memberof OSDUContext
    */
   public static osduAlias(dataObject: IResqmlDataObject): string | undefined {
@@ -410,13 +405,6 @@ export class OSDUContext {
       }
     } else {
       const o = dataObject as SimpleJson<Eml23.AbstractObject>;
-      // 2.3.0: prefer the dedicated, first-class self-identity element. It is
-      // String256 and holds the full partition-qualified SRN. Fall back to the
-      // osdu-authority alias for 2.0.1/2.2 objects that predate OSDURecordID.
-      const recordId = (o as { OSDURecordID?: string }).OSDURecordID;
-      if (recordId) {
-        return recordId;
-      }
       const al = o.Aliases?.find(a => a.Authority === "osdu");
       if (al && al.Identifier) {
         return al.Identifier;
@@ -518,9 +506,7 @@ export class OSDUContext {
     // truth). Unlike Search, Storage has no index lag, so records written
     // moments earlier in the same build are reliably seen and not re-created.
     const found = await this.batchOsduRecordVersions(srn);
-    return srn.filter(
-      s => !found.has(s.endsWith(":") ? s.slice(0, -1) : s)
-    );
+    return srn.filter(s => !found.has(s.endsWith(":") ? s.slice(0, -1) : s));
   }
 
   /**

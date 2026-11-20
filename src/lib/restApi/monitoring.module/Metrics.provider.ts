@@ -48,8 +48,15 @@ export default class MetricsProvider {
     labelNames: string[]
   ): client.Counter<string> {
     if (this.registeredCounters[name] === undefined) {
-      const counter = new client.Counter({ name, help, labelNames });
-      this.registry.registerMetric(counter);
+      // Register in this provider's registry only: prom-client otherwise also
+      // registers in its global registry, which throws when a second app
+      // instance (tests, embedded use) creates a second MetricsProvider.
+      const counter = new client.Counter({
+        name,
+        help,
+        labelNames,
+        registers: [this.registry],
+      });
       this.registeredCounters[name] = counter;
     }
 
@@ -63,8 +70,13 @@ export default class MetricsProvider {
     buckets: number[]
   ): client.Histogram<string> {
     if (this.registeredHistograms[name] === undefined) {
-      const histogram = new client.Histogram({ name, help, labelNames, buckets });
-      this.registry.registerMetric(histogram);
+      const histogram = new client.Histogram({
+        name,
+        help,
+        labelNames,
+        buckets,
+        registers: [this.registry],
+      });
       this.registeredHistograms[name] = histogram;
     }
     return this.registeredHistograms[name];

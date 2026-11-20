@@ -12,8 +12,8 @@ variables:
   #-------------------------------------------------------------------------------
   # ETP
   RDMS_AUTHENTICATION_KEY_BASE: 0000000-0000-0000-0000-000000000000
-  # Secret for ETP connection
-  RDMS_JWT_SECRET: osdu-rddms # pragma: allowlist secret
+  # Dev-only HS256 key shared by the compose ETP server and the REST proxy
+  RDMS_JWT_SECRET: 0123456789abcdef
 
   # RDMS_ETP_PROTOCOL websocket protocol "ws" or "wss"
   # RDMS_ETP_HOST domain of etp server
@@ -35,7 +35,8 @@ variables:
   RDMS_REST_MAIN_URL: http://172.17.0.1
   RDMS_OSDU_URL: http://172.17.0.1
 
-  # Local folder that contains data for ETP server
-  RDMS_HOST_DOCKER_MOUNT_RESQML_DATA_PATH: ../../data
-  # List of projects to import automatically in ETP server
-  RDMS_PROJECTS_TO_IMPORT_IN_EML: Volve_Demo_Horizons_Depth
+  # Seed data for the docker-compose ETP server: the committed small Drogon
+  # fixture (data/Demo_Drogon.epc + data/drogon_small.h5), imported into demo/Drogon.
+  RDMS_SEED_DATA_DIR: data
+  RDMS_SEED_DATASPACE: demo/Drogon
+  RDMS_PROJECTS_TO_IMPORT_IN_EML: Demo_Drogon

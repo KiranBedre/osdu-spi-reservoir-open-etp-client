@@ -11,6 +11,16 @@ import { parseJSON } from "./XmlJsonUtil";
 
 import { EtpQualifiedType } from "../common/EtpQualifiedType";
 
+/**
+ * SimpleType enumerations whose xsi:type must NOT be emitted on the element.
+ * ResqmlPropertyKind is a simpleType enumeration used as the declared type of
+ * the <Kind> element inside StandardPropertyKind; strict RESQML consumers such
+ * as fesapi/gSOAP reject an xsi:type naming it ("type mismatch
+ * resqml20:ResqmlPropertyKind in element 'resqml20:Kind'"), and real RESQML
+ * files omit it entirely.
+ */
+const SUPPRESSED_XSI_TYPES = new Set<string>(["ResqmlPropertyKind"]);
+
 /*
  * Options for the XMLBuilder
  */
@@ -106,7 +116,11 @@ export class XMLBuilder {
     this.reverseNamespace.set("2.1", new Map([...rMap, ...witsml21Map]));
     this.reverseNamespace.set(
       "2.3",
-      new Map([...rMap, [eml23.document._namespace, "eml23"]])
+      new Map([
+        ...rMap,
+        [resqml22.document._namespace, "resqml22"],
+        [eml23.document._namespace, "eml23"]
+      ])
     );
 
     this.attributeNamePrefix = options?.attributeNamePrefix ?? "_";
@@ -303,7 +317,10 @@ export class XMLBuilder {
         }
         return `xsd:${typename}`;
       }
-      return `${this.findPrefix(namespace, "2.0")}:${typename}`;
+      if (SUPPRESSED_XSI_TYPES.has(typename)) {
+        return "";
+      }
+      return `${this.findPrefix(namespace, version)}:${typename}`;
     }
     if (!curType.rule) {
       return "";
@@ -317,6 +334,9 @@ export class XMLBuilder {
       }
       return `xsd:${curType.rule.primitiveType}`;
     } else {
+      if (SUPPRESSED_XSI_TYPES.has(curType.name)) {
+        return "";
+      }
       return `${this.findPrefix(curType.rule.namespace.name, version)}:${curType.name
         }`;
     }
@@ -384,12 +404,13 @@ export class XMLBuilder {
       let child = undefined;
       let curMl = ml;
       if (rule) {
-        if (rule.childTbl["1:" + key] === undefined) {
-          if (rule.childTbl["2:" + key] !== undefined) {
-            ruleKey = "2:" + key;
+        // childTbl keys are "<minOccurs>:<name>"; eml23-derived schemas register
+        // optional AbstractObject members (Citation, Aliases, ...) under "0:".
+        for (const occ of ["1", "2", "0"]) {
+          if (rule.childTbl[`${occ}:${key}`] !== undefined) {
+            ruleKey = `${occ}:${key}`;
+            break;
           }
-        } else {
-          ruleKey = "1:" + key;
         }
 
         if (ruleKey) {
@@ -620,14 +641,29 @@ export class XMLBuilder {
    * @memberof XMLBuilder
    */
   private buildTextValueNode(
-    value: string,
+    value: string | Date,
     key: string,
     attrStr: string,
     level: number
   ): string {
+    if (value instanceof Date) {
+      // parseJSON revives ISO 8601 strings to Date. EML 2.3 TimeStamp fields
+      // (e.g. Citation/Creation) carry no xsi:type, so without this branch the
+      // Date would be stringified via Date.prototype.toString() (a non-ISO,
+      // locale dependent form) which the server cannot parse.
+      if (isNaN(value.getTime())) {
+        throw new BadRequestException({
+          description:
+            `Invalid date value for field '${key}'. ` +
+            `Expected XSD dateTime format (e.g. 2024-01-01T00:00:00Z).`
+        });
+      }
+      value = value.toISOString();
+    }
     if (
       attrStr === ' xsi:type="xsd:dateTime"' ||
-      attrStr === ' xsi:type="eml20:TimeStamp"'
+      attrStr === ' xsi:type="eml20:TimeStamp"' ||
+      attrStr === ' xsi:type="eml23:TimeStamp"'
     ) {
       try {
         this.createDateFromXsdDateTime(value);

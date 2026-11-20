@@ -1,0 +1,46 @@
+meta {
+  name: A5 Put Array JSON Batch
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/arrays
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  [
+    {
+      "ContainerType": "eml20.obj_EpcExternalPartReference",
+      "ContainerUuid": "{{ext_guid}}",
+      "PathInResource": "/RESQML/{{psr_guid}}/i32_patch1",
+      "Dimensions": [2, 3],
+      "Data": [10, 20, 30, 40, 50, 60],
+      "ArrayType": "Int32Array"
+    }
+  ]
+}
+
+docs {
+  Generic batch write (auto-commit, no transactionId): the body is an ARRAY of
+  data arrays and the store answers one boolean per element.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("store accepted the array", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("array").with.lengthOf(1);
+    expect(body[0]).to.equal(true);
+  });
+}

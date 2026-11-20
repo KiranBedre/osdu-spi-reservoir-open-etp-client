@@ -1,0 +1,46 @@
+meta {
+  name: Seeded Trajectory Sources
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{host}}/dataspaces/{{seededDataspaceId}}/resources/resqml20.obj_WellboreTrajectoryRepresentation/{{seededTrajectoryUuid}}/sources
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  P3 getSources of the seeded Trajectory. The answer must equal the sources recorded for
+  this object in the full graph (Seeded Graph Type Invariants), which makes the
+  per-object route and the whole-graph route agree and - because the graph
+  stores one directed link per reference - verifies A in targets(B) <=> B in
+  sources(A). Type mix: only frame representations hang off a trajectory (WellboreFrame / WellboreMarkerFrame)
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("sources match the full-graph adjacency exactly", function () {
+    const uuidOf = function (uri) { return uri.replace(/^.*\(([0-9a-f-]{36})\)$/, "$1"); };
+    const got = res.getBody().map(function (r) { return uuidOf(r.uri); })
+      .filter(function (v, i, a) { return a.indexOf(v) === i; }).sort();
+    const want = JSON.parse(bru.getVar("seededGraphSources"))[bru.getVar("seededTrajectoryUuid")];
+    expect(want, "adjacency captured").to.be.an("array");
+    expect(got).to.deep.equal(want);
+  });
+
+  test("only frame representations reference the trajectory", function () {
+    const typeOf = function (uri) { return uri.replace(/^.*\/(?:resqml20|eml20)\.(obj_[A-Za-z0-9]+)\(.*$/, "$1"); };
+    const allowed = ["obj_WellboreFrameRepresentation", "obj_WellboreMarkerFrameRepresentation", "obj_Activity"];
+    const bad = res.getBody().map(function (r) { return typeOf(r.uri); }).filter(function (t) { return allowed.indexOf(t) < 0; });
+    expect(bad, "unexpected source types").to.deep.equal([]);
+  });
+}

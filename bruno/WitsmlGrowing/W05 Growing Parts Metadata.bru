@@ -1,0 +1,57 @@
+meta {
+  name: W05 Growing Parts Metadata
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{host}}/query/growing
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "uri": "{{witsmlGrowingUri}}"
+  }
+}
+
+docs {
+  WITSML growing-object lifecycle (5/7). Probes ETP GrowingObject Protocol 6 via
+  POST /query/growing (no range) for the object captured in W04 - the read side that
+  discovers available part index ranges/uids before fetching a range (W06).
+
+  Tolerant by design: for objects stored over REST there may be no growing parts
+  (the proxy has no PutParts route - parts are only written at the ETP layer), so
+  an empty/negative result (200 empty, 400, 404) is documented and non-fatal. The
+  value here is exercising Protocol-6 negotiation + routing on real session state.
+  Expectation follows `storeProtocols` (_Setup/S1): a store that does not
+  advertise Protocol 6 must be answered with 501 by the gateway.
+}
+
+tests {
+  const protocols = String(bru.getVar("storeProtocols") || "").split(",").map(Number);
+  const storeHasGrowing = protocols.indexOf(6) >= 0;
+
+  test(storeHasGrowing ? "status is 200/400/404 (store supports GrowingObject)" : "status is 501 (store lacks GrowingObject protocol 6)", function () {
+    if (storeHasGrowing) {
+      expect(res.getStatus()).to.be.oneOf([200, 400, 404]);
+    } else {
+      expect(res.getStatus()).to.equal(501);
+      expect(JSON.stringify(res.getBody())).to.match(/GrowingObject/);
+    }
+  });
+
+  test("metadata is an array when 200", function () {
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body.metadata, JSON.stringify(body).slice(0, 200)).to.be.an("array");
+      expect(body).to.not.have.property("parts");
+    }
+  });
+}

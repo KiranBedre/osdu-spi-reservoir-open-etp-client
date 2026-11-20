@@ -1,0 +1,90 @@
+meta {
+  name: D04 List Drogon Resources
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/all
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    if (Array.isArray(body)) {
+      const findGuid = (needle) => {
+        for (const item of body) {
+          const s = (item && (item.uri || item.name)) || JSON.stringify(item);
+          const m = s.match(new RegExp(needle + "\\(([0-9a-fA-F-]{36})\\)"));
+          if (m) return m[1];
+        }
+        return undefined;
+      };
+      const gridGuid = findGuid("IjkGridRepresentation");
+      if (gridGuid) bru.setVar("drogonGridGuid", gridGuid);
+      // Capture supporting representations + lookup for the grid / well-log
+      // continuous, discrete & categorical property round-trips (D30-D39).
+      const wellFrameGuid = findGuid("WellboreFrameRepresentation");
+      const lookupGuid = findGuid("StringTableLookup");
+      if (wellFrameGuid) bru.setVar("drogonWellFrameGuid", wellFrameGuid);
+      if (lookupGuid) bru.setVar("drogonLookupGuid", lookupGuid);
+      // Capture the trajectory + HDF proxy for the marker-frame / column-based
+      // table writes (D78-D79).
+      const trajectoryGuid = findGuid("WellboreTrajectoryRepresentation");
+      const hdfProxyGuid = findGuid("EpcExternalPartReference");
+      if (trajectoryGuid) bru.setVar("drogonTrajectoryGuid", trajectoryGuid);
+      if (hdfProxyGuid) bru.setVar("drogonHdfProxyGuid", hdfProxyGuid);
+      // Capture the grid object uri for the multi-resources get-content probe (D13).
+      const gridItem = body.find(function (it) {
+        const s = (it && (it.uri || it.name)) || "";
+        return s.indexOf("IjkGridRepresentation") !== -1;
+      });
+      if (gridItem && gridItem.uri) bru.setVar("drogonGridUri", gridItem.uri);
+    }
+  }
+}
+
+docs {
+  Drogon lifecycle (3/19). Flat resource listing of the uploaded dataspace,
+  proving the REST -> ETP -> real-RESQML round trip on real Drogon data. The
+  fixture ships no properties (they are written later in this folder), so the
+  per-type counts asserted here are exact. Captures the IjkGridRepresentation,
+  a WellboreFrameRepresentation, a StringTableLookup, a trajectory and the HDF
+  proxy for the write / array-compute steps below.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("lists the Drogon fixture objects with exact per-type counts", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("array");
+    const count = function (type) {
+      return body.filter(function (r) { return r.uri.indexOf("." + type + "(") !== -1; }).length;
+    };
+    expect(count("obj_IjkGridRepresentation"), "IjkGrid").to.equal(1);
+    expect(count("obj_WellboreTrajectoryRepresentation"), "trajectories").to.equal(18);
+    expect(count("obj_WellboreFrameRepresentation"), "frames").to.equal(14);
+    expect(count("obj_WellboreMarkerFrameRepresentation"), "marker frames").to.equal(9);
+    expect(count("obj_StringTableLookup"), "lookups").to.equal(13);
+    expect(count("obj_EpcExternalPartReference"), "hdf proxies").to.equal(1);
+    expect(count("obj_ContinuousProperty"), "properties (none in fixture)").to.equal(0);
+    expect(body.length).to.be.at.least(186);
+  });
+
+  test("captured the supporting objects for the write steps", function () {
+    ["drogonGridGuid", "drogonWellFrameGuid", "drogonLookupGuid", "drogonTrajectoryGuid", "drogonHdfProxyGuid"].forEach(function (v) {
+      expect(bru.getVar(v), v).to.match(/^[0-9a-f-]{36}$/);
+    });
+    expect(bru.getVar("drogonGridUri")).to.be.a("string").and.contain("IjkGridRepresentation");
+  });
+}

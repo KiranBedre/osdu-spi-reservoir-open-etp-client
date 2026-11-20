@@ -1,0 +1,54 @@
+meta {
+  name: Find Surface Referrers
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/resqml20.obj_TriangulatedSetRepresentation/{{writeSurfaceUuid}}/sources
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    const act = (Array.isArray(body) ? body : []).find(function (r) {
+      return /obj_Activity\(/.test(r.uri || "");
+    });
+    const m = act && /obj_Activity\(([0-9a-f-]{36})\)/.exec(act.uri);
+    if (m) bru.setVar("writeImportActivityGuid", m[1]);
+  }
+}
+
+docs {
+  Route coverage: GET …/{type}/{guid}/sources on the surface written by seq 1.
+  The store (default `--check-activities true`) wraps every auto-commit in a
+  generated `Scenario_automated_import_*` Activity whose output parameters point
+  at the written objects, so a freshly written, otherwise reference-free object
+  has exactly one referrer. Its guid is captured because an object cannot be
+  deleted while a rel row still targets it (412 rel_dst_id_fkey): seq 3 removes
+  the Activity, seq 4 the surface.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("the only referrer is the auto-import Activity of the seq 1 commit", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("array").with.lengthOf(1);
+    expect(body[0].uri).to.match(/resqml20\.obj_Activity\([0-9a-f-]{36}\)$/);
+    expect(body[0].name).to.match(/^Scenario_automated_import_/);
+  });
+
+  test("captured the import Activity guid", function () {
+    expect(bru.getVar("writeImportActivityGuid")).to.match(/^[0-9a-f-]{36}$/);
+  });
+}

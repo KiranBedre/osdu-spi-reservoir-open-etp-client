@@ -99,20 +99,18 @@ import logging from "../../common/Logging";
 
 const logger = logging.getLogger("EtpClient");
 
+const emailPattern =
+  /^[a-zA-Z0-9_+&*-]+(?:\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,7}$/;
+
+const partitionId = process.env.DATA_PARTITION_ID ?? "data-partition-id";
+
 /**
- * In-memory registry for asynchronous manifest builds.
- *
- * Large dataspaces (e.g. demo/Volve) can take longer than the ~60s edge/load
- * balancer timeout that fronts the platform ingress, so the synchronous
- * `POST /manifests/build` connection is cut before the build returns. The async
- * variant returns 202 immediately with a `jobId`, runs the build in-process
- * (no HTTP timeout applies once the response has been sent), and exposes the
- * result/diagnostics/error through `GET /manifests/jobs/{jobId}`.
- *
- * NOTE: the registry is per-process. When the gateway runs multiple replicas,
- * a status poll must reach the same replica that accepted the build (sticky
- * routing) or it will 404. This DDMS is single-replica on the current
- * deployments; a shared store would be required to relax that.
+ * In-memory registry backing the asynchronous manifest-build mode
+ * (`POST /manifests/build` with `async: true`). Each job runs in-process and
+ * is polled via `GET /manifests/jobs/{jobId}`. The registry is per-replica, so
+ * the poller must reach the same replica that owns the job (sticky routing) or
+ * it will 404. This DDMS is single-replica on the current deployments; a shared
+ * store would be required to relax that.
  */
 interface ManifestBuildJob {
   jobId: string;
@@ -183,11 +181,6 @@ function evictManifestJobs(): void {
   }
 }
 
-const emailPattern =
-  /^[a-zA-Z0-9_+&*-]+(?:\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,7}$/;
-
-const partitionId = process.env.DATA_PARTITION_ID ?? "data-partition-id";
-
 class Contact implements IContact {
   EmailAddress?: string;
   PhoneNumber?: string;
@@ -218,7 +211,7 @@ export class ContactDto implements IContact {
     maxLength: 2048,
     description:
       "Contact email address. Property may be left empty where it is inappropriate to provide personally identifiable information.",
-    example: "user@mycompany.com",
+    example: "alfred.wegener@senecaoil.example",
     pattern: patternString(emailPattern)
   })
   EmailAddress?: string;
@@ -278,7 +271,7 @@ export class ContactDto implements IContact {
     type: String,
     maxLength: 2048,
     description: "Reference to the company the contact is associated with.",
-    example: `${partitionId}:master-data--Organisation:MyCompany:`,
+    example: `${partitionId}:master-data--Organisation:SenecaOil:`,
     pattern: patternString(
       /^[\\w\\-\\.]+:master-data\\-\\-Organisation:[\\w\\-\\.\\:\\%]+:[0-9]*$/
     )
@@ -291,7 +284,7 @@ export class ContactDto implements IContact {
     maxLength: 2048,
     description:
       "Name of the individual contact. Property may be left empty where it is inappropriate to provide personally identifiable information.",
-    example: "Evergreen",
+    example: "Alfred Wegener",
     pattern: patternString(/^[a-zA-Z ]*$/)
   })
   Name?: string;
@@ -410,8 +403,8 @@ export class ManifestInputDto {
     maxLength: 2048,
     description: `Uris of resources or dataspaces to generate a manifest for.`,
     example: [
-      "eml:///dataspace('demo/Volve')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)",
-      "eml:///dataspace('demo/Volve')/resqml20.obj_ContinuousProperty(1615d8d2-2a2d-482c-885e-14225b89e90c)"
+      "eml:///dataspace('demo/drogon')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)",
+      "eml:///dataspace('demo/drogon')/resqml20.obj_ContinuousProperty(1615d8d2-2a2d-482c-885e-14225b89e90c)"
     ]
   })
   @IsArray()
@@ -485,6 +478,26 @@ export class ManifestInputDto {
   createMissingReferences?: boolean = true;
 
   @ApiPropertyOptional({
+    name: "followReferences",
+    description: `When true, each explicitly-listed object in 'uris' is expanded to its full transitive dependency closure (interpretations, features, CRS, property kinds, supporting representations, …) and every referenced object is emitted as a first-class record - not merely resolved internally. The pulled-in references still honour typePatterns/propertyFilter/excludePatterns (CRS is always kept); the objects you listed are never filtered out. Has no effect when 'uris' points at whole dataspaces (those already enumerate everything). Combine with excludePatterns (e.g. ["wells"]) to include a selection plus its closure while dropping unwanted kinds.`,
+    type: Boolean,
+    example: true
+  })
+  @IsOptional()
+  @IsBoolean()
+  followReferences?: boolean = false;
+
+  @ApiPropertyOptional({
+    name: "schemaCompat",
+    description: `Opt-in (default OFF, M26 behaviour). Controls the schema-compatibility pass that resolves each record's kind against the target OSDU schema service and remaps/normalizes it to a registered kind (maximizes ingestibility). Omit or set \`false\` (default) to SKIP it for a faster M26-style build — every record keeps its original kind, which the target OSDU may not have registered, so ingestion could reject them. Set \`true\` to RUN the pass; when forced on it is still auto-skipped for very large datasets (assembled record count over \`MANIFEST_SCHEMA_COMPAT_MAX_RECORDS\`, default 500) because the per-kind schema-service round-trips can push the build past the ~60s edge/load-balancer timeout that fronts the platform ingress.`,
+    type: Boolean,
+    example: false
+  })
+  @IsOptional()
+  @IsBoolean()
+  schemaCompat?: boolean;
+
+  @ApiPropertyOptional({
     name: "tags",
     description: `OSDU tags information to apply.`,
     type: Object,
@@ -521,16 +534,6 @@ export class ManifestInputDto {
   @IsOptional()
   @IsBoolean()
   async?: boolean;
-
-  @ApiPropertyOptional({
-    name: "schemaCompat",
-    description: `Opt-in (default OFF, M26 behaviour). Controls the schema-compatibility pass that resolves each record's kind against the target OSDU schema service and remaps/normalizes it to a registered kind (maximizes ingestibility). Omit or set \`false\` (default) to SKIP it for a faster M26-style build — every record keeps its original kind, which the target OSDU may not have registered, so ingestion could reject them. Set \`true\` to RUN the pass; when forced on it is still auto-skipped for very large datasets (assembled record count over \`MANIFEST_SCHEMA_COMPAT_MAX_RECORDS\`, default 500) because the per-kind schema-service round-trips can push the build past the ~60s edge/load-balancer timeout that fronts the platform ingress.`,
-    type: Boolean,
-    example: false
-  })
-  @IsOptional()
-  @IsBoolean()
-  schemaCompat?: boolean;
 }
 
 /**
@@ -650,6 +653,7 @@ To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`prop
 - Uses \`OSDU_MILESTONE\` env var (default M27) for OSDU schema versions
 - GridConnectionSet records report \`HasTransmissibilityMultipliers\` when attached transmissibility properties are found
 - WellLog records populate TopMeasuredDepth/BottomMeasuredDepth from frame index arrays
+- GenericProperty records populate \`RealizationIndices\` from the RESQML realisation-index join key: the scalar \`RealizationIndex\` (2.0.1 / 2.2) unioned with any inline \`RealizationIndices\` integer array (constant / range / lattice, resqml20 or eml23). HDF5-backed or multi-dimensional index arrays are left unresolved (and logged) rather than emitted as malformed values
 
 **createMissingReferences**: When true, creates placeholder records for unresolved data object references (DORs). When false, missing references appear in the error list.`,
     servers: swaggerServers
@@ -799,7 +803,6 @@ To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`prop
     );
 
     context.bearer = bearer;
-
     if (body.schemaCompat !== undefined) {
       context.schemaCompat = body.schemaCompat;
     }
@@ -831,7 +834,8 @@ To reproduce the M27 "everything" build, pass \`typePatterns: ["*"]\` and \`prop
         body.typePatterns ?? DEFAULT_DATASPACE_TYPE_PATTERNS,
         maxManifestSize,
         body.propertyFilter ?? "canonical",
-        resolveExcludePatterns(body)
+        resolveExcludePatterns(body),
+        body.followReferences ?? false
       );
       logger.info("Manifest creation successful.");
       return {

@@ -1,0 +1,39 @@
+meta {
+  name: Unsupported Construct 400 (negative)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{host}}/sparql
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "dataspaceUri": "eml:///dataspace('{{seededDataspaceIdRaw}}')",
+    "query": "SELECT ?s WHERE { ?s ?p ?o OPTIONAL { ?s ?p ?o } }"
+  }
+}
+
+docs {
+  Route coverage: POST /sparql — negative test. OPTIONAL/UNION/BIND/SERVICE
+  are outside the read-only subset and are rejected with a descriptive 400
+  before any ETP session is opened.
+}
+
+tests {
+  test("status is 400", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+
+  test("descriptive error", function () {
+    expect(JSON.stringify(res.getBody())).to.match(/OPTIONAL|not supported|unsupported/i);
+  });
+}

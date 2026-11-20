@@ -1,11 +1,11 @@
 meta {
   name: Unlock Dataspace
   type: http
-  seq: 6
+  seq: 12
 }
 
 delete {
-  url: {{host}}/dataspaces/{{testDataspaceId}}/lock
+  url: {{host}}/dataspaces/{{crudDataspaceId}}/lock
   body: none
   auth: none
 }
@@ -15,8 +15,13 @@ headers {
   Authorization: Bearer {{access_token}}
 }
 
+docs {
+  Route coverage: DELETE /dataspaces/{id}/lock on the folder-private CRUD dataspace.
+}
+
 tests {
-  test("status is 200 or 404", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 204, 400, 404]);
+  test("status is 200 and dataspace is unlocked", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody(), "dataspace unlocked").to.equal(true);
   });
 }

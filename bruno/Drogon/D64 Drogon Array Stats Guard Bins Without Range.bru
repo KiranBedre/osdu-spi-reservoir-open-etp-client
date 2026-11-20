@@ -1,0 +1,38 @@
+meta {
+  name: D64 Drogon Array Stats Guard Bins Without Range
+  type: http
+  seq: 64
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonPropType}}/{{drogonStatGuid}}/arrays/{{drogonStatArray}}/compute?op=stats&bins=10
+  body: none
+  auth: none
+}
+
+params:query {
+  op: stats
+  bins: 10
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Array-compute coverage (24/31). Guard: bins without a [rangeLo, rangeHi] domain is rejected client-side
+      (400) - a histogram needs a domain, the store must never guess one.
+}
+
+tests {
+  test("status is 400", function () {
+        expect(res.getStatus()).to.equal(400);
+      });
+
+      test("error message names the violated rule", function () {
+        const b = res.getBody();
+        const msg = String((b && (b.description || b.message)) || "");
+        expect(msg.toLowerCase()).to.include('bins');
+      });
+}

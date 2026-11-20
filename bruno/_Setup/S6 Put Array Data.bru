@@ -1,0 +1,42 @@
+meta {
+  name: S6 Put Array Data
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/arrays?transactionId={{transactionId}}
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  [
+    {
+      "ContainerType": "eml20.obj_EpcExternalPartReference",
+      "ContainerUuid": "{{ext_guid}}",
+      "PathInResource": "/RESQML/{{psr_guid}}/points_patch0",
+      "Dimensions": [3, 3],
+      "Data": [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      "ArrayType": "Float64Array"
+    }
+  ]
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("store acknowledged every array", function () {
+    // Generic PUT /resources/arrays answers one boolean per input array.
+    const body = res.getBody();
+    expect(body, "one result per array").to.be.an("array").with.lengthOf(1);
+    expect(body[0], "array accepted by the store").to.equal(true);
+  });
+}

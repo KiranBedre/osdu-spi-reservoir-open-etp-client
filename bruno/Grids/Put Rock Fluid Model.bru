@@ -1,0 +1,52 @@
+meta {
+  name: Put Rock Fluid Model
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/reservoir/fluid-model
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "title": "Bruno fluids",
+    "units": [
+      { "name": "Gas cap", "phase": "gas cap" },
+      { "name": "Oil column", "phase": "oil column" }
+    ],
+    "version": "2.2.0"
+  }
+}
+
+script:post-response {
+  const b = res.getBody();
+  if (b && b.orgUuid) bru.setVar("gridsOrgUuid", b.orgUuid);
+}
+
+docs {
+  Route coverage: PUT /dataspaces/{dataspaceId}/reservoir/fluid-model — writes a
+  RESQML 2.2 multi-region rock-fluid organization (two fluid units). The
+  returned orgUuid drives the grid's CellFluidPhaseUnits (seq 7).
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("organization and unit interpretations written", function () {
+    const b = res.getBody();
+    expect(b.orgUuid).to.be.a("string").with.length(36);
+    expect(b.orgFeatureUuid).to.be.a("string").with.length(36);
+    expect(b.unitInterpretationUuids).to.be.an("array").with.length(2);
+    expect(b.objects).to.be.a("number").greaterThan(2);
+  });
+}

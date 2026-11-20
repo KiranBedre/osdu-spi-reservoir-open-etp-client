@@ -92,3 +92,58 @@ describe("XMLBuilder.buildTextValueNode - xsd:dateTime validation", () => {
     ).not.toThrow();
   });
 });
+
+// ---------------------------------------------------------------------------
+// EML 2.3 TimeStamp serialisation. parseJSON revives ISO strings to Date; for
+// eml23 Citation/Creation no xsi:type is emitted, so the Date used to be
+// stringified via Date.prototype.toString() ("Thu Jan 01 2026 01:00:00
+// GMT+0100 (...)"), which the ETP server cannot parse (debug builds assert in
+// SpaceDML bulk_insert_res). Date values must always serialise as ISO 8601.
+// ---------------------------------------------------------------------------
+
+describe("XMLBuilder - eml23 Citation/Creation serialises as ISO 8601", () => {
+  const builder = new XMLBuilder();
+
+  it.each([
+    ["eml23.EpcExternalPartReference", { MimeType: "application/x-hdf5" }],
+    ["eml23.PropertyKind", { IsAbstract: false, QuantityClass: "dimensionless" }]
+  ])("%s", (type, extra) => {
+    const xml = builder.JSONtoEnergistics(
+      JSON.stringify({
+        $type: type,
+        SchemaVersion: "2.3",
+        Uuid: "11111111-1111-4111-8111-111111111111",
+        Citation: {
+          Title: "t",
+          Originator: "o",
+          Creation: "2026-01-01T00:00:00Z",
+          Format: "f"
+        },
+        ...extra
+      })
+    );
+    expect(xml).toMatch(
+      /<eml23:Creation[^>]*>2026-01-01T00:00:00\.000Z<\/eml23:Creation>/
+    );
+    expect(xml).not.toMatch(/GMT[+-]\d{4}/);
+  });
+
+  it("keeps eml20 Creation as ISO 8601 with xsd:dateTime", () => {
+    const xml = builder.JSONtoEnergistics(
+      JSON.stringify({
+        $type: "resqml20.obj_TriangulatedSetRepresentation",
+        SchemaVersion: "2.0",
+        Uuid: "11111111-1111-4111-8111-111111111111",
+        Citation: {
+          Title: "t",
+          Originator: "o",
+          Creation: "2026-07-10T00:00:00Z",
+          Format: "f"
+        }
+      })
+    );
+    expect(xml).toContain(
+      '<eml20:Creation xsi:type="xsd:dateTime">2026-07-10T00:00:00.000Z</eml20:Creation>'
+    );
+  });
+});

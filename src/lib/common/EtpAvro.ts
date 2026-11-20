@@ -807,6 +807,21 @@ export class SchemaCache {
       }
       case "union": {
         const sch = schema as Record<string, unknown>;
+        // Mirror BinaryWriter's union handling: a datum wrapped as
+        // { _<branch>: value, __keyName: "_<branch>" } selects that branch and
+        // the inner value is what must validate (e.g. IndexValue.item =
+        // { _double: 2500, __keyName: "_double" }).
+        if (datum !== null && typeof datum === "object") {
+          const branches = Object.values(sch) as string[];
+          const dat = datum as Record<string, unknown>;
+          for (const t of branches) {
+            const k = keyName(t);
+            if (Object.prototype.hasOwnProperty.call(dat, k)) {
+              this.validateWithType(this.findSchema(t), t, dat[k]);
+              return true;
+            }
+          }
+        }
         if (
           Object.values(sch).find(e => {
             // Go through each individual type to see if one validate

@@ -26,6 +26,7 @@ import {
 import { EtpUri } from "../common/EtpUri";
 
 import { createHash } from "crypto";
+import { decode } from "jsonwebtoken";
 
 import express from "express";
 
@@ -63,8 +64,7 @@ import {
   restApiMainUrl,
   restApiPort,
   restApiRoutePath,
-  restApiServerPath,
-  openApiPort
+  restApiServerPath
 } from "../common/config";
 import { ResourceGraph } from "../common/ResponseHandlers";
 import {
@@ -83,12 +83,13 @@ const logger = logging.getLogger("EtpClient");
 
 export { restApiMainUrl, restApiPort, restApiRoutePath };
 
-export const swaggerUIUrl = `${restApiMainUrl}:${restApiPort}${restApiRoutePath}`;
+// restApiServerPath is restApiRoutePath without its trailing slash, so the
+// composed URL never contains "//" when RDMS_REST_ROOT_PATH ends with "/".
+export const swaggerUIUrl = `${restApiMainUrl}:${restApiPort}${restApiServerPath}`;
 
-export const serverUIUrl = `${restApiMainUrl}:${openApiPort}${restApiServerPath}`;
-
-// No per-operation server override - all operations inherit the global
-// relative-path server declared via .addServer() in App.ts.
+// No per-operation server override - the document declares no `servers` at
+// all: every path key carries the absolute route (global prefix registered
+// before SwaggerModule.createDocument in App.ts).
 export const swaggerServers: any = undefined;
 
 let userInfo: string;
@@ -104,27 +105,47 @@ const computeOwnerKey = (
   dataPartitionId?: string,
   basicUserInfo?: string
 ): string => {
-  // Prefer a stable principal (JWT `sub`/`oid`/`upn`) over the raw token so a
-  // legitimate caller is not locked out of their own transaction after a token
-  // refresh. Fall back to the Basic header, then the raw token.
-  let principal = basicUserInfo ?? "";
-  if (jwt) {
-    try {
-      const parts = jwt.split(".");
-      if (parts.length === 3) {
-        const payload = JSON.parse(
-          Buffer.from(parts[1], "base64url").toString("utf-8")
-        );
-        principal =
-          payload?.sub ?? payload?.oid ?? payload?.upn ?? (principal || jwt);
-      } else if (!principal) {
-        principal = jwt;
-      }
-    } catch {
-      principal = principal || jwt;
+  let principal: string[];
+  if (!jwt) {
+    if (!basicUserInfo?.trim()) {
+      throw new UnauthorizedException({
+        description: "Transaction requires caller credentials"
+      });
     }
+    principal = ["basic", basicUserInfo.replace(/^Basic\s+/i, "")];
+  } else if (!jwt.trim()) {
+    throw new UnauthorizedException({
+      description: "Transaction requires caller credentials"
+    });
+  } else if (jwt.split(".").length !== 3) {
+    principal = ["opaque", jwt];
+  } else {
+    // Decoding is not authentication. Only compare this identity after the
+    // backend accepts OpenSession with the incoming credential.
+    const claims = decode(jwt);
+    if (
+      !claims ||
+      typeof claims === "string" ||
+      ["iss", "sub", "oid", "tid"].some(
+        name =>
+          claims[name] !== undefined &&
+          (typeof claims[name] !== "string" || !claims[name].trim())
+      ) ||
+      !claims.iss ||
+      (claims.oid !== undefined
+        ? !claims.tid
+        : !claims.sub)
+    ) {
+      throw new UnauthorizedException({
+        description: "Transaction requires valid issuer and principal claims"
+      });
+    }
+    principal =
+      claims.oid !== undefined
+        ? ["oid", claims.iss, claims.tid, claims.oid]
+        : ["sub", claims.iss, claims.sub!];
   }
-  const material = `${principal}|${dataPartitionId ?? ""}`;
+  const material = JSON.stringify([principal, dataPartitionId ?? ""]);
   return createHash("sha256").update(material).digest("hex");
 };
 
@@ -139,6 +160,7 @@ const etpClients = new Map<
     timeoutPeriod: number;
     dataspaceUri: string;
     ownerKey: string;
+    finalizing?: boolean;
     onDisconnect: (
       connection?: unknown,
       closeCode?: number,
@@ -266,24 +288,287 @@ export const drainTransactions = async (): Promise<void> => {
   logger.info(`Draining ${ids.length} active transaction(s)...`);
   await Promise.allSettled(
     ids.map(async id => {
-      const t = etpClients.get(id);
-      if (!t) return;
-      clearTimeout(t.timeoutId);
-      clearInterval(t.pingIntervalId);
       try {
-        if (t.client.isConnected()) {
-          await t.client.rollbackTransaction(
-            EtpUri.uuidStringToByteArray(id)
-          );
-          await t.client.closeSession();
-        }
+        await finalizeTransaction(id, "rollback");
       } catch (err) {
         logger.warn(`Failed to rollback transaction ${id} during shutdown`);
       }
-      etpClients.delete(id);
     })
   );
   logger.info("All transactions drained");
+};
+
+// ===========================================================================
+// ETP session pool (P4)
+//
+// Non-transaction REST / GraphQL calls previously opened a *fresh* ETP
+// WebSocket (~1.2 s TLS + RequestSession) per request and closed it at the
+// end, so a deep graph search issuing dozens of sequential ETP calls paid the
+// cold-start cost dozens of times. This pool keeps authenticated sessions warm
+// and hands them back out to later calls made with the *same* identity.
+//
+// Safety model:
+//  * A pooled session is only ever reused for the *exact same* bearer token,
+//    data-partition and client options, so it can never cross an authorization
+//    or tenant boundary (the ETP session was authorized with that token).
+//  * Sessions are leased *exclusively* - a client is removed from the idle set
+//    while in use, so two concurrent HTTP requests never share one WebSocket
+//    (ETP request/response correlation is per-connection and not re-entrant).
+//  * Idle sessions are kept warm with a periodic ping (mirroring the
+//    transaction keep-alive) and are discarded on ping failure, disconnect,
+//    idle-TTL expiry, or max-lifetime expiry, so a stale session is never
+//    handed out; on any doubt the pool falls back to a fresh session.
+//
+// Tuning (all optional env vars):
+//  * RDMS_SESSION_POOL=false            disable pooling entirely (legacy path)
+//  * RDMS_SESSION_POOL_MAX_IDLE         max idle sessions kept warm (default 16)
+//  * RDMS_SESSION_POOL_IDLE_TTL_MS      idle eviction after ms  (default 60000)
+//  * RDMS_SESSION_POOL_MAX_LIFETIME_MS  hard max session age    (default 300000)
+// ===========================================================================
+
+const POOL_ENABLED = (process.env.RDMS_SESSION_POOL ?? "true") !== "false";
+const POOL_MAX_IDLE = Math.max(
+  0,
+  parseInt(process.env.RDMS_SESSION_POOL_MAX_IDLE ?? "16", 10) || 0
+);
+const POOL_IDLE_TTL_MS = Math.max(
+  1000,
+  parseInt(process.env.RDMS_SESSION_POOL_IDLE_TTL_MS ?? "60000", 10) || 60000
+);
+const POOL_MAX_LIFETIME_MS = Math.max(
+  1000,
+  parseInt(process.env.RDMS_SESSION_POOL_MAX_LIFETIME_MS ?? "300000", 10) ||
+  300000
+);
+
+interface PooledSession {
+  client: ResqmlClient;
+  key: string;
+  createdAt: number;
+  idleTimer?: ReturnType<typeof setTimeout>;
+  pingTimer?: ReturnType<typeof setInterval>;
+  onDisconnect: () => void;
+  /** True while a keep-alive ping is in flight (must not be leased then). */
+  pinging: boolean;
+}
+
+// Idle (available) sessions, keyed by identity. Leased sessions are not tracked
+// here - they live only on the borrowing request's stack until released.
+const idleSessions = new Map<string, PooledSession[]>();
+let idleCount = 0;
+
+/**
+ * Identity key for pooling. Includes the *exact* bearer token so a warm
+ * session is never reused across users; a refreshed token simply forms a new
+ * key and the old session idles out.
+ */
+const poolKey = (
+  jwt: string,
+  dataPartitionId?: string,
+  options?: IOptions,
+  basicUserInfo?: string,
+  targetUrl: string = etpServerUrl
+): string =>
+  `${targetUrl}\u0000${dataPartitionId ?? ""}\u0000${JSON.stringify(options ?? null)}\u0000${basicUserInfo ?? ""}\u0000${jwt}`;
+
+/** Open a brand-new authenticated ETP session (shared by pool + no-pool path). */
+const openNewClient = async (
+  jwt: string,
+  dataPartitionId?: string,
+  options?: IOptions,
+  basicUserInfo?: string,
+  targetUrl: string = etpServerUrl
+): Promise<ResqmlClient> => {
+  const c = new ResqmlClient(options);
+  await c
+    .openSession(targetUrl, jwt, dataPartitionId, basicUserInfo ?? userInfo)
+    .catch(err => {
+      // EtpError comes from a ProtocolException sent back by the ETP server
+      // (errorFromProtocolException) - its message is an application-level,
+      // sanitized string (e.g. "Partition X not found", "User has no
+      // permissions") that is safe and useful to surface. Pass it through.
+      if (isEtpError(err)) {
+        logger.error("[ETP] Failed to open session with ETP server", {
+          errorCode: err.code,
+          message: err.message
+        });
+        throw err;
+      }
+      // Non-EtpError = raw transport failure (WebSocket connect error, TLS
+      // handshake, DNS, sync throw). Those Error objects can carry nested
+      // config / url / auth / socket state, so log only sanitized primitive
+      // fields and return a generic message to the client.
+      logger.error("[ETP] Failed to open session with ETP server", {
+        err: sanitizeErrorForLog(err)
+      });
+      throw new EtpError(
+        "Failed to establish a session with the ETP server",
+        ErrorCode.EINVALID_STATE
+      );
+    });
+  return c;
+};
+
+const clearPooledTimers = (entry: PooledSession): void => {
+  if (entry.idleTimer) clearTimeout(entry.idleTimer);
+  if (entry.pingTimer) clearInterval(entry.pingTimer);
+  entry.idleTimer = undefined;
+  entry.pingTimer = undefined;
+};
+
+/** Remove an idle entry from the pool bookkeeping (does not close the socket). */
+const removeIdle = (entry: PooledSession): boolean => {
+  const list = idleSessions.get(entry.key);
+  if (!list) return false;
+  const i = list.indexOf(entry);
+  if (i < 0) return false;
+  list.splice(i, 1);
+  idleCount--;
+  if (list.length === 0) idleSessions.delete(entry.key);
+  return true;
+};
+
+/** Physically close and forget a pooled session (best effort). */
+const discardPooled = (entry: PooledSession): void => {
+  clearPooledTimers(entry);
+  entry.client.offDisconnect(entry.onDisconnect);
+  entry.client.closeSession().catch(() => {
+    /* best effort - socket may already be gone */
+  });
+};
+
+const isExpired = (entry: PooledSession): boolean =>
+  Date.now() - entry.createdAt >= POOL_MAX_LIFETIME_MS;
+
+/**
+ * Borrow a session for the given identity: reuse a warm, healthy one when
+ * available, otherwise open a fresh session. The returned client's
+ * closeSession() releases it back to the pool (see leaseWrapper) instead of
+ * tearing down the WebSocket. When pooling is disabled it degrades to the
+ * legacy behaviour (fresh session, real close).
+ */
+export const acquirePooledClient = async (
+  jwt: string,
+  dataPartitionId?: string,
+  options?: IOptions,
+  basicUserInfo?: string,
+  targetUrl: string = etpServerUrl
+): Promise<ResqmlClient> => {
+  if (!POOL_ENABLED) {
+    return openNewClient(jwt, dataPartitionId, options, basicUserInfo, targetUrl);
+  }
+  const key = poolKey(jwt, dataPartitionId, options, basicUserInfo, targetUrl);
+  const list = idleSessions.get(key);
+  // Reuse loop: pop candidates synchronously (atomic on the event loop) and
+  // hand out the first healthy one; discard any that are dead / expired / busy.
+  while (list && list.length > 0) {
+    const entry = list.pop() as PooledSession;
+    idleCount--;
+    if (list.length === 0) idleSessions.delete(key);
+    clearPooledTimers(entry);
+    if (entry.pinging || isExpired(entry) || !entry.client.isConnected()) {
+      entry.client.offDisconnect(entry.onDisconnect);
+      entry.client.closeSession().catch(() => { });
+      continue;
+    }
+    return leaseWrapper(entry);
+  }
+  // Cache miss - open a fresh session and wrap it so release re-pools it.
+  const client = await openNewClient(jwt, dataPartitionId, options, basicUserInfo, targetUrl);
+  const entry: PooledSession = {
+    client,
+    key,
+    createdAt: Date.now(),
+    onDisconnect: () => {
+      /* replaced below once `entry` exists */
+    },
+    pinging: false
+  };
+  entry.onDisconnect = () => {
+    // Socket dropped while idle -> evict and clean up its timers.
+    if (removeIdle(entry)) clearPooledTimers(entry);
+  };
+  client.onDisconnect(entry.onDisconnect);
+  return leaseWrapper(entry);
+};
+
+/** Return a leased session to the idle pool, or close it if unhealthy / full. */
+const releasePooledClient = async (entry: PooledSession): Promise<void> => {
+  if (
+    !POOL_ENABLED ||
+    idleCount >= POOL_MAX_IDLE ||
+    isExpired(entry) ||
+    !entry.client.isConnected()
+  ) {
+    discardPooled(entry);
+    return;
+  }
+  entry.idleTimer = setTimeout(() => {
+    if (removeIdle(entry)) discardPooled(entry);
+  }, POOL_IDLE_TTL_MS);
+  entry.idleTimer.unref?.();
+  entry.pingTimer = setInterval(() => {
+    if (entry.pinging) return;
+    entry.pinging = true;
+    entry.client
+      .ping()
+      .then(() => {
+        entry.pinging = false;
+      })
+      .catch(() => {
+        entry.pinging = false;
+        if (removeIdle(entry)) discardPooled(entry);
+      });
+  }, PING_INTERVAL_MS);
+  entry.pingTimer.unref?.();
+  const bucket = idleSessions.get(entry.key);
+  if (bucket) bucket.push(entry);
+  else idleSessions.set(entry.key, [entry]);
+  idleCount++;
+};
+
+/**
+ * Wrap a pooled session so that closeSession() releases it back to the pool
+ * (idempotently) instead of tearing down the WebSocket. Every other member is
+ * forwarded to the real client unchanged, so callers need no modifications.
+ */
+const leaseWrapper = (entry: PooledSession): ResqmlClient => {
+  let released = false;
+  return new Proxy(entry.client, {
+    get(target, prop, receiver) {
+      if (prop === "closeSession") {
+        return async (): Promise<void> => {
+          if (released) return;
+          released = true;
+          await releasePooledClient(entry);
+        };
+      }
+      const value = Reflect.get(target, prop, receiver);
+      return typeof value === "function" ? value.bind(target) : value;
+    }
+  }) as ResqmlClient;
+};
+
+/** Drain the idle session pool during graceful shutdown. */
+export const drainSessionPool = async (): Promise<void> => {
+  const entries: PooledSession[] = [];
+  for (const bucket of idleSessions.values()) entries.push(...bucket);
+  idleSessions.clear();
+  idleCount = 0;
+  if (entries.length === 0) return;
+  logger.info(`Draining ${entries.length} pooled session(s)...`);
+  await Promise.allSettled(
+    entries.map(async entry => {
+      clearPooledTimers(entry);
+      entry.client.offDisconnect(entry.onDisconnect);
+      try {
+        if (entry.client.isConnected()) await entry.client.closeSession();
+      } catch {
+        /* best effort */
+      }
+    })
+  );
+  logger.info("Session pool drained");
 };
 
 /**
@@ -410,7 +695,7 @@ export interface ContextInput {
 export const extractToken = (request?: express.Request): string => {
   const authHeader = request?.headers?.authorization;
   userInfo = "";
-  if (!authHeader || authHeader.includes("Basic")) {
+  if (!authHeader || /^Basic /i.test(authHeader)) {
     userInfo = authHeader ? authHeader : "";
     return "";
   }
@@ -445,7 +730,7 @@ export const extractToken = (request?: express.Request): string => {
  */
 export const extractUserInfo = (request?: express.Request): string => {
   const authHeader = request?.headers?.authorization;
-  if (authHeader && authHeader.includes("Basic")) {
+  if (authHeader && /^Basic /i.test(authHeader)) {
     return authHeader;
   }
   return "";
@@ -465,19 +750,6 @@ export const extractDataPartitionId = (
     return undefined;
   }
   return header;
-};
-
-/**
- * Extract x-collaboration header value from request (S4).
- * The header is an opaque JSON string forwarded to downstream OSDU services.
- *
- * @param {express.Request} [request]
- * @returns {string | undefined}
- */
-export const extractCollaborationHeader = (
-  request?: express.Request
-): string | undefined => {
-  return request?.header("x-collaboration");
 };
 
 /**
@@ -657,7 +929,7 @@ export class OptionalParseBoolPipe
   implements PipeTransform<string | boolean, Promise<boolean | undefined>> {
   transform(value: string | boolean | undefined): Promise<boolean | undefined> {
     if (value === undefined) {
-      Promise.resolve(undefined);
+      return Promise.resolve(undefined);
     }
     return Promise.resolve(
       typeof value === "string" ? value === "true" : value
@@ -741,7 +1013,7 @@ export class FindInDataSpaceParams {
   @ApiProperty({
     name: "dataspaceId",
     description: "Name of dataspace",
-    example: "demo/Volve",
+    example: "demo/drogon",
     maxLength: 2048,
     pattern: patternString(dataspaceNamePattern)
   })
@@ -810,7 +1082,8 @@ export class FindInObjectParams extends FindInTypeParams {
 export const transactionIdQueryParam: ApiQueryOptions = {
   name: "transactionId",
   required: false,
-  description: "Identify current transaction",
+  description:
+    "Identify current transaction. Requires authenticated credentials for the creating principal and data partition.",
   example: "1615d8d2-2a2d-482c-885e-14225b89e90c",
   schema: {
     type: "string",
@@ -846,6 +1119,28 @@ export const getSchemasForType = (
     : { ...values[0], additionalProperties: false };
 };
 
+const protocolNames: Record<number, string> = {
+  [Energistics.Etp.v12.Datatypes.Protocol.Store]: "Store (4)",
+  [Energistics.Etp.v12.Datatypes.Protocol.DataArray]: "DataArray (9)",
+  [Energistics.Etp.v12.Datatypes.Protocol.Transaction]: "Transaction (18)",
+  [Energistics.Etp.v12.Datatypes.Protocol.DiscoveryQuery]: "DiscoveryQuery (13)",
+  [Energistics.Etp.v12.Datatypes.Protocol.StoreQuery]: "StoreQuery (14)",
+  [Energistics.Etp.v12.Datatypes.Protocol.GrowingObject]: "GrowingObject (6)",
+  [Energistics.Etp.v12.Datatypes.Protocol.ChannelSubscribe]: "ChannelSubscribe (21)"
+};
+
+/**
+ * Throw 501 if the ETP server did not negotiate the given protocol.
+ */
+export const requireProtocol = (client: ResqmlClient, protocolId: number): void => {
+  if (!client.isProtocolSupported(protocolId)) {
+    const name = protocolNames[protocolId] ?? `Protocol ${protocolId}`;
+    throw new NotImplementedException(
+      `ETP server does not support ${name}`
+    );
+  }
+};
+
 /*!
  * Create and open a session, and return the client
  *
@@ -859,26 +1154,19 @@ export const createSession = async (
   dataPartitionId?: string,
   options?: IOptions,
   transactionId?: string,
-  userInfoArg?: string
+  userInfoArg?: string,
+  targetUrl?: string
 ) => {
-  const callerUserInfo = userInfoArg ?? userInfo;
+  const callerUserInfo = userInfoArg ?? (transactionId ? "" : userInfo);
   if (transactionId) {
-    throwIfTerminated(transactionId);
-    const c1 = etpClients.get(transactionId);
-    if (c1 === undefined) {
-      throw new EtpError(
-        `Transaction ${transactionId} does not exists`,
-        ErrorCode.ENOT_FOUND
-      );
-    }
-    // Bind the pooled transaction to the identity that created it: a caller
-    // who only knows the transactionId but is a different principal must not
-    // be able to reuse it (CWE-287).
-    const callerKey = computeOwnerKey(jwt, dataPartitionId, callerUserInfo);
-    if (c1.ownerKey && c1.ownerKey !== callerKey) {
-      throw new ForbiddenException({
-        description: `Transaction ${transactionId} does not belong to the caller`
-      });
+    const c1 = await authorizeTransaction(
+      transactionId,
+      jwt,
+      dataPartitionId,
+      callerUserInfo
+    );
+    if (activeTransaction(transactionId) !== c1) {
+      throw new EtpError("Transaction is no longer active", ErrorCode.ENOT_FOUND);
     }
     if (!c1.client.isConnected()) {
       cleanupTransaction(transactionId);
@@ -888,46 +1176,112 @@ export const createSession = async (
       );
     }
     clearTimeout(c1.timeoutId);
-    etpClients.set(transactionId, {
-      ...c1,
-      timeoutId: setTimeout(() => {
-        if (etpClients.has(transactionId)) {
-          rollbackTransaction(transactionId);
-        }
-      }, c1.timeoutPeriod * 1000)
-    });
+    c1.timeoutId = setTimeout(() => {
+      if (etpClients.has(transactionId)) {
+        finalizeTransaction(transactionId, "rollback").catch(err =>
+          logger.warn("Transaction timeout rollback failed", {
+            err: sanitizeErrorForLog(err)
+          })
+        );
+      }
+    }, c1.timeoutPeriod * 1000);
     return c1.client;
   } else {
-    const c = new ResqmlClient(options);
-    await c
-      .openSession(etpServerUrl, jwt, dataPartitionId, callerUserInfo)
-      .catch(err => {
-        // EtpError comes from a ProtocolException sent back by the ETP
-        // server (errorFromProtocolException) - its message is an
-        // application-level, sanitized string (e.g. "Partition X not
-        // found", "User has no permissions") that is safe and useful to
-        // surface to the client. Pass it through unchanged.
-        if (isEtpError(err)) {
-          logger.error("[ETP] Failed to open session with ETP server", {
-            errorCode: err.code,
-            message: err.message
-          });
-          throw err;
-        }
-        // Non-EtpError = raw transport failure (WebSocket connect error,
-        // TLS handshake, DNS, sync throw). Those Error objects can carry
-        // nested config / url / auth / socket state, so log only sanitized
-        // primitive fields and return a generic message to the client.
-        logger.error("[ETP] Failed to open session with ETP server", {
-          err: sanitizeErrorForLog(err)
-        });
-        throw new EtpError(
-          "Failed to establish a session with the ETP server",
-          ErrorCode.EINVALID_STATE
-        );
-      });
-    return c;
+    // Non-transaction calls borrow an authenticated session from the pool.
+    // The returned client's closeSession() releases it back to the pool (or
+    // closes it when pooling is disabled / the session is unhealthy), so the
+    // 44 existing "createSession(...) ... closeSession()" call sites need no
+    // changes and transparently reuse warm sessions.
+    //
+    // `targetUrl` lets read-only callers (array stats/reduce/where/where-multi)
+    // route to a dedicated compute endpoint; it is only honoured on this
+    // non-transaction path, so any write transaction always binds to the store.
+    return acquirePooledClient(
+      jwt,
+      dataPartitionId,
+      options,
+      callerUserInfo,
+      targetUrl
+    );
   }
+};
+
+interface TransactionCaller {
+  jwt: string;
+  dataPartitionId?: string;
+  userInfo?: string;
+}
+
+const activeTransaction = (transactionId: string) => {
+  throwIfTerminated(transactionId);
+  const transaction = etpClients.get(transactionId);
+  if (!transaction) {
+    throw new EtpError(
+      `Transaction ${transactionId} does not exists`,
+      ErrorCode.ENOT_FOUND
+    );
+  }
+  if (transaction.finalizing) {
+    throw new EtpError(
+      "Transaction is being finalized",
+      ErrorCode.EINVALID_STATE
+    );
+  }
+  return transaction;
+};
+
+const authorizeTransaction = async (
+  transactionId: string,
+  jwt: string,
+  dataPartitionId?: string,
+  callerUserInfo = ""
+) => {
+  const original = activeTransaction(transactionId);
+  if (!jwt.trim() && !callerUserInfo.trim()) {
+    throw new UnauthorizedException({
+      description: "Transaction requires caller credentials"
+    });
+  }
+  // Authentication must reach the backend, never reuse a warm pooled session.
+  const authenticationSession = await openNewClient(
+    jwt,
+    dataPartitionId,
+    undefined,
+    callerUserInfo
+  );
+  let callerKey: string;
+  try {
+    callerKey = computeOwnerKey(jwt, dataPartitionId, callerUserInfo);
+  } finally {
+    try {
+      await authenticationSession.closeSession();
+    } catch (err) {
+      logger.warn("Transaction authentication session close failed", {
+        err: sanitizeErrorForLog(err)
+      });
+      if (authenticationSession.isConnected()) {
+        try {
+          await authenticationSession.disconnect();
+        } catch (disconnectError) {
+          logger.warn("Transaction authentication session disconnect failed", {
+            err: sanitizeErrorForLog(disconnectError)
+          });
+        }
+      }
+    }
+  }
+  if (original.ownerKey !== callerKey) {
+    throw new ForbiddenException({
+      description: `Transaction ${transactionId} does not belong to the caller`
+    });
+  }
+  // Timeout, disconnect, or another request can finalize while authentication
+  // is in flight. Never revive or operate on a stale pooled session.
+  const current = activeTransaction(transactionId);
+  if (current.client !== original.client) {
+    throw new EtpError("Transaction is no longer active", ErrorCode.ENOT_FOUND);
+  }
+  return current;
 };
 
 /**
@@ -950,12 +1304,15 @@ export const createTransaction = async (
   retries = 6,
   userInfoArg?: string
 ): Promise<string> => {
-  const callerUserInfo = userInfoArg ?? userInfo;
+  const callerUserInfo = userInfoArg ?? "";
   const ownerKey = computeOwnerKey(jwt, dataPartitionId, callerUserInfo);
   const c = new ResqmlClient(options);
   return c
     .openSession(etpServerUrl, jwt, dataPartitionId, callerUserInfo)
     .then(async () => {
+      // Fail fast with a clean 501 if the server never negotiated the
+      // Transaction protocol, instead of a raw ProtocolException later.
+      requireProtocol(c, Energistics.Etp.v12.Datatypes.Protocol.Transaction);
       // Validate the dataspace exists before starting a transaction (#78)
       const info = await c.getDataspaceInfo([dataspace]);
       if (!info || info.length === 0 || info[0] === null) {
@@ -1005,7 +1362,11 @@ export const createTransaction = async (
         client: c,
         timeoutId: setTimeout(() => {
           if (etpClients.has(idString)) {
-            rollbackTransaction(idString);
+            finalizeTransaction(idString, "rollback").catch(err =>
+              logger.warn("Transaction timeout rollback failed", {
+                err: sanitizeErrorForLog(err)
+              })
+            );
           }
         }, timeoutPeriod * 1000),
         pingIntervalId,
@@ -1051,16 +1412,22 @@ export const createTransaction = async (
  */
 const finalizeTransaction = async (
   transactionId: string,
-  op: "commit" | "rollback"
+  op: "commit" | "rollback",
+  caller?: TransactionCaller
 ): Promise<boolean> => {
-  throwIfTerminated(transactionId);
-  const t = etpClients.get(transactionId);
-  if (t === undefined) {
-    throw new EtpError(
-      `Transaction ${transactionId} does not exists`,
-      ErrorCode.ENOT_FOUND
-    );
+  const t = caller
+    ? await authorizeTransaction(
+        transactionId,
+        caller.jwt,
+        caller.dataPartitionId,
+        caller.userInfo
+      )
+    : activeTransaction(transactionId);
+  // Recheck after await: another finalizer may have resumed first.
+  if (activeTransaction(transactionId) !== t) {
+    throw new EtpError("Transaction is no longer active", ErrorCode.ENOT_FOUND);
   }
+  t.finalizing = true;
   clearTimeout(t.timeoutId);
   clearInterval(t.pingIntervalId);
   if (!t.client.isConnected()) {
@@ -1136,15 +1503,26 @@ const finalizeTransaction = async (
       });
     } finally {
       t.client.offDisconnect(t.onDisconnect);
-    }
-    // The socket may have closed between the op completing and us reaching
-    // here; calling closeSession() in that case would send on a dead
-    // socket and (with the narrowed sendData guard) throw
-    // EtpSessionTerminatedError, masking a successful commit/rollback.
-    // Skip it. If closeSession() itself throws for any other reason, the
-    // outer finally below still cleans up the map entry.
-    if (t.client.isConnected()) {
-      await t.client.closeSession();
+      // Always release the underlying ETP session, on BOTH the success and
+      // the error path. A failed CommitTransaction (e.g. a PostgreSQL FK
+      // violation) rejects here *before* the success-path closeSession()
+      // below would have run; the open-etp-server deliberately keeps that
+      // failed transaction open (expecting a rollback/retry), so if we did
+      // not close the session the WebSocket and the server-side write
+      // transaction would be orphaned, leaving the dataspace locked
+      // (`dataspace_being_written_`) until the gateway restarts - every
+      // subsequent StartTransaction then fails with 412 "too many write
+      // transaction URI(s)". Closing the session tears the server session
+      // down, which rolls back the dangling transaction and releases the
+      // lock. Guarded by isConnected() so a mid-flight socket close does not
+      // send on a dead socket (which would mask a successful commit), and
+      // best-effort so a closeSession() failure never hides the original op
+      // error nor skips the map cleanup in the outer finally.
+      if (t.client.isConnected()) {
+        await t.client.closeSession().catch(() => {
+          /* best effort - releasing the lock, not the caller's concern */
+        });
+      }
     }
   } finally {
     etpClients.delete(transactionId);
@@ -1158,8 +1536,17 @@ const finalizeTransaction = async (
  * @param {string} transactionId Transaction identifier
  * @returns
  */
-export const commitTransaction = (transactionId: string): Promise<boolean> =>
-  finalizeTransaction(transactionId, "commit");
+export const commitTransaction = (
+  transactionId: string,
+  jwt: string,
+  dataPartitionId?: string,
+  callerUserInfo?: string
+): Promise<boolean> =>
+  finalizeTransaction(transactionId, "commit", {
+    jwt,
+    dataPartitionId,
+    userInfo: callerUserInfo
+  });
 
 /**
  * Rollback the transaction
@@ -1167,8 +1554,17 @@ export const commitTransaction = (transactionId: string): Promise<boolean> =>
  * @param {string} transactionId Transaction identifier
  * @returns
  */
-export const rollbackTransaction = (transactionId: string): Promise<boolean> =>
-  finalizeTransaction(transactionId, "rollback");
+export const rollbackTransaction = (
+  transactionId: string,
+  jwt: string,
+  dataPartitionId?: string,
+  callerUserInfo?: string
+): Promise<boolean> =>
+  finalizeTransaction(transactionId, "rollback", {
+    jwt,
+    dataPartitionId,
+    userInfo: callerUserInfo
+  });
 
 /**
  * Validate that a transaction belongs to the given dataspace.

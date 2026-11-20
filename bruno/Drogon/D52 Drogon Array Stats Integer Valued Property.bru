@@ -1,0 +1,60 @@
+meta {
+  name: D52 Drogon Array Stats Integer Valued Property
+  type: http
+  seq: 52
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/resqml20.obj_DiscreteProperty/{{drogonStatGuid2}}/arrays/%2FRESQML%2F{{drogonStatGuid2}}%2Fvalues_patch0/compute?op=stats&rangeLo=1&rangeHi=1
+  body: none
+  auth: none
+}
+
+params:query {
+  op: stats
+  rangeLo: 1
+  rangeHi: 1
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+        bru.setVar("drogonEqlnum1Count", res.getBody().inRangeCount);
+      }
+}
+
+docs {
+  Array-compute coverage (12/31). Stats on the second property (EQLNUM, an integer-valued
+      region code stored as float). Inclusive degenerate window [1, 1] counts the
+      cells with value exactly 1 - the exact same population D59 ANDs against.
+      Asserts min/max/sum are whole numbers (integer-valued data must not pick up
+      floating-point noise in the fold) and that the degenerate window is
+      inclusive (inRangeCount > 0).
+}
+
+tests {
+  test("status is 200", function () {
+        expect(res.getStatus()).to.equal(200);
+      });
+
+      test("integer-valued data folds to integer min/max/sum", function () {
+        const b = res.getBody();
+        expect(Number.isInteger(b.minimum)).to.equal(true);
+        expect(Number.isInteger(b.maximum)).to.equal(true);
+        expect(Number.isInteger(b.sum)).to.equal(true);
+        expect(b.minimum).to.be.at.most(1);
+        expect(b.maximum).to.be.at.least(1);
+      });
+
+      test("degenerate window [1, 1] is inclusive", function () {
+        const b = res.getBody();
+        expect(b.rangeLo).to.equal(1);
+        expect(b.rangeHi).to.equal(1);
+        expect(b.inRangeCount).to.be.greaterThan(0);
+        expect(b.inRangeCount).to.be.at.most(b.count);
+      });
+}

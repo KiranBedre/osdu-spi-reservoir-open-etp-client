@@ -1,0 +1,57 @@
+meta {
+  name: Discover Seed CRS And HDF Proxy
+  type: http
+  seq: 0
+}
+
+get {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/all
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  // _Setup/S5 seeds one LocalDepth3dCrs and one EpcExternalPartReference (HDF
+  // proxy) with run-random UUIDs. Discover them so every write fixture in this
+  // folder references objects that really exist in the dataspace (M28 rejects
+  // dangling references with 412 at commit).
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    if (Array.isArray(body)) {
+      const findGuid = (needle) => {
+        for (const item of body) {
+          const s = (item && (item.uri || item.name)) || JSON.stringify(item);
+          const m = s.match(new RegExp(needle + "\\(([0-9a-fA-F-]{36})\\)"));
+          if (m) return m[1];
+        }
+        return undefined;
+      };
+      const crs = findGuid("LocalDepth3dCrs");
+      const hdf = findGuid("EpcExternalPartReference");
+      if (crs) bru.setVar("seedCrsUuid", crs);
+      if (hdf) bru.setVar("seedHdfUuid", hdf);
+    }
+  }
+}
+
+docs {
+  Folder prerequisite: lists the test dataspace and captures the seeded
+  LocalDepth3dCrs (`seedCrsUuid`) and HDF proxy (`seedHdfUuid`) UUIDs that the
+  seismic PUT fixtures reference. Run _Setup first.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("seeded CRS and HDF proxy are present", function () {
+    expect(bru.getVar("seedCrsUuid"), "seedCrsUuid").to.be.a("string").with.length(36);
+    expect(bru.getVar("seedHdfUuid"), "seedHdfUuid").to.be.a("string").with.length(36);
+  });
+}

@@ -1,0 +1,50 @@
+meta {
+  name: D55 Drogon Array Reduce Max
+  type: http
+  seq: 55
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/arrays/compute
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "op": "reduce",
+    "target": {
+      "dataObjectType": "{{drogonPropType}}",
+      "guid": "{{drogonStatGuid}}",
+      "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0"
+    },
+    "reducer": "max"
+  }
+}
+
+docs {
+  Array-compute coverage (15/31). Reduce op=max: per-column maximum. The maximum over the
+      column map must equal the whole-array maximum of D42 exactly, and every
+      column maximum must be <= the global maximum.
+}
+
+tests {
+  test("status is 200", function () {
+        expect(res.getStatus()).to.equal(200);
+      });
+
+      test("max over column maxes == whole-array maximum", function () {
+        const b = res.getBody();
+        expect(b.op).to.equal("max");
+        const ref = Number(bru.getVar("drogonStatMax"));
+        const finite = b.map.filter(function (v) { return Number.isFinite(v); });
+        expect(finite.length).to.be.greaterThan(0);
+        expect(Math.max.apply(null, finite)).to.equal(ref);
+        finite.forEach(function (v) { expect(v).to.be.at.most(ref); });
+      });
+}

@@ -1,0 +1,33 @@
+meta {
+  name: D20 Drogon Read Back New Property
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonPropType}}/{{drogonNewPropGuid}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (15/19). Verifies the write round-trip: reads back the constant-
+  array property added in D13 (after the commit in D14) and asserts it resolves,
+  confirming the transactional PUT persisted against the real Drogon grid.
+}
+
+tests {
+  test("status is 200 (new property persisted)", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns the added property content", function () {
+    const body = res.getBody();
+    expect(body, JSON.stringify(body).slice(0, 200)).to.not.be.undefined;
+  });
+}

@@ -1,0 +1,69 @@
+meta {
+  name: Put Bin Grid
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/seismic/bingrid
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "title": "Bruno Bin Grid",
+    "crsUuid": "{{seedCrsUuid}}",
+    "domain": "depth",
+    "originEasting": 456000,
+    "originNorthing": 5930000,
+    "originZ": 0,
+    "binWidthOnIaxis": 12.5,
+    "binWidthOnJaxis": 25,
+    "bearingJaxisDeg": 90,
+    "firstInlineIndex": 100,
+    "inlineIndexIncrement": 1,
+    "firstCrosslineIndex": 200,
+    "crosslineIndexIncrement": 1,
+    "inlineBinCount": 4,
+    "crosslineBinCount": 3,
+    "featureTitle": "Bruno Lattice",
+    "interpretationTitle": "Bruno Lattice Interpretation",
+    "originator": "BrunoCLI"
+  }
+}
+
+script:post-response {
+  const b = res.getBody();
+  if (b && b.binGridUuid) {
+    bru.setVar("seismicBinGridUuid", b.binGridUuid);
+  }
+}
+
+docs {
+  Route coverage: PUT /dataspaces/:ds/seismic/bingrid — builds a
+  Grid2dRepresentation (lattice geometry) + SeismicLatticeFeature +
+  GenericFeatureInterpretation from a P6/98 bin-grid definition and auto-commits
+  them against the seeded CRS. No arrays are written (lattice geometry is
+  parametric), so `arrays` is 0 and `objects` is 3.
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("returns the created uuids and write summary", function () {
+    const b = res.getBody();
+    expect(b.binGridUuid).to.be.a("string").with.length(36);
+    expect(b.interpretationUuid).to.be.a("string").with.length(36);
+    expect(b.featureUuid).to.be.a("string").with.length(36);
+    expect(b.objects).to.equal(3);
+    expect(b.arrays).to.equal(0);
+  });
+}

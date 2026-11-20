@@ -1,0 +1,52 @@
+meta {
+  name: D02 Upload Drogon EPC
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/epc/upload?autoIngest=false&validate=false
+  body: multipartForm
+  auth: none
+}
+
+params:query {
+  autoIngest: false
+  validate: false
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:multipart-form {
+  epc: @file(../data/Demo_Drogon.epc)
+  h5: @file(../data/drogon_small.h5)
+}
+
+docs {
+  Drogon lifecycle (2/19). Happy-path multipart upload of the committed small
+  Drogon fixture (data/Demo_Drogon.epc + .h5, 186 RESQML 2.0 objects / 158
+  HDF5 arrays, referenced relative to the collection root - nothing is copied
+  or staged) into the folder-owned test/Drogon dataspace. autoIngest=false keeps
+  it out of the OSDU catalog step while still storing every object + array, so
+  all downstream reads work. The exact object/array counts are asserted so a
+  silent partial import fails the suite.
+}
+
+tests {
+  test("status is 200 or 201 (upload accepted)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("every fixture object and array was stored", function () {
+    const body = res.getBody();
+    expect(body.success, JSON.stringify(body).slice(0, 300)).to.equal(true);
+    expect(body.dataspaceId).to.equal(bru.getEnvVar("drogonDataspaceIdRaw"));
+    expect(body.objectsStored).to.equal(186);
+    expect(body.arraysStored).to.equal(158);
+    expect(body.skippedArrays).to.equal(0);
+    expect(body.objects).to.be.an("array").with.lengthOf(186);
+  });
+}

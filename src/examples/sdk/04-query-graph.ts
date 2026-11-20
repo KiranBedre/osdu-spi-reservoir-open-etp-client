@@ -73,17 +73,18 @@ async function main() {
         },
     ], [pointArray]);
 
-    console.log("\n2. Batch graph search - targets of PointSet");
+    console.log("\n2. Find resources with edges - targets of PointSet");
     try {
-        const graphResult = await rddms.query.graphSearch({
-            uris: [`eml:///dataspace('${DS}')/resqml20.obj_PointSetRepresentation(${REP_UUID})`],
+        const graphResult = await rddms.query.findResources({
+            uri: [`eml:///dataspace('${DS}')/resqml20.obj_PointSetRepresentation(${REP_UUID})`],
             scope: "targets",
             depth: 2,
+            includeEdges: true,
         });
-        console.log("   Graph nodes:", graphResult.resources.length);
+        console.log("   Graph nodes:", graphResult.resources.length, "links:", graphResult.links?.length ?? 0);
         for (const r of graphResult.resources) console.log(`     ${r.name}`);
     } catch (e: any) {
-        console.log("   Skipped (server 501):", e.message.slice(0, 80));
+        console.log("   Skipped:", e.message.slice(0, 80));
     }
 
     console.log("\n3. Graph via Discovery API - targets of PointSet");

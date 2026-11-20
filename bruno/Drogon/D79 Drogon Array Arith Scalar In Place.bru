@@ -1,0 +1,71 @@
+meta {
+  name: D79 Drogon Array Arith Scalar In Place
+  type: http
+  seq: 79
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/arrays/compute
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "op": "arith",
+    "arith": {
+      "op": "mul",
+      "kind": "scalar",
+      "scalar": 1.0,
+      "operandA": {
+        "dataObjectType": "{{drogonPropType}}",
+        "guid": "{{drogonStatGuid}}",
+        "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0"
+      },
+      "result": {
+        "dataObjectType": "{{drogonPropType}}",
+        "guid": "{{drogonStatGuid}}",
+        "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0"
+      }
+    }
+  }
+}
+
+docs {
+  Route coverage: POST …/arrays/compute (op=arith) — server-side array arithmetic
+  (open-etp-server array-compute `arith` extension, a store-role write). The
+  result array C must be pre-declared in its container, so this uses the
+  identity C = A * 1.0 written back in place over the stat property's own value
+  array: a full compute round-trip (read A, materialise the promoted-double
+  result, upsert C) that leaves the Drogon data unchanged for the remaining
+  fixtures. Only the summary travels back; no array bytes cross the wire.
+  Expectation follows `storeArrayExtensions` (_Setup/S1): with `arith` the
+  summary is checked, without it the REST API must answer 501 and name the
+  missing capability rather than fall back to a client-side computation.
+}
+
+tests {
+  const ext = String(bru.getVar("storeArrayExtensions") || "").split(",");
+  const storeHasArith = ext.indexOf("arith") >= 0;
+
+  test(storeHasArith ? "status is 200 (store supports arith)" : "status is 501 (store lacks arith)", function () {
+    expect(res.getStatus()).to.equal(storeHasArith ? 200 : 501);
+  });
+
+  test(storeHasArith ? "arith summary" : "501 names the missing store capability", function () {
+    const b = res.getBody();
+    if (storeHasArith) {
+      expect(b.op).to.equal("mul");
+      expect(b.kind).to.equal("scalar");
+      expect(b.total).to.be.a("number").greaterThan(0);
+      expect(b.count + b.nullCount).to.equal(b.total);
+    } else {
+      expect(String(b.description || b.message)).to.include("does not support server-side array arithmetic");
+    }
+  });
+}

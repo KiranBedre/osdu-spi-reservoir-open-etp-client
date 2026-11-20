@@ -35,7 +35,8 @@ enum ExpansionInDirection {
  */
 export class IjkGridRepresentation22OSDU
   extends ResqmlWorkProductComponent<SimpleJson<resqml22.IjkGridRepresentation>>
-  implements IjkGridRepresentation {
+  implements IjkGridRepresentation
+{
   public data: Abstract = {};
   public meta?: FrameOfReferenceMetaDataItem[];
 
@@ -88,10 +89,10 @@ export class IjkGridRepresentation22OSDU
       ).uri;
       const stratiIndices = xml.IntervalStratigraphicUnits?.UnitIndices
         ? await getIntegerValues(
-          dataspaceUri,
-          xml.IntervalStratigraphicUnits?.UnitIndices,
-          client
-        )
+            dataspaceUri,
+            xml.IntervalStratigraphicUnits?.UnitIndices,
+            client
+          )
         : undefined;
 
       const context = this.__context;
@@ -160,22 +161,23 @@ export class IjkGridRepresentation22OSDU
       HasNaNGeometry: undefined,
       ParentGridID: xml.ParentWindow
         ? await IjkGridRepresentation22OSDU.dorToSrn(
-          ReservoirDMSUrl,
-          (xml.ParentWindow as any).ParentIjkGridRepresentation ??
-          (xml.ParentWindow as any).ParentColumnLayerGridRepresentation,
-          client,
-          context
-        )
-        : undefined,
-      RockFluidOrganizationInterpretationIDS: xml.CellFluidPhaseUnits
-        ? [
-          await IjkGridRepresentation22OSDU.dorToSrn(
             ReservoirDMSUrl,
-            xml.CellFluidPhaseUnits.RockFluidOrganizationInterpretation,
+            (xml.ParentWindow as any).ParentIjkGridRepresentation ??
+              (xml.ParentWindow as any).ParentColumnLayerGridRepresentation ??
+              (xml.ParentWindow as any).ParentGridRepresentation,
             client,
             context
           )
-        ].filter((x): x is string => x !== undefined)
+        : undefined,
+      RockFluidOrganizationInterpretationIDS: xml.CellFluidPhaseUnits
+        ? [
+            await IjkGridRepresentation22OSDU.dorToSrn(
+              ReservoirDMSUrl,
+              xml.CellFluidPhaseUnits.RockFluidOrganizationInterpretation,
+              client,
+              context
+            )
+          ].filter((x): x is string => x !== undefined)
         : undefined,
       StratigraphicUnits: await this.stratigraphicUnits(
         ReservoirDMSUrl,

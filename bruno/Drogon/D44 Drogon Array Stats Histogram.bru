@@ -1,0 +1,70 @@
+meta {
+  name: D44 Drogon Array Stats Histogram
+  type: http
+  seq: 44
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonPropType}}/{{drogonStatGuid}}/arrays/{{drogonStatArray}}/compute?op=stats&rangeLo=0.1&rangeHi=0.3&bins=10
+  body: none
+  auth: none
+}
+
+params:query {
+  op: stats
+  rangeLo: 0.1
+  rangeHi: 0.3
+  bins: 10
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Array-compute coverage (4/31). Stats with bins folds a histogram over
+  [rangeLo, rangeHi] and derives p10/p50/p90 — feeding saturation / net-pay
+  distributions for geology screening without downloading the array.
+
+  Histogram accounting asserted: histUnderflow + sum(bins) + histOverflow ==
+  count (every finite value lands in exactly one bucket), sum(bins) ==
+  inRangeCount (the bins tile the inclusive window), histLo/histHi echo the
+  window, and p10 <= p50 <= p90 all inside [minimum, maximum].
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("histogram and percentiles present", function () {
+    const b = res.getBody();
+    expect(b.histogram).to.be.an("array").with.lengthOf(10);
+    expect(b.histBins).to.equal(10);
+    ["p10", "p50", "p90"].forEach(function (k) {
+      expect(b[k], k).to.be.a("number");
+    });
+    expect(b.p10).to.be.at.most(b.p50);
+    expect(b.p50).to.be.at.most(b.p90);
+  });
+
+  test("underflow + bins + overflow == count and bins == inRangeCount", function () {
+    const b = res.getBody();
+    const inBins = b.histogram.reduce(function (a, c) { return a + c; }, 0);
+    expect(b.histUnderflow).to.be.a("number").at.least(0);
+    expect(b.histOverflow).to.be.a("number").at.least(0);
+    expect(b.histUnderflow + inBins + b.histOverflow).to.equal(b.count);
+    expect(inBins).to.equal(b.inRangeCount);
+    expect(b.histLo).to.equal(0.1);
+    expect(b.histHi).to.equal(0.3);
+  });
+
+  test("percentiles are clamped to [minimum, maximum]", function () {
+    const b = res.getBody();
+    ["p10", "p50", "p90"].forEach(function (k) {
+      expect(b[k], k).to.be.at.least(b.minimum);
+      expect(b[k], k).to.be.at.most(b.maximum);
+    });
+  });
+}

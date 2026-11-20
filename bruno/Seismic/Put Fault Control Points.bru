@@ -1,0 +1,56 @@
+meta {
+  name: Put Fault Control Points
+  type: http
+  seq: 5
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/seismic/faults?representation=control-points
+  body: json
+  auth: none
+}
+
+params:query {
+  representation: control-points
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "title": "Bruno Fault F1 Control Points",
+    "hdfUuid": "{{seedHdfUuid}}",
+    "crsUuid": "{{seedCrsUuid}}",
+    "version": "2.0.1",
+    "domain": "depth",
+    "interpretationUuid": "{{seismicFaultInterpUuid}}",
+    "featureUuid": "{{seismicFaultFeatureUuid}}",
+    "points": [456100, 5930000, 1560, 456120, 5930050, 1580, 456140, 5930100, 1645],
+    "originator": "BrunoCLI"
+  }
+}
+
+docs {
+  Route coverage: PUT /dataspaces/:ds/seismic/faults?representation=control-points - attaches
+  a PointSetRepresentation to the FaultInterpretation created by "Put Fault
+  Sticks". Because `interpretationUuid` is supplied, only the point set is
+  written (objects == 1, no new interpretation/feature; the supplied UUIDs are
+  echoed back), with one external XYZ array.
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("only the point set is written against the existing interpretation", function () {
+    const b = res.getBody();
+    expect(b.representationUuid).to.be.a("string").with.length(36);
+    expect(b.interpretationUuid).to.equal(bru.getVar("seismicFaultInterpUuid"));
+    expect(b.objects).to.equal(1);
+    expect(b.arrays).to.equal(1);
+  });
+}

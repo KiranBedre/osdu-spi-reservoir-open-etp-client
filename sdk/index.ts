@@ -8,9 +8,23 @@ export type {
     TypeCount,
     GraphResult,
     ArrayResult,
+    CypherResult,
+    CypherNode,
+    CypherPath,
+    SparqlResult,
+    SparqlSelectResult,
+    SparqlAskResult,
+    SparqlGraphResult,
+    SparqlTerm,
+    SparqlStats,
+    SparqlForm,
+    SparqlFormat,
     DataspaceInput,
     ManifestInput,
-    ManifestJobAccepted,
-    ManifestJobStatus,
     FindResourcesInput,
+    SeismicPutResult,
+    SeismicGetResult,
 } from "./RddmsClient";
+
+// Pure RESQML object-graph builders (also reachable as `rddms.build.*`).
+export * from "../src/lib/builders";

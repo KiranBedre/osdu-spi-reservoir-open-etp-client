@@ -76,8 +76,10 @@ import {
   errorMessageSchema,
   extractDataPartitionId,
   extractToken,
+  extractUserInfo,
   httpErrorFromEtpError,
   patternString,
+  requireProtocol,
   sliceArray,
   swaggerServers,
   partitionPattern,
@@ -87,7 +89,16 @@ import {
 
 import { XMLBuilder } from "../../mlTypes/Json2Xml";
 import { bigIntToString } from "../../mlTypes/XmlJsonUtil";
+
+import {
+  ChannelArray,
+  arrayPathFor,
+  extractChannelArrays,
+  extractTrajectoryArrays,
+  injectExternalArrayRefs
+} from "../shared/channelArrays";
 import { ErrorCode, EtpError } from "../../common/EtpTypes";
+import { mapLimit, concurrency } from "../../common/Util";
 
 import { createHash } from "crypto";
 
@@ -96,10 +107,75 @@ const logger = logging.getLogger("EtpClient");
 
 // ─── DTOs ────────────────────────────────────────────────────────────────────
 
+class WitsmlArrayDto {
+  @ApiProperty({
+    description:
+      "Channel/curve mnemonic this array belongs to. Must match a `<Channel>`/`<Index>` " +
+      "mnemonic in the accompanying metadata XML. The array is stored at " +
+      "`/WITSML/<containerUuid>/<mnemonic>`.",
+    example: "T2_DIST"
+  })
+  @IsString()
+  @IsNotEmpty()
+  mnemonic!: string;
+
+  @ApiProperty({
+    description:
+      "Array shape. `[rows]` for a scalar curve, `[rows, width, ...]` for an N-D channel " +
+      "(e.g. an NMR distribution `[1385, 30]`). Row-major (C) order.",
+    type: [Number],
+    example: [1385, 30]
+  })
+  @IsArray()
+  @IsNumber({}, { each: true })
+  dimensions!: number[];
+
+  @ApiPropertyOptional({
+    description:
+      "Array values as a flat JSON number array in row-major order (length = product of " +
+      "`dimensions`). `null` entries are stored as NaN. Provide either `data` or `base64`.",
+    type: [Number]
+  })
+  @IsOptional()
+  @IsArray()
+  data?: (number | null)[];
+
+  @ApiPropertyOptional({
+    description:
+      "Array values as base64-encoded little-endian bytes of the declared `arrayType` " +
+      "(avoids JSON number-array inflation for large arrays). Provide either `data` or `base64`.",
+    example: "AAAAAAAA8D8="
+  })
+  @IsOptional()
+  @IsString()
+  base64?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Element type of the array. Only `Float64Array` (the default) is supported for the " +
+      "binary/base64 path today.",
+    example: "Float64Array",
+    default: "Float64Array"
+  })
+  @IsOptional()
+  @IsString()
+  arrayType?: string;
+
+  @ApiPropertyOptional({
+    description:
+      "UUID of the container object (ChannelSet/Log) this array belongs to. Optional when the " +
+      "payload stores exactly one object — then that object's UUID is used.",
+    example: "f8158c5d-1265-429b-89ce-ea60bee1274c"
+  })
+  @IsOptional()
+  @IsString()
+  containerUuid?: string;
+}
+
 class WitsmlStoreDto {
   @ApiProperty({
     description: "Target dataspace path",
-    example: "test/witsml",
+    example: "demo/drogon",
     pattern: patternString(dataspaceNamePattern)
   })
   @IsString()
@@ -125,12 +201,27 @@ class WitsmlStoreDto {
   @IsOptional()
   @IsArray()
   json?: Record<string, unknown>[];
+
+  @ApiPropertyOptional({
+    description:
+      "Pre-computed binary channel arrays to store alongside **metadata-only** XML, all in one " +
+      "transaction. This is the efficient, lossless path for large N-D data (e.g. NMR " +
+      "distributions, resistivity cubes): send a `ChannelSet` whose `<Channel>`/`<Index>` carry " +
+      "no inline `<Data>`, plus one `arrays` entry per mnemonic. The handler injects the required " +
+      "`ExternalDataArrayPart` references, stores the object, writes the arrays, and commits " +
+      "together — so neither 'Orphan array(s)' nor 'Missing array(s)' can occur. Shapes are " +
+      "preserved exactly (an N-D `dimensions` round-trips unchanged).",
+    type: [WitsmlArrayDto]
+  })
+  @IsOptional()
+  @IsArray()
+  arrays?: WitsmlArrayDto[];
 }
 
 class WitsmlQueryDto {
   @ApiProperty({
-    description: "Target dataspace path (e.g., 'test/witsml', 'demo/drogon'). Must be an existing dataspace on the ETP server.",
-    example: "test/witsml"
+    description: "Target dataspace path (e.g., 'demo/drogon'). Must be an existing dataspace on the ETP server.",
+    example: "demo/drogon"
   })
   @IsString()
   @IsNotEmpty()
@@ -158,7 +249,7 @@ class WitsmlQueryDto {
 
   @ApiPropertyOptional({
     description: "Case-insensitive substring filter on the object title/name.",
-    example: "31/2-1"
+    example: "55/33-1"
   })
   @IsOptional()
   @IsString()
@@ -186,7 +277,7 @@ class WitsmlQueryDto {
       "Traverse relationships from a given object instead of listing the whole dataspace. " +
       "Accepts a bare UUID (resolved within the dataspace) or a full ETP object URI. " +
       "Use with `scope` to pick direction (e.g. all Wellbores/Logs under a Well).",
-    example: "a1b2c3d4-0000-0000-0000-000000000000"
+    example: "2b8f1c5e-9d34-4a7e-b016-7c3e5f0a9d21"
   })
   @IsOptional()
   @IsString()
@@ -265,11 +356,10 @@ function microsToIso(lastChanged: unknown): string | null {
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Upper bound (bytes/chars) on the XML fed to the backtracking-prone WITSML
-// element regexes below. Several of them use nested `[\s\S]*?` / `(...)+`
-// repetition that degrades to high-order polynomial / exponential time on
-// malformed input with missing closing tags (CWE-1333). Bounding the input
-// keeps worst-case matching time flat regardless of caller input.
+/**
+ * Upper bound on XML size fed to the backtracking strip regexes below to
+ * bound worst-case ReDoS cost (CWE-1333). Default 5 MB.
+ */
 const MAX_WITSML_REGEX_INPUT = Number(
   process.env.RDMS_MAX_WITSML_REGEX_INPUT ?? 5 * 1024 * 1024
 );
@@ -393,8 +483,18 @@ function parseWitsmlXml(xmlInput: string): ParsedWitsmlObject[] {
       `$1 xmlns:eml="http://www.energistics.org/energyml/data/commonv2"$2`
     );
   }
-  if (!xml.includes('<eml:Citation>') && !xml.includes('<Citation>')) {
-    // Inject minimal Citation if missing
+  // Prefix-agnostic Citation detection: accepts <Citation>, <eml:Citation>,
+  // <eml23:Citation ...> etc. Injecting a second Citation when one already
+  // exists under another prefix produces XML the ETP server cannot parse.
+  if (!/<(?:[\w]+:)?Citation[\s>]/.test(xml)) {
+    // Inject minimal Citation if missing. It uses the eml prefix, so make sure
+    // that prefix is declared on the root element first.
+    if (!xml.includes('xmlns:eml=')) {
+      xml = xml.replace(
+        /(<[\w:]+)(\s)/,
+        `$1 xmlns:eml="http://www.energistics.org/energyml/data/commonv2"$2`
+      );
+    }
     const insertPoint = xml.match(/<[\w:]+[^>]*>/);
     if (insertPoint && insertPoint.index != null) {
       const after = insertPoint.index + insertPoint[0].length;
@@ -495,246 +595,61 @@ function detectDomainInfo(xml: string): {
   return { domainFamily: "eml", domainVersion: "2.3" };
 }
 
-// ─── WITSML Channel Data Extraction ──────────────────────────────────────────
-
-interface ChannelArray {
-  mnemonic: string;
-  values: Float64Array;
-  /** Dimensions for putDataArray: [length] for scalar, [rows, dim] for array channels. */
-  dimensions: number[];
-}
-
-/**
- * Parse a single data row that may contain bracket-encoded multi-dim arrays.
- * Format: "8496.0,[7.48 40.85 21.6],[1023.09 78.6],42.5"
- * Returns an array of tokens, each being either a scalar number or a number[].
- */
-function parseDataRow(row: string): (number | number[])[] {
-  const tokens: (number | number[])[] = [];
-  let i = 0;
-  const len = row.length;
-
-  while (i < len) {
-    // Skip whitespace/commas
-    while (i < len && (row[i] === "," || row[i] === " " || row[i] === "\t")) i++;
-    if (i >= len) break;
-
-    if (row[i] === "[") {
-      // Bracket-encoded array: [v1 v2 v3 ...]
-      const end = row.indexOf("]", i);
-      if (end < 0) break;
-      const inner = row.slice(i + 1, end).trim();
-      const arr = inner
-        .split(/\s+/)
-        .map(v => { const n = parseFloat(v); return isNaN(n) ? NaN : n; });
-      tokens.push(arr);
-      i = end + 1;
-    } else {
-      // Scalar value: read until next comma or bracket
-      let j = i;
-      while (j < len && row[j] !== "," && row[j] !== "[") j++;
-      const val = row.slice(i, j).trim();
-      if (val.length > 0) {
-        const n = parseFloat(val);
-        tokens.push(isNaN(n) ? NaN : n);
-      }
-      i = j;
-    }
-  }
-  return tokens;
-}
-
-/**
- * Extract channel data arrays from WITSML XML containing <logData><data> rows.
- * Supports WITSML 1.4.1 (<logData><data>v1,v2,v3</data>...) and
- * WITSML 2.1 ChannelSet data formats, including bracket-encoded multi-dim arrays.
- *
- * Multi-dimensional channels (e.g. T2_DIST[30]) are stored as flattened
- * Float64Array with dimensions [rows, dim].
- *
- * Returns per-channel Float64Array for each mnemonic (including the index curve).
- */
-function extractChannelArrays(xml: string): ChannelArray[] {
-  // Bound the input fed to the backtracking-prone element regexes (CWE-1333).
-  if (xml.length > MAX_WITSML_REGEX_INPUT) {
-    throw new EtpError(
-      `WITSML payload too large to parse (max ${MAX_WITSML_REGEX_INPUT} bytes)`,
-      ErrorCode.EINVALID_ARGUMENT
+/** Decode base64 little-endian float64 bytes into a Float64Array. */
+function decodeFloat64Base64(b64: string): Float64Array {
+  const buf = Buffer.from(b64, "base64");
+  if (buf.length % 8 !== 0) {
+    throw new BadRequestException(
+      `base64 array length ${buf.length} is not a multiple of 8 (Float64Array)`
     );
   }
-  // --- WITSML 1.4.1 format ---
-  // <logCurveInfo><mnemonic>GR</mnemonic>...</logCurveInfo>
-  // <logData><data>1000.0, 45.2, 105.3</data>...</logData>
-  const curveInfoRegex =
-    /<(?:[\w]+:)?(?:logCurveInfo|LogCurveInfo)[^>]*>[\s\S]*?<(?:[\w]+:)?(?:mnemonic|Mnemonic)>([^<]+)<\/[\s\S]*?<\/(?:[\w]+:)?(?:logCurveInfo|LogCurveInfo)>/gi;
-  const mnemonics: string[] = [];
-  let m: RegExpExecArray | null;
-  while ((m = curveInfoRegex.exec(xml)) !== null) {
-    mnemonics.push(m[1].trim());
-  }
-
-  // WITSML 2.1 ChannelSet format: <Channel><Mnemonic>GR</Mnemonic>...</Channel>
-  // Also extract from <Index><Mnemonic>MD</Mnemonic>...</Index>
-  if (mnemonics.length === 0) {
-    const indexMnemonicRegex =
-      /<(?:[\w]+:)?Index[^>]*>[\s\S]*?<(?:[\w]+:)?Mnemonic>([^<]+)<\/[\s\S]*?<\/(?:[\w]+:)?Index>/gi;
-    while ((m = indexMnemonicRegex.exec(xml)) !== null) {
-      mnemonics.push(m[1].trim());
-    }
-    const channelRegex =
-      /<(?:[\w]+:)?Channel\b[^>]*>[\s\S]*?<(?:[\w]+:)?Mnemonic>([^<]+)<\/[\s\S]*?<\/(?:[\w]+:)?Channel>/gi;
-    while ((m = channelRegex.exec(xml)) !== null) {
-      mnemonics.push(m[1].trim());
-    }
-  }
-
-  if (mnemonics.length === 0) return [];
-
-  // Extract <data> rows (nested <Data><Data>... or <logData><data>...)
-  const dataRowRegex = /<(?:[\w]+:)?[Dd]ata>([^<]+)<\/(?:[\w]+:)?[Dd]ata>/gi;
-  const rawRows: string[] = [];
-  while ((m = dataRowRegex.exec(xml)) !== null) {
-    const content = m[1].trim();
-    // Skip MnemonicList-like rows (all text, no numbers)
-    if (content.length > 0 && /[\d.-]/.test(content)) {
-      rawRows.push(content);
-    }
-  }
-
-  if (rawRows.length === 0) return [];
-
-  // Parse all rows to detect scalars vs arrays per channel
-  const parsedRows = rawRows.map(parseDataRow);
-  if (parsedRows.length === 0 || parsedRows[0].length === 0) return [];
-
-  const numChannels = Math.min(mnemonics.length, parsedRows[0].length);
-  const numRows = parsedRows.length;
-  const arrays: ChannelArray[] = [];
-
-  for (let col = 0; col < numChannels; col++) {
-    // Determine if this channel is scalar or array from first non-NaN row
-    const sample = parsedRows.find(r => col < r.length && r[col] !== undefined)?.[col];
-    const isArray = Array.isArray(sample);
-
-    if (isArray) {
-      // Multi-dimensional channel: flatten into [rows * dim]
-      const dim = (sample as number[]).length;
-      const values = new Float64Array(numRows * dim);
-      for (let row = 0; row < numRows; row++) {
-        const cell = col < parsedRows[row].length ? parsedRows[row][col] : undefined;
-        if (Array.isArray(cell)) {
-          for (let d = 0; d < dim; d++) {
-            values[row * dim + d] = d < cell.length ? cell[d] : NaN;
-          }
-        } else {
-          // Missing row - fill with NaN
-          for (let d = 0; d < dim; d++) {
-            values[row * dim + d] = NaN;
-          }
-        }
-      }
-      arrays.push({ mnemonic: mnemonics[col], values, dimensions: [numRows, dim] });
-    } else {
-      // Scalar channel
-      const values = new Float64Array(numRows);
-      for (let row = 0; row < numRows; row++) {
-        const cell = col < parsedRows[row].length ? parsedRows[row][col] : NaN;
-        values[row] = typeof cell === "number" ? cell : NaN;
-      }
-      arrays.push({ mnemonic: mnemonics[col], values, dimensions: [numRows] });
-    }
-  }
-
-  return arrays;
+  const out = new Float64Array(buf.length / 8);
+  for (let i = 0; i < out.length; i++) out[i] = buf.readDoubleLE(i * 8);
+  return out;
 }
 
 /**
- * Extract trajectory station data as arrays from WITSML trajectory XML.
- * Supports WITSML 1.4.1 <trajectoryStation> elements with <md>, <incl>, <azi>.
- * Returns arrays for MD, Inclination, and Azimuth.
+ * Convert a caller-supplied binary array DTO into the internal ChannelArray
+ * shape, validating element type, dimensions, and value count.
  */
-function extractTrajectoryArrays(xml: string): ChannelArray[] {
-  // Match individual <trajectoryStation> blocks
-  const stationRegex =
-    /<(?:[\w]+:)?trajectoryStation[^>]*>([\s\S]*?)<\/(?:[\w]+:)?trajectoryStation>/gi;
-  const mdValues: number[] = [];
-  const inclValues: number[] = [];
-  const aziValues: number[] = [];
-
-  let m: RegExpExecArray | null;
-  while ((m = stationRegex.exec(xml)) !== null) {
-    const block = m[1];
-    const mdMatch = block.match(/<(?:[\w]+:)?md[^>]*>([^<]+)<\//i);
-    const inclMatch = block.match(/<(?:[\w]+:)?incl[^>]*>([^<]+)<\//i);
-    const aziMatch = block.match(/<(?:[\w]+:)?azi[^>]*>([^<]+)<\//i);
-
-    if (mdMatch) mdValues.push(parseFloat(mdMatch[1]));
-    if (inclMatch) inclValues.push(parseFloat(inclMatch[1]));
-    if (aziMatch) aziValues.push(parseFloat(aziMatch[1]));
-  }
-
-  if (mdValues.length === 0) return [];
-
-  const arrays: ChannelArray[] = [];
-  if (mdValues.length > 0) {
-    arrays.push({ mnemonic: "MD", values: Float64Array.from(mdValues), dimensions: [mdValues.length] });
-  }
-  if (inclValues.length > 0) {
-    arrays.push({
-      mnemonic: "Inclination",
-      values: Float64Array.from(inclValues),
-      dimensions: [inclValues.length]
-    });
-  }
-  if (aziValues.length > 0) {
-    arrays.push({ mnemonic: "Azimuth", values: Float64Array.from(aziValues), dimensions: [aziValues.length] });
-  }
-  return arrays;
-}
-
-/**
- * Inject EML ExternalDataArrayPart references into the XML so the ETP server
- * doesn't consider the arrays "orphans" during transaction commit.
- */
-function injectExternalArrayRefs(
-  xml: string,
-  uuid: string,
-  arrays: ChannelArray[]
-): string {
-  // Ensure xmlns:eml is declared on root element
-  if (!xml.includes('xmlns:eml=') && !xml.includes('xmlns:eml =')) {
-    xml = xml.replace(
-      /(<[\w:]+)/,
-      `$1 xmlns:eml="http://www.energistics.org/energyml/data/commonv2"`
+function witsmlArrayDtoToChannelArray(a: WitsmlArrayDto): ChannelArray {
+  const arrayType = a.arrayType ?? "Float64Array";
+  if (arrayType !== "Float64Array") {
+    throw new BadRequestException(
+      `arrays[] '${a.mnemonic}': unsupported arrayType '${arrayType}' (only Float64Array is supported)`
     );
   }
-
-  const refs = arrays
-    .map(
-      ch =>
-        `<eml:ExternalDataArrayPart>` +
-        `<eml:Count>${ch.values.length}</eml:Count>` +
-        `<eml:PathInExternalFile>/WITSML/${uuid}/${ch.mnemonic}</eml:PathInExternalFile>` +
-        `</eml:ExternalDataArrayPart>`
-    )
-    .join("");
-
-  // Insert before the closing root element tag
-  const closingTagMatch = xml.match(/<\/[\w:]+>\s*$/);
-  if (closingTagMatch && closingTagMatch.index != null) {
-    return (
-      xml.slice(0, closingTagMatch.index) +
-      refs +
-      xml.slice(closingTagMatch.index)
+  if (
+    !Array.isArray(a.dimensions) ||
+    a.dimensions.length === 0 ||
+    a.dimensions.some(d => !Number.isInteger(d) || d < 1)
+  ) {
+    throw new BadRequestException(
+      `arrays[] '${a.mnemonic}': invalid dimensions ${JSON.stringify(a.dimensions)} (each must be an integer >= 1)`
     );
   }
-  // Fallback: append before end
-  return xml + refs;
+  let values: Float64Array;
+  if (a.base64 != null) {
+    values = decodeFloat64Base64(a.base64);
+  } else if (a.data != null) {
+    values = Float64Array.from(a.data, v => (v == null ? NaN : v));
+  } else {
+    throw new BadRequestException(
+      `arrays[] '${a.mnemonic}': must provide 'data' (JSON numbers) or 'base64'`
+    );
+  }
+  const expected = a.dimensions.reduce((p, d) => p * d, 1);
+  if (values.length !== expected) {
+    throw new BadRequestException(
+      `arrays[] '${a.mnemonic}': ${values.length} value(s) != product(dimensions)=${expected}`
+    );
+  }
+  return { mnemonic: a.mnemonic, values, dimensions: a.dimensions };
 }
 
 // ─── Controller ──────────────────────────────────────────────────────────────
 
-@ApiTags("WITSML")
+@ApiTags("Well")
 @Controller("witsml")
 @ApiBearerAuth("HTTPBearer")
 @UseGuards(HasBearerGuard("jwt"))
@@ -789,8 +704,8 @@ export default class WitsmlController {
             type: "object",
             properties: {
               objectType: { type: "string", example: "Well" },
-              uuid: { type: "string", example: "a1b2c3d4-0000-0000-0000-000000000000" },
-              title: { type: "string", example: "31/2-1" }
+              uuid: { type: "string", example: "2b8f1c5e-9d34-4a7e-b016-7c3e5f0a9d21" },
+              title: { type: "string", example: "55/33-1" }
             }
           }
         },
@@ -839,8 +754,17 @@ export default class WitsmlController {
         extractToken(request),
         extractDataPartitionId(request),
         undefined,
-        transactionId
+        transactionId,
+        extractUserInfo(request)
       );
+
+      requireProtocol(c, Energistics.Etp.v12.Datatypes.Protocol.Store);
+      if (!transactionId) {
+        requireProtocol(
+          c,
+          Energistics.Etp.v12.Datatypes.Protocol.Transaction
+        );
+      }
 
       // Start a transaction for PutDataObjects + arrays (required by ETP server)
       const dataspaceUri = `eml:///dataspace('${dataspace}')`;
@@ -868,14 +792,43 @@ export default class WitsmlController {
         }
       }
 
+      // Merge caller-supplied binary arrays (metadata-only XML + pre-computed
+      // arrays). These attach to their container object by UUID so the same
+      // ref-injection + same-transaction array write below applies to them,
+      // giving an efficient lossless path without inline <Data> in the XML.
+      if (body.arrays && body.arrays.length > 0) {
+        const defaultUuid =
+          parsedObjects.length === 1 ? parsedObjects[0].uuid : undefined;
+        for (const a of body.arrays) {
+          const targetUuid = a.containerUuid ?? defaultUuid;
+          if (!targetUuid) {
+            throw new BadRequestException(
+              `arrays[] '${a.mnemonic}': containerUuid is required when the payload stores ${parsedObjects.length} objects`
+            );
+          }
+          const obj = parsedObjects.find(o => o.uuid === targetUuid);
+          if (!obj) {
+            throw new BadRequestException(
+              `arrays[] '${a.mnemonic}': unknown containerUuid '${targetUuid}' (not among stored objects)`
+            );
+          }
+          const ch = witsmlArrayDtoToChannelArray(a);
+          let entry = objectArrayMap.get(targetUuid);
+          if (!entry) {
+            const { domainFamily, domainVersion } = detectDomainInfo(obj.xml);
+            entry = { arrays: [], domainFamily, domainVersion };
+            objectArrayMap.set(targetUuid, entry);
+          }
+          entry.arrays.push(ch);
+        }
+      }
+
       // Inject ExternalDataArrayPart references into XML for objects that have arrays
       // This prevents the "Orphan arrays" commit error from the ETP server.
       // Also strip inline <data> rows since the data is stored as external arrays.
       for (const obj of parsedObjects) {
         const entry = objectArrayMap.get(obj.uuid);
         if (entry && entry.arrays.length > 0) {
-          // Skip the backtracking-prone inline-strip regexes on oversized XML
-          // to avoid catastrophic matching time (CWE-1333).
           if (obj.xml.length <= MAX_WITSML_REGEX_INPUT) {
             // Strip WITSML 1.4.1 <logData>...</logData> blocks
             obj.xml = obj.xml.replace(
@@ -926,19 +879,20 @@ export default class WitsmlController {
       logger.info(
         `Storing ${dataObjects.length} WITSML object(s) in ${dataspace}`
       );
-      const putResult = await c.putDataObjects(dataObjects);
-      if (!putResult) {
+      try {
+        // Surface the store's own rejection (unknown dataspace, invalid UUID,
+        // dangling reference, ...) instead of a generic 400.
+        await c.putDataObjects(dataObjects, { throwOnError: true });
+      } catch (putErr) {
         if (txId) {
           await c.rollbackTransaction(txId).catch(() => { });
         }
-        throw new BadRequestException(
-          "PutDataObjects failed - check UUID format (must be valid UUID) and dataspace existence"
-        );
+        throw putErr;
       }
 
       // ─── Store channel data arrays in the SAME transaction ──
       let arraysStored = 0;
-      for (const [uuid, entry] of objectArrayMap) {
+      const channelJobs = [...objectArrayMap].flatMap(([uuid, entry]) => {
         const obj = parsedObjects.find(o => o.uuid === uuid)!;
         const containerUri = EtpUri.createObjectUri(
           dataspace,
@@ -947,24 +901,28 @@ export default class WitsmlController {
           obj.objectType,
           obj.uuid
         ).uri;
-
-        for (const ch of entry.arrays) {
+        return entry.arrays.map(ch => ({ obj, ch, containerUri }));
+      });
+      // Bounded-concurrency fan-out (RDMS_CONCURRENCY_FETCH). Fail-fast: the
+      // first array failure rolls back the transaction (mirroring the
+      // putDataObjects failure path) so we never commit a partial channel set.
+      try {
+        await mapLimit(channelJobs, concurrency.fetch, async ({ obj, ch, containerUri }) => {
           const arrayId: IArrayId = {
             uri: containerUri,
-            pathInResource: `/WITSML/${obj.uuid}/${ch.mnemonic}`
+            pathInResource: arrayPathFor("WITSML", obj.uuid, ch.mnemonic)
           };
-          try {
-            await c.putDataArray(arrayId, ch.dimensions, ch.values);
-            arraysStored++;
-            logger.info(
-              `  Stored array ${ch.mnemonic} (${ch.dimensions.join("×")}) for ${obj.objectType} ${obj.uuid}`
-            );
-          } catch (arrErr: any) {
-            logger.warn(
-              `  Failed to store array ${ch.mnemonic} for ${obj.uuid}: ${arrErr?.message ?? arrErr}`
-            );
-          }
+          await c!.putDataArray(arrayId, ch.dimensions, ch.values);
+          arraysStored++;
+          logger.info(
+            `  Stored array ${ch.mnemonic} (${ch.dimensions.join("×")}) for ${obj.objectType} ${obj.uuid}`
+          );
+        });
+      } catch (arrErr) {
+        if (txId) {
+          await c.rollbackTransaction(txId).catch(() => { });
         }
+        throw arrErr;
       }
 
       // Commit the transaction (objects + arrays together)
@@ -1019,7 +977,7 @@ export default class WitsmlController {
     servers: swaggerServers
   })
   @ApiBody({ type: WitsmlQueryDto })
-  @ApiQuery({ name: "$format", required: false, enum: ["xml", "json"], description: "Output encoding; overrides the body `format` field. `xml` (default) returns raw Energistics XML in each object's `xml`; `json` returns the parsed object in `content`." })
+  @ApiQuery({ name: "format", required: false, enum: ["xml", "json"], description: "Output encoding; overrides the body `format` field. `xml` (default) returns raw Energistics XML in each object's `xml`; `json` returns the parsed object in `content`." })
   @ApiOkResponse({
     description: "Paged object array plus count (this page) and total (all matches before pagination)",
     schema: {
@@ -1030,10 +988,10 @@ export default class WitsmlController {
           items: {
             type: "object",
             properties: {
-              uri: { type: "string", example: "eml:///dataspace('test/witsml')/witsml21.Well(a1b2c3d4-...)" },
+              uri: { type: "string", example: "eml:///dataspace('demo/drogon')/witsml21.Well(2b8f1c5e-9d34-4a7e-b016-7c3e5f0a9d21)" },
               objectType: { type: "string", example: "Well" },
-              uuid: { type: "string", example: "a1b2c3d4-0000-0000-0000-000000000000" },
-              name: { type: "string", example: "31/2-1" },
+              uuid: { type: "string", example: "2b8f1c5e-9d34-4a7e-b016-7c3e5f0a9d21" },
+              name: { type: "string", example: "55/33-1" },
               xml: { type: "string", nullable: true, description: "Raw Energistics XML (present when format=xml)" },
               content: { type: "object", nullable: true, description: "Parsed object (present when format=json)" },
               lastChanged: { type: "string", format: "date-time", nullable: true }
@@ -1049,7 +1007,7 @@ export default class WitsmlController {
   async queryWitsmlObjects(
     @Body() body: WitsmlQueryDto,
     @Req() request: express.Request,
-    @Query("$format") formatQuery?: string
+    @Query("format") formatQuery?: string
   ) {
     const {
       dataspace,
@@ -1068,6 +1026,12 @@ export default class WitsmlController {
         ? "json"
         : "xml";
     let c: ResqmlClient | undefined;
+
+    // The global ValidationPipe runs with skipUndefinedProperties, so a
+    // missing required property is not rejected by class-validator.
+    if (!dataspace) {
+      throw new BadRequestException("Body property 'dataspace' is required");
+    }
 
     try {
       c = await createSession(

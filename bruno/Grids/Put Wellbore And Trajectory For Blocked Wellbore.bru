@@ -1,0 +1,94 @@
+meta {
+  name: Put Wellbore And Trajectory For Blocked Wellbore
+  type: http
+  seq: 6
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:pre-request {
+  function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0;
+      var v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  ["gridsWellFeatureUuid", "gridsWellInterpUuid", "gridsMdDatumUuid", "gridsTrajUuid"].forEach(function (k) { bru.setVar(k, uuid()); });
+  const now = new Date().toISOString();
+  function citation(title) {
+    return { "Title": title, "Originator": "RDDMS-CI", "Creation": now, "Format": "rddms-sdk" };
+  }
+  function dor(type, uuid, title) {
+    return {
+      "$type": "eml20.DataObjectReference",
+      "ContentType": "application/x-resqml+xml;version=2.0;type=" + type,
+      "Title": title,
+      "UUID": uuid
+    };
+  }
+  req.setBody([
+    {
+      "$type": "resqml20.obj_WellboreFeature",
+      "Uuid": bru.getVar("gridsWellFeatureUuid"),
+      "SchemaVersion": "2.0.0.20140822",
+      "Citation": citation("Bruno planned well")
+    },
+    {
+      "$type": "resqml20.obj_WellboreInterpretation",
+      "Uuid": bru.getVar("gridsWellInterpUuid"),
+      "SchemaVersion": "2.0.0.20140822",
+      "Citation": citation("Bruno planned well"),
+      "Domain": "depth",
+      "InterpretedFeature": dor("obj_WellboreFeature", bru.getVar("gridsWellFeatureUuid"), "Bruno planned well"),
+      "IsDrilled": false
+    },
+    {
+      "$type": "resqml20.obj_MdDatum",
+      "Uuid": bru.getVar("gridsMdDatumUuid"),
+      "SchemaVersion": "2.0.0.20140822",
+      "Citation": citation("Bruno planned well MD datum"),
+      "Location": { "$type": "resqml20.Point3d", "Coordinate1": 0, "Coordinate2": 0, "Coordinate3": 0 },
+      "LocalCrs": dor("obj_LocalDepth3dCrs", bru.getVar("seedCrsUuid"), "Seed CRS"),
+      "MdReference": "mean sea level"
+    },
+    {
+      "$type": "resqml20.obj_WellboreTrajectoryRepresentation",
+      "Uuid": bru.getVar("gridsTrajUuid"),
+      "SchemaVersion": "2.0.0.20140822",
+      "Citation": citation("Bruno planned trajectory"),
+      "RepresentedInterpretation": dor("obj_WellboreInterpretation", bru.getVar("gridsWellInterpUuid"), "Bruno planned well"),
+      "StartMd": 0,
+      "FinishMd": 3000,
+      "MdUom": "m",
+      "MdDatum": dor("obj_MdDatum", bru.getVar("gridsMdDatumUuid"), "Bruno planned well MD datum")
+    }
+  ]);
+}
+
+docs {
+  WellboreFeature + WellboreInterpretation + MdDatum + metadata-only
+  WellboreTrajectoryRepresentation, written through the generic resources
+  route so the blocked wellbore below references a trajectory that exists
+  (the store rejects dangling references with 412). The MdDatum hangs off the
+  LocalDepth3dCrs resolved by "Discover Seed CRS".
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("store accepted the objects (body is true)", function () {
+    expect(res.getBody()).to.equal(true);
+  });
+}

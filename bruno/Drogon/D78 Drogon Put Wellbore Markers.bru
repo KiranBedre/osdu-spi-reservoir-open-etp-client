@@ -1,0 +1,55 @@
+meta {
+  name: D78 Drogon Put Wellbore Markers
+  type: http
+  seq: 78
+}
+
+put {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/wells/markers
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "title": "Bruno Drogon markers",
+    "hdfUuid": "{{drogonHdfProxyGuid}}",
+    "version": "2.0.1",
+    "trajectoryUuid": "{{drogonTrajectoryGuid}}",
+    "trajectoryType": "obj_WellboreTrajectoryRepresentation",
+    "markers": [
+      { "md": 1585.0, "title": "Top Volantis", "boundaryKind": "horizon", "interpretationTitle": "Top Volantis", "featureTitle": "Volantis" },
+      { "md": 1622.5, "title": "Top Therys", "boundaryKind": "horizon", "interpretationTitle": "Top Therys", "featureTitle": "Therys" },
+      { "md": 1668.0, "title": "Fault F1", "boundaryKind": "fault", "interpretationTitle": "F1", "featureTitle": "F1 fault", "sealState": "partially_sealed", "transmissibilityMultiplier": 0.15 }
+    ],
+    "originator": "BrunoCLI"
+  }
+}
+
+docs {
+  Route coverage: PUT /dataspaces/:ds/wells/markers — writes a
+  WellboreMarkerFrameRepresentation (3 picks, NodeMd external array on the
+  Drogon HDF proxy) along the Drogon wellbore trajectory discovered in D04.
+  Each marker auto-creates its boundary interpretation + feature (2 horizons,
+  1 fault with seal attributes), so 6 interpretation/feature objects precede
+  the frame: objects == 7, arrays == 1, three distinct interpretation UUIDs.
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("frame plus auto-created interpretations/features were written", function () {
+    const b = res.getBody();
+    expect(b.uuid).to.be.a("string").with.length(36);
+    expect(b.interpretationUuids).to.be.an("array").with.length(3);
+    expect(b.objects).to.equal(7);
+    expect(b.arrays).to.equal(1);
+  });
+}

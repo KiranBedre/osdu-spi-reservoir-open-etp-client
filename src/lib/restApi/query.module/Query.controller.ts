@@ -15,13 +15,11 @@
 // ============================================================================
 
 import {
+  BadRequestException,
   Body,
   Controller,
-  Get,
   HttpCode,
-  Param,
   Post,
-  Query,
   Req,
   UseGuards
 } from "@nestjs/common";
@@ -30,7 +28,6 @@ import {
   ApiBearerAuth,
   ApiBody,
   ApiDefaultResponse,
-  ApiExcludeEndpoint,
   ApiForbiddenResponse,
   ApiGoneResponse,
   ApiHeader,
@@ -41,7 +38,6 @@ import {
   ApiOperation,
   ApiProperty,
   ApiPropertyOptional,
-  ApiQuery,
   ApiTags,
   ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse
@@ -51,10 +47,8 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
-  IsEnum,
   IsNumber,
-  IsBoolean,
-  IsArray
+  IsBoolean
 } from "class-validator";
 
 import express from "express";
@@ -64,6 +58,7 @@ import {
   EtpUri,
   Resource
 } from "../../client/ResqmlClient";
+import { xml2typescript } from "../../mlTypes/XmlJsonUtil";
 
 import { ResourceGraph } from "../../common/ResponseHandlers";
 
@@ -77,6 +72,7 @@ import {
   httpErrorFromEtpError,
   partitionPattern,
   patternString,
+  requireProtocol,
   toDate,
   toJSonCustomData,
   webSocketSessionTerminatedSchema
@@ -88,18 +84,21 @@ const logger = Logging.getLogger("EtpClient");
 
 // ── DTOs ─────────────────────────────────────────────────────────────────────
 
+const scopeKinds = ["self", "sources", "targets", "sourcesOrSelf", "targetsOrSelf"] as const;
+
 class FindResourcesDto {
   @ApiProperty({
-    description: "ETP URI of the dataspace or object to search from. Use dataspace root to search all objects, or a specific object URI to traverse its relationships.",
+    description:
+      "ETP URI (or list of URIs) to search from. Use a dataspace root URI to enumerate all objects, or object URIs to traverse their relationships. Several URIs are traversed in one session and merged (deduplicated).",
+    oneOf: [{ type: "string" }, { type: "array", items: { type: "string" } }],
     example: "eml:///dataspace('demo/drogon')"
   })
   @IsNotEmpty()
-  @IsString()
-  uri!: string;
+  uri!: string | string[];
 
   @ApiPropertyOptional({
     description: "Search scope: self, sources, targets, sourcesOrSelf, targetsOrSelf",
-    enum: ["self", "sources", "targets", "sourcesOrSelf", "targetsOrSelf"],
+    enum: scopeKinds,
     default: "targets"
   })
   @IsOptional()
@@ -127,59 +126,36 @@ class FindResourcesDto {
   @IsOptional()
   @IsString()
   modifiedSince?: string;
-}
 
-class FindDataObjectsDto extends FindResourcesDto {
   @ApiPropertyOptional({
-    description: "Return format: xml or json",
+    description:
+      "Also fetch each matched object's body (`data`, `format`). More expensive: prefer metadata-only discovery first for large result sets.",
+    default: false
+  })
+  @IsOptional()
+  @IsBoolean()
+  includeContent?: boolean;
+
+  @ApiPropertyOptional({
+    description: "Body format when `includeContent` is true: xml or json",
+    enum: ["xml", "json"],
     default: "xml"
   })
   @IsOptional()
   @IsString()
   format?: string;
-}
-
-class GraphSearchDto {
-  @ApiProperty({
-    description: "URIs of resources to build a subgraph for",
-    example: [
-      "eml:///dataspace('test/drogon')/resqml20.obj_IjkGridRepresentation(uuid1)",
-      "eml:///dataspace('test/drogon')/resqml20.obj_TriangulatedSetRepresentation(uuid2)"
-    ],
-    type: [String]
-  })
-  @IsArray()
-  @IsNotEmpty()
-  uris!: string[];
 
   @ApiPropertyOptional({
     description:
-      "Search scope: sources, targets, or self. Applied to each URI.",
-    enum: ["self", "sources", "targets", "sourcesOrSelf", "targetsOrSelf"],
-    default: "targets"
+      "Also return the relationship edges (`links`) between the matched resources, i.e. a merged subgraph. Traversal then follows both edge directions.",
+    default: false
   })
   @IsOptional()
-  @IsString()
-  scope?: string;
+  @IsBoolean()
+  includeEdges?: boolean;
 
   @ApiPropertyOptional({
-    description: "Graph traversal depth from each URI (1 = immediate neighbours)",
-    default: 1
-  })
-  @IsOptional()
-  @IsNumber()
-  depth?: number;
-
-  @ApiPropertyOptional({
-    description:
-      "Data object types to include (e.g., resqml20.obj_ContinuousProperty)",
-    type: [String]
-  })
-  @IsOptional()
-  dataObjectTypes?: string[];
-
-  @ApiPropertyOptional({
-    description: "Include source/target counts on each resource",
+    description: "Include source/target counts on each resource (graph mode)",
     default: false
   })
   @IsOptional()
@@ -187,7 +163,7 @@ class GraphSearchDto {
   countObjects?: boolean;
 
   @ApiPropertyOptional({
-    description: "Include secondary targets in graph traversal",
+    description: "Include secondary targets in graph traversal (graph mode)",
     default: false
   })
   @IsOptional()
@@ -195,12 +171,70 @@ class GraphSearchDto {
   includeSecondaryTargets?: boolean;
 
   @ApiPropertyOptional({
-    description: "Include secondary sources in graph traversal",
+    description: "Include secondary sources in graph traversal (graph mode)",
     default: false
   })
   @IsOptional()
   @IsBoolean()
   includeSecondarySources?: boolean;
+}
+
+class GrowingObjectDto {
+  @ApiProperty({
+    description: "URI of the growing object (WellLog, MudLog, Trajectory, WellboreGeology, ...)",
+    example: "eml:///dataspace('demo/drogon')/witsml21.WellboreGeology(7a4d2e91-6c05-4f38-9b12-8e0a1c3d5f60)"
+  })
+  @IsNotEmpty()
+  @IsString()
+  uri!: string;
+
+  @ApiPropertyOptional({
+    description:
+      "Start index value. When given together with `endIndex` the matching parts are returned instead of the parts metadata. Depth-indexed objects: meters (e.g. 2500.0); time-indexed: microseconds since epoch."
+  })
+  @IsOptional()
+  @IsNumber()
+  startIndex?: number;
+
+  @ApiPropertyOptional({
+    description: "End index value. Same unit as startIndex (meters for depth, microseconds for time)."
+  })
+  @IsOptional()
+  @IsNumber()
+  endIndex?: number;
+
+  @ApiPropertyOptional({
+    description: "Include parts overlapping the range boundary (range mode)",
+    default: false
+  })
+  @IsOptional()
+  @IsBoolean()
+  includeOverlapping?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      "Also return the channel (curve/mnemonic) metadata of the object: names, UOM, data kind, indexes, status. Requires ETP Protocol 21 on the store.",
+    default: false
+  })
+  @IsOptional()
+  @IsBoolean()
+  includeChannels?: boolean;
+}
+
+/**
+ * Reject object URIs that do not identify a single data object (e.g. an
+ * unresolved template `witsml21.WellLog({{guid}})` or `WellLog()`), so the
+ * caller gets a 400 instead of an opaque ETP error from the store.
+ */
+export function requireObjectUri(uri: string): EtpUri {
+  const parsed = new EtpUri(uri);
+  const uuid = parsed.isValid ? parsed.uuid : "";
+  if (!uuid || !new RegExp(EtpUri.uuidTokenPattern.source, "i").test(uuid)) {
+    throw new BadRequestException(
+      `uri must identify a data object with a UUID, got: ${uri}`
+    );
+  }
+  return parsed;
 }
 
 // ── Helper ───────────────────────────────────────────────────────────────────
@@ -223,6 +257,30 @@ function scopeFromString(
       return Kind.targets;
   }
 }
+
+const resourceSummarySchema = {
+  type: "object",
+  properties: {
+    uri: { type: "string" },
+    name: { type: "string" },
+    sourceCount: { type: "number" },
+    targetCount: { type: "number" },
+    lastChanged: { type: "string", format: "date-time", nullable: true },
+    storeLastWrite: { type: "string", format: "date-time", nullable: true },
+    activeStatus: { type: "string" },
+    customData: { type: "object", additionalProperties: true },
+    format: {
+      type: "string",
+      enum: ["xml", "json"],
+      description: "Only with includeContent"
+    },
+    data: {
+      nullable: true,
+      description:
+        "Full object body: XML text, or the parsed object when format is json. Only with includeContent"
+    }
+  }
+};
 
 // Per-operation server override removed - inherits the global relative-path server.
 const swaggerServers: any = undefined;
@@ -249,138 +307,33 @@ const swaggerServers: any = undefined;
 @ApiDefaultResponse(errorMessageSchema("Unknown Error", 500))
 export default class QueryController {
   /**
-   * Find data objects with full XML/JSON content using StoreQuery protocol.
+   * Discovery in one call: resource metadata, optionally with the object
+   * bodies (`includeContent`) and/or the relationship edges (`includeEdges`).
    */
-  @Post("objects/find")
+  @Post("resources/find")
   @HttpCode(200)
   @ApiOperation({
-    summary: "Find data objects with full content (ETP Discovery + Store)",
-    description: `Search for data objects and retrieve their full XML/JSON content in a single call. Combines Discovery (find URIs) with GetDataObjects (fetch bodies).
+    summary: "Find resources (metadata, optionally content and graph edges)",
+    description: `Search for resources below one or more URIs and return their metadata (URI, name, timestamps, relationship counts). Two switches extend the answer without a second round trip:
 
-**When to use**: Bulk data export, OSDU Storage ingestion, or when you need the actual XML content (not just metadata).
+- **includeContent**: also fetch every matched object's body (\`data\` + \`format\`), i.e. Discovery + GetDataObjects. Use for bulk export or OSDU Storage ingestion; prefer metadata only for large result sets.
+- **includeEdges**: also return the relationship \`links\` between the matched resources (a merged, deduplicated subgraph across all given \`uri\`s, traversed in both edge directions). Use for GraphQL-style deep search; split batches above ~100 URIs.
 
-**Performance**: Fetches full object bodies. For large result sets, consider selective GetDataObjects via the /graph/{type}/{guid} endpoints.
+**uri**: \`eml:///dataspace('path/to/ds')\` for a dataspace root, or object URI(s) to search below specific objects. A list of URIs is processed sequentially in a single ETP session; a URI that fails to traverse is skipped (best effort).
 
-**modifiedSince**: ISO timestamp filter - only returns objects written after this time. Useful for incremental sync.`,
+**scope**: traversal direction - \`targets\` follows relationships forward (parent to child), \`sources\` backwards. **depth**: 1 = direct children, 2+ = recursive, 0 = unlimited (caution).
+
+**modifiedSince**: ISO timestamp; only resources written after this time (incremental sync).
+
+**Server support**: uses ETP DiscoveryQuery (Protocol 13) when the store negotiates it and falls back to Discovery (Protocol 3) otherwise, so it works against every store.`,
     servers: swaggerServers
   })
   @ApiOkResponse({
-    description: "Matching data objects with full content (array; empty array if nothing matches)",
-    schema: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          uri: { type: "string", example: "eml:///dataspace('demo/model')/resqml20.obj_IjkGridRepresentation(0c8a1e2f-...)" },
-          name: { type: "string", example: "Grid_1" },
-          format: { type: "string", enum: ["xml", "json"], example: "xml" },
-          data: { type: "string", nullable: true, description: "Full object body as text (XML or JSON per format)" },
-          lastChanged: { type: "string", format: "date-time", nullable: true, example: "2026-06-02T12:00:00.000Z" }
-        }
-      }
-    }
-  })
-  @ApiBody({ type: FindDataObjectsDto })
-  public async findDataObjects(
-    @Body() body: FindDataObjectsDto,
-    @Req() request?: express.Request
-  ) {
-    let c;
-    try {
-      c = await createSession(
-        extractToken(request),
-        extractDataPartitionId(request)
-      );
-
-      const context: Energistics.Etp.v12.Datatypes.Object.ContextInfo = {
-        uri: body.uri,
-        depth: body.depth ?? 1,
-        dataObjectTypes: body.dataObjectTypes || [],
-        navigableEdges:
-          Energistics.Etp.v12.Datatypes.Object.RelationshipKind.Primary,
-        includeSecondaryTargets: false,
-        includeSecondarySources: false
-      };
-
-      const storeLastWriteFilter = body.modifiedSince
-        ? BigInt(new Date(body.modifiedSince).getTime() * 1000)
-        : null;
-
-      // Use Discovery + GetDataObjects for the query
-      const resources = await c.discovery.getResources(
-        context,
-        scopeFromString(body.scope),
-        false,
-        storeLastWriteFilter
-      );
-
-      if (resources.length === 0) {
-        return [];
-      }
-
-      // Batch get objects
-      const uris = resources.map(r => r.uri);
-      const objects = await c.getDataObjects(uris);
-
-      return objects
-        .filter(o => o !== null)
-        .map(o => ({
-          uri: o!.resource.uri,
-          name: o!.resource.name,
-          format: o!.format || "xml",
-          data: o!.data ? Buffer.from(o!.data).toString("utf-8") : null,
-          lastChanged: o!.resource.lastChanged
-            ? new Date(Number(o!.resource.lastChanged) / 1000).toISOString()
-            : null
-        }));
-    } catch (err) {
-      throw httpErrorFromEtpError(err);
-    } finally {
-      await c?.closeSession();
-    }
-  }
-
-  /**
-   * Batch graph search: build a merged subgraph for multiple URIs in a single call.
-   * Each URI is traversed with the given scope and depth, and results are merged
-   * into a single deduplicated graph. Essential for efficient deep search from
-   * external consumers like GraphQL resolvers.
-   */
-  @Post("graph/search")
-  @HttpCode(200)
-  @ApiOperation({
-    summary: "Batch graph search across multiple URIs (Discovery Protocol 3)",
-    description: `Build a merged, deduplicated subgraph for multiple resource URIs in a single ETP session.
-
-For each URI, traverses the relationship graph with the given scope and depth, then merges all discovered nodes and edges into a single result.
-
-**Why use this**: Without batch search, deep search across N objects requires N+ individual REST calls. This endpoint does it in one call, reusing a single ETP session.
-
-**Performance**: For very large batches (>100 URIs), split into chunks - URIs are processed sequentially within the session. Depth values > 100 may timeout depending on server configuration.
-
-**Best-effort**: If traversal fails for one URI, remaining URIs are still processed and partial results returned.`,
-    servers: swaggerServers
-  })
-  @ApiOkResponse({
-    description: "Merged graph containing all discovered resources and edges",
+    description: "Matching resources; `links` only present when includeEdges is true",
     schema: {
       type: "object",
       properties: {
-        resources: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              uri: { type: "string" },
-              name: { type: "string" },
-              sourceCount: { type: "number" },
-              targetCount: { type: "number" },
-              lastChanged: { type: "string" },
-              storeLastWrite: { type: "string" },
-              activeStatus: { type: "string" }
-            }
-          }
-        },
+        resources: { type: "array", items: resourceSummarySchema },
         links: {
           type: "array",
           items: {
@@ -395,11 +348,25 @@ For each URI, traverses the relationship graph with the given scope and depth, t
       }
     }
   })
-  @ApiBody({ type: GraphSearchDto })
-  public async graphSearch(
-    @Body() body: GraphSearchDto,
+  @ApiBody({ type: FindResourcesDto })
+  public async findResources(
+    @Body() body: FindResourcesDto,
     @Req() request?: express.Request
   ) {
+    const uris = Array.isArray(body.uri) ? body.uri : [body.uri];
+    if (uris.length === 0 || uris.some(u => typeof u !== "string" || !u)) {
+      throw new BadRequestException({
+        description: "uri must be a non-empty string or a list of non-empty strings"
+      });
+    }
+    const scope = scopeFromString(body.scope);
+    const depth = body.depth ?? 1;
+    const dataObjectTypes = body.dataObjectTypes || [];
+    const includeEdges = body.includeEdges ?? false;
+    const storeLastWriteFilter = body.modifiedSince
+      ? BigInt(new Date(body.modifiedSince).getTime() * 1000)
+      : null;
+
     let c;
     try {
       c = await createSession(
@@ -407,76 +374,236 @@ For each URI, traverses the relationship graph with the given scope and depth, t
         extractDataPartitionId(request)
       );
 
-      const scope = scopeFromString(body.scope);
-      const depth = body.depth ?? 1;
-      const dataObjectTypes = body.dataObjectTypes || [];
-      const countObjects = body.countObjects ?? false;
-
-      // Merged graph: deduplicate across all URI results
-      const allNodes = new Map<string, Resource>();
-      const allEdges: Array<{ sourceUri: string; targetUri: string; path?: string }> = [];
+      const nodes = new Map<string, Resource>();
+      const edges: Array<{ sourceUri: string; targetUri: string; path?: string }> = [];
       const seenEdges = new Set<string>();
+      const useP13 =
+        !includeEdges &&
+        c.isProtocolSupported(Energistics.Etp.v12.Datatypes.Protocol.DiscoveryQuery);
 
-      // Process all URIs in sequence within the same ETP session
-      for (const uri of body.uris) {
+      for (const uri of uris) {
         const context: Energistics.Etp.v12.Datatypes.Object.ContextInfo = {
           uri,
           depth,
           dataObjectTypes,
-          navigableEdges:
-            Energistics.Etp.v12.Datatypes.Object.RelationshipKind.Both,
+          navigableEdges: includeEdges
+            ? Energistics.Etp.v12.Datatypes.Object.RelationshipKind.Both
+            : Energistics.Etp.v12.Datatypes.Object.RelationshipKind.Primary,
           includeSecondaryTargets: body.includeSecondaryTargets ?? false,
           includeSecondarySources: body.includeSecondarySources ?? false
         };
-
         try {
-          const graph: ResourceGraph = await c.getGraph(
-            context,
-            scope,
-            countObjects,
-            dataObjectTypes
-          );
-
-          // Merge nodes
-          for (const [nodeUri, resource] of graph.entries()) {
-            if (!allNodes.has(nodeUri)) {
-              allNodes.set(nodeUri, resource);
+          if (includeEdges) {
+            const graph: ResourceGraph = await c.getGraph(
+              context,
+              scope,
+              body.countObjects ?? false,
+              dataObjectTypes
+            );
+            for (const [nodeUri, resource] of graph.entries()) {
+              if (!nodes.has(nodeUri)) {
+                nodes.set(nodeUri, resource);
+              }
             }
-          }
-
-          // Merge edges (deduplicate by source+target)
-          for (const edge of graph.edges) {
-            const edgeKey = `${edge.sourceUri}→${edge.targetUri}`;
-            if (!seenEdges.has(edgeKey)) {
-              seenEdges.add(edgeKey);
-              allEdges.push(edge);
+            for (const edge of graph.edges) {
+              const key = `${edge.sourceUri}>${edge.targetUri}`;
+              if (!seenEdges.has(key)) {
+                seenEdges.add(key);
+                edges.push(edge);
+              }
+            }
+          } else {
+            const found = useP13
+              ? await c.discoveryQuery.findResources(context, scope, storeLastWriteFilter)
+              : await c.discovery.getResources(
+                  context,
+                  scope,
+                  body.countObjects ?? false,
+                  storeLastWriteFilter
+                );
+            for (const r of found) {
+              if (!nodes.has(r.uri)) {
+                nodes.set(r.uri, r);
+              }
             }
           }
         } catch (err) {
-          logger.warn(
-            `Graph search failed for URI ${uri}: ${err}`
-          );
-          // Continue with remaining URIs - best effort
+          if (uris.length === 1) {
+            throw err;
+          }
+          logger.warn(`Resource search failed for URI ${uri}: ${err}`);
         }
       }
 
-      return {
-        resources: [...allNodes.values()].map(r => ({
-          uri: r.uri,
-          name: r.name,
-          sourceCount: r.sourceCount,
-          targetCount: r.targetCount,
-          lastChanged: toDate(r.lastChanged),
-          storeLastWrite: toDate(r.storeLastWrite),
-          activeStatus: r.activeStatus,
-          customData: toJSonCustomData(r.customData) ?? {}
-        })),
-        links: allEdges.map(e => ({
-          source: e.sourceUri,
-          target: e.targetUri,
-          path: e.path
-        }))
-      };
+      const bodies = new Map<string, { format: string; data: unknown }>();
+      if (body.includeContent && nodes.size > 0) {
+        const asJson = body.format === "json";
+        const objects = await c.getDataObjects([...nodes.keys()]);
+        for (const o of objects) {
+          if (!o) {
+            continue;
+          }
+          const xml = o.data ? Buffer.from(o.data).toString("utf-8") : null;
+          let data: unknown = xml;
+          if (asJson && xml) {
+            data = await xml2typescript(
+              xml,
+              new EtpUri(o.resource.uri).dataObjectType
+            ).catch(err => {
+              logger.warn(`xml2typescript failed for ${o.resource.uri}: ${err}`);
+              return null;
+            });
+          }
+          bodies.set(o.resource.uri, { format: asJson ? "json" : "xml", data });
+        }
+      }
+
+      const resources = [...nodes.values()].map(r => ({
+        uri: r.uri,
+        name: r.name,
+        sourceCount: r.sourceCount,
+        targetCount: r.targetCount,
+        lastChanged: toDate(r.lastChanged),
+        storeLastWrite: toDate(r.storeLastWrite),
+        activeStatus: r.activeStatus,
+        customData: toJSonCustomData(r.customData) ?? {},
+        ...(bodies.get(r.uri) ?? {})
+      }));
+
+      return includeEdges
+        ? {
+            resources,
+            links: edges.map(e => ({
+              source: e.sourceUri,
+              target: e.targetUri,
+              path: e.path
+            }))
+          }
+        : { resources };
+    } catch (err) {
+      throw httpErrorFromEtpError(err);
+    } finally {
+      await c?.closeSession();
+    }
+  }
+
+  /**
+   * Growing object access: parts metadata, or the parts inside an index
+   * range, optionally with the channel metadata.
+   */
+  @Post("growing")
+  @HttpCode(200)
+  @ApiOperation({
+    summary: "Read a growing object: parts metadata or parts by index range, optionally with channel metadata (ETP Protocols 6 and 21)",
+    description: `One call for growing objects (WellLog, MudLog, Trajectory, WellboreGeology):
+
+- **no range**: returns the parts metadata (available index ranges, part UIDs) so you can discover which depth/time intervals exist.
+- **startIndex + endIndex**: returns the parts inside that window (\`uid\` + decoded body). Depth indexes are meters, time indexes microseconds since epoch; the unit of measure is currently fixed to \`m\`. \`includeOverlapping\` also returns parts that straddle the boundaries.
+- **includeChannels**: adds the channel (curve/mnemonic) metadata: names, UOM, data kind, indexes, status (ChannelSubscribe, Protocol 21).
+
+**Typical workflow**: find the object URI via \`/query/resources/find\`, call this route without a range to see the intervals, then call it again with a range.
+
+**Server support**: requires a store that negotiates ETP Protocol 6 (and 21 for \`includeChannels\`), e.g. open-etp-server; otherwise the gateway answers 501 Not Implemented.`,
+    servers: swaggerServers
+  })
+  @ApiOkResponse({
+    description: "`metadata` without a range, `parts` with a range; `channels` only with includeChannels",
+    schema: {
+      type: "object",
+      properties: {
+        metadata: { type: "array", items: { type: "object", additionalProperties: true } },
+        parts: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              uid: { type: "string" },
+              data: { type: "string", nullable: true }
+            }
+          }
+        },
+        channels: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              channelId: { type: "string" },
+              channelName: { type: "string" },
+              uom: { type: "string" },
+              dataKind: { type: "string" },
+              channelClassUri: { type: "string" },
+              status: { type: "string" },
+              source: { type: "string" },
+              indexes: { type: "array", items: { type: "object", additionalProperties: true } }
+            }
+          }
+        }
+      }
+    }
+  })
+  @ApiBody({ type: GrowingObjectDto })
+  public async growing(
+    @Body() body: GrowingObjectDto,
+    @Req() request?: express.Request
+  ) {
+    requireObjectUri(body.uri);
+    const hasStart = body.startIndex !== undefined;
+    const hasEnd = body.endIndex !== undefined;
+    if (hasStart !== hasEnd) {
+      throw new BadRequestException({
+        description: "startIndex and endIndex must be supplied together"
+      });
+    }
+    let c;
+    try {
+      c = await createSession(
+        extractToken(request),
+        extractDataPartitionId(request)
+      );
+      requireProtocol(c, Energistics.Etp.v12.Datatypes.Protocol.GrowingObject);
+      if (body.includeChannels) {
+        requireProtocol(c, Energistics.Etp.v12.Datatypes.Protocol.ChannelSubscribe);
+      }
+
+      const out: Record<string, unknown> = {};
+      if (hasStart) {
+        const startIndex = new Energistics.Etp.v12.Datatypes.IndexValue();
+        startIndex.item = { _double: body.startIndex as number, __keyName: "_double" };
+        const endIndex = new Energistics.Etp.v12.Datatypes.IndexValue();
+        endIndex.item = { _double: body.endIndex as number, __keyName: "_double" };
+        const indexInterval: Energistics.Etp.v12.Datatypes.Object.IndexInterval = {
+          startIndex,
+          endIndex,
+          uom: "m",
+          depthDatum: ""
+        };
+        const parts = await c.growingObject.getPartsByRange(
+          body.uri,
+          indexInterval,
+          body.includeOverlapping ?? false
+        );
+        out.parts = parts.map(p => ({
+          uid: p.uid,
+          data: p.data ? Buffer.from(p.data).toString("utf-8") : null
+        }));
+      } else {
+        out.metadata = await c.growingObject.getPartsMetadata(body.uri);
+      }
+
+      if (body.includeChannels) {
+        const metadata = await c.channelSubscribe.getChannelMetadata(body.uri);
+        out.channels = metadata.map(ch => ({
+          channelId: ch.id,
+          channelName: ch.channelName,
+          uom: ch.uom,
+          dataKind: ch.dataKind,
+          channelClassUri: ch.channelClassUri,
+          status: ch.status,
+          source: ch.source,
+          indexes: ch.indexes
+        }));
+      }
+      return out;
     } catch (err) {
       throw httpErrorFromEtpError(err);
     } finally {

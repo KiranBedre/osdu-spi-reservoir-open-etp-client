@@ -1,0 +1,29 @@
+meta {
+  name: Verify Grid Children
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/resqml20.obj_IjkGridRepresentation/{{gridsGridUuid}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("IntervalStratigraphicUnits and CellFluidPhaseUnits persisted on the grid", function () {
+    const b = res.getBody();
+    const g = Array.isArray(b) ? b[0] : b;
+    expect(g.IntervalStratigraphicUnits.StratigraphicOrganization.UUID).to.equal(bru.getVar("gridsRankUuid"));
+    expect(g.CellFluidPhaseUnits.FluidOrganization.UUID).to.equal(bru.getVar("gridsOrgUuid"));
+  });
+}

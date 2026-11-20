@@ -1,0 +1,38 @@
+meta {
+  name: A1 List Arrays
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/{{dataObjectType}}/{{psr_guid}}/arrays
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Lists the data arrays referenced from the seeded PointSetRepresentation
+  (written by _Setup S5/S6). The array lives in the EPR container but is
+  discovered through the domain object that references it.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("lists the seeded points_patch0 array", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("array").that.is.not.empty;
+    const expected = "/RESQML/" + bru.getVar("psr_guid") + "/points_patch0";
+    const hit = body.find(a => a.uid && a.uid.pathInResource === expected);
+    expect(hit, "points_patch0 present").to.exist;
+    expect(hit.dimensions.map(Number)).to.deep.equal([3, 3]);
+    expect(hit.uid.uri).to.include("eml20.obj_EpcExternalPartReference(" + bru.getVar("ext_guid") + ")");
+  });
+}

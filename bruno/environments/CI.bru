@@ -1,42 +1,59 @@
 vars {
   host: {{RESERVOIR_DDMS_HOST}}
+  graphqlHost: http://localhost:8003/graphql
   access_token:
   data-partition-id: {{DATA_PARTITION_ID}}
   domain: {{ENTITLEMENTS_DOMAIN}}
-  dataspaceId: test%2Fci-bruno
-  dataspaceIdRaw: test/ci-bruno
+  seededDataspaceId: demo%2FDrogon
+  seededDataspaceIdRaw: demo/Drogon
+  testDataspaceId: test%2Fbruno
+  testDataspaceIdRaw: test/bruno
+  crudDataspaceId: test%2Fbruno-crud
+  crudDataspaceIdRaw: test/bruno-crud
+  cloneDataspaceId: test%2Fbruno-clone
+  cloneDataspaceIdRaw: test/bruno-clone
+  copyDataspaceId: test%2Fbruno-copy
+  copyDataspaceIdRaw: test/bruno-copy
+  drogonDataspaceId: test%2FDrogon
+  drogonDataspaceIdRaw: test/Drogon
+  witsmlDataspaceId: test%2Fwitsml
+  witsmlDataspaceIdRaw: test/witsml
+  prodmlDataspaceId: test%2Fprodml
+  prodmlDataspaceIdRaw: test/prodml
   dataObjectType: resqml20.obj_PointSetRepresentation
+  guid:
+  pathInResource:
   crs_guid:
   ext_guid:
   psr_guid:
   array_path_encoded:
-  guid:
-  pathInResource:
-  testDataspaceId: test%2Fci-bruno
-  testDataspaceIdRaw: test/ci-bruno
+  i32_array_path_encoded:
+  bin_array_path_encoded:
+  empty_array_path_encoded:
   transactionId:
+  drogonGridType: resqml20.obj_IjkGridRepresentation
+  drogonGridGuid:
+  drogonPropType: resqml20.obj_ContinuousProperty
+  drogonPropGuid:
+  drogonArrayPath:
+  drogonTxnId:
+  drogonNewPropGuid:
+  drogonCellCount:
+  drogonGridUri:
+  drogonRbTxnId:
+  drogonRbPropGuid:
+  witsmlWellGuid:
+  witsmlTrajGuid:
+  witsmlGrowingUri:
+  prodmlObjType: prodml23.TimeSeriesData
+  prodmlTsGuid:
+  prodmlArrayPath:
+  prodmlDtsObjType: prodml23.DtsInterpretationData
+  prodmlDtsGuid:
+  prodmlDtsArrayPath:
   defaultLegalTag: {{DATA_PARTITION_ID}}-RDDMS-Legal-Tag
   defaultOwners: data.default.owners@{{DATA_PARTITION_ID}}.{{ENTITLEMENTS_DOMAIN}}
   defaultViewers: data.default.viewers@{{DATA_PARTITION_ID}}.{{ENTITLEMENTS_DOMAIN}}
-  drogonDataspaceId: test%2Fci-bruno
-  drogonDataspaceIdRaw: test/ci-bruno
-  drogonThrowawayId: test%2Fci-drogon-lifecycle
-  drogonThrowawayIdRaw: test/ci-drogon-lifecycle
-  drogonSeedId: test%2Fci-drogon-seed
-  drogonSeedIdRaw: test/ci-drogon-seed
-  drogonSeedGridType:
-  drogonSeedGridGuid:
-  drogonSeedStored:
-  drogonGridType:
-  drogonGridGuid:
-  drogonPropType:
-  drogonPropGuid:
-  drogonArrayPath:
-  drogonObjGuid:
-  drogonRbObjGuid:
-  drogonWriteTxnId:
-  drogonRbTxnId:
-  drogonDelTxnId:
 }
 vars:secret [
   token_url:,

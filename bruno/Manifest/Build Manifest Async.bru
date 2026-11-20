@@ -1,0 +1,52 @@
+meta {
+  name: Build Manifest Async
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/manifests/build
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "uris": ["eml:///dataspace('{{seededDataspaceIdRaw}}')"],
+    "typePatterns": ["*"],
+    "createMissingReferences": true,
+    "tags": {},
+    "async": true
+  }
+}
+
+script:post-response {
+  const b = res.getBody();
+  if (b && b.jobId) {
+    bru.setVar("manifestJobId", b.jobId);
+  }
+}
+
+docs {
+  Route coverage: POST /manifests/build with body `async: true` — returns
+  202 Accepted immediately with `{ jobId, status, statusUrl }`. The job id is
+  stored in `manifestJobId` and polled by "Poll Manifest Job".
+}
+
+tests {
+  test("status is 202 Accepted", function () {
+    expect(res.getStatus()).to.equal(202);
+  });
+
+  test("returns a job handle", function () {
+    const b = res.getBody();
+    expect(b.jobId).to.be.a("string").with.length.greaterThan(0);
+    expect(b.status).to.be.a("string");
+    expect(b.statusUrl).to.be.a("string").that.includes("manifests/jobs/");
+  });
+}

@@ -1,0 +1,144 @@
+meta {
+  name: D31 Drogon Add HDF5 Props To IJK Grid
+  type: http
+  seq: 31
+}
+
+put {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources?transactionId={{drogonPropsTxnId}}
+  body: json
+  auth: none
+}
+
+params:query {
+  transactionId: {{drogonPropsTxnId}}
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:pre-request {
+  function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0;
+      var v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  // These two guids drive the whole array-compute series (D41-D79).
+  bru.setVar("drogonStatGuid", uuid());
+  bru.setVar("drogonStatGuid2", uuid());
+  bru.setVar("drogonStatArray", encodeURIComponent("/RESQML/" + bru.getVar("drogonStatGuid") + "/values_patch0"));
+}
+
+body:json {
+  [
+    {
+      "$type": "resqml20.obj_ContinuousProperty",
+      "SchemaVersion": "2.0",
+      "Uuid": "{{drogonStatGuid}}",
+      "Citation": {
+        "Title": "Bruno HDF5 Porosity",
+        "Originator": "BrunoCLI",
+        "Creation": "2026-01-01T00:00:00Z",
+        "Format": "[ADME:BrunoCLI:1.0]"
+      },
+      "Count": 1,
+      "IndexableElement": "cells",
+      "UOM": "m3/m3",
+      "SupportingRepresentation": {
+        "$type": "eml20.DataObjectReference",
+        "ContentType": "application/x-resqml+xml;version=2.0;type=obj_IjkGridRepresentation",
+        "Title": "Drogon Grid",
+        "UUID": "{{drogonGridGuid}}"
+      },
+      "PropertyKind": {
+        "$type": "resqml20.StandardPropertyKind",
+        "Kind": "porosity"
+      },
+      "PatchOfValues": [
+        {
+          "$type": "resqml20.PatchOfValues",
+          "RepresentationPatchIndex": 0,
+          "Values": {
+            "$type": "resqml20.DoubleHdf5Array",
+            "Values": {
+              "$type": "eml20.Hdf5Dataset",
+              "PathInHdfFile": "/RESQML/{{drogonStatGuid}}/values_patch0",
+              "HdfProxy": {
+                "$type": "eml20.DataObjectReference",
+                "ContentType": "application/x-eml+xml;version=2.0;type=obj_EpcExternalPartReference",
+                "Title": "Drogon HDF Proxy",
+                "UUID": "{{drogonHdfProxyGuid}}"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "$type": "resqml20.obj_DiscreteProperty",
+      "SchemaVersion": "2.0",
+      "Uuid": "{{drogonStatGuid2}}",
+      "Citation": {
+        "Title": "Bruno HDF5 Zone Index",
+        "Originator": "BrunoCLI",
+        "Creation": "2026-01-01T00:00:00Z",
+        "Format": "[ADME:BrunoCLI:1.0]"
+      },
+      "Count": 1,
+      "IndexableElement": "cells",
+      "MinimumValue": 1,
+      "MaximumValue": 2,
+      "SupportingRepresentation": {
+        "$type": "eml20.DataObjectReference",
+        "ContentType": "application/x-resqml+xml;version=2.0;type=obj_IjkGridRepresentation",
+        "Title": "Drogon Grid",
+        "UUID": "{{drogonGridGuid}}"
+      },
+      "PropertyKind": {
+        "$type": "resqml20.StandardPropertyKind",
+        "Kind": "index"
+      },
+      "PatchOfValues": [
+        {
+          "$type": "resqml20.PatchOfValues",
+          "RepresentationPatchIndex": 0,
+          "Values": {
+            "$type": "resqml20.IntegerHdf5Array",
+            "NullValue": -1,
+            "Values": {
+              "$type": "eml20.Hdf5Dataset",
+              "PathInHdfFile": "/RESQML/{{drogonStatGuid2}}/values_patch0",
+              "HdfProxy": {
+                "$type": "eml20.DataObjectReference",
+                "ContentType": "application/x-eml+xml;version=2.0;type=obj_EpcExternalPartReference",
+                "Title": "Drogon HDF Proxy",
+                "UUID": "{{drogonHdfProxyGuid}}"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+
+docs {
+  Geometry/property coverage (2/10). Adds two HDF5-backed cell properties on the
+  EXISTING Drogon IjkGridRepresentation (2 x 2 x 2 cells in the small fixture),
+  both pointing at the fixture's own HDF proxy: a continuous "porosity"
+  (DoubleHdf5Array) and an integer-valued discrete "zone index"
+  (IntegerHdf5Array). Their value arrays are written in D32 inside the same
+  transaction, with known contents so the array-compute series (D41-D79) can
+  assert exact statistics instead of only self-consistency.
+}
+
+tests {
+  test("status is 200 or 201 (grid properties written)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+    expect(res.getBody()).to.equal(true);
+  });
+}

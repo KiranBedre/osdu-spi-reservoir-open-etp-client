@@ -1,0 +1,50 @@
+meta {
+  name: D53 Drogon Array Reduce Sum
+  type: http
+  seq: 53
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/arrays/compute
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "op": "reduce",
+    "target": {
+      "dataObjectType": "{{drogonPropType}}",
+      "guid": "{{drogonStatGuid}}",
+      "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0"
+    },
+    "reducer": "sum"
+  }
+}
+
+docs {
+  Array-compute coverage (13/31). Reduce op=sum: the K-collapsed column sums. Conservation
+      check: sum over the whole [Nj, Ni] map must equal the whole-array sum from
+      D42 (relative 1e-9) - the reduce path and the stats path are independent
+      folds over the same cells.
+}
+
+tests {
+  test("status is 200", function () {
+        expect(res.getStatus()).to.equal(200);
+      });
+
+      test("sum of column sums == whole-array sum", function () {
+        const b = res.getBody();
+        expect(b.op).to.equal("sum");
+        expect(b.map).to.have.lengthOf(b.nj * b.ni);
+        const total = b.map.reduce(function (a, c) { return a + c; }, 0);
+        const ref = Number(bru.getVar("drogonStatSum"));
+        expect(Math.abs(total - ref)).to.be.at.most(1e-9 * Math.max(1, Math.abs(ref)));
+      });
+}

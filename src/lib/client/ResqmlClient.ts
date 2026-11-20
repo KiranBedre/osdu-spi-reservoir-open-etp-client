@@ -14,7 +14,6 @@
 // limitations under the License.
 // ============================================================================
 
-import { monitorEventLoopDelay } from "perf_hooks";
 import { v5 as uuidNameSpace, v4 as uuidRandom } from "uuid";
 
 import * as websocket from "websocket";
@@ -53,6 +52,11 @@ import { AvroString, Energistics, Integer64 } from "../common/Etp12";
 import ArrayCustomer from "../protocols/ArrayCustomer";
 import type {
   AnyTypedArray,
+  IArrayStatsSummary,
+  IArrayReduceResult,
+  IArrayWhereResult,
+  IArrayMultiWhereResult,
+  IArrayArithResult,
   IHDF5ArrayInput
 } from "../protocols/ArrayCustomer";
 
@@ -63,11 +67,19 @@ import { StoreNotificationCustomer } from "../protocols/StoreNotificationCustome
 import { SupportedTypesCustomer } from "../protocols/SupportedTypesCustomer";
 import { TransactionCustomer } from "../protocols/TransactionCustomer";
 import { StoreQueryCustomer } from "../protocols/StoreQueryCustomer";
+import { DiscoveryQueryCustomer } from "../protocols/DiscoveryQueryCustomer";
+import { GrowingObjectCustomer } from "../protocols/GrowingObjectCustomer";
+import { ChannelSubscribeCustomer } from "../protocols/ChannelSubscribeCustomer";
 
 import { ResourceGraph, Timer } from "../common/ResponseHandlers";
 import { SimpleJson, simpleJson, xml2typescript } from "../mlTypes/XmlJsonUtil";
 import { createODataQueries, queryFilter } from "../oDataParser/oDataUtils";
-import { retry, retryOnEtpErrors } from "../common/Util";
+import {
+  retry,
+  retryOnEtpErrors,
+  mapLimit,
+  concurrency
+} from "../common/Util";
 import { DataspaceOSDUCustomer } from "../protocols/DataspaceOSDUCustomer";
 import * as Eml20 from "../mlTypes/xmlns/www.energistics.org/energyml/resqmlv201/commonv2";
 import * as Eml23 from "../mlTypes/xmlns/www.energistics.org/energyml/resqmlv22/commonv2";
@@ -111,6 +123,16 @@ export { EtpQualifiedType } from "../common/EtpQualifiedType";
 export { EtpUri } from "../common/EtpUri";
 export type { ArrayByteUuid } from "../common/EtpUri";
 export { AnyTypedArray, IHDF5ArrayInput } from "../protocols/ArrayCustomer";
+export { parseArrayStats } from "../protocols/ArrayCustomer";
+export type { IArrayStatsSummary } from "../protocols/ArrayCustomer";
+export { parseArrayReduce, parseArrayWhere } from "../protocols/ArrayCustomer";
+export { parseArrayMultiWhere, parseArrayArith } from "../protocols/ArrayCustomer";
+export type {
+  IArrayReduceResult,
+  IArrayWhereResult,
+  IArrayMultiWhereResult,
+  IArrayArithResult
+} from "../protocols/ArrayCustomer";
 
 export * as ODataUtils from "../oDataParser/oDataUtils";
 
@@ -182,6 +204,42 @@ function formattedTypedArray<T extends NumberArray>(
   return values;
 }
 
+/**
+ * Values carried by the active branch of an ETP `AnyArray` union.
+ *
+ * Every `_ArrayOfX` branch is an object `{ values: X[] }`, but the `_bytes`
+ * branch (the transport the store uses for Int8 / UInt8 / boolean arrays) is a
+ * raw `Buffer`. Reading `.values` on that Buffer yields the
+ * `Buffer.prototype.values` iterator *function* (truthy, so it slips through
+ * `if (!values)` guards and ends up stringified as
+ * `"function values() { [native code] }"`). This is the single place that
+ * knows the union layout; the bytes come back as an `Int8Array` view, matching
+ * how the EPC download packs them.
+ *
+ * @param {Energistics.Etp.v12.Datatypes.AnyArray} array ETP array
+ * @returns {(ArrayLike<unknown> | undefined)} the branch values, or undefined when the union is empty
+ */
+export function anyArrayValues(
+  array: Energistics.Etp.v12.Datatypes.AnyArray
+): ArrayLike<unknown> | undefined {
+  const item = array.item as Record<string, unknown> & { __keyName?: string };
+  const key = item.__keyName;
+  if (!key) {
+    return undefined;
+  }
+  if (key === "_bytes") {
+    const raw = item._bytes;
+    if (raw === undefined || raw === null) {
+      return undefined;
+    }
+    if (ArrayBuffer.isView(raw)) {
+      return new Int8Array(raw.buffer, raw.byteOffset, raw.byteLength);
+    }
+    return Int8Array.from(raw as number[]);
+  }
+  return (item[key] as { values?: ArrayLike<unknown> } | undefined)?.values;
+}
+
 export class AuthorizationError extends EtpError {
   challenges?: string[];
   constructor(message: string, challenges?: string[]) {
@@ -225,6 +283,14 @@ export class ResqmlClient {
     this.client
   );
   readonly storeQuery: StoreQueryCustomer = new StoreQueryCustomer(this.client);
+  readonly discoveryQuery: DiscoveryQueryCustomer = new DiscoveryQueryCustomer(
+    this.client
+  );
+  readonly growingObject: GrowingObjectCustomer = new GrowingObjectCustomer(
+    this.client
+  );
+  readonly channelSubscribe: ChannelSubscribeCustomer =
+    new ChannelSubscribeCustomer(this.client);
   private connected = false;
 
   private readonly overhead = 1024; // Represents the overhead to add on top of array size
@@ -279,6 +345,18 @@ export class ResqmlClient {
     this.client.registerHandler(
       Energistics.Etp.v12.Datatypes.Protocol.StoreQuery,
       this.storeQuery
+    );
+    this.client.registerHandler(
+      Energistics.Etp.v12.Datatypes.Protocol.DiscoveryQuery,
+      this.discoveryQuery
+    );
+    this.client.registerHandler(
+      Energistics.Etp.v12.Datatypes.Protocol.GrowingObject,
+      this.growingObject
+    );
+    this.client.registerHandler(
+      Energistics.Etp.v12.Datatypes.Protocol.ChannelSubscribe,
+      this.channelSubscribe
     );
     if (opt) {
       this.options = opt;
@@ -502,97 +580,25 @@ export class ResqmlClient {
   public async closeSession(disconnectionWait = 5000): Promise<void> {
     if (this.client.isInSession()) {
       return new Promise((resolve, reject) => {
-        const closeOperationId = uuidRandom();
-        const startedAt = Date.now();
-        const eventLoopDelay = monitorEventLoopDelay({ resolution: 20 });
-        const initialState = this.client.getConnectionState();
-        let settled = false;
-
-        const state = () => this.client.getConnectionState();
-        const eventLoopDelayMs = () => {
-          const delay = eventLoopDelay.max / 1_000_000;
-          return Number.isFinite(delay) ? Math.round(delay * 100) / 100 : null;
-        };
-        const cleanup = () => {
+        const timer = new Timer(() => reject("timeout"), disconnectionWait);
+        this.client.on("disconnect", () => {
           timer.cancel(false);
-          eventLoopDelay.disable();
-          this.client.off("disconnect", onDisconnect);
-          this.client.off("exception", onException);
-          this.client.off("error", onError);
-        };
-        const finish = (
-          outcome: "disconnect" | "exception" | "error" | "timeout",
-          error?: Error
-        ) => {
-          if (settled) {
-            return;
+          resolve();
+        });
+        this.client.on(
+          "exception",
+          (_, m: Energistics.Etp.v12.Protocol.Core.ProtocolException) => {
+            timer.cancel(false);
+            const err = errorFromProtocolException(m);
+            err.message = `Cannot close session: ${err.message}`;
+            reject(err);
           }
-          settled = true;
-          cleanup();
-          const diagnostic = JSON.stringify({
-            event: "etpCloseSession",
-            closeOperationId,
-            outcome,
-            disconnectionWaitMs: disconnectionWait,
-            elapsedMs: Date.now() - startedAt,
-            eventLoopDelayMaxMs: eventLoopDelayMs(),
-            initialReadyState: initialState.readyState,
-            initialSessionActive: initialState.sessionActive,
-            ...state()
-          });
-          if (error) {
-            this.logger.error(diagnostic);
-            reject(error);
-          } else {
-            this.logger.info(diagnostic);
-            resolve();
-          }
-        };
-        const onDisconnect = () => finish("disconnect");
-        const onException = (
-          _: unknown,
-          message: Energistics.Etp.v12.Protocol.Core.ProtocolException
-        ) => {
-          const error = errorFromProtocolException(message);
-          error.message = `Cannot close session: ${error.message}`;
-          finish("exception", error);
-        };
-        const onError = () =>
-          finish("error", new Error("Cannot close session"));
-
-        const timer = new Timer(
-          () =>
-            finish(
-              "timeout",
-              new EtpError(
-                `Timed out waiting ${disconnectionWait}ms for ETP session disconnect`,
-                ErrorCode.ETIMED_OUT
-              )
-            ),
-          disconnectionWait
         );
-        eventLoopDelay.enable();
-        this.client.on("disconnect", onDisconnect);
-        this.client.on("exception", onException);
-        this.client.on("error", onError);
-        this.logger.debug(
-          JSON.stringify({
-            event: "etpCloseSession",
-            closeOperationId,
-            outcome: "started",
-            disconnectionWaitMs: disconnectionWait,
-            ...state()
-          })
-        );
-        try {
-          this.client.closeSession();
-        } catch (err) {
-          const error =
-            err instanceof Error
-              ? err
-              : new Error(`Cannot close session: ${String(err)}`);
-          finish("error", error);
-        }
+        this.client.on("error", () => {
+          timer.cancel(false);
+          reject("Cannot close session");
+        });
+        this.client.closeSession();
       });
     } else {
       return Promise.resolve();
@@ -776,15 +782,22 @@ export class ResqmlClient {
    * Send xml objects to server
    *
    * @param {Array<DataObject>} objects
+   * @param {{ throwOnError?: boolean }} [options] rethrow the store error instead of returning false
    * @returns {Promise<boolean>} Put success
    * @memberof ResqmlClient
    */
-  public async putDataObjects(objects: DataObject[]): Promise<boolean> {
+  public async putDataObjects(
+    objects: DataObject[],
+    options?: { throwOnError?: boolean }
+  ): Promise<boolean> {
     return this.store
       .put(objects)
       .then(this.checkErrors.bind(this))
       .catch(reason => {
         this.logger.error(reason);
+        if (options?.throwOnError) {
+          throw reason;
+        }
         return false;
       });
   }
@@ -1231,11 +1244,20 @@ export class ResqmlClient {
     });
 
     // 4. Build the rewritten object bodies with their new identities.
+    //    GetResources may list entries whose body can no longer be fetched
+    //    (e.g. stale listing after a delete in the source). Those cannot be
+    //    rewritten and must not be deleted either, or the whole transaction
+    //    fails with "Object not Found".
     const newObjects: DataObject[] = [];
-    for (const dob of rawObjects) {
+    const fetchedOldUris: URI[] = [];
+    rawObjects.forEach((dob, i) => {
       if (!dob) {
-        continue;
+        this.logger.warn(
+          `Reidentify: resource ${oldUris[i]} listed but not fetchable, skipping`
+        );
+        return;
       }
+      fetchedOldUris.push(oldUris[i]);
       const newXml = EtpUri.remapUuids(byteToString(dob.data), uuidMap);
       const newUri = EtpUri.remapUuids(dob.resource.uri, uuidMap);
       newObjects.push({
@@ -1244,6 +1266,9 @@ export class ResqmlClient {
         format: dob.format || "xml",
         blobId: null
       });
+    });
+    if (newObjects.length === 0) {
+      return true;
     }
 
     // 5. Apply everything atomically.
@@ -1261,16 +1286,24 @@ export class ResqmlClient {
         );
       }
 
-      for (const array of oldArrays.values()) {
-        await this.reidentifyDataArray(
-          array.uid,
-          uuidMap,
-          originDataspace,
-          targetDataspace
-        );
-      }
+      // Re-send every array under its new identity with bounded concurrency
+      // (`RDMS_CONCURRENCY_FETCH`). mapLimit preserves fail-fast semantics: the
+      // first rejection aborts the batch so the surrounding transaction rolls
+      // back, exactly as the previous serial loop did.
+      await mapLimit([...oldArrays.values()], concurrency.fetch, array =>
+        this.reidentifyDataArray(array.uid, uuidMap, originDataspace, targetDataspace)
+      );
 
-      await this.deleteObjects(oldUris).then(this.checkErrors.bind(this));
+      await this.deleteObjects(
+        Array.from(
+          new Set(
+            fetchedOldUris.map(u => {
+              const q = u.indexOf("?");
+              return q === -1 ? u : u.slice(0, q);
+            })
+          )
+        )
+      ).then(this.checkErrors.bind(this));
       await this.commitTransaction(transaction);
       return true;
     } catch (err) {
@@ -1446,15 +1479,22 @@ export class ResqmlClient {
    * Lock dataspaces as read only
    *
    * @param dataspaces List of dataspaces URI to lock
+   * @param {{ throwOnError?: boolean }} [options] rethrow the store error (e.g. "already locked") instead of returning false
    * @returns {Promise<boolean>} Success of locking
    */
-  public async lockDataspaces(dataspaces: URI[]): Promise<boolean> {
+  public async lockDataspaces(
+    dataspaces: URI[],
+    options?: { throwOnError?: boolean }
+  ): Promise<boolean> {
     return this.client.dataSpaceOSDUSupported && dataspaces.length > 0
       ? this.dataspaceOSDU
         .lockDataspaces(dataspaces)
         .then(this.checkErrors.bind(this))
         .catch(reason => {
           this.logger.error(reason);
+          if (options?.throwOnError) {
+            throw reason;
+          }
           return false;
         })
       : false;
@@ -1464,15 +1504,22 @@ export class ResqmlClient {
    * Unlock dataspaces as read write
    *
    * @param dataspaces List of dataspaces URI to unlock
+   * @param {{ throwOnError?: boolean }} [options] rethrow the store error (e.g. "already unlocked") instead of returning false
    * @returns {Promise<boolean>} Success of unlocking
    */
-  public async unlockDataspaces(dataspaces: URI[]): Promise<boolean> {
+  public async unlockDataspaces(
+    dataspaces: URI[],
+    options?: { throwOnError?: boolean }
+  ): Promise<boolean> {
     return this.client.dataSpaceOSDUSupported && dataspaces.length > 0
       ? this.dataspaceOSDU
         .lockDataspaces(dataspaces, false)
         .then(this.checkErrors.bind(this))
         .catch(reason => {
           this.logger.error(reason);
+          if (options?.throwOnError) {
+            throw reason;
+          }
           return false;
         })
       : false;
@@ -2117,11 +2164,19 @@ export class ResqmlClient {
   private flattenSubarrayValues(
     subarrays: Energistics.Etp.v12.Datatypes.AnyArray[],
     keyName: string | undefined
-  ): any[] {
+  ): any[] | Buffer {
+    if (keyName === "_bytes") {
+      return Buffer.concat(
+        subarrays
+          .map(anyArrayValues)
+          .filter((v): v is Int8Array => v !== undefined)
+          .map(v => Buffer.from(v.buffer, v.byteOffset, v.byteLength))
+      );
+    }
     const chunks: any[][] = [];
     let total = 0;
     for (const subarray of subarrays) {
-      const v = (subarray.item as any)[keyName as any]?.values;
+      const v = anyArrayValues(subarray) as any[] | undefined;
       if (v) {
         chunks.push(v);
         total += v.length;
@@ -2196,8 +2251,10 @@ export class ResqmlClient {
         // amounts of memory for large arrays.
         item: Object.assign({}, s.item)
       };
-      if (nData.item.__keyName && nData.item.__keyName !== "_bytes") {
-        nData.item[nData.item.__keyName] = { values };
+      if (nData.item.__keyName === "_bytes") {
+        nData.item._bytes = values as Buffer;
+      } else if (nData.item.__keyName) {
+        nData.item[nData.item.__keyName] = { values: values as any[] };
       }
       return {
         data: { data: nData, dimensions: desc.dimensions.map(BigInt) },
@@ -2268,8 +2325,10 @@ export class ResqmlClient {
         // amounts of memory for large arrays.
         item: Object.assign({}, s.item)
       };
-      if (nData.item.__keyName && nData.item.__keyName !== "_bytes") {
-        nData.item[nData.item.__keyName] = { values };
+      if (nData.item.__keyName === "_bytes") {
+        nData.item._bytes = values as Buffer;
+      } else if (nData.item.__keyName) {
+        nData.item[nData.item.__keyName] = { values: values as any[] };
       }
       return {
         data: { data: nData, dimensions: desc.dimensions.map(BigInt) },
@@ -2337,6 +2396,200 @@ export class ResqmlClient {
           desc.length !== 1 || !desc[0] || !desc[0].dimensions ? null : desc[0]
         )
     );
+  }
+
+  /**
+   * Ask the store to compute a fixed-size statistical summary of an array
+   * (count, null-count, min/max/mean/stddev/sum) without transferring the
+   * array bytes. Returns null when the store does not support the STATS
+   * extension, so callers can fall back to a client-side reduction.
+   *
+   * @param {URI} uri object owning the array
+   * @param {string} pathInResource path of the array within the object
+   * @param {{ lo: number; hi: number }} [range] optional inclusive predicate
+   *   whose matching count is returned as `inRangeCount` in the same pass
+   * @param {number} [histogramBins] optional number of fixed bins over the
+   *   `[lo, hi]` range; when supplied (and > 0, with a range) the summary also
+   *   carries `histogram`/`histUnderflow`/`histOverflow` and `p10`/`p50`/`p90`
+   * @returns {Promise<IArrayStatsSummary | null>}
+   * @memberof ResqmlClient
+   */
+  public async getDataArrayStats(
+    uri: URI,
+    pathInResource: string,
+    range?: { lo: number; hi: number },
+    histogramBins?: number
+  ): Promise<IArrayStatsSummary | null> {
+    return this.getArrayId(uri, pathInResource).then(id =>
+      this.dataArray.stats(id, range, histogramBins)
+    );
+  }
+
+  /**
+   * Ask the store to collapse a 3-D property `[Nk, Nj, Ni]` over the K axis into
+   * a 2-D `[Nj, Ni]` column map (net-pay / targeting maps) without transferring
+   * the array bytes. Returns null when the store does not support the REDUCE
+   * extension, so callers can fall back to a client-side reduction.
+   *
+   * @param {URI} uri object owning the array
+   * @param {string} pathInResource path of the array within the object
+   * @param {"sum"|"mean"|"min"|"max"|"count"|"net"} op reduction operator
+   * @param {object} [opts] optional K-zone `[k0, k1)`, `[lo, hi]` predicate
+   *   (count/net), and per-cell thickness `cellDz` (net-thickness only)
+   * @returns {Promise<IArrayReduceResult | null>}
+   * @memberof ResqmlClient
+   */
+  public async getDataArrayReduce(
+    uri: URI,
+    pathInResource: string,
+    op: "sum" | "mean" | "min" | "max" | "count" | "net",
+    opts?: {
+      kRange?: { k0: number; k1: number };
+      range?: { lo: number; hi: number };
+      cellDz?: number;
+    }
+  ): Promise<IArrayReduceResult | null> {
+    return this.getArrayId(uri, pathInResource).then(id =>
+      this.dataArray.reduce(id, op, opts)
+    );
+  }
+
+  /**
+   * Ask the store to evaluate a `[lo, hi]` predicate over one property and
+   * return the count of matching cells, their inclusive ijk bounding box and
+   * their ijk centroid (aim point) without transferring the array bytes.
+   * Returns null when the store does not support the WHERE extension.
+   *
+   * @param {URI} uri object owning the array
+   * @param {string} pathInResource path of the array within the object
+   * @param {{ lo: number; hi: number }} range inclusive predicate
+   * @param {Array<{ uri: URI; pathInResource: string; range: { lo: number; hi: number } }>} [andAlso]
+   *   optional extra predicates; when supplied (and non-empty) the call ANDs every
+   *   predicate over the shared grid and resolves to an {@link IArrayMultiWhereResult}
+   *   instead (a convenience over {@link getDataArrayWhereMulti}).
+   * @returns {Promise<IArrayWhereResult | null>}
+   * @memberof ResqmlClient
+   */
+  public async getDataArrayWhere(
+    uri: URI,
+    pathInResource: string,
+    range: { lo: number; hi: number }
+  ): Promise<IArrayWhereResult | null>;
+  public async getDataArrayWhere(
+    uri: URI,
+    pathInResource: string,
+    range: { lo: number; hi: number },
+    andAlso: {
+      uri: URI;
+      pathInResource: string;
+      range: { lo: number; hi: number };
+    }[]
+  ): Promise<IArrayMultiWhereResult | null>;
+  public async getDataArrayWhere(
+    uri: URI,
+    pathInResource: string,
+    range: { lo: number; hi: number },
+    andAlso?: {
+      uri: URI;
+      pathInResource: string;
+      range: { lo: number; hi: number };
+    }[]
+  ): Promise<IArrayWhereResult | IArrayMultiWhereResult | null> {
+    if (andAlso && andAlso.length > 0) {
+      return this.getDataArrayWhereMulti([
+        { uri, pathInResource, range },
+        ...andAlso
+      ]);
+    }
+    return this.getArrayId(uri, pathInResource).then(id =>
+      this.dataArray.where(id, range)
+    );
+  }
+
+  /**
+   * Ask the store to AND several `[lo, hi]` predicates over several properties of
+   * the same grid and return the count of cells satisfying EVERY predicate,
+   * their inclusive ijk bounding box and their ijk centroid (aim point) without
+   * transferring any array bytes. Returns null when the store does not support
+   * the WHEREN extension.
+   *
+   * All referenced arrays must share the same `[Nk, Nj, Ni]` shape.
+   *
+   * @param {Array<{ uri: URI; pathInResource: string; range: { lo: number; hi: number } }>} predicates
+   *   one entry per property to AND together
+   * @returns {Promise<IArrayMultiWhereResult | null>}
+   * @memberof ResqmlClient
+   */
+  public async getDataArrayWhereMulti(
+    predicates: {
+      uri: URI;
+      pathInResource: string;
+      range: { lo: number; hi: number };
+    }[]
+  ): Promise<IArrayMultiWhereResult | null> {
+    if (predicates.length === 0) {
+      return null;
+    }
+    const resolved = await Promise.all(
+      predicates.map(p =>
+        this.getArrayId(p.uri, p.pathInResource).then(id => ({
+          dataArrayId: id,
+          range: p.range
+        }))
+      )
+    );
+    return this.dataArray.whereMulti(resolved);
+  }
+
+  /**
+   * Ask the store to evaluate array arithmetic **inside the store** and upsert
+   * the promoted-double result into the pre-declared target array `C`, without
+   * transferring any operand or result bytes. Three forms, selected by `kind`:
+   *   - binary `C = op(A, B)` — pass `opts.operandB`;
+   *   - scalar `C = op(A, k)` — pass `opts.scalar`, `kind: "scalar"`;
+   *   - unary  `C = op(A)`    — pass `kind: "unary"` (`affine` uses `scalar`/`scalar2`).
+   * The target `C` array must already exist (be pre-declared) and be writable.
+   * Returns null when the store does not support the ARITH extension; a failed
+   * operation (unknown op, shape mismatch, missing/un-writable target) is
+   * surfaced as a thrown ETP error.
+   *
+   * @param {URI} result object owning the pre-declared target array `C`
+   * @param {string} resultPathInResource path of the target array within `result`
+   * @param {string} op operator token (`add`/`sub`/.../`sqrt`/`affine`)
+   * @param {URI} operandA object owning operand `A`
+   * @param {string} operandAPathInResource path of operand `A`
+   * @param {object} [opts] `operandB`/`operandBPathInResource` (binary),
+   *   `scalar`/`scalar2` (scalar/affine) and the `kind` discriminator
+   * @returns {Promise<IArrayArithResult | null>}
+   * @memberof ResqmlClient
+   */
+  public async getDataArrayArith(
+    result: URI,
+    resultPathInResource: string,
+    op: string,
+    operandA: URI,
+    operandAPathInResource: string,
+    opts?: {
+      operandB?: URI;
+      operandBPathInResource?: string;
+      scalar?: number;
+      scalar2?: number;
+      kind?: "binary" | "scalar" | "unary";
+    }
+  ): Promise<IArrayArithResult | null> {
+    const [cId, aId, bId] = await Promise.all([
+      this.getArrayId(result, resultPathInResource),
+      this.getArrayId(operandA, operandAPathInResource),
+      opts?.operandB !== undefined && opts.operandBPathInResource !== undefined
+        ? this.getArrayId(opts.operandB, opts.operandBPathInResource)
+        : Promise.resolve(undefined)
+    ]);
+    return this.dataArray.arith(cId, op, aId, {
+      operandB: bId,
+      scalar: opts?.scalar,
+      scalar2: opts?.scalar2,
+      kind: opts?.kind
+    });
   }
 
   /**
@@ -2558,6 +2811,43 @@ export class ResqmlClient {
       );
     }
     return Promise.all(promises).then(b => b.reduce((p, c) => p && c, true));
+  }
+
+  /**
+   * Transfer many data arrays to the server with bounded concurrency.
+   *
+   * Single, generic choke point for the (previously duplicated) per-route
+   * serial `for … await putDataArray` loops — grid 2D/3D properties, well
+   * logs, WITSML/ProdML channels, tables, seismic and the generic array-write
+   * routes all funnel through here, so every array-write path gets the same
+   * `RDMS_CONCURRENCY_FETCH`-tunable fan-out and socket backpressure for free.
+   * Fail-fast: the first rejection aborts the batch (so a surrounding
+   * transaction can roll back), matching the old serial semantics.
+   *
+   * @param arrays array identity, shape and content for each array to write
+   * @param {number} [limit=concurrency.fetch] max concurrent transfers
+   * @returns {Promise<boolean[]>} per-array success flags, in input order
+   * @memberof ResqmlClient
+   */
+  public async putDataArrays(
+    arrays: ReadonlyArray<{
+      uid: IArrayId;
+      dimensions: number[];
+      data: AnyTypedArray;
+      preferredSubArrayDimensions?: number[];
+      customData?: Map<string, DataValue>;
+    }>,
+    limit: number = concurrency.fetch
+  ): Promise<boolean[]> {
+    return mapLimit(arrays, limit, a =>
+      this.putDataArray(
+        a.uid,
+        a.dimensions,
+        a.data,
+        a.preferredSubArrayDimensions ?? [],
+        a.customData ?? new Map()
+      )
+    );
   }
 
   /**
@@ -3192,10 +3482,27 @@ export class ResqmlClient {
         }
       });
     } else if (obj.$type && obj.$type === "eml23.ExternalDataArrayPart") {
-      dataArrays.set(uri + obj.PathInExternalFile, {
+      // EML 2.3 names the array container by URI: when the part URI carries a
+      // valid data-object identity (e.g. eml:///eml23.EpcExternalPartReference(uuid))
+      // the store keys the array on THAT object, in the owner's dataspace. A
+      // bare file name (arrays.h5) means the owner itself is the container.
+      let containerUri: URI = uri;
+      if (typeof obj.URI === "string" && obj.URI.startsWith("eml:///")) {
+        const partUri = new EtpUri(obj.URI);
+        if (partUri.isValid && partUri.uuid && partUri.objectType) {
+          containerUri = EtpUri.createObjectUri(
+            etpUri.dataSpace,
+            partUri.domainFamily,
+            partUri.domainVersion,
+            partUri.objectType,
+            partUri.uuid
+          ).uriPath;
+        }
+      }
+      dataArrays.set(containerUri + obj.PathInExternalFile, {
         uid: {
           pathInResource: obj.PathInExternalFile,
-          uri
+          uri: containerUri
         }
       });
     } else {
@@ -3404,7 +3711,7 @@ export class ResqmlClient {
         await this.putDataObjects(copies);
       }
     } catch (e) {
-      this.rollbackTransaction(transactionId);
+      await this.rollbackTransaction(transactionId);
       return false;
     }
     return this.commitTransaction(transactionId);
@@ -3466,11 +3773,22 @@ export class ResqmlClient {
     array: Energistics.Etp.v12.Datatypes.AnyArray,
     format: ArrayFormat
   ): ArrayOutput | undefined {
-    const values = array.item[array.item.__keyName]?.values;
+    const values = anyArrayValues(array);
     if (!values) {
       return undefined;
     }
     switch (array.item.__keyName) {
+      case "_bytes": {
+        const bytes = values as Int8Array;
+        if (format === "base64") {
+          return Buffer.from(
+            bytes.buffer,
+            bytes.byteOffset,
+            bytes.byteLength
+          ).toString("base64");
+        }
+        return Array.from(bytes);
+      }
       case "_ArrayOfBoolean": {
         const typedValues = values as boolean[];
         if (format === "base64") {
@@ -3540,11 +3858,18 @@ export class ResqmlClient {
   public arrayDataToBuffer(
     array: Energistics.Etp.v12.Datatypes.AnyArray
   ): { buffer: Buffer; arrayType: string } | undefined {
-    const values = array.item[array.item.__keyName]?.values;
+    const values = anyArrayValues(array);
     if (!values) {
       return undefined;
     }
     switch (array.item.__keyName) {
+      case "_bytes": {
+        const bytes = values as Int8Array;
+        return {
+          buffer: Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength),
+          arrayType: "Int8Array"
+        };
+      }
       case "_ArrayOfBoolean": {
         const typedValues = values as boolean[];
         return {

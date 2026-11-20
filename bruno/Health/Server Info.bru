@@ -5,9 +5,14 @@ meta {
 }
 
 get {
-  url: {{host}}/health/info
+  url: {{host}}/info
   body: none
   auth: none
+}
+
+docs {
+  GET /info - server version and build metadata. GET /health/info is the
+  deprecated M26 alias of this route (kept for 0.29 clients).
 }
 
 tests {

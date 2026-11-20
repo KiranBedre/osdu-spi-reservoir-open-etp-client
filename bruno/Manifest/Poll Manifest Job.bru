@@ -1,0 +1,64 @@
+meta {
+  name: Poll Manifest Job
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{host}}/manifests/jobs/{{manifestJobId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:pre-request {
+  // Drive the async build to a terminal state before the asserted request
+  // (max 60 s). The manifest registry is per replica, so a 404 here means the
+  // poll landed on another replica - surfaced as a failed status assert.
+  const axios = require("axios");
+  const id = bru.getVar("manifestJobId");
+  const url = bru.getEnvVar("host") + "/manifests/jobs/" + id;
+  const token = bru.getVar("access_token") || bru.getEnvVar("access_token");
+  const headers = {
+    "data-partition-id": bru.getEnvVar("data-partition-id"),
+    "Authorization": "Bearer " + token
+  };
+  const deadline = Date.now() + 60000;
+  while (Date.now() < deadline) {
+    const r = await axios.get(url, { headers, validateStatus: function () { return true; } });
+    if (r.status !== 200 || r.data.status !== "running") break;
+    await new Promise(function (ok) { setTimeout(ok, 1000); });
+  }
+}
+
+docs {
+  Route coverage: GET /manifests/jobs/:jobId — polls the async build started by
+  "Build Manifest Async" until it leaves `running`, then asserts the terminal
+  view: `completed` carries the OSDU manifest (`manifest.Data`), `failed`
+  carries `error`.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("job reached a terminal state", function () {
+    const b = res.getBody();
+    expect(b.jobId).to.equal(bru.getVar("manifestJobId"));
+    expect(b.status).to.be.oneOf(["completed", "failed"]);
+    expect(b.finishedAt).to.be.a("string");
+    expect(b.durationMs).to.be.a("number");
+  });
+
+  test("completed job carries the manifest", function () {
+    const b = res.getBody();
+    expect(b.status, b.error || "").to.equal("completed");
+    expect(b.manifest).to.be.an("object");
+    expect(b.manifest).to.have.property("Data");
+  });
+}

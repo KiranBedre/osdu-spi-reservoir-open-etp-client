@@ -1,0 +1,26 @@
+meta {
+  name: Copy Dataspace Delete Target
+  type: http
+  seq: 9
+}
+
+delete {
+  url: {{host}}/dataspaces/{{copyDataspaceId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Copy flow (3/4): remove the copy target.
+}
+
+tests {
+  test("target dataspace deleted", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 204]);
+  });
+}

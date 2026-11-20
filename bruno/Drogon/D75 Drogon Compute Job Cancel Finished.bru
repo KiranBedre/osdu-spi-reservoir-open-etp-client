@@ -1,0 +1,37 @@
+meta {
+  name: D75 Drogon Compute Job Cancel Finished
+  type: http
+  seq: 75
+}
+
+delete {
+  url: {{host}}/compute/jobs/{{drogonComputeJobId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Route coverage: DELETE /compute/jobs/:id — cancelling a job that already
+  reached a terminal state (D74) is a no-op: 200 with `{ canceled: false }`.
+  The job view stays retrievable afterwards (results are retained in memory).
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("finished job is not cancelable", function () {
+    const b = res.getBody();
+    expect(b).to.have.property("canceled");
+    const finalStatus = bru.getVar("drogonComputeJobFinalStatus");
+    if (finalStatus === "succeeded" || finalStatus === "failed") {
+      expect(b.canceled).to.equal(false);
+    }
+  });
+}

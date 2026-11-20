@@ -1,0 +1,140 @@
+meta {
+  name: Put Grid Binding Arrays
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/arrays
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  [
+    {
+      "ContainerType": "eml20.obj_EpcExternalPartReference",
+      "ContainerUuid": "{{gridsProxyUuid}}",
+      "PathInResource": "/RESQML/{{gridsGcsUuid}}/cellIndexPairs",
+      "Dimensions": [
+        2,
+        2
+      ],
+      "Data": [
+        0,
+        1,
+        1,
+        2
+      ],
+      "ArrayType": "Int32Array"
+    },
+    {
+      "ContainerType": "eml20.obj_EpcExternalPartReference",
+      "ContainerUuid": "{{gridsProxyUuid}}",
+      "PathInResource": "/RESQML/{{gridsBwUuid}}/nodeMd",
+      "Dimensions": [
+        4
+      ],
+      "Data": [
+        2500,
+        2510,
+        2520,
+        2530
+      ],
+      "ArrayType": "Float64Array"
+    },
+    {
+      "ContainerType": "eml20.obj_EpcExternalPartReference",
+      "ContainerUuid": "{{gridsProxyUuid}}",
+      "PathInResource": "/RESQML/{{gridsBwUuid}}/cellIndices",
+      "Dimensions": [
+        2
+      ],
+      "Data": [
+        0,
+        1
+      ],
+      "ArrayType": "Int32Array"
+    },
+    {
+      "ContainerType": "eml20.obj_EpcExternalPartReference",
+      "ContainerUuid": "{{gridsProxyUuid}}",
+      "PathInResource": "/RESQML/{{gridsBwUuid}}/gridIndices",
+      "Dimensions": [
+        3
+      ],
+      "Data": [
+        -1,
+        0,
+        0
+      ],
+      "ArrayType": "Int32Array"
+    },
+    {
+      "ContainerType": "eml20.obj_EpcExternalPartReference",
+      "ContainerUuid": "{{gridsProxyUuid}}",
+      "PathInResource": "/RESQML/{{gridsBwUuid}}/localFacePairPerCellIndices",
+      "Dimensions": [
+        4
+      ],
+      "Data": [
+        -1,
+        -1,
+        -1,
+        -1
+      ],
+      "ArrayType": "Int32Array"
+    },
+    {
+      "ContainerType": "eml20.obj_EpcExternalPartReference",
+      "ContainerUuid": "{{gridsProxyUuid}}",
+      "PathInResource": "/RESQML/{{gridsRegionUuid}}/values_patch0",
+      "Dimensions": [
+        4
+      ],
+      "Data": [
+        1,
+        1,
+        2,
+        2
+      ],
+      "ArrayType": "Int32Array"
+    },
+    {
+      "ContainerType": "eml20.obj_EpcExternalPartReference",
+      "ContainerUuid": "{{gridsProxyUuid}}",
+      "PathInResource": "/RESQML/{{gridsSubRepUuid}}/subrep_patch0",
+      "Dimensions": [
+        2
+      ],
+      "Data": [
+        0,
+        2
+      ],
+      "ArrayType": "Int32Array"
+    }
+  ]
+}
+
+docs {
+  The HDF arrays referenced by the connection set, blocked wellbore and region
+  property. EML 2.0: the container is the grid's EpcExternalPartReference
+  (gridsProxyUuid captured by Import GRDECL Grid).
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("store accepted every array (all true)", function () {
+    const b = res.getBody();
+    expect(b).to.be.an("array").that.is.not.empty;
+    b.forEach(function (ok, i) { expect(ok, "array " + i).to.equal(true); });
+  });
+}

@@ -1,0 +1,52 @@
+meta {
+  name: D07 Drogon Grid Arrays
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonGridType}}/{{drogonGridGuid}}/arrays
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    if (Array.isArray(body) && body.length > 0) {
+      const first = body[0];
+      const raw = (first.uid && first.uid.pathInResource) || first.pathInResource;
+      if (raw) bru.setVar("drogonArrayPath", encodeURIComponent(raw));
+    }
+  }
+}
+
+docs {
+  Drogon lifecycle (6/15). Lists the HDF5-backed arrays referenced by the grid
+  (geometry points, cell indices, etc.) and captures the first array path (URL-
+  encoded) for the metadata read in D07.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("grid geometry points array is listed with its shape", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("array").with.lengthOf(1);
+    const a = body[0];
+    expect(a.uid.pathInResource).to.equal("/RESQML/" + bru.getVar("drogonGridGuid") + "/points");
+    expect(a.uid.uri).to.include("obj_EpcExternalPartReference(" + bru.getVar("drogonHdfProxyGuid") + ")");
+    expect(a.dimensions).to.deep.equal([3, 9, 3]);
+  });
+
+  test("captured the array path for D08/D09", function () {
+    expect(bru.getVar("drogonArrayPath")).to.be.a("string").and.not.be.empty;
+  });
+}

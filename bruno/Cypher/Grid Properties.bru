@@ -1,0 +1,42 @@
+meta {
+  name: Grid Properties
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{host}}/cypher
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "dataspaceUri": "eml:///dataspace('{{seededDataspaceIdRaw}}')",
+    "query": "MATCH (g:Grid)-[:SupportingRepresentation]-(p:Property) RETURN g.name AS grid, p.name AS property, p.type AS propertyType ORDER BY property LIMIT 100"
+  }
+}
+
+docs {
+  Route coverage: POST /cypher — scalar projection with aliases (AS), label
+  substring matching (Grid -> *IjkGridRepresentation, Property -> *Property),
+  and relationship-type synonym resolution. Lists every property attached to a
+  grid without transferring any array bytes.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("aliased columns", function () {
+    const body = res.getBody();
+    expect(body.columns).to.eql(["grid", "property", "propertyType"]);
+    expect(body.data).to.be.an("array");
+  });
+}

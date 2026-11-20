@@ -94,7 +94,7 @@ new RddmsClient(options: RddmsClientOptions)
 | `.create(input[])`                | `string[]` | Create dataspaces |
 | `.info(ds)`                       | `object`   | Metadata for one  |
 | `.delete(ds)`                     | `void`     | Delete            |
-| `.clone(ds, {targetDataspaceId})` | `string`   | Copy              |
+| `.clone(ds, {targetDataspaceId}, opts?)` | `string` or summary | Duplicate, or `intoExisting: true` to copy content into an existing dataspace |
 | `.lock(ds)` / `.unlock(ds)`       | `boolean`  | Read-only toggle  |
 
 #### `rddms.resources`
@@ -128,6 +128,15 @@ new RddmsClient(options: RddmsClientOptions)
 | `.metadata(ds, type, guid, path)`   | `object`      | Type + dimensions      |
 | `.get(ds, type, guid, path, opts?)` | `ArrayResult` | Array data             |
 | `.put(ds, arrays, opts?)`           | `boolean[]`   | Write arrays           |
+| `.compute(ds, body, opts?)`         | `object`      | Server-side stats / reduce / where / where-multi / arith (`async: true` queues a job) |
+
+#### `rddms.compute`
+
+| Method         | Returns    | Description                 |
+| -------------- | ---------- | --------------------------- |
+| `.jobs()`      | `object[]` | List queued compute jobs    |
+| `.job(id)`     | `object`   | One job (status + result)   |
+| `.cancel(id)`  | `object`   | Cancel a job                |
 
 #### `rddms.transactions`
 
@@ -139,27 +148,85 @@ new RddmsClient(options: RddmsClientOptions)
 
 #### `rddms.query`
 
-| Method                    | Returns             | Description              |
-| ------------------------- | ------------------- | ------------------------ |
-| `.findObjects(input)`     | `object[]`          | Search + fetch content   |
-| `.graphSearch(input)`     | `GraphResult`       | Batch graph traversal    |
+| Method                  | Returns               | Description                                                                                          |
+| ----------------------- | --------------------- | ---------------------------------------------------------------------------------------------------- |
+| `.findResources(input)` | `FindResourcesResult` | URI-based search; `uri` may be an array (batch), `includeContent` inlines objects, `includeEdges` adds links |
+| `.growing(input)`       | `GrowingObjectResult` | WellLog/Trajectory parts metadata, parts in `[startIndex, endIndex]`, `includeChannels` adds channel metadata |
+
+#### `rddms.cypher`
+
+Read-only openCypher over the RESQML graph — the relationship/lineage companion
+to `graph` and `graphql` (nodes = RESQML resources, relationships = inferred
+DataObjectReference roles). Writes and `WITH`/`UNWIND`/`CALL`/`OPTIONAL MATCH`
+are rejected (HTTP 400).
+
+| Method                            | Returns        | Description                 |
+| --------------------------------- | -------------- | --------------------------- |
+| `.run(ds, query, parameters?)`    | `CypherResult` | Pattern-match / traversal   |
+
+```ts
+// Everything within 5 hops of a grid
+const res = await rddms.cypher.run(
+  "demo/drogon",
+  "MATCH p = (g {id: $gridId})-[*1..5]-(x) RETURN p",
+  { gridId: "0c8a1e2f-3b7d-4e56-9a81-2f6c4b0d9e73" }
+);
+```
+
+#### `rddms.sparql`
+
+Read-only SPARQL 1.1 over the **same RDF** the `/rdf/*` endpoints publish — the
+linked-data companion to `cypher` (traversal) and `graphql` (record retrieval).
+Subjects are ETP URIs; `rdf:type` is the RESQML class, `rdfs:label` the name,
+and references appear as `rddms:references` plus a role-specific predicate.
+`SELECT`/`ASK` return W3C SPARQL JSON; `CONSTRUCT`/`DESCRIBE` return structured
+`triples` (plus an `rdf` string when `format` is `turtle`/`jsonld`). Updates,
+`OPTIONAL`, `UNION`, `BIND`, `VALUES`, `SERVICE` and named graphs are rejected
+(HTTP 400).
+
+| Method                        | Returns        | Description                      |
+| ----------------------------- | -------------- | -------------------------------- |
+| `.run(ds, query, format?)`    | `SparqlResult` | SELECT / ASK / CONSTRUCT / DESCRIBE |
+
+```ts
+// Which properties support the grid?
+const res = await rddms.sparql.run(
+  "demo/drogon",
+  `SELECT ?name WHERE {
+     ?p rddms:supportingRepresentation ?g .
+     ?g a rddmst:resqml20.IjkGridRepresentation .
+     ?p rdfs:label ?name
+   }`
+);
+```
 
 #### `rddms.manifest`
 
-| Method          | Returns                     | Description                              |
-| --------------- | --------------------------- | ---------------------------------------- |
-| `.build(input)` | `object` \| `ManifestJobAccepted` | OSDU manifest from ETP (async when `input.async`) |
-| `.job(jobId)`   | `ManifestJobStatus`         | Poll an async build started with `async: true` |
+| Method          | Returns  | Description            |
+| --------------- | -------- | ---------------------- |
+| `.build(input)` | `object` | OSDU manifest from ETP |
 
-Sync build returns the manifest. For large dataspaces that risk the ~60s ingress
-timeout, set `async: true` to get a `202` + `jobId`, then poll `.job(jobId)` until
-`status === "completed"`. Set `schemaCompat: false` to skip the schema-service
-normalize pass for a faster (M26-style) build.
+#### `rddms.epc`
+
+| Method                   | Returns       | Description                                   |
+| ------------------------ | ------------- | --------------------------------------------- |
+| `.upload(ds, files, opts?)`  | `object`      | Ingest an `.epc` (+ optional `.h5`) into a dataspace |
+| `.download(ds, opts?)`   | `ArrayBuffer` | Export a dependency-closed `.epc` (embedded HDF5) |
+
+`download` gathers the whole dataspace — or the `uuids` subset — plus every
+DOR-referenced child (CRS, HDF proxy, interpretations, features, …), pulls their
+HDF5 arrays and returns a self-contained OPC zip that round-trips back through
+`upload`.
 
 ```typescript
-const started = await rddms.manifest.build({ uris, async: true }) as ManifestJobAccepted;
-let job = await rddms.manifest.job(started.jobId);
-while (job.status === "running") job = await rddms.manifest.job(started.jobId);
+// Whole dataspace
+const bytes = await rddms.epc.download("my/space");
+
+// Just one grid and its dependency closure
+const grid = await rddms.epc.download("my/space", {
+    uuids: "2c6de928-7e08-4601-b979-34048bd68c02",
+});
+// grid is an ArrayBuffer — write it out, or feed it straight to epc.upload
 ```
 
 ### Helper

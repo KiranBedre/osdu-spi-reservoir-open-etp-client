@@ -8,7 +8,7 @@ services:
       - no-new-privileges:true
     ports:
       - target: 5432
-        published: 5432
+        published: 5442
     environment:
       - POSTGRES_PASSWORD=tester
       - POSTGRES_USER=tester
@@ -55,7 +55,10 @@ services:
     security_opt:
       - no-new-privileges:true
     volumes:
-      - ${SOURCE_HOST_DIR:-../../..}/devops/data:/home/pdgm/data:ro
+      # Seed data: the committed small Drogon fixture (data/Demo_Drogon.epc +
+      # data/drogon_small.h5) by default. The EPC and its HDF5 companion must sit
+      # side by side.
+      - ${SOURCE_HOST_DIR:-../../..}/${RDMS_SEED_DATA_DIR:-data}:/home/pdgm/data:ro
     labels:
       OpenETPServer.service: runtime
     logging:
@@ -63,9 +66,9 @@ services:
     command: >
       bash -c "
         sleep 10 &&
-        openETPServer space -S ws://etp-client-etp-server:${RDMS_ETP_PORT?} -u foo -p bar -s demo/Volve --new
+        openETPServer space -S ws://etp-client-etp-server:${RDMS_ETP_PORT?} -u foo -p bar -s ${RDMS_SEED_DATASPACE:-demo/Drogon} --new
         for file in ${RDMS_PROJECTS_TO_IMPORT_IN_EML?}; do
-        openETPServer space -S ws://etp-client-etp-server:${RDMS_ETP_PORT?} -u foo -p bar -s demo/Volve --import-epc /home/pdgm/data/$$file.epc
+        openETPServer space -S ws://etp-client-etp-server:${RDMS_ETP_PORT?} -u foo -p bar -s ${RDMS_SEED_DATASPACE:-demo/Drogon} --import-epc /home/pdgm/data/$$file.epc
         done
       "
     networks:
@@ -75,7 +78,12 @@ services:
 
   etp-rest-api:
     depends_on:
-      - etp-client-etp-server-init
+      # The REST API only comes up once the seed import has finished, so
+      # "readiness" (devops/scripts/wait-for-rddms.sh) implies a complete
+      # ${RDMS_SEED_DATASPACE}; the init container creates the dataspace
+      # (--new) before --import-epc, so its mere existence is not enough.
+      etp-client-etp-server-init:
+        condition: service_completed_successfully
     container_name: etp-rest-api
     image: ${RDMS_REST_RUNTIME_IMAGE}
     security_opt:
@@ -89,6 +97,12 @@ services:
     environment:
       - RDMS_ETP_HOST=etp-client-etp-server
       - RDMS_ETP_PORT=${RDMS_ETP_PORT?}
+      # Optional dedicated compute endpoint. Empty by default, so read-only
+      # array-compute requests stay on the store. Bring up the `compute`
+      # profile and set RDMS_ETP_COMPUTE_HOST=etp-client-etp-compute to offload
+      # stats/reduce/where/where-multi/arith (POST …/arrays/compute) to the compute tier.
+      - RDMS_ETP_COMPUTE_HOST=${RDMS_ETP_COMPUTE_HOST:-}
+      - RDMS_ETP_COMPUTE_PORT=${RDMS_ETP_COMPUTE_PORT:-}
       - RDMS_JWT_SECRET=${RDMS_JWT_SECRET?}
       - RDMS_AUTHENTICATION_KEY_BASE=${RDMS_AUTHENTICATION_KEY_BASE?}
       - RDMS_ETP_PROTOCOL=${RDMS_ETP_PROTOCOL}
@@ -103,6 +117,43 @@ services:
       OpenETPServer.service: runtime
     logging:
       driver: json-file
+    networks:
+      - etp12
+    extra_hosts:
+      host.docker.internal: host-gateway
+
+  # Optional read-only compute tier. Started with RDMS_SERVER_ROLE=compute, it
+  # shares the same Postgres as the store server but advertises/serves only the
+  # Core + DataArray protocols and rejects all writes, so it can be scaled
+  # independently for CPU-bound array folds (stats/reduce/where/where-multi).
+  # Only starts under the `compute` profile:
+  #   docker compose --profile compute up
+  # and the REST API must also be told to use it (RDMS_ETP_COMPUTE_HOST).
+  etp-client-etp-compute:
+    profiles:
+      - compute
+    depends_on:
+      - etp-client-postgresql
+    container_name: etp-client-etp-compute
+    image: ${RDMS_ETP_IMAGE?}
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - target: ${RDMS_ETP_COMPUTE_PORT:-9005}
+        published: ${RDMS_ETP_COMPUTE_PORT:-9005}
+    labels:
+      OpenETPServer.service: runtime
+    logging:
+      driver: json-file
+    environment:
+      - POSTGRESQL_CONN_STRING=host=etp-client-postgresql port=5432 dbname=openetp user=tester password=tester
+      - RDMS_DATA_PARTITION_MODE=${RDMS_DATA_PARTITION_MODE}
+      - RDMS_SERVER_ROLE=compute
+    command: >
+      bash -c "
+        sleep 5 &&
+        openETPServer server --start -Q 500 --verbose --port ${RDMS_ETP_COMPUTE_PORT:-9005} --jwt-secret ${RDMS_JWT_SECRET}
+      "
     networks:
       - etp12
     extra_hosts:

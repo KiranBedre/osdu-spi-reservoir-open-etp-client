@@ -2,13 +2,32 @@ vars {
   host: https://admeinterop.energy.azure.com/api/reservoir-ddms/v2
   access_token:
   data-partition-id: opendes
-  dataspaceId: test%2Fbruno-collection
-  dataspaceIdRaw: test/bruno-collection
+  seededDataspaceId: demo%2FDrogon
+  seededDataspaceIdRaw: demo/Drogon
+  testDataspaceId: test%2Fbruno
+  testDataspaceIdRaw: test/bruno
+  crudDataspaceId: test%2Fbruno-crud
+  crudDataspaceIdRaw: test/bruno-crud
+  cloneDataspaceId: test%2Fbruno-clone
+  cloneDataspaceIdRaw: test/bruno-clone
+  copyDataspaceId: test%2Fbruno-copy
+  copyDataspaceIdRaw: test/bruno-copy
+  drogonDataspaceId: test%2FDrogon
+  drogonDataspaceIdRaw: test/Drogon
+  witsmlDataspaceId: test%2Fwitsml
+  witsmlDataspaceIdRaw: test/witsml
+  prodmlDataspaceId: test%2Fprodml
+  prodmlDataspaceIdRaw: test/prodml
   dataObjectType: resqml20.obj_PointSetRepresentation
-  guid: 
+  guid:
   pathInResource:
-  testDataspaceId: test%2Fbruno-collection
-  testDataspaceIdRaw: test/bruno-collection
+  crs_guid:
+  ext_guid:
+  psr_guid:
+  array_path_encoded:
+  i32_array_path_encoded:
+  bin_array_path_encoded:
+  empty_array_path_encoded:
   transactionId:
   defaultLegalTag: opendes-ReservoirDDMS-Legal-Tag
   defaultOwners: data.default.owners@opendes.dataservices.energy
@@ -16,8 +35,8 @@ vars {
 }
 vars:secret [
   token_url:https://login.microsoftonline.com/58975fd3-4977-44d0-bea8-37af0baac100/oauth2/v2.0/token,
-  client_id:e91be4a4-0a7b-4f98-86b6-77e794415075,
+  client_id:04b07795-8ddb-461a-bbee-02f9e1bf7b46,
   client_secret:,
-  client_scope:e91be4a4-0a7b-4f98-86b6-77e794415075/.default,
-  refresh_token:
+  client_scope:e91be4a4-0a7b-4f98-86b6-77e794415075/.default offline_access,
+  refresh_token:{{process.env.INSTANCE_INTEROP_REFRESH_TOKEN}}
 ]

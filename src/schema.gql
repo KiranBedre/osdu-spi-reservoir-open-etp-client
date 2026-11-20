@@ -1,0 +1,232 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+"""Metadata for a data array stored in ETP"""
+type GqlArrayMeta {
+  dimensions: [Int!]
+  logicalArrayType: String
+  pathInResource: String!
+  storeLastWrite: String
+  transportArrayType: String
+  uri: String!
+}
+
+"""Server-computed K-axis column reduction into a 2-D [nj, ni] map"""
+type GqlArrayReduce {
+  """columns that folded at least one value"""
+  columns: Int!
+
+  """row-major [nj, ni] column map"""
+  map: [Float!]!
+
+  """fastest grid axis of the map"""
+  ni: Int!
+
+  """middle grid axis of the map"""
+  nj: Int!
+
+  """echoed operator (sum/mean/min/max/count/net)"""
+  op: String!
+}
+
+"""
+Server-computed statistical summary of one array (no bytes transferred)
+"""
+type GqlArrayStats {
+  """finite (non-null) values folded"""
+  count: Int!
+
+  """per-bin counts over [histLo, histHi]"""
+  histogram: [Int!]
+
+  """finite values inside the requested [lo, hi] range"""
+  inRangeCount: Int
+  maximum: Float
+  mean: Float
+  minimum: Float
+
+  """explicit-null + NaN values skipped"""
+  nullCount: Int!
+  p10: Float
+  p50: Float
+  p90: Float
+  rangeHi: Float
+  rangeLo: Float
+
+  """population standard deviation"""
+  stddev: Float
+  sum: Float
+
+  """false when the array held no finite value"""
+  valid: Boolean!
+}
+
+"""
+Server-computed masked predicate: passing count, ijk bbox, centroid (aim point), and largest connected body
+"""
+type GqlArrayWhere {
+  """property arrays ANDed together (multi-criteria only)"""
+  arrays: Int
+
+  """ijk centroid i of the largest body (drillable aim point)"""
+  bci: Float
+  bcj: Float
+  bck: Float
+
+  """cell count of the largest connected body"""
+  bodyCount: Int
+
+  """ijk centroid i of the whole passing set"""
+  ci: Float
+  cj: Float
+  ck: Float
+
+  """separate connected bodies in the passing set"""
+  components: Int
+
+  """cells satisfying every predicate"""
+  count: Int!
+  iMax: Int
+  iMin: Int
+  jMax: Int
+  jMin: Int
+  kMax: Int
+  kMin: Int
+
+  """false when no cell satisfied the predicate(s)"""
+  valid: Boolean!
+}
+
+"""An ETP dataspace (namespace for resources)"""
+type GqlDataspace {
+  name: String!
+  storeCreated: String
+  storeLastWrite: String
+  uri: ID!
+}
+
+"""A directed edge in the resource graph"""
+type GqlEdge {
+  path: String
+
+  """
+  Semantic relationship role of the edge (the DOR field name on the source object, e.g. InterpretedFeature, RepresentedInterpretation, SupportingRepresentation). Derived from `path` when the server reports it, otherwise inferred from the source/target object types.
+  """
+  role: String
+  sourceUri: String!
+  targetUri: String!
+}
+
+"""A merged subgraph from batch graph search"""
+type GqlGraph {
+  edges: [GqlEdge!]!
+  resources: [GqlResource!]!
+}
+
+"""Full resolved object content"""
+type GqlObjectContent {
+  """Parsed EML/RESQML/WITSML object as JSON (no array data)"""
+  data: JSON
+  dataObjectType: String
+  uri: ID!
+}
+
+"""A resource node in the ETP graph"""
+type GqlResource {
+  activeStatus: String
+
+  """Array metadata for this resource (no array data)"""
+  arrays: [GqlArrayMeta!]!
+
+  """Full object content (expensive - only fetched when selected)"""
+  content: GqlObjectContent
+  dataObjectType: String
+  lastChanged: String
+  name: String!
+
+  """
+  Server-side K-axis column reduction of a 3-D property into a 2-D [nj, ni] map (net-pay / targeting maps). `op` is sum/mean/min/max/count/net; count/net require `rangeLo`/`rangeHi`; `k0`/`k1` limit the K-zone; `cellDz` sets net-thickness per cell. Null when the store lacks the REDUCE extension.
+  """
+  reduce(cellDz: Float, k0: Int, k1: Int, op: String!, pathInResource: String!, rangeHi: Float, rangeLo: Float): GqlArrayReduce
+  sourceCount: Int
+
+  """
+  Source resources in the graph. `depth` (1..10) walks transitive sources server-side; `scope` 'related' (default) excludes the origin, 'withSelf' includes it. BFS is cycle-guarded.
+  """
+  sources(depth: Int! = 1, scope: String! = "related"): [GqlResource!]!
+
+  """
+  Server-side statistical summary of one array (count/min/max/mean/stddev/sum). Pass `rangeLo`/`rangeHi` for an in-range count, and `bins` for a histogram + p10/p50/p90. The array bytes never leave the store. Null when the store lacks the STATS extension.
+  """
+  stats(bins: Int, pathInResource: String!, rangeHi: Float, rangeLo: Float): GqlArrayStats
+  storeLastWrite: String
+  targetCount: Int
+
+  """
+  Target resources in the graph. `depth` (1..10) walks transitive targets server-side; `scope` 'related' (default) excludes the origin, 'withSelf' includes it. BFS is cycle-guarded.
+  """
+  targets(depth: Int! = 1, scope: String! = "related"): [GqlResource!]!
+  uri: ID!
+
+  """
+  Server-side masked predicate over one array: count + ijk bbox + centroid (aim point) of cells whose value is in `[rangeLo, rangeHi]`. Null when the store lacks the WHERE extension.
+  """
+  where(pathInResource: String!, rangeHi: Float!, rangeLo: Float!): GqlArrayWhere
+}
+
+"""
+A title-matched numeric screen filter. Mirrors the ORES Strawberry screen filter (titleContains + operator + threshold); the operator/threshold are mapped to an inclusive [lo, hi] range server-side.
+"""
+input GqlScreenFilter {
+  """GT | GTE | LT | LTE | EQ (bounds are inclusive)"""
+  operator: String!
+  threshold: Float!
+
+  """case-insensitive substring matched against the property object name"""
+  titleContains: String!
+}
+
+"""
+One [lo, hi] predicate over a named array of a resource (multi-criteria targeting)
+"""
+input GqlWherePredicate {
+  """inclusive upper bound"""
+  hi: Float!
+
+  """inclusive lower bound"""
+  lo: Float!
+
+  """path of the array within the object (e.g. points or values path)"""
+  pathInResource: String!
+
+  """URI of the object owning the array"""
+  uri: ID!
+}
+
+"""Arbitrary JSON value (object, array, string, number, boolean, null)"""
+scalar JSON
+
+type Query {
+  """List all dataspaces"""
+  dataspaces: [GqlDataspace!]!
+
+  """Batch graph search across multiple URIs"""
+  graphSearch(depth: Int! = 1, uris: [String!]!): GqlGraph!
+
+  """Get a single resource by URI"""
+  resource(uri: String!): GqlResource
+
+  """List resources in a dataspace, optionally filtered by type"""
+  resources(dataObjectTypes: [String!], dataspaceUri: String!): [GqlResource!]!
+
+  """
+  High-level title-matched numeric screen (native equivalent of the ORES Strawberry `screen`): resolves each filter's property object by `titleContains` within the dataspace, finds its array, maps the operator/threshold to an inclusive `[lo, hi]` range, then ANDs all predicates server-side (WHEREN) returning the passing count, ijk centroid and the largest connected body (drillable aim point). `propertyType` defaults to resqml20.obj_ContinuousProperty. Null when the store lacks the WHEREN extension, a filter matches no object/array, or no filters were given.
+  """
+  screen(dataspaceUri: String!, filters: [GqlScreenFilter!]!, propertyType: String): GqlArrayWhere
+
+  """
+  Multi-criteria targeting: AND several per-property `[lo, hi]` predicates over the shared grid and return the passing count, its ijk bbox/centroid, the number of connected bodies, and the largest connected body (the drillable aim point: bci/bcj/bck). All arrays must share the same [Nk, Nj, Ni] shape. Null when the store lacks the WHEREN extension or no predicate was given.
+  """
+  screenCells(predicates: [GqlWherePredicate!]!): GqlArrayWhere
+}

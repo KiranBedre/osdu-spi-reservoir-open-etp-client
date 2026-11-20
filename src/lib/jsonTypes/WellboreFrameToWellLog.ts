@@ -131,6 +131,20 @@ export class WellboreFrameToWellLogOSDU
         if (topVal !== undefined && bottomVal !== undefined) {
           return this.buildDepthRange(topVal, bottomVal, nodeCount);
         }
+
+        // Fast path: fold the NodeMd index into a min/max summary inside the
+        // store (single server-side pass, no bulk transfer). NodeMd is
+        // monotonically increasing, so min = top and max = bottom. Falls back
+        // to the full-array read below when the store lacks the STATS
+        // extension.
+        const viaStats = await this.tryDepthRangeViaStats(
+          firstArray,
+          nodeCount,
+          client
+        );
+        if (viaStats) {
+          return viaStats;
+        }
       }
 
       // Fallback: read the full NodeMd array (handles HDF5, constant and
@@ -166,6 +180,37 @@ export class WellboreFrameToWellLogOSDU
       }
     }
     return { top, bottom, interval };
+  }
+
+  /**
+   * Server-side fast path for the depth range: ask the store to fold the
+   * NodeMd index array into a min/max summary without transferring the bytes.
+   * Returns undefined when the store lacks the stats extension (older server)
+   * or the array held no finite value, so the caller falls back to a read.
+   */
+  private async tryDepthRangeViaStats(
+    array: IDataArray,
+    nodeCount: number,
+    client: ResqmlClient
+  ): Promise<{ top: number; bottom: number; interval?: number } | undefined> {
+    if (typeof client.getDataArrayStats !== "function") {
+      return undefined;
+    }
+    try {
+      const { uri, pathInResource } = array.uid;
+      const s = await client.getDataArrayStats(uri, pathInResource);
+      if (
+        !s ||
+        !s.valid ||
+        s.minimum === undefined ||
+        s.maximum === undefined
+      ) {
+        return undefined;
+      }
+      return this.buildDepthRange(s.minimum, s.maximum, nodeCount);
+    } catch {
+      return undefined;
+    }
   }
 
   /**

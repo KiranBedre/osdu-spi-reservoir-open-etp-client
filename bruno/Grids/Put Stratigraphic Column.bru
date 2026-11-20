@@ -1,0 +1,53 @@
+meta {
+  name: Put Stratigraphic Column
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/reservoir/zones
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "title": "Bruno zonation",
+    "zones": [
+      { "name": "Upper" },
+      { "name": "Lower" }
+    ],
+    "rankIndex": 0,
+    "version": "2.0.1"
+  }
+}
+
+script:post-response {
+  const b = res.getBody();
+  if (b && b.rankUuid) bru.setVar("gridsRankUuid", b.rankUuid);
+}
+
+docs {
+  Route coverage: PUT /dataspaces/{dataspaceId}/reservoir/zones — writes a
+  two-zone stratigraphic column (unit features + interpretations + column rank).
+  The returned rankUuid drives the grid's IntervalStratigraphicUnits (seq 6).
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("column rank and unit interpretations written", function () {
+    const b = res.getBody();
+    expect(b.rankUuid).to.be.a("string").with.length(36);
+    expect(b.featureUuid).to.be.a("string").with.length(36);
+    expect(b.unitInterpretationUuids).to.be.an("array").with.length(2);
+    expect(b.objects).to.be.a("number").greaterThan(2);
+  });
+}

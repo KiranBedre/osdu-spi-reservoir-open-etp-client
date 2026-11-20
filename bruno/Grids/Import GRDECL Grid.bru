@@ -1,0 +1,55 @@
+meta {
+  name: Import GRDECL Grid
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/grids
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "text": "SPECGRID\n2 2 1 1 F /\nCOORD\n0 0 0 0 0 100 100 0 0 100 0 100 200 0 0 200 0 100 0 100 0 0 100 100 100 100 0 100 100 100 200 100 0 200 100 100 0 200 0 0 200 100 100 200 0 100 200 100 200 200 0 200 200 100 /\nZCORN\n0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 100 100 100 100 100 100 100 100 100 100 100 100 100 100 100 100 /\nACTNUM\n1 1 1 1 /\n",
+    "title": "Bruno GRDECL grid",
+    "crsUuid": "{{seedCrsUuid}}",
+    "version": "2.0.1",
+    "splitTolerance": 0.001
+  }
+}
+
+script:post-response {
+  const b = res.getBody();
+  if (b && b.uuid) bru.setVar("gridsGridUuid", b.uuid);
+  if (b && b.proxyUuid) bru.setVar("gridsProxyUuid", b.proxyUuid);
+}
+
+docs {
+  Route coverage: PUT /dataspaces/{dataspaceId}/grids — imports a tiny 2x2x1
+  corner-point GRDECL deck (auto-commit) referencing the seeded CRS. Creates a
+  fresh HDF proxy + IjkGridRepresentation with geometry arrays; the ACTNUM
+  keyword becomes a grid property. The returned uuid drives the rest of the
+  folder.
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("grid written with expected shape", function () {
+    const b = res.getBody();
+    expect(b.uuid).to.be.a("string").with.length(36);
+    expect(b.proxyUuid).to.be.a("string").with.length(36);
+    expect([b.ni, b.nj, b.nk]).to.eql([2, 2, 1]);
+    expect(b.objects).to.be.a("number").greaterThan(1);
+    expect(b.arrays).to.be.a("number").greaterThan(0);
+  });
+}

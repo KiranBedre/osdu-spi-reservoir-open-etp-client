@@ -14,6 +14,7 @@
     - [Configuration variables](#configuration-variables)
     - [Horizontal Pod Autoscaling (HPA) variables (works only if tier=PROD and autoscaling=true)](#horizontal-pod-autoscaling-hpa-variables-works-only-if-tierprod-and-autoscalingtrue)
     - [Limits variables](#limits-variables)
+    - [Probes variables](#probes-variables)
     - [Install the helm chart](#install-the-helm-chart)
   - [Uninstalling the Chart](#uninstalling-the-chart)
 
@@ -61,7 +62,7 @@ First you need to set variables in **values.yaml** file using any code editor. S
 | Name                      | Description                                                            | Type   | Default         | Required |
 |---------------------------|------------------------------------------------------------------------|--------|-----------------|----------|
 | **data.cloudProvider**    | variable for using clients and configuration for Google Cloud provider | string | `google`        | yes      |
-| **data.rdmsRestRootPath** | api endpoint inside url                                                | string | `/Reservoir/v2` | yes      |
+| **data.rdmsRestRootPath** | api endpoint inside url                                                | string | `/api/reservoir-ddms/v2` | yes      |
 | **data.rdmsRestPort**     | port of api in container                                               | string | `8003`          | yes      |
 | **data.rdmsEtpHost**      | name of kubernetes service for `oetp-server`                           | string | `oetp-server`   | yes      |
 | **data.rdmsEtpPort**      | port of `oetp-server`                                                  | string | `9002`          | yes      |
@@ -119,6 +120,21 @@ The parameters **hpa.targetValue**, **limits.maxTokens** and **limits.tokensPerF
 ### Recommendations for New Instance Types
 
 When changing the instance type to a newer generation, such as the C3D series, it is essential to conduct new load testing. This ensures the parameters are recalibrated to match the performance characteristics of the new processor architecture, optimizing resource utilization and maintaining application stability.
+
+### Probes variables
+
+| Name                                   | Description                                              | Type    | Default                                   | Required |
+|----------------------------------------|----------------------------------------------------------|---------|-------------------------------------------|----------|
+| **conf.probes.readiness.enabled**      | enable Kubernetes readiness probe                        | boolean | `true`                                    | yes      |
+| **conf.probes.readiness.path**         | HTTP path for the readiness probe                        | string  | `/api/reservoir-ddms/v2/health/readiness` | yes      |
+| **conf.probes.readiness.periodSeconds**    | how often (in seconds) to perform the readiness probe    | integer | `20`                                      | yes      |
+| **conf.probes.readiness.successThreshold** | consecutive successes required to mark the pod ready     | integer | `1`                                       | yes      |
+| **conf.probes.readiness.timeoutSeconds**   | seconds after which the readiness probe times out        | integer | `3`                                       | yes      |
+| **conf.probes.liveness.enabled**       | enable Kubernetes liveness probe                         | boolean | `true`                                    | yes      |
+| **conf.probes.liveness.path**          | HTTP path for the liveness probe                         | string  | `/api/reservoir-ddms/v2/health/liveness`  | yes      |
+| **conf.probes.liveness.periodSeconds**     | how often (in seconds) to perform the liveness probe     | integer | `20`                                      | yes      |
+| **conf.probes.liveness.successThreshold**  | must be `1` for liveness (Kubernetes requirement)        | integer | `1`                                       | yes      |
+| **conf.probes.liveness.timeoutSeconds**    | seconds after which the liveness probe times out         | integer | `3`                                       | yes      |
 
 ### Install the helm chart
 

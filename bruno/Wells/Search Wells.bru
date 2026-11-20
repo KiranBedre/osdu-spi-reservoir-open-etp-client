@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{host}}/wells?name=*&dataspace={{dataspaceIdRaw}}&include=logs,trajectories
+  url: {{host}}/wells?name=*&dataspace={{seededDataspaceIdRaw}}&include=logs,trajectories
   body: none
   auth: none
 }
@@ -16,7 +16,7 @@ headers {
 }
 
 script:pre-request {
-  if (!bru.getEnvVar("dataspaceIdRaw") && !bru.getVar("dataspaceIdRaw")) {
+  if (!bru.getEnvVar("seededDataspaceIdRaw") && !bru.getEnvVar("seededDataspaceIdRaw")) {
     console.warn("Search Wells: dataspaceIdRaw not set. Run _Setup (Create Test Dataspace) first, or set dataspaceIdRaw in the environment.");
   }
 }

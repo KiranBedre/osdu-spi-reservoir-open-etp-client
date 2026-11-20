@@ -1,0 +1,41 @@
+meta {
+  name: Ask References
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/sparql
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "dataspaceUri": "eml:///dataspace('{{seededDataspaceIdRaw}}')",
+    "query": "ASK { ?s rddms:references ?o }"
+  }
+}
+
+docs {
+  Route coverage: POST /sparql — ASK form. True when any DataObjectReference
+  edge exists in the dataspace graph (the seeded PointSetRepresentation
+  references its CRS and HDF proxy).
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("boolean result", function () {
+    const b = res.getBody();
+    expect(b.form).to.equal("ASK");
+    expect(b.boolean).to.be.a("boolean");
+  });
+}

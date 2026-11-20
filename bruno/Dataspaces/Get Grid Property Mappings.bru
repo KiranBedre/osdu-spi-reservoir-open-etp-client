@@ -1,0 +1,37 @@
+meta {
+  name: Get Grid Property Mappings
+  type: http
+  seq: 17
+}
+
+get {
+  url: {{host}}/dataspaces/grid-property-mappings
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Route coverage: GET /dataspaces/grid-property-mappings.
+  Lists the registered GRDECL keyword -> RESQML property-kind mappings.
+  Contract/reachability test: asserts the route is served and returns a
+  documented status. Does not depend on seeded data.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("registry lists the shipped defaults and the keyword registered by the previous request", function () {
+    const b = res.getBody();
+    expect(b.mappings).to.be.an("array");
+    expect(b.count).to.equal(b.mappings.length);
+    const keywords = b.mappings.map(function (m) { return m.keyword; });
+    ["PORO", "PERMX", "BRUNOX"].forEach(function (k) { expect(keywords).to.include(k); });
+  });
+}

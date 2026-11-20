@@ -1,0 +1,61 @@
+meta {
+  name: D56 Drogon Array Reduce Count
+  type: http
+  seq: 56
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/arrays/compute
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "op": "reduce",
+    "target": {
+      "dataObjectType": "{{drogonPropType}}",
+      "guid": "{{drogonStatGuid}}",
+      "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0"
+    },
+    "reducer": "count",
+    "rangeLo": 0.1,
+    "rangeHi": 0.3
+  }
+}
+
+docs {
+  Array-compute coverage (16/31). Reduce op=count over [0.1, 0.3]: per-column number of in-range
+      cells. Total over the map must equal the STATS inRangeCount (D43) AND the
+      WHERE count (D47) for the same window - three independent paths, one
+      answer. Each column count is an integer in [0, Nk].
+}
+
+tests {
+  test("status is 200", function () {
+        expect(res.getStatus()).to.equal(200);
+      });
+
+      test("count-map total == inRangeCount == WHERE count", function () {
+        const b = res.getBody();
+        expect(b.op).to.equal("count");
+        const total = b.map.reduce(function (a, c) { return a + c; }, 0);
+        expect(total).to.equal(Number(bru.getVar("drogonInRange")));
+        expect(total).to.equal(Number(bru.getVar("drogonWhereCount")));
+      });
+
+      test("each column count is an integer within [0, Nk]", function () {
+        const b = res.getBody();
+        const nk = Number(bru.getVar("drogonNk"));
+        b.map.forEach(function (v) {
+          expect(Number.isInteger(v)).to.equal(true);
+          expect(v).to.be.at.least(0);
+          if (nk > 0) expect(v).to.be.at.most(nk);
+        });
+      });
+}

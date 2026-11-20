@@ -1,8 +1,7 @@
 // ============================================================================
-// Security hardening regression tests (CodeMender findings, M27/validate)
+// Security hardening regression tests (CodeMender findings, M28)
 // Covers:
 //  - #221 CWE-1321: prototype pollution via ExtraMetadata property path
-//  - #216/#217 CWE-918: SSRF boundary on outbound URLs
 // ============================================================================
 
 import "jest";
@@ -83,13 +82,11 @@ describe("#221 prototype pollution via ExtraMetadata property path", () => {
         }
     });
 
-    it("still maps legitimate osdu/-prefixed metadata unchanged", () => {
-        const osdu = makeOsdu();
-        osdu.assignExtraMetaData([
-            { Name: "osdu/data/ValueCount", Value: "99" }
-        ]);
-        expect(osdu.data.ValueCount).toEqual(99);
-    });
+  it("still maps legitimate osdu/-prefixed metadata unchanged", () => {
+    const osdu = makeOsdu();
+    osdu.assignExtraMetaData([{ Name: "osdu/data/ValueCount", Value: "99" }]);
+    expect(osdu.data.ValueCount).toEqual(99);
+  });
 });
 
 // ============================================================================
@@ -126,19 +123,19 @@ describe("#216/#217 assertSafeOutboundUrl SSRF boundary", () => {
         expect(() => assertSafeOutboundUrl("")).toThrow();
     });
 
-    it("enforces host allowlist when configured", () => {
-        process.env.RDMS_OUTBOUND_ALLOWED_HOSTS = "osdu.example.com,storage:9000";
-        expect(assertSafeOutboundUrl("https://osdu.example.com/a").hostname).toEqual(
-            "osdu.example.com"
-        );
-        expect(assertSafeOutboundUrl("http://storage:9000/b").host).toEqual(
-            "storage:9000"
-        );
-        expect(() =>
-            assertSafeOutboundUrl("http://169.254.169.254/latest/meta-data")
-        ).toThrow();
-        expect(() => assertSafeOutboundUrl("http://evil.example.net/")).toThrow();
-    });
+  it("enforces host allowlist when configured", () => {
+    process.env.RDMS_OUTBOUND_ALLOWED_HOSTS = "osdu.example.com,storage:9000";
+    expect(
+      assertSafeOutboundUrl("https://osdu.example.com/a").hostname
+    ).toEqual("osdu.example.com");
+    expect(assertSafeOutboundUrl("http://storage:9000/b").host).toEqual(
+      "storage:9000"
+    );
+    expect(() =>
+      assertSafeOutboundUrl("http://169.254.169.254/latest/meta-data")
+    ).toThrow();
+    expect(() => assertSafeOutboundUrl("http://evil.example.net/")).toThrow();
+  });
 
     it("allows any http(s) host when no allowlist is set", () => {
         delete process.env.RDMS_OUTBOUND_ALLOWED_HOSTS;

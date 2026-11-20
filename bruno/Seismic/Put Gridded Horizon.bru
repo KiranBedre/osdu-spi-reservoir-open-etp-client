@@ -1,0 +1,57 @@
+meta {
+  name: Put Gridded Horizon
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/seismic/horizons?representation=gridded
+  body: json
+  auth: none
+}
+
+params:query {
+  representation: gridded
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "title": "Bruno Horizon",
+    "hdfUuid": "{{seedHdfUuid}}",
+    "crsUuid": "{{seedCrsUuid}}",
+    "crsType": "obj_LocalDepth3dCrs",
+    "version": "2.0.2",
+    "ni": 3,
+    "nj": 2,
+    "origin": { "x": 420000, "y": 6470000 },
+    "iSpacing": 25,
+    "jSpacing": 25,
+    "zValues": [1000, 1010, 1020, 1030, 1040, 1050]
+  }
+}
+
+docs {
+  Route coverage: PUT /dataspaces/:ds/seismic/horizons?representation=gridded - writes a 3x2
+  Grid2dRepresentation (z values as one external array on the seeded HDF proxy)
+  and auto-creates the HorizonInterpretation + boundary feature. Auto-commit.
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("grid, interpretation and feature were created with one array", function () {
+    const b = res.getBody();
+    expect(b.gridUuid).to.be.a("string").with.length(36);
+    expect(b.interpretationUuid).to.be.a("string").with.length(36);
+    expect(b.featureUuid).to.be.a("string").with.length(36);
+    expect(b.objects).to.equal(3);
+    expect(b.arrays).to.equal(1);
+  });
+}

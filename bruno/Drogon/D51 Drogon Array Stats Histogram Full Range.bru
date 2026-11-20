@@ -1,0 +1,65 @@
+meta {
+  name: D51 Drogon Array Stats Histogram Full Range
+  type: http
+  seq: 51
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonPropType}}/{{drogonStatGuid}}/arrays/{{drogonStatArray}}/compute?op=stats&rangeLo=0&rangeHi=0.8&bins=20
+  body: none
+  auth: none
+}
+
+params:query {
+  op: stats
+  rangeLo: 0
+  rangeHi: 0.8
+  bins: 20
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Array-compute coverage (11/31). Histogram window covering the whole data range [0, 0.4] with
+      20 bins (width 0.02). No tails: underflow == overflow == 0, sum(bins) ==
+      inRangeCount == count. The histogram-weighted mean (bin centres x counts)
+      must agree with the exact mean within one bin width, and the percentiles
+      must be strictly ordered and inside [minimum, maximum].
+}
+
+tests {
+  test("status is 200", function () {
+        expect(res.getStatus()).to.equal(200);
+      });
+
+      test("no tails: bins tile the whole population", function () {
+        const b = res.getBody();
+        const inBins = b.histogram.reduce(function (a, c) { return a + c; }, 0);
+        expect(b.histogram).to.have.lengthOf(20);
+        expect(b.histUnderflow).to.equal(0);
+        expect(b.histOverflow).to.equal(0);
+        expect(inBins).to.equal(b.count);
+        expect(b.inRangeCount).to.equal(b.count);
+      });
+
+      test("histogram-weighted mean agrees with exact mean within one bin width", function () {
+        const b = res.getBody();
+        const w = (b.histHi - b.histLo) / b.histBins;
+        let acc = 0;
+        b.histogram.forEach(function (c, i) { acc += c * (b.histLo + (i + 0.5) * w); });
+        const hMean = acc / b.count;
+        expect(Math.abs(hMean - b.mean)).to.be.at.most(w);
+      });
+
+      test("percentiles ordered and inside the data bounds", function () {
+        const b = res.getBody();
+        expect(b.p10).to.be.at.least(b.minimum).at.most(b.p50);
+        expect(b.p50).to.be.at.most(b.p90);
+        expect(b.p90).to.be.at.most(b.maximum);
+        // porosity spans 0.05..0.75 in 0.1 steps, so the quartiles must not collapse.
+        expect(b.p90).to.be.above(b.p10);
+      });
+}

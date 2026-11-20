@@ -1,0 +1,30 @@
+meta {
+  name: Copy Dataspace Unlock Source
+  type: http
+  seq: 10
+}
+
+delete {
+  url: {{host}}/dataspaces/{{seededDataspaceId}}/lock
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Copy flow (4/4): the store keeps the source of an intoExisting copy locked
+  while the target exists; release it now that the target is gone so the
+  seeded dataspace is writable again for later suites. 409 = the store already
+  released it.
+}
+
+tests {
+  test("seeded dataspace unlocked (200) or already unlocked (409)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 409]);
+    if (res.getStatus() === 200) expect(res.getBody()).to.equal(true);
+  });
+}

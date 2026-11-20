@@ -1,0 +1,36 @@
+meta {
+  name: D80 Drogon List Deleted Resources
+  type: http
+  seq: 80
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/deleted
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (deleted). Lists tombstoned resources for the dataspace,
+  exercising the GetDeletedResources path. Runs after the whole suite so it must
+  contain at least the property + Activity deleted in D27-D29.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("tombstones include the property and Activity deleted in D27-D29", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("array");
+    const uris = body.map(function (r) { return r.uri || ""; }).join(" ");
+    expect(uris).to.include("obj_ContinuousProperty(" + bru.getVar("drogonNewPropGuid") + ")");
+    expect(uris).to.include("obj_Activity(" + bru.getVar("drogonImportActivityGuid") + ")");
+  });
+}

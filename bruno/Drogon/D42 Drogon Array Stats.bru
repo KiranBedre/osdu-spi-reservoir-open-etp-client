@@ -1,0 +1,100 @@
+meta {
+  name: D42 Drogon Array Stats
+  type: http
+  seq: 42
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonPropType}}/{{drogonStatGuid}}/arrays/{{drogonStatArray}}/compute?op=stats
+  body: none
+  auth: none
+}
+
+params:query {
+  op: stats
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  // Publish the whole-array summary so the reduce / where requests that follow
+  // can cross-check their results against it (sum of the column map must equal
+  // this sum, min/max of the map must equal these bounds, ...).
+  if (res.getStatus() === 200) {
+    const b = res.getBody();
+    bru.setVar("drogonStatN", b.count);
+    bru.setVar("drogonStatSum", b.sum);
+    bru.setVar("drogonStatMean", b.mean);
+    bru.setVar("drogonStatMin", b.minimum);
+    bru.setVar("drogonStatMax", b.maximum);
+  }
+}
+
+docs {
+  Array-compute coverage (2/31). GetDataArrayStats: folds the whole array into a
+  fixed-size summary (count, null-count, min/max/mean/stddev/sum) inside the
+  store. Returns 501 if the connected store lacks the stats extension.
+
+  Mathematical sanity asserted here (not just field presence):
+  - count + nullCount == Nk*Nj*Ni (every element is either folded or null)
+  - sum == mean * count (relative 1e-9)
+  - min <= mean <= max
+  - 0 <= stddev <= (max - min) / 2 (Popoviciu's inequality on the variance)
+  - compute.schema stamp present (wire-contract version >= 1)
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("summary fields present and consistent", function () {
+    const b = res.getBody();
+    expect(b.valid).to.equal(true);
+    expect(b.count).to.be.a("number").greaterThan(0);
+    ["minimum", "maximum", "mean", "stddev", "sum"].forEach(function (k) {
+      expect(b[k], k).to.be.a("number");
+    });
+    expect(b.minimum).to.be.at.most(b.mean);
+    expect(b.mean).to.be.at.most(b.maximum);
+  });
+
+  test("count + nullCount accounts for every grid cell", function () {
+    const b = res.getBody();
+    const total = Number(bru.getVar("drogonStatCount"));
+    expect(b.nullCount).to.be.a("number").at.least(0);
+    if (total > 0) {
+      expect(b.count + b.nullCount).to.equal(total);
+    }
+  });
+
+  test("sum equals mean * count", function () {
+    const b = res.getBody();
+    const tol = Math.max(1e-9 * Math.abs(b.sum), 1e-9);
+    expect(Math.abs(b.sum - b.mean * b.count)).to.be.at.most(tol);
+  });
+
+  test("stddev is bounded by the data range (Popoviciu)", function () {
+    const b = res.getBody();
+    expect(b.stddev).to.be.at.least(0);
+    expect(b.stddev).to.be.at.most((b.maximum - b.minimum) / 2 + 1e-12);
+  });
+
+  test("summary matches the known D32 cell values exactly", function () {
+    const b = res.getBody();
+    expect(b.count).to.equal(8);
+    expect(b.nullCount).to.equal(0);
+    expect(b.minimum).to.equal(0.05);
+    expect(b.maximum).to.equal(0.75);
+    expect(Math.abs(b.sum - 3.2)).to.be.at.most(1e-12);
+    expect(Math.abs(b.mean - 0.4)).to.be.at.most(1e-12);
+  });
+
+  test("compute.schema version is stamped", function () {
+    const b = res.getBody();
+    expect(b.schema).to.be.a("number").at.least(1);
+  });
+}

@@ -40,6 +40,26 @@ export const etpServerHost = process.env.RDMS_ETP_HOST as string;
 export const etpServerPort = process.env.RDMS_ETP_PORT as string;
 export const etpServerPath = (process.env.RDMS_ETP_PATH as string) || "";
 export const etpServerUrl = `${etpServerProtocol}://${etpServerHost}:${etpServerPort}${etpServerPath}/`;
+
+/**
+ * Dedicated compute-server endpoint. An open-etp-server started with
+ * RDMS_SERVER_ROLE=compute advertises/serves only the read-only DataArray
+ * surface (Core + DataArray; writes are rejected), so it can be scaled
+ * independently of the write/store tier. Read-only array-compute requests
+ * (stats / reduce / where / where-multi) are routed here when
+ * RDMS_ETP_COMPUTE_HOST and/or RDMS_ETP_COMPUTE_PORT are configured; otherwise
+ * the compute URL collapses to the normal store URL so single-server
+ * deployments are unaffected. The protocol/TLS/path are shared with the store
+ * endpoint; only host and port can differ.
+ */
+export const etpComputeHost =
+  (process.env.RDMS_ETP_COMPUTE_HOST as string) || etpServerHost;
+export const etpComputePort =
+  (process.env.RDMS_ETP_COMPUTE_PORT as string) || etpServerPort;
+export const etpComputeUrl = `${etpServerProtocol}://${etpComputeHost}:${etpComputePort}${etpServerPath}/`;
+/** True when a distinct compute endpoint is configured. */
+export const computeRoutingEnabled = etpComputeUrl !== etpServerUrl;
+
 export const etpJwt = (process.env.RDMS_JWT_SECRET as string) || undefined;
 
 /**
@@ -74,7 +94,23 @@ export const restApiPort = parseInt(process.env.RDMS_REST_PORT as string);
 export const openApiPort =
   parseInt(process.env.OPEN_API_PORT as string) || restApiPort;
 
+/**
+ * Maximum accepted request body size for the REST API (Express body-parser
+ * `limit`). Large corner-point grids serialise to hundreds of MB of GRDECL
+ * text, so the default is generous; override with `RDMS_REST_BODY_LIMIT`
+ * (any bytes/`kb`/`mb` string, e.g. "512mb").
+ */
+export const restApiBodyLimit =
+  (process.env.RDMS_REST_BODY_LIMIT as string) || "256mb";
+
 export const osduUrl = (process.env.RDMS_OSDU_URL as string) || restApiMainUrl;
+
+/**
+ * Path of the OSDU Wellbore DDMS API on the OSDU host (`osduUrl`), used by
+ * `POST /dataspaces/{id}/wells/logs/import`. Override with `RDMS_WDMS_PATH`.
+ */
+export const wdmsPath =
+  (process.env.RDMS_WDMS_PATH as string) || "/api/os-wellbore-ddms/ddms/v3";
 
 /**
  * Default OSDU governance (ACL + legal) stamped onto a dataspace's ETP
@@ -98,3 +134,11 @@ export const defaultDataspaceLegalTags = parseCsvEnv(process.env.RDMS_DEFAULT_LE
 export const defaultDataspaceDataCountries = parseCsvEnv(
   process.env.RDMS_DEFAULT_DATA_COUNTRIES
 );
+
+/**
+ * ETP protocol names (Energistics.Etp.v12.Datatypes.Protocol keys) the store
+ * under test must negotiate; kept next to RDMS_ETP_IMAGE in config.default.env
+ * and consumed by the integration gate (TestProtocolsIntegration). Unset means
+ * "no expectation" (the gate then only requires the core P3/P4/P9 set).
+ */
+export const etpRequiredProtocols = parseCsvEnv(process.env.RDMS_ETP_PROTOCOLS);

@@ -1,0 +1,91 @@
+meta {
+  name: P04 Put DTS Extract Arrays
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{host}}/dataspaces/{{prodmlDataspaceId}}/resources?extractChannelArrays=true
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Store a PRODML 2.3 DTS (distributed temperature sensing) object whose inline
+  channel data is extracted into external ETP arrays (via `?extractChannelArrays=true`).
+
+  DTS temperature-vs-distance samples ride the Energistics ChannelSet/Channel
+  serialization, so the service routes them through the same `extractChannelArrays`
+  path used for WITSML logs: each mnemonic (`facilityDistance`, `adjustedTemperature`)
+  becomes a `/PRODML/<uuid>/<mnemonic>` external array, the inline rows are stripped,
+  and `ExternalDataArrayPart` references are injected. The fixed Uuid lets P05 read
+  the `adjustedTemperature` array metadata back deterministically.
+
+  DAS (Raw/Fbe/Spectra) is intentionally NOT covered here: its samples are HDF5-only
+  and are ingested via `/dataspaces/:id/epc/upload`, not inline extraction.
+
+  Tolerant of 400/404/412 so the request also passes against a backend whose
+  JSON->XML shaping or array extraction differs.
+}
+
+body:json {
+  [
+    {
+      "$type": "prodml23.DtsInterpretationData",
+      "Uuid": "7c5a2d3f-4e6b-4c8d-8f9a-1b2c3d4e5fd2",
+      "SchemaVersion": "2.3",
+      "Citation": {
+        "$type": "eml23.Citation",
+        "Title": "Bruno ProdML DTS",
+        "Originator": "Bruno",
+        "Creation": "2026-07-10T00:00:00Z",
+        "Format": "Reservoir DDMS Bruno"
+      },
+      "IndexMnemonic": "facilityDistance",
+      "FacilityMapping": "facilityDistance,adjustedTemperature",
+      "PointCount": 4,
+      "Index": [
+        { "Mnemonic": "facilityDistance", "Uom": "m" }
+      ],
+      "Channel": [
+        { "Mnemonic": "adjustedTemperature", "Uom": "degC" }
+      ],
+      "Data": [
+        { "Data": "0.0, 55.1" },
+        { "Data": "1.0, 55.4" },
+        { "Data": "2.0, 55.9" },
+        { "Data": "3.0, 56.2" }
+      ]
+    }
+  ]
+}
+
+script:post-response {
+  bru.setVar("prodmlDtsObjType", "prodml23.DtsInterpretationData");
+  bru.setVar("prodmlDtsGuid", "7c5a2d3f-4e6b-4c8d-8f9a-1b2c3d4e5fd2");
+  bru.setVar(
+    "prodmlDtsArrayPath",
+    encodeURIComponent("/PRODML/7c5a2d3f-4e6b-4c8d-8f9a-1b2c3d4e5fd2/adjustedTemperature")
+  );
+}
+
+tests {
+  test("status is 200 or 201 or 400 or 404 or 412", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 400, 404, 412]);
+  });
+
+  test("successful store reports success", function () {
+    if (res.getStatus() === 200 || res.getStatus() === 201) {
+      const body = res.getBody();
+      const ok =
+        body === true ||
+        (body && typeof body === "object" && "success" in body);
+      expect(ok).to.equal(true);
+    }
+  });
+}

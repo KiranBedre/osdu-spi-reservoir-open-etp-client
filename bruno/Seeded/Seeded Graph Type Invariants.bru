@@ -1,0 +1,146 @@
+meta {
+  name: Seeded Graph Type Invariants
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{host}}/dataspaces/{{seededDataspaceId}}/graph/all
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Full relationship graph of the seeded Drogon dataspace. The checks are the
+  RESQML 2.0.1 reference rules every object of a given type MUST satisfy (a
+  trajectory references an MdDatum and a WellboreInterpretation, a
+  StratigraphicUnitInterpretation references exactly one StratigraphicUnitFeature,
+  ...), applied to EVERY object of that type - not a hand-picked sample. The
+  key objects discovered here (grid, strat column chain, a trajectory, a marker
+  frame) feed the per-object discovery requests that follow, which cross-check
+  GET .../sources|targets against this graph (symmetry: A in targets(B) <=>
+  B in sources(A)).
+}
+
+script:post-response {
+  const b = res.getBody();
+  if (!b || !Array.isArray(b.resources)) return;
+  const typeOf = function (uri) { return uri.replace(/^.*\/(?:resqml20|eml20)\.(obj_[A-Za-z0-9]+)\(.*$/, "$1"); };
+  const uuidOf = function (uri) { return uri.replace(/^.*\(([0-9a-f-]{36})\)$/, "$1"); };
+  const first = function (type) {
+    const r = b.resources.filter(function (r) { return typeOf(r.uri) === type; })
+      .sort(function (x, y) { return x.uri < y.uri ? -1 : 1; })[0];
+    return r ? uuidOf(r.uri) : "";
+  };
+  bru.setVar("seededGridUuid", first("obj_IjkGridRepresentation"));
+  bru.setVar("seededColumnUuid", first("obj_StratigraphicColumn"));
+  bru.setVar("seededTrajectoryUuid", first("obj_WellboreTrajectoryRepresentation"));
+  bru.setVar("seededMarkerFrameUuid", first("obj_WellboreMarkerFrameRepresentation"));
+  // the rank interpretation the chosen column points at (follow the graph, no hardcoded uuid)
+  const colUri = b.resources.map(function (r) { return r.uri; }).filter(function (u) { return uuidOf(u) === bru.getVar("seededColumnUuid"); })[0];
+  const rank = b.links.filter(function (l) { return l.source === colUri && typeOf(l.target) === "obj_StratigraphicColumnRankInterpretation"; })[0];
+  bru.setVar("seededRankUuid", rank ? uuidOf(rank.target) : "");
+  // Adjacency for the per-object requests: uuid -> sorted target uuids / source uuids
+  const out = {}, inn = {};
+  b.links.forEach(function (l) {
+    const s = uuidOf(l.source), t = uuidOf(l.target);
+    (out[s] = out[s] || []).push(t);
+    (inn[t] = inn[t] || []).push(s);
+  });
+  const pick = function (m, keys) { const o = {}; keys.forEach(function (k) { o[k] = (m[k] || []).filter(function (v, i, a) { return a.indexOf(v) === i; }).sort(); }); return o; };
+  const keys = ["seededGridUuid", "seededColumnUuid", "seededRankUuid", "seededTrajectoryUuid", "seededMarkerFrameUuid"].map(bru.getVar);
+  bru.setVar("seededGraphTargets", JSON.stringify(pick(out, keys)));
+  bru.setVar("seededGraphSources", JSON.stringify(pick(inn, keys)));
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Drogon fixture graph size", function () {
+    const b = res.getBody();
+    expect(b.resources, "resources").to.have.lengthOf(188);
+    expect(b.links, "links").to.have.lengthOf(493);
+  });
+
+  test("referential integrity: every link joins two listed resources", function () {
+    const b = res.getBody();
+    const uris = {};
+    b.resources.forEach(function (r) { uris[r.uri] = true; });
+    const dangling = b.links.filter(function (l) { return !uris[l.source] || !uris[l.target]; });
+    expect(dangling, "dangling links").to.deep.equal([]);
+  });
+
+  test("RESQML reference rules hold for every object of each type", function () {
+    const b = res.getBody();
+    const typeOf = function (uri) { return uri.replace(/^.*\/(?:resqml20|eml20)\.(obj_[A-Za-z0-9]+)\(.*$/, "$1"); };
+    const targetsOf = {};
+    b.links.forEach(function (l) { (targetsOf[l.source] = targetsOf[l.source] || []).push(typeOf(l.target)); });
+    // type -> { exactly: {targetType: n}, atLeast: {targetType: n}, oneOf: {targetType: [n, m]}, none: true }
+    const RULES = {
+      obj_IjkGridRepresentation:               { exactly: { obj_LocalDepth3dCrs: 1 } },
+      obj_PolylineSetRepresentation:           { exactly: { obj_FaultInterpretation: 1 }, oneOf: { obj_LocalDepth3dCrs: [0, 1], obj_LocalTime3dCrs: [0, 1] } },
+      obj_WellboreTrajectoryRepresentation:    { exactly: { obj_MdDatum: 1, obj_WellboreInterpretation: 1, obj_LocalDepth3dCrs: 1 } },
+      obj_DeviationSurveyRepresentation:       { exactly: { obj_MdDatum: 1, obj_WellboreInterpretation: 1 } },
+      obj_WellboreFrameRepresentation:         { exactly: { obj_WellboreTrajectoryRepresentation: 1, obj_WellboreInterpretation: 1 } },
+      obj_WellboreMarkerFrameRepresentation:   { exactly: { obj_WellboreTrajectoryRepresentation: 1, obj_WellboreInterpretation: 1 }, atLeast: { obj_HorizonInterpretation: 1, obj_FaultInterpretation: 0 } },
+      obj_MdDatum:                             { exactly: { obj_LocalDepth3dCrs: 1 } },
+      obj_WellboreInterpretation:              { exactly: { obj_WellboreFeature: 1 } },
+      obj_FaultInterpretation:                 { exactly: { obj_TectonicBoundaryFeature: 1 } },
+      obj_HorizonInterpretation:               { exactly: { obj_GeneticBoundaryFeature: 1 } },
+      obj_StratigraphicUnitInterpretation:     { exactly: { obj_StratigraphicUnitFeature: 1 } },
+      obj_StratigraphicColumn:                 { atLeast: { obj_StratigraphicColumnRankInterpretation: 1 } },
+      // units via StratigraphicUnits, horizons via the unit contacts
+      obj_StratigraphicColumnRankInterpretation: { exactly: { obj_OrganizationFeature: 1 }, atLeast: { obj_StratigraphicUnitInterpretation: 1, obj_HorizonInterpretation: 0 } },
+      obj_ActivityTemplate:                    { none: true },
+      obj_PropertyKind:                        { none: true },
+      obj_StringTableLookup:                   { none: true },
+      obj_LocalDepth3dCrs:                     { none: true },
+      obj_LocalTime3dCrs:                      { none: true },
+      obj_WellboreFeature:                     { none: true },
+      obj_TectonicBoundaryFeature:             { none: true },
+      obj_GeneticBoundaryFeature:              { none: true },
+      // ChronostratigraphicTop + ChronostratigraphicBottom are optional but come as a pair
+      obj_StratigraphicUnitFeature:            { oneOf: { obj_GeneticBoundaryFeature: [0, 2] } },
+      obj_OrganizationFeature:                 { none: true }
+    };
+    const violations = [];
+    const seenTypes = {};
+    b.resources.forEach(function (r) {
+      const t = typeOf(r.uri); seenTypes[t] = true;
+      const rule = RULES[t]; if (!rule) return;
+      const counts = {};
+      (targetsOf[r.uri] || []).forEach(function (tt) { counts[tt] = (counts[tt] || 0) + 1; });
+      if (rule.none && Object.keys(counts).length) violations.push(r.uri + " must not reference anything, has " + JSON.stringify(counts));
+      Object.keys(rule.exactly || {}).forEach(function (tt) {
+        if ((counts[tt] || 0) !== rule.exactly[tt]) violations.push(r.uri + " -> " + tt + " expected " + rule.exactly[tt] + " got " + (counts[tt] || 0));
+      });
+      Object.keys(rule.atLeast || {}).forEach(function (tt) {
+        if ((counts[tt] || 0) < rule.atLeast[tt]) violations.push(r.uri + " -> " + tt + " expected >= " + rule.atLeast[tt] + " got " + (counts[tt] || 0));
+      });
+      Object.keys(rule.oneOf || {}).forEach(function (tt) {
+        if (rule.oneOf[tt].indexOf(counts[tt] || 0) < 0) violations.push(r.uri + " -> " + tt + " expected one of " + JSON.stringify(rule.oneOf[tt]) + " got " + (counts[tt] || 0));
+      });
+      // nothing outside the rule's vocabulary may be referenced (apart from the auto-import Activity)
+      Object.keys(counts).forEach(function (tt) {
+        const known = (rule.exactly && tt in rule.exactly) || (rule.atLeast && tt in rule.atLeast) || (rule.oneOf && tt in rule.oneOf) || tt === "obj_Activity";
+        if (!known) violations.push(r.uri + " references unexpected type " + tt);
+      });
+    });
+    expect(violations, "rule violations").to.deep.equal([]);
+    // every ruled type is actually present, otherwise the rule tests nothing
+    Object.keys(RULES).forEach(function (t) { expect(seenTypes[t], t + " present in fixture").to.equal(true); });
+  });
+
+  test("key objects discovered for the per-object discovery requests", function () {
+    ["seededGridUuid", "seededColumnUuid", "seededRankUuid", "seededTrajectoryUuid", "seededMarkerFrameUuid"].forEach(function (k) {
+      expect(bru.getVar(k), k).to.match(/^[0-9a-f-]{36}$/);
+    });
+  });
+}

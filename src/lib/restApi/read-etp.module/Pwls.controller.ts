@@ -33,7 +33,6 @@ import { errorMessageSchema, swaggerServers } from "../ControllerUtils";
 
 import {
   getPwlsStatus,
-  getPropertyFromMnemonic,
   getQuantityClassFromMnemonic,
   getQuantityClassForProperty,
   getPropertyTypeIdFromMnemonic,
@@ -46,8 +45,11 @@ import {
   loadVendorCatalog,
   hasVendorCatalog,
   getLoadedVendors,
-  getLoadedMnemonicCount
+  getLoadedMnemonicCount,
+  getMnemonicMatch
 } from "../../jsonTypes/PwlsCurveCatalog";
+import type { MnemonicMatchVia } from "../../jsonTypes/PwlsCurveCatalog";
+import { normalizeUnit } from "../../jsonTypes/PwlsUnits";
 import {
   RDF_MIME_JSONLD,
   RDF_MIME_NTRIPLES,
@@ -66,12 +68,23 @@ class PwlsStatusDto {
   @ApiProperty({ example: 30201 })
   mnemonics!: number;
 
-  @ApiProperty({ example: ["ExampleVendorA"] })
+  @ApiProperty({ example: ["Schlumberger"] })
   vendors!: string[];
 }
 
+class PwlsHierarchyNodeDto {
+  @ApiProperty({ example: "bulk density" })
+  property!: string;
+
+  @ApiPropertyOptional({ example: "8cf38da3-e98e-4134-a186-1c6f562d6430" })
+  propertyTypeId?: string;
+
+  @ApiProperty({ example: "mass per volume" })
+  quantityClass!: string;
+}
+
 class PwlsResolveResultDto {
-  @ApiProperty({ example: "GR" })
+  @ApiProperty({ example: "GR", description: "The mnemonic that was looked up (or the property name when resolved by property)" })
   mnemonic!: string;
 
   @ApiPropertyOptional({ example: "gamma ray" })
@@ -89,36 +102,27 @@ class PwlsResolveResultDto {
   @ApiPropertyOptional({ example: "fd8a4e2e-63d7-43d9-926a-a23da337dc6c", description: "OSDU PropertyType UUID of the parent" })
   parentPropertyTypeId?: string;
 
-  @ApiProperty({ example: true })
-  resolved!: boolean;
-}
-
-class PwlsHierarchyNodeDto {
-  @ApiProperty({ example: "bulk density" })
-  property!: string;
-
-  @ApiPropertyOptional({ example: "8cf38da3-e98e-4134-a186-1c6f562d6430" })
-  propertyTypeId?: string;
-
-  @ApiProperty({ example: "mass per volume" })
-  quantityClass!: string;
-}
-
-class PwlsHierarchyResultDto {
-  @ApiProperty({ example: "bulk density" })
-  property!: string;
-
-  @ApiProperty({ example: 2, description: "Number of levels in the ancestry chain" })
-  depth!: number;
-
-  @ApiProperty({
-    type: [PwlsHierarchyNodeDto],
-    description: "Ancestry from the property itself up towards the root (abstract 'property' root omitted)"
+  @ApiPropertyOptional({
+    example: "alias",
+    enum: ["vendor", "vendor-ci", "alias", "property", "none"],
+    description: "Which lookup tier produced the match (audit trail for §6.4 alias coverage)"
   })
-  hierarchy!: PwlsHierarchyNodeDto[];
+  matchedVia?: MnemonicMatchVia;
+
+  @ApiPropertyOptional({ example: "INC", description: "The intuitive-alias key that matched (only when matchedVia === 'alias')" })
+  alias?: string;
 
   @ApiProperty({ example: true })
   resolved!: boolean;
+
+  @ApiPropertyOptional({
+    type: [PwlsHierarchyNodeDto],
+    description: "Only with include=hierarchy: ancestry from the property itself up towards the root (abstract 'property' root omitted)"
+  })
+  hierarchy?: PwlsHierarchyNodeDto[];
+
+  @ApiPropertyOptional({ example: 2, description: "Only with include=hierarchy: number of levels in the ancestry chain" })
+  depth?: number;
 }
 
 export class CurveValidationEntry {
@@ -150,6 +154,25 @@ class CurveValidationResultEntry {
 
   @ApiProperty({ example: true, description: "Whether the mnemonic resolved via vendor catalog" })
   mnemonicResolved!: boolean;
+
+  @ApiPropertyOptional({
+    example: "alias",
+    enum: ["vendor", "vendor-ci", "alias", "property", "none"],
+    description: "Which lookup tier produced the match"
+  })
+  matchedVia?: MnemonicMatchVia;
+
+  @ApiPropertyOptional({ example: "INC", description: "The intuitive-alias key that matched" })
+  alias?: string;
+
+  @ApiPropertyOptional({ example: "gAPI", description: "Canonical Energistics UoM for the resolved QuantityClass" })
+  canonicalUom?: string;
+
+  @ApiPropertyOptional({ example: true, description: "Whether the supplied UoM is dimensionally compatible with the QuantityClass" })
+  unitCompatible?: boolean;
+
+  @ApiPropertyOptional({ example: 0.3048, description: "Linear factor to convert the supplied UoM to canonical (value*factor + offset)" })
+  conversionFactor?: number;
 
   @ApiPropertyOptional({
     example: ["UOM 'gAPI' provided but QuantityClass is 'API gamma ray' - verify compatibility"],
@@ -202,7 +225,7 @@ class VendorCatalogUploadDto {
   "Company Code"!: number;
 
   @Allow()
-  @ApiProperty({ example: "Example Vendor" })
+  @ApiProperty({ example: "Halliburton" })
   "Company Name"!: string;
 
   @Allow()
@@ -238,7 +261,7 @@ class VendorCatalogUploadDto {
  * Provides mnemonic resolution, property lookup, curve validation,
  * and vendor catalog management.
  */
-@ApiTags("PWLS")
+@ApiTags("Well")
 @ApiNotFoundResponse(errorMessageSchema("Not found", 404))
 @ApiNotAcceptableResponse(errorMessageSchema("Not acceptable response", 406))
 @ApiTooManyRequestsResponse(errorMessageSchema("Too many request", 429))
@@ -261,88 +284,79 @@ export default class PwlsController {
   }
 
   /**
-   * Resolve a single mnemonic to its PWLS property, QuantityClass, and PropertyType UUID.
-   */
-  @Get("resolve")
-  @ApiOkResponse({ description: "Resolved mnemonic", type: PwlsResolveResultDto })
-  @ApiQuery({ name: "mnemonic", required: true, description: "Curve mnemonic to resolve (e.g. GR, NPHI, RHOB)" })
-  @ApiOperation({
-    summary: "Resolve a curve mnemonic",
-    description: "Resolves a vendor curve mnemonic to its PWLS standard property name, QuantityClass, and OSDU PropertyType UUID.",
-    security: [],
-    servers: swaggerServers
-  })
-  public resolve(@Query("mnemonic") mnemonic: string): PwlsResolveResultDto {
-    if (!mnemonic || mnemonic.trim().length === 0) {
-      throw new BadRequestException("Query parameter 'mnemonic' is required");
-    }
-
-    const property = getPropertyFromMnemonic(mnemonic);
-    if (property) {
-      return {
-        mnemonic,
-        property,
-        quantityClass: getQuantityClassForProperty(property),
-        propertyTypeId: getPropertyTypeIdForProperty(property),
-        parent: getParentProperty(property),
-        parentPropertyTypeId: getParentPropertyTypeId(property),
-        resolved: true
-      };
-    }
-
-    // Fallback: check if it's already a PWLS property name
-    if (isKnownPwlsProperty(mnemonic)) {
-      return {
-        mnemonic,
-        property: mnemonic.toLowerCase(),
-        quantityClass: getQuantityClassForProperty(mnemonic),
-        propertyTypeId: getPropertyTypeIdForProperty(mnemonic),
-        parent: getParentProperty(mnemonic),
-        parentPropertyTypeId: getParentPropertyTypeId(mnemonic),
-        resolved: true
-      };
-    }
-
-    return { mnemonic, resolved: false };
-  }
-
-  /**
-   * Resolve the vendor-neutral ancestry of a curve mnemonic or PWLS property.
+   * Resolve a mnemonic (or a PWLS property name) to its PWLS property,
+   * QuantityClass and PropertyType UUID; optionally with the vendor-neutral
+   * ancestry chain.
    *
    * PWLS v4 replaces the legacy v2 `MainFamily -> Family -> Type` model with a
    * single recursive `PropertyKind` tree (surfaced in OSDU as
-   * `PropertyType.ParentPropertyTypeID`). This walks that tree from the resolved
-   * property up towards the root, e.g. `RHOB` -> `bulk density` -> `density`.
+   * `PropertyType.ParentPropertyTypeID`). `include=hierarchy` walks that tree
+   * from the resolved property up towards the root, e.g. `RHOB` ->
+   * `bulk density` -> `density`.
    */
-  @Get("hierarchy")
-  @ApiOkResponse({ description: "Vendor-neutral property ancestry", type: PwlsHierarchyResultDto })
-  @ApiQuery({ name: "mnemonic", required: false, description: "Curve mnemonic to resolve first (e.g. RHOB, NPHI)" })
-  @ApiQuery({ name: "property", required: false, description: "PWLS property name (e.g. 'bulk density')" })
+  @Get("resolve")
+  @ApiOkResponse({ description: "Resolved mnemonic or property", type: PwlsResolveResultDto })
+  @ApiQuery({ name: "mnemonic", required: false, description: "Curve mnemonic to resolve (e.g. GR, NPHI, RHOB)" })
+  @ApiQuery({ name: "property", required: false, description: "PWLS property name (e.g. 'bulk density') when the property is already known" })
+  @ApiQuery({
+    name: "include",
+    required: false,
+    enum: ["hierarchy"],
+    description: "Add the PWLS v4 ancestry chain (`hierarchy`, `depth`), self first up towards the abstract 'property' root"
+  })
   @ApiOperation({
-    summary: "Get the property ancestry (vendor-neutral tree)",
+    summary: "Resolve a curve mnemonic or property (optionally with its ancestry)",
     description:
-      "Resolves a mnemonic or property to its PWLS v4 ancestry chain (self first, up towards the abstract 'property' root). Depth is variable - PWLS v4 is a recursive tree, not a fixed 3-tier taxonomy. Provide either 'mnemonic' or 'property'.",
+      "Resolves a vendor curve mnemonic (or a PWLS property name) to its PWLS standard property, QuantityClass and OSDU PropertyType UUID. Provide either 'mnemonic' or 'property'. With `include=hierarchy` the response also carries the vendor-neutral ancestry chain; its depth is variable because PWLS v4 is a recursive tree, not a fixed 3-tier taxonomy.",
     security: [],
     servers: swaggerServers
   })
-  public hierarchy(
+  public resolve(
     @Query("mnemonic") mnemonic?: string,
-    @Query("property") property?: string
-  ): PwlsHierarchyResultDto {
-    let name = property?.trim();
-    if (!name && mnemonic?.trim()) {
-      name = getPropertyFromMnemonic(mnemonic.trim());
-    }
-    if (!name) {
+    @Query("property") propertyName?: string,
+    @Query("include") include?: string
+  ): PwlsResolveResultDto {
+    const mnemonicKey = mnemonic?.trim();
+    const explicitProperty = propertyName?.trim();
+    if (!mnemonicKey && !explicitProperty) {
       throw new BadRequestException("Query parameter 'mnemonic' or 'property' is required");
     }
+    const includes = (include ?? "")
+      .split(",")
+      .map(v => v.trim())
+      .filter(v => v.length > 0);
+    if (includes.some(v => v !== "hierarchy")) {
+      throw new BadRequestException("Query parameter 'include' only accepts 'hierarchy'");
+    }
+    const withHierarchy = includes.includes("hierarchy");
 
-    const hierarchy = getPropertyHierarchy(name);
+    const match = mnemonicKey
+      ? getMnemonicMatch(mnemonicKey)
+      : { property: explicitProperty, matchedVia: "property" as MnemonicMatchVia };
+    const property = match.property;
+    if (!property) {
+      return {
+        mnemonic: mnemonicKey ?? explicitProperty ?? "",
+        matchedVia: "none",
+        resolved: false,
+        ...(withHierarchy ? { hierarchy: [], depth: 0 } : {})
+      };
+    }
+    const hierarchy = withHierarchy ? getPropertyHierarchy(property) : undefined;
+    const quantityClass = getQuantityClassForProperty(property);
     return {
-      property: hierarchy[0]?.property ?? name,
-      depth: hierarchy.length,
-      hierarchy,
-      resolved: hierarchy.length > 0
+      mnemonic: mnemonicKey ?? property,
+      property,
+      quantityClass,
+      propertyTypeId: getPropertyTypeIdForProperty(property),
+      parent: getParentProperty(property),
+      parentPropertyTypeId: getParentPropertyTypeId(property),
+      matchedVia: match.matchedVia,
+      alias: match.alias,
+      // A mnemonic hit is resolved by construction; an explicit property name
+      // counts as resolved only when the catalog knows it.
+      resolved: mnemonicKey ? true : quantityClass !== undefined || (hierarchy?.length ?? 0) > 0,
+      ...(hierarchy ? { hierarchy, depth: hierarchy.length } : {})
     };
   }
 
@@ -388,32 +402,39 @@ export default class PwlsController {
         mnemonicResolved: false
       };
 
-      // Try vendor catalog resolution
-      const property = getPropertyFromMnemonic(entry.mnemonic);
-      if (property) {
-        result.mnemonicResolved = true;
+      // Resolve mnemonic + record which lookup tier matched (§6.4 audit trail)
+      const match = getMnemonicMatch(entry.mnemonic);
+      if (match.property) {
+        const property = match.property;
+        result.mnemonicResolved = match.matchedVia === "vendor" || match.matchedVia === "vendor-ci" || match.matchedVia === "alias";
         result.property = property;
         result.quantityClass = getQuantityClassForProperty(property);
         result.propertyTypeId = getPropertyTypeIdForProperty(property);
         result.knownProperty = isKnownPwlsProperty(property);
-      } else if (isKnownPwlsProperty(entry.mnemonic)) {
-        // The mnemonic itself is a PWLS property name
-        result.knownProperty = true;
-        result.property = entry.mnemonic.toLowerCase();
-        result.quantityClass = getQuantityClassForProperty(entry.mnemonic);
-        result.propertyTypeId = getPropertyTypeIdForProperty(entry.mnemonic);
+        result.matchedVia = match.matchedVia;
+        result.alias = match.alias;
+      } else {
+        result.matchedVia = "none";
       }
 
-      // UOM validation warning
+      // UOM normalization + dimensional compatibility check (§6.4 unit normalization)
+      const warnings: string[] = [];
       if (entry.uom && result.quantityClass) {
-        const warnings: string[] = [];
-        warnings.push(
-          `UOM '${entry.uom}' provided - QuantityClass is '${result.quantityClass}'. Verify compatibility.`
-        );
-        result.warnings = warnings;
+        const norm = normalizeUnit(entry.uom, result.quantityClass);
+        result.canonicalUom = norm.canonicalUom;
+        result.unitCompatible = norm.compatible;
+        result.conversionFactor = norm.factor;
+        if (norm.compatible === false) {
+          warnings.push(norm.note);
+        } else if (!norm.recognized) {
+          warnings.push(norm.note);
+        } else if (norm.compatible === true && !norm.isCanonical) {
+          warnings.push(norm.note);
+        }
       } else if (!result.property) {
-        result.warnings = [`Mnemonic '${entry.mnemonic}' not found in PWLS catalog or loaded vendor catalogs`];
+        warnings.push(`Mnemonic '${entry.mnemonic}' not found in PWLS catalog or loaded vendor catalogs`);
       }
+      if (warnings.length > 0) result.warnings = warnings;
 
       results.push(result);
     }
@@ -498,14 +519,14 @@ export default class PwlsController {
       properties: {
         added: { type: "number", example: 5000 },
         totalMnemonics: { type: "number", example: 35201 },
-        vendors: { type: "array", items: { type: "string" }, example: ["ExampleVendorA", "ExampleVendorB"] }
+        vendors: { type: "array", items: { type: "string" }, example: ["Schlumberger", "Halliburton"] }
       }
     }
   })
   @ApiBody({ type: VendorCatalogUploadDto })
   @ApiOperation({
     summary: "Load a vendor curve catalog",
-    description: "Loads an additional PWLS v4 vendor curve catalog JSON. Mnemonics accumulate; first-loaded entry wins on collision. SLB catalog is auto-loaded at startup.",
+    description: "Loads an additional PWLS v4 vendor curve catalog JSON. Mnemonics accumulate; first-loaded entry wins on collision. The Schlumberger catalog is auto-loaded at startup.",
     security: [],
     servers: swaggerServers
   })

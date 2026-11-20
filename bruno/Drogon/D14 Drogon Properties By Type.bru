@@ -1,0 +1,34 @@
+meta {
+  name: D14 Drogon Properties By Type
+  type: http
+  seq: 14
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonPropType}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (9/19). Type-filtered read for ContinuousProperty objects
+  BEFORE any property is written: the small Drogon fixture ships none, so this
+  must be an empty (not missing, not erroring) collection. The write steps that
+  follow (D18, D31-D34) populate it and D20 / D36-D39 read the results back.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("type filter on an absent type yields an empty array", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("array").with.lengthOf(0);
+  });
+}

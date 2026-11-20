@@ -67,7 +67,7 @@ function parseResource(res: Energistics.Etp.v12.Datatypes.Object.Resource) {
 }
 
 @Controller("wells")
-@ApiTags("WITSML")
+@ApiTags("Well")
 @ApiBearerAuth("HTTPBearer")
 @UseGuards(HasBearerGuard("jwt"))
 @UseGuards(HasDataPartitionGuard())
@@ -89,7 +89,7 @@ export default class WellsController {
     servers: swaggerServers
   })
   @ApiQuery({ name: "name", required: false, description: "Well name pattern. Use * as wildcard (e.g., 'DROGON*', '*-1', '*'). Case-insensitive. Defaults to '*' (all wells).", example: "DROGON*" })
-  @ApiQuery({ name: "dataspace", required: false, description: "Restrict search to a single dataspace path (e.g., 'test/drogon'). Omit to search all dataspaces.", example: "test/drogon" })
+  @ApiQuery({ name: "dataspace", required: false, description: "Restrict search to a single dataspace path (e.g., 'demo/drogon'). Omit to search all dataspaces.", example: "demo/drogon" })
   @ApiQuery({ name: "include", required: false, description: "Comma-separated list of child types to resolve: logs, trajectories, channelSets. Omit to include all.", example: "logs,trajectories" })
   @ApiOkResponse({
     description: "Array of wells, each with resolved child objects (wellbores always included; logs/trajectories/channelSets per `include`)",
@@ -98,9 +98,9 @@ export default class WellsController {
       items: {
         type: "object",
         properties: {
-          name: { type: "string", example: "31/2-1" },
-          uuid: { type: "string", example: "a1b2c3d4-0000-0000-0000-000000000000" },
-          dataspace: { type: "string", example: "test/drogon" },
+          name: { type: "string", example: "55/33-1" },
+          uuid: { type: "string", example: "2b8f1c5e-9d34-4a7e-b016-7c3e5f0a9d21" },
+          dataspace: { type: "string", example: "demo/drogon" },
           typeName: { type: "string", example: "witsml21.Well" },
           wellbores: { type: "array", items: { type: "object", properties: { uuid: { type: "string" }, name: { type: "string" }, typeName: { type: "string" }, dataspace: { type: "string" } } } },
           logs: { type: "array", items: { type: "object", properties: { uuid: { type: "string" }, name: { type: "string" }, typeName: { type: "string" }, dataspace: { type: "string" } } } },

@@ -69,9 +69,9 @@ export class UrisDto {
     maxItems: 99999,
     maxLength: 2048,
     example: [
-      "eml:///dataspace('demo/Volve')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)",
+      "eml:///dataspace('demo/drogon')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)",
 
-      "eml:///dataspace('demo/Volve')/resqml20.obj_ContinuousProperty(1615d8d2-2a2d-482c-885e-14225b89e90c)"
+      "eml:///dataspace('demo/drogon')/resqml20.obj_ContinuousProperty(1615d8d2-2a2d-482c-885e-14225b89e90c)"
     ],
     pattern: patternString(uriPattern)
   })

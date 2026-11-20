@@ -1,0 +1,38 @@
+meta {
+  name: D37 Drogon Read Back IJK Grid Discrete
+  type: http
+  seq: 37
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/resqml20.obj_DiscreteProperty/{{drogonStatGuid2}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Geometry/property coverage (8/10). Reads back the integer-valued discrete
+  property added to the IJK grid in D31 (after commit D35), confirming the
+  IntegerHdf5Array write persisted against the real Drogon grid.
+}
+
+tests {
+  test("status is 200 (grid discrete persisted)", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns the discrete property with its HDF5 values reference", function () {
+    const body = res.getBody();
+    const b = Array.isArray(body) ? body[0] : body;
+    expect(b.Uuid).to.equal(bru.getVar("drogonStatGuid2"));
+    expect(b.SupportingRepresentation.UUID).to.equal(bru.getVar("drogonGridGuid"));
+    const v = b.PatchOfValues[0].Values;
+    expect(v.$type).to.equal("resqml20.IntegerHdf5Array");
+    expect(v.Values.PathInHdfFile).to.equal("/RESQML/" + bru.getVar("drogonStatGuid2") + "/values_patch0");
+  });
+}

@@ -100,6 +100,12 @@ import { SealedVolumeFramework22Manifest } from "./SealedVolumeFramework22";
 import { ReservoirCompartmentInterpretation22Manifest } from "./ReservoirCompartmentInterpretation22";
 import { FluidModelManifest } from "./FluidModel";
 import { ProductionValuesManifest } from "./ProductionValues";
+import { AssetProductionVolumesManifest } from "./AssetProductionVolumes";
+import { ProductVolumeManifest } from "./ProductVolume";
+import { ProductionWellTestsManifest } from "./ProductionWellTests";
+import { WellProductionParametersManifest } from "./WellProductionParameters";
+import { ProductionReportManifest } from "./ProductionReport";
+import { ReportingEntityManifest } from "./ReportingEntity";
 
 export { EtpDataspaceManifest } from "./ETPDataspace";
 export { CollaborationProjectManifest, deriveCollaborationId } from "./CollaborationProject";
@@ -431,6 +437,12 @@ ResqmlOSDU.add(
   () => getKindOrFallback("ColumnBasedTable"),
   ColumnBasedTable23Manifest
 );
+// Canonical 2.2 token (no 2.0-style obj_ prefix), as produced by ETP URIs.
+ResqmlOSDU.add(
+  "resqml22.StringTableLookup",
+  () => getKindOrFallback("ColumnBasedTable"),
+  ColumnBasedTable23Manifest
+);
 ResqmlOSDU.add(
   "eml23.ColumnBasedTable",
   () => getKindOrFallback("ColumnBasedTable"),
@@ -675,6 +687,47 @@ ResqmlOSDU.add(
   "prodml23.TimeSeriesData",
   () => getKindOrFallback("ProductionValues"),
   ProductionValuesManifest
+);
+
+// ─── PRODML production reporting (volumes, well tests, reports) ──────────────
+// OSDU has no dedicated production kinds registered yet, so volumes project
+// onto ProductionValues and the rest onto GenericRepresentation via the kind
+// resolver's graceful fallback. Retarget once dedicated kinds are added to
+// MilestoneKinds.
+ResqmlOSDU.add(
+  "prodml23.AssetProductionVolumes",
+  () => getKindOrFallback("ProductionValues"),
+  AssetProductionVolumesManifest
+);
+
+ResqmlOSDU.add(
+  "prodml23.ProductVolume",
+  () => getKindOrFallback("ProductionValues"),
+  ProductVolumeManifest
+);
+
+ResqmlOSDU.add(
+  "prodml23.ProductionWellTests",
+  () => getKindOrFallback("WellProductionData"),
+  ProductionWellTestsManifest
+);
+
+ResqmlOSDU.add(
+  "prodml23.WellProductionParameters",
+  () => getKindOrFallback("WellProductionParameters"),
+  WellProductionParametersManifest
+);
+
+ResqmlOSDU.add(
+  "prodml23.Report",
+  () => getKindOrFallback("ProductionReport"),
+  ProductionReportManifest
+);
+
+ResqmlOSDU.add(
+  "prodml23.ReportingEntity",
+  () => getKindOrFallback("ReportingEntity"),
+  ReportingEntityManifest
 );
 
 export default ResqmlOSDU;

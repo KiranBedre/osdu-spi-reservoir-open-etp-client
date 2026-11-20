@@ -1,0 +1,42 @@
+meta {
+  name: Copy Dataspace Create Target
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{host}}/dataspaces
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  [
+    {
+      "DataspaceId": "{{copyDataspaceIdRaw}}",
+      "Path": "{{copyDataspaceIdRaw}}",
+      "CustomData": {
+        "viewers": ["{{defaultViewers}}"],
+        "owners": ["{{defaultOwners}}"],
+        "legaltags": ["{{defaultLegalTag}}"],
+        "otherRelevantDataCountries": ["US"]
+      }
+    }
+  ]
+}
+
+docs {
+  Copy flow (1/4): create the empty target dataspace for
+  POST /dataspaces/:source/clone?intoExisting=true.
+}
+
+tests {
+  test("target dataspace created", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+}

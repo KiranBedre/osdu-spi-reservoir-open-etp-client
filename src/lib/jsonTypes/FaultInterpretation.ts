@@ -71,6 +71,8 @@ export class FaultInterpretationOSDU
       }
     }
 
+    const seal = this.faultSeal(xml);
+
     this.data = {
       ...(await this.AbstractCommonResources(context)),
       ...(await this.AbstractWPCGroupType(ReservoirDMSUrl, context)),
@@ -90,7 +92,7 @@ export class FaultInterpretationOSDU
       /**
        * Specifies whether the fault is considered sealed
        */
-      IsSealed: undefined,
+      IsSealed: seal.IsSealed,
       //TODO: Add frame of reference
       MaximumFaultThrowValue: xml.MaximumThrow?._,
       RepresentativeDipAngle: xml.MeanDip?._,
@@ -103,13 +105,46 @@ export class FaultInterpretationOSDU
             Value: xml.MeanDip?._
           }
         : undefined,
-      ExtensionProperties: undefined
+      ExtensionProperties: seal.ExtensionProperties
     };
 
     this.assignExtraMetaData(xml.ExtraMetadata);
 
     delete this.__context;
     return this;
+  }
+
+  /**
+   * Project the RESQML fault-seal state (a 2.0.2 additive element, carried on
+   * the object as the space form e.g. "partially sealed") onto OSDU. `IsSealed`
+   * is derived at the top level; the finer seal discriminators
+   * (`SealState` as the OSDU code, `DefaultTransmissibilityMultiplier`,
+   * `SealMechanism`) ride in `ExtensionProperties` so the record stays valid
+   * against every registered FaultInterpretation version until a seal-aware
+   * schema is defined in the Schema/Search service.
+   */
+  private faultSeal(xml: SimpleJson<resqml20.obj_FaultInterpretation>): {
+    IsSealed: boolean | undefined;
+    ExtensionProperties: { [key: string]: unknown } | undefined;
+  } {
+    const resqmlValue = (xml as any).SealState as string | undefined;
+    if (resqmlValue === undefined) {
+      return { IsSealed: undefined, ExtensionProperties: undefined };
+    }
+    const code = resqmlValue.trim().replace(/\s+/g, "_");
+    const IsSealed =
+      code === "sealed" ? true : code === "unknown" ? undefined : false;
+    const transmissibility = (xml as any).TransmissibilityMultiplier;
+    const mechanism = (xml as any).SealMechanism as string | undefined;
+    const ExtensionProperties: { [key: string]: unknown } = { SealState: code };
+    if (transmissibility !== undefined) {
+      ExtensionProperties.DefaultTransmissibilityMultiplier =
+        typeof transmissibility === "number"
+          ? transmissibility
+          : transmissibility?._;
+    }
+    if (mechanism !== undefined) ExtensionProperties.SealMechanism = mechanism;
+    return { IsSealed, ExtensionProperties };
   }
 }
 

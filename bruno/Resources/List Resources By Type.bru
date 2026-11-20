@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{host}}/dataspaces/{{dataspaceId}}/resources/{{dataObjectType}}
+  url: {{host}}/dataspaces/{{seededDataspaceId}}/resources/{{dataObjectType}}
   body: none
   auth: none
 }
@@ -18,8 +18,13 @@ headers {
 script:post-response {
   if (res.getStatus() === 200) {
     const body = res.getBody();
-    if (Array.isArray(body) && body.length > 0 && body[0].uuid) {
-      bru.setVar("guid", body[0].uuid);
+    if (Array.isArray(body) && body.length > 0) {
+      // Resource objects carry the uuid inside the ETP uri: ...Type(uuid)
+      const m = /\(([0-9a-fA-F-]{36})\)\s*$/.exec(body[0].uri || "");
+      const uuid = body[0].uuid || (m && m[1]);
+      if (uuid) {
+        bru.setVar("guid", uuid);
+      }
     }
   }
 }

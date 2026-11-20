@@ -1,0 +1,67 @@
+meta {
+  name: W03 Store Witsml Trajectory
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{host}}/witsml/store
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:pre-request {
+  function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0;
+      var v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  bru.setVar("witsmlTrajGuid", uuid());
+  // Build the Trajectory XML with the freshly-generated uuid substituted in, so
+  // the growing object (W05/W06) has a stable, unique identity per run. The XML
+  // contains double quotes, so the whole request body is JSON.stringify-ed here
+  // (proper escaping) and injected as a single {{witsmlTrajBody}} variable.
+  var xml =
+    '<Trajectory xmlns="http://www.energistics.org/energyml/data/witsmlv2" xmlns:eml="http://www.energistics.org/energyml/data/commonv2" schemaVersion="2.1" uuid="' + bru.getVar("witsmlTrajGuid") + '">' +
+    '<eml:Citation><eml:Title>Synth Trajectory</eml:Title><eml:Originator>BrunoCLI</eml:Originator><eml:Creation>2026-01-01T00:00:00Z</eml:Creation><eml:Format>WITSML v2.1</eml:Format></eml:Citation>' +
+    '<GrowingStatus>active</GrowingStatus>' +
+    '<TrajectoryStation uid="s1"><TypeTrajStation>tie in point</TypeTrajStation><Md uom="m">0</Md><Tvd uom="m">0</Tvd><Incl uom="dega">0</Incl><Azi uom="dega">0</Azi></TrajectoryStation>' +
+    '<TrajectoryStation uid="s2"><TypeTrajStation>survey station</TypeTrajStation><Md uom="m">500</Md><Tvd uom="m">498</Tvd><Incl uom="dega">2.5</Incl><Azi uom="dega">135</Azi></TrajectoryStation>' +
+    '<TrajectoryStation uid="s3"><TypeTrajStation>survey station</TypeTrajStation><Md uom="m">1000</Md><Tvd uom="m">988</Tvd><Incl uom="dega">5.0</Incl><Azi uom="dega">140</Azi></TrajectoryStation>' +
+    '</Trajectory>';
+  // witsmlDataspaceIdRaw lives in the environment, not in runtime vars.
+  var ds = bru.getEnvVar("witsmlDataspaceIdRaw") || bru.getVar("witsmlDataspaceIdRaw");
+  bru.setVar("witsmlTrajBody", JSON.stringify({ dataspace: ds, xml: xml }));
+}
+
+body:json {
+  {{witsmlTrajBody}}
+}
+
+docs {
+  WITSML growing-object lifecycle (3/7). Stores a small WITSML 2.1 Trajectory (the
+  canonical growing data object) with three survey stations via PUT /witsml/store
+  (XML form). The proxy extracts the station MD/Incl/Azi columns as ETP data arrays.
+  Strict: the store must accept the Trajectory (200/201, success=true) so that the
+  growing reads (W05/W06) exercise a real growing object rather than the Well fallback.
+}
+
+tests {
+  test("status is 200 or 201 (trajectory stored)", function () {
+    expect(res.getStatus(), JSON.stringify(res.getBody())).to.be.oneOf([200, 201]);
+  });
+
+  test("store reports the Trajectory by uuid", function () {
+    const body = res.getBody();
+    expect(body.success, "success").to.equal(true);
+    expect(body.stored[0].objectType).to.equal("Trajectory");
+    expect(body.stored[0].uuid).to.equal(bru.getVar("witsmlTrajGuid"));
+  });
+}

@@ -98,8 +98,9 @@ export class SeismicHorizon22OSDU
     }
 
     const interpretation =
-      xml.RepresentedObject?.QualifiedType ===
-      "resqml22.obj_HorizonInterpretation"
+      /^resqml22\.(obj_)?HorizonInterpretation$/.test(
+        xml.RepresentedObject?.QualifiedType ?? ""
+      )
         ? (xml.RepresentedObject
             ?._data as SimpleJson<resqml22.HorizonInterpretation>)
         : undefined;

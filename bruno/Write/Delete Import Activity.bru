@@ -1,0 +1,28 @@
+meta {
+  name: Delete Import Activity
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/resqml20.obj_Activity/{{writeImportActivityGuid}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Route coverage: DELETE …/{type}/{guid} (auto-commit) on the auto-import
+  Activity discovered by seq 2, so that the surface it references can be
+  deleted by seq 4.
+}
+
+tests {
+  test("status is 204", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

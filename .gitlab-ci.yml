@@ -1,14 +1,12 @@
 variables:
-  #azure
-  AZURE_SWAGGER_PATH: api/reservoir-ddms/v2/
   # cimpl-check-openapi-spec onboarding (#139)
   # NestJS does not match the shared job's auto-discovery, so point it directly
   # at the live spec. The documents are nested UNDER the route prefix (see
   # App.ts: yamlDocumentUrl = "<prefix>/openapi.yaml"); the default "<prefix>-yaml"
-  # sibling 404s at the cimpl Istio ingress. The baseline lives outside the
-  # gitignored docs/ tree (docs/ holds regenerated typedoc output).
+  # sibling 404s at the cimpl Istio ingress. The baseline follows the OSDU
+  # convention docs/api/community/v<N>/ (typedoc output goes to docs/typedoc/).
   CIMPL_OPENAPI_YAML_ROUTE: "/api/reservoir-ddms/v2/openapi.yaml"
-  CIMPL_OPENAPI_SPEC_PATH: "api/community/v2/openapi.yaml"
+  CIMPL_OPENAPI_SPEC_PATH: "docs/api/community/v2/openapi.yaml"
 # Stub: upstream cimpl-global.yml defines jobs that `extends: .maven`, which is
 # only available for Java services. Define a minimal hidden template so YAML
 # validation passes; the individual cimpl-dev-* jobs are disabled via rules below.
@@ -48,26 +46,11 @@ include:
   - local: "devops/osdu/containerize/osdu.yml"
 
   # deploy
-  # azure
-  # Comment at first to only run build image.
-  - local: "devops/azure/azure.gitlab-ci.yml"
-
-  # cimpl
+  # cimpl (the only cloud target; Azure and GC pipelines removed, see #254)
   - project: "osdu/platform/ci-cd-pipelines"
     file: "cloud-providers/cimpl-global.yml"
 
   - local: "devops/core-plus/pipeline/override-stages.yml"
-
-  # gc
-  - project: "osdu/platform/ci-cd-pipelines"
-    file: "cloud-providers/gc-global.yml"
-
-  - local: "devops/gc/pipeline/override-stages.yml"
-
-  # ibm Disable IBM until fixed
-  # - local: "devops/ibm/pipeline/override-stages.yml"
-  # - project: "osdu/platform/ci-cd-pipelines"
-  #   file: "cloud-providers/ibm-open-etp-client.yml"
 
 # Override fossa-analyze: the upstream fossa-with-cache:v0.10 image ships Node 18.16.1
 # but our package.json requires node>=20 (NestJS 11). Disable engine-strict for this
@@ -83,10 +66,22 @@ fossa-analyze:
 fossa-check-notice:
   allow_failure: true
 
-# Override: trigger-trusted-tests (from standard-setup.yml) launches a downstream
-# "trusted" test pipeline that cannot run on ordinary MR/branch pipelines (it
-# needs trusted-validate credentials/context), so it fails and fails the whole
-# pipeline. Make it non-blocking so a trusted-trigger failure does not fail the
-# MR/branch pipeline. No functional change.
-trigger-trusted-tests:
+# Override: cimpl-dev-check-openapi-spec compares the committed spec against the
+# LIVE dev deployment (dev.osdu-main.osdu-cimpl...). That endpoint is not served
+# for this Node/ETP service, so the remote fetch fails and the drift check exits 1.
+# Keep it visible but non-blocking, consistent with cimpl-check-openapi-spec above.
+cimpl-dev-check-openapi-spec:
   allow_failure: true
+
+# Override: cimpl-dev-* jobs also extend `.maven` which is unavailable for Node services.
+cimpl-dev-test:
+  rules:
+    - when: never
+
+cimpl-dev-acceptance-test:
+  rules:
+    - when: never
+
+cimpl-dev-acceptance-test-python:
+  rules:
+    - when: never

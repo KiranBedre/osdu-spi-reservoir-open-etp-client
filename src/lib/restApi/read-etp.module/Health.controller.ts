@@ -48,13 +48,67 @@ import https from "https";
 import fs from "fs";
 import * as child_process from "child_process";
 
-interface ClientInfo {
+export interface ClientInfo {
   groupId: string;
   artifactId: string;
   version: string;
   commitId: string;
   commitTime: string;
   buildTime?: string;
+}
+
+/**
+ * Collect service build identity (package + git) for the `/info` and
+ * `/health/info` endpoints. Build identity is injected at container-build time
+ * via env vars using the SAME names as open-etp-server (GIT_COMMIT_HASH /
+ * GIT_COMMIT_TIMESTAMP / BUILD_TIME) so client and server report their build
+ * the same way. GitLab-native vars (CI_COMMIT_SHA / CI_COMMIT_TIMESTAMP) are
+ * accepted as a fallback, and a runtime `git` lookup covers local dev checkouts.
+ */
+export function collectClientInfo(): ClientInfo {
+  const groupId = "org.opengroup.osdu";
+
+  // get info from package.json
+  const packageJson = JSON.parse(fs.readFileSync("./package.json", "utf8"));
+  const version = packageJson.version;
+  const artifactId = packageJson.name;
+
+  let commitId =
+    process.env.GIT_COMMIT_HASH || process.env.CI_COMMIT_SHA || "unknown";
+  let commitTime =
+    process.env.GIT_COMMIT_TIMESTAMP ||
+    process.env.CI_COMMIT_TIMESTAMP ||
+    "unknown";
+  const buildTime = process.env.BUILD_TIME || "unknown";
+
+  if (commitId === "unknown" || commitTime === "unknown") {
+    // get commit info from Git (local dev fallback)
+    try {
+      if (commitId === "unknown") {
+        commitId = child_process
+          .execSync("git rev-parse HEAD")
+          .toString()
+          .trim();
+      }
+      if (commitTime === "unknown") {
+        commitTime = child_process
+          .execSync("git log -1 --format=%ci")
+          .toString()
+          .trim();
+      }
+    } catch (e) {
+      //Nothing
+    }
+  }
+
+  return {
+    groupId,
+    artifactId,
+    version,
+    commitId,
+    commitTime,
+    buildTime
+  };
 }
 
 export class ClientInfoDto {
@@ -207,64 +261,16 @@ export default class HealthAPI {
   @ApiNotFoundResponse(errorMessageSchema("Not found", 404))
   @ApiInternalServerErrorResponse(errorMessageSchema("Unknown Error"))
   @ApiOperation({
-    summary: "Get server version and build metadata.",
-    description: `Returns package name, version, git commit hash, commit time, and build time from package.json and git. Use for deployment verification, client compatibility checks, and diagnostics.`,
+    summary: "Get server version and build metadata (deprecated, use GET /info).",
+    description: `Deprecated since M28: use \`GET /info\` which returns the same payload. Kept for M26 (0.29) clients. Returns package name, version, git commit hash, commit time, and build time from package.json and git.`,
+    deprecated: true,
     security: [],
     servers: swaggerServers
   })
   public Info(): Promise<ClientInfo> {
     return new Promise<ClientInfo>(resolve => {
       try {
-        const groupId = "org.opengroup.osdu";
-
-        // get info from package.json
-        const packageJson = JSON.parse(
-          fs.readFileSync("./package.json", "utf8")
-        );
-        const version = packageJson.version;
-        const artifactId = packageJson.name;
-
-        // Build identity is injected at container-build time via env vars, using
-        // the SAME names as open-etp-server (GIT_COMMIT_HASH / GIT_COMMIT_TIMESTAMP
-        // / BUILD_TIME) so client and server report their build the same way.
-        // GitLab-native vars (CI_COMMIT_SHA / CI_COMMIT_TIMESTAMP) are accepted as
-        // a fallback, and a runtime `git` lookup covers local dev checkouts.
-        let commitId =
-          process.env.GIT_COMMIT_HASH || process.env.CI_COMMIT_SHA || "unknown";
-        let commitTime =
-          process.env.GIT_COMMIT_TIMESTAMP ||
-          process.env.CI_COMMIT_TIMESTAMP ||
-          "unknown";
-        const buildTime = process.env.BUILD_TIME || "unknown";
-
-        if (commitId === "unknown" || commitTime === "unknown") {
-          // get commit info from Git (local dev fallback)
-          try {
-            if (commitId === "unknown") {
-              commitId = child_process
-                .execSync("git rev-parse HEAD")
-                .toString()
-                .trim();
-            }
-            if (commitTime === "unknown") {
-              commitTime = child_process
-                .execSync("git log -1 --format=%ci")
-                .toString()
-                .trim();
-            }
-          } catch (e) {
-            //Nothing
-          }
-        }
-
-        resolve({
-          groupId,
-          artifactId,
-          version,
-          commitId,
-          commitTime,
-          buildTime
-        });
+        resolve(collectClientInfo());
       } catch (e) {
         throw new InternalServerErrorException({
           description: "Unknown Server Error"
@@ -313,5 +319,77 @@ export default class HealthAPI {
         targetKind: getTargetKind(t) ?? "unknown"
       }))
     };
+  }
+
+  /**
+   * Expose the ETP backend's advertised capabilities (supported protocols /
+   * endpoint capabilities) over REST, so a caller can discover what the
+   * connected server can do WITHOUT opening a session or probing every route.
+   *
+   * It proxies the backend's ETP `.well-known/etp-server-capabilities`
+   * document — the same URL the readiness probe hits — which the REST gateway
+   * does not otherwise publish (hence a client hitting
+   * `/.well-known/etp-server-capabilities` directly gets a 404). Older servers
+   * negotiate fewer protocols; routes needing an unsupported one return 501,
+   * so a live-test harness can read this to skip them up-front.
+   */
+  @Get("capabilities")
+  @ApiOkResponse({ description: "ETP server capabilities document" })
+  @ApiInternalServerErrorResponse(errorMessageSchema("Unknown Error"))
+  @ApiOperation({
+    summary: "Get ETP backend capabilities (supported protocols).",
+    description: `Proxies the ETP backend's \`.well-known/etp-server-capabilities\` document (the protocol-negotiation surface). Use it to discover which ETP protocols the connected server supports so clients can skip routes that would return 501 on older servers. Returns 500 if the ETP backend cannot be contacted.`,
+    security: [],
+    servers: swaggerServers
+  })
+  public Capabilities(): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      try {
+        const prot = etpServerProtocol === "wss" ? https : http;
+        const url = `${etpServerProtocol === "wss" ? "https" : "http"
+          }://${etpServerHost}:${etpServerPort}${etpServerPath}/.well-known/etp-server-capabilities?GetVersion=etp12.energistics.org`;
+        const req = prot
+          .get(url, response => {
+            const chunks: Buffer[] = [];
+            response.on("data", (c: Buffer) => chunks.push(c));
+            response.on("end", () => {
+              if (
+                response.statusCode !== 200 &&
+                response.statusCode !== 301
+              ) {
+                reject(
+                  new InternalServerErrorException({
+                    description: "Server not available"
+                  })
+                );
+                return;
+              }
+              try {
+                resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+              } catch (e) {
+                reject(
+                  new InternalServerErrorException({
+                    description: "Invalid capabilities response from ETP backend"
+                  })
+                );
+              }
+            });
+          })
+          .on("error", () => {
+            // Must reject, not throw: this callback runs on a later event-loop
+            // tick outside the Promise executor's try/catch.
+            reject(
+              new InternalServerErrorException({
+                description: "Server not available"
+              })
+            );
+          });
+        req.end();
+      } catch (e) {
+        throw new InternalServerErrorException({
+          description: "Unknown Server Error"
+        });
+      }
+    });
   }
 }

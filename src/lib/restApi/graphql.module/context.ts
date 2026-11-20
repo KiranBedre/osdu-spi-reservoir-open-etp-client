@@ -16,12 +16,16 @@ import DataLoader from "dataloader";
 import {
     ResqmlClient,
     URI,
-    IResqmlDataObject
+    IResqmlDataObject,
+    IArrayStatsSummary,
+    IArrayReduceResult,
+    IArrayWhereResult,
+    IArrayMultiWhereResult
 } from "../../client/ResqmlClient";
 import { Resource, IDataArrayMetadata, Dataspace } from "../../common/EtpTypes";
 import { ResourceGraph } from "../../common/ResponseHandlers";
 import { Energistics } from "../../common/Etp12";
-import { etpServerUrl } from "../../common/config";
+import { acquirePooledClient } from "../ControllerUtils";
 
 const ContextScopeKind = Energistics.Etp.v12.Datatypes.Object.ContextScopeKind;
 
@@ -60,18 +64,25 @@ export class EtpLoaders {
     private async ensureConnected(): Promise<ResqmlClient> {
         if (this.connected) return this.client;
         if (!this.connectPromise) {
-            this.connectPromise = this.client
-                .openSession(etpServerUrl, this.jwt, this.dataPartitionId)
-                .then(() => { this.connected = true; });
+            // Borrow a warm session from the shared pool (keyed by this
+            // request's identity); closeSession() in dispose() releases it.
+            this.connectPromise = acquirePooledClient(
+                this.jwt,
+                this.dataPartitionId
+            ).then(c => {
+                this.client = c;
+                this.connected = true;
+            });
         }
         await this.connectPromise;
         return this.client;
     }
 
-    /** Close the underlying WebSocket session */
+    /** Release the underlying ETP session back to the pool */
     async dispose(): Promise<void> {
         if (this.connected) {
             try { await this.client.closeSession(); } catch { /* best effort */ }
+            this.connected = false;
         }
     }
 
@@ -233,5 +244,103 @@ export class EtpLoaders {
             ContextScopeKind.targets,
             dataObjectTypes
         );
+    }
+
+    /**
+     * Depth/scope-aware graph traversal for the `targets`/`sources` field
+     * resolvers. Unlike the depth-1 `graphLoader`, this honours an explicit
+     * `depth` (the server walks transitive edges) in the requested direction.
+     * Not DataLoader-cached because the (uri, direction, depth) key space is
+     * large; callers apply their own cycle-guard/dedup on the merged result.
+     */
+    async getGraphDeep(
+        uri: string,
+        direction: "target" | "source",
+        depth: number,
+        dataObjectTypes?: string[]
+    ): Promise<ResourceGraph> {
+        const c = await this.ensureConnected();
+        const scope =
+            direction === "target"
+                ? ContextScopeKind.targetsOrSelf
+                : ContextScopeKind.sourcesOrSelf;
+        const context: Energistics.Etp.v12.Datatypes.Object.ContextInfo = {
+            dataObjectTypes: dataObjectTypes ?? [],
+            depth,
+            includeSecondarySources: direction === "source",
+            includeSecondaryTargets: direction === "target",
+            navigableEdges:
+                Energistics.Etp.v12.Datatypes.Object.RelationshipKind.Both,
+            uri
+        };
+        try {
+            return await c.getGraph(context, scope, true);
+        } catch (e) {
+            logger.warn(
+                `getGraphDeep: failed for ${uri} dir=${direction} depth=${depth}`,
+                e
+            );
+            return new ResourceGraph([], []);
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Server-side array compute (open-etp-server M28 STATS/REDUCE/WHERE
+    // extensions). The array bytes never leave the store; only the fixed-size
+    // summary / column map / aim-point is shipped. Each returns null when the
+    // connected store does not support the extension (older M27 / ADME).
+    // -------------------------------------------------------------------------
+
+    /** Server-side statistical summary of one array (count/min/max/mean/…, plus
+     * optional in-range count and histogram percentiles). */
+    async getArrayStats(
+        uri: string,
+        pathInResource: string,
+        range?: { lo: number; hi: number },
+        histogramBins?: number
+    ): Promise<IArrayStatsSummary | null> {
+        const c = await this.ensureConnected();
+        return c.getDataArrayStats(uri, pathInResource, range, histogramBins);
+    }
+
+    /** Server-side K-axis column reduction of a 3-D property into a 2-D map
+     * (net-pay / targeting maps). */
+    async getArrayReduce(
+        uri: string,
+        pathInResource: string,
+        op: "sum" | "mean" | "min" | "max" | "count" | "net",
+        opts?: {
+            kRange?: { k0: number; k1: number };
+            range?: { lo: number; hi: number };
+            cellDz?: number;
+        }
+    ): Promise<IArrayReduceResult | null> {
+        const c = await this.ensureConnected();
+        return c.getDataArrayReduce(uri, pathInResource, op, opts);
+    }
+
+    /** Server-side single-property masked predicate: count + ijk bbox + centroid
+     * (aim point) of cells whose value is in `[lo, hi]`. */
+    async getArrayWhere(
+        uri: string,
+        pathInResource: string,
+        range: { lo: number; hi: number }
+    ): Promise<IArrayWhereResult | null> {
+        const c = await this.ensureConnected();
+        return c.getDataArrayWhere(uri, pathInResource, range);
+    }
+
+    /** Server-side multi-criteria targeting: AND several per-property predicates
+     * over the shared grid and return the passing count, its ijk bbox/centroid,
+     * and the largest connected body (the drillable target). */
+    async getArrayWhereMulti(
+        predicates: {
+            uri: string;
+            pathInResource: string;
+            range: { lo: number; hi: number };
+        }[]
+    ): Promise<IArrayMultiWhereResult | null> {
+        const c = await this.ensureConnected();
+        return c.getDataArrayWhereMulti(predicates);
     }
 }
