@@ -1,5 +1,7 @@
 global:
   domain: ""
+  # Host the HTTPRoute attaches to when httpRoute.hostnames is empty.
+  hostname: ""
   onPremEnabled: false
   limitsEnabled: true
   tier: ""
@@ -23,11 +25,41 @@ data:
   image: ""
   imagePullPolicy: "IfNotPresent"
 
+httpRoute:
+  enabled: false
+  # Route name. Defaults to "<release>-route" so it never collides with a route of the same name
+  # defined outside this chart.
+  name: ""
+  parentRefs:
+    - name: cimpl-gateway
+      namespace: istio-system
+  # Defaults to global.hostname when empty. The render fails when both are empty.
+  hostnames: []
+  # One rule per entry. Optional per entry: pathType (default PathPrefix), serviceName
+  # (default conf.appName), port (default 80), filters (for example URLRewrite), timeout (request timeout, for example 300s).
+  routes:
+    - path: /api/reservoir-ddms/v2
+      port: 8003
+      timeout: 300s
+
 conf:
   appName: "oetp-client"
   configmap: "oetp-client-config"
   oetpClientSecret: "oetp-client-secret"
   replicas: 2
+  probes:
+    readiness:
+      enabled: true
+      path: /api/reservoir-ddms/v2/health/readiness
+      periodSeconds: 20
+      successThreshold: 1
+      timeoutSeconds: 3
+    liveness:
+      enabled: true
+      path: /api/reservoir-ddms/v2/health/liveness
+      periodSeconds: 20
+      successThreshold: 1
+      timeoutSeconds: 3
 
 hpa:
   minReplicas: 6

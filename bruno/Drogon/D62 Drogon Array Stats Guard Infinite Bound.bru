@@ -1,0 +1,40 @@
+meta {
+  name: D62 Drogon Array Stats Guard Infinite Bound
+  type: http
+  seq: 62
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonPropType}}/{{drogonStatGuid}}/arrays/{{drogonStatArray}}/compute?op=stats&rangeLo=Infinity&rangeHi=1
+  body: none
+  auth: none
+}
+
+params:query {
+  op: stats
+  rangeLo: Infinity
+  rangeHi: 1
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Array-compute coverage (22/31). Guard: a non-finite bound. JavaScript parses "Infinity" as a finite-check
+      failure on the client side; if it leaks through, the store rejects it with
+      "bounds must be finite numbers". Either way the request must be 400.
+}
+
+tests {
+  test("status is 400", function () {
+        expect(res.getStatus()).to.equal(400);
+      });
+
+      test("error message names the violated rule", function () {
+        const b = res.getBody();
+        const msg = String((b && (b.description || b.message)) || "");
+        expect(msg.toLowerCase()).to.include('finite');
+      });
+}

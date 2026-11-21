@@ -77,6 +77,22 @@ Interactive Swagger UI at the configured root path. Includes full endpoint descr
 | **WITSML**       | Store/query WITSML 2.1 and 1.4.1 XML objects                              |
 | **PWLS**         | Curve mnemonic resolution and validation                                  |
 
+#### Transaction authorization
+
+Transaction reuse, commit and rollback authenticate the incoming credentials with
+a fresh, non-pooled backend ETP session before using the retained transaction.
+Ordinary non-transaction requests can still use the session pool. Callers must
+match the creating principal, issuer and data partition. JWT renewal is supported:
+identity uses issuer + tenant/object IDs when an object ID is present, otherwise
+issuer + subject (including tokens with a tenant hint but no object ID).
+Basic authentication compares the credential without scheme casing or separator
+whitespace; opaque bearer credentials require an exact match.
+Malformed JWT identity claims are rejected rather than treated as opaque
+credentials. Transaction ownership checks return HTTP 401 for missing credentials,
+invalid identity claims or backend authentication rejection, and HTTP 403 for
+authenticated ownership mismatches. Existing shared authorization-header validation,
+route guards, dataspace checks and automatic timeout rollback remain unchanged.
+
 ### GraphQL API
 
 Available at `/graphql` (with Playground in development mode). Same data as REST with field-level selection and DataLoader batching.
@@ -155,9 +171,9 @@ npm run docker:compose:start    # OpenETPServer + PostgreSQL
 npm run start                   # REST API against Docker ETP server
 ```
 
-### Azure (AKS)
+### OSDU CIMPL (Kubernetes)
 
-See [devops/azure/README.md](devops/azure/README.md) for Helm chart and Azure DevOps pipeline setup.
+Helm chart and deploy jobs live in [devops/core-plus/](devops/core-plus/deploy/README.md); the Azure and GC pipelines were removed (#254).
 
 ### Production notes
 
@@ -184,7 +200,7 @@ All protocols are **auto-negotiated** at session open. Unsupported endpoints ret
 | Transaction      | 18  | Start/commit/rollback                                        |
 | Dataspace        | 24  | Create/delete/lock dataspaces                                |
 | SupportedTypes   | 25  | Type enumeration                                             |
-| StoreQuery       | 14  | FindDataObjects with content → `POST /query/objects/find`    |
+| StoreQuery       | 14  | FindDataObjects with content → `POST /query/resources/find` (`includeContent`)    |
 
 ---
 
@@ -203,18 +219,31 @@ npm run test:single pattern1              # sequential, no coverage (debugging)
 Require a running ETP server:
 
 ```sh
-npm run test:integration                  # TestClient + TestProtocols + TestWitsmlQuery
+npm run test:integration                  # TestClient + TestWitsmlQuery (live ETP server; ignored by `npm test`)
 ```
 
 ### Bruno API tests
 
-The `bruno/` folder contains a [Bruno](https://www.usebruno.com/) collection for REST API testing. Environments: Local, Azure, CI.
+The `bruno/` folder contains a [Bruno](https://www.usebruno.com/) collection covering every REST route; it is the CI gate (`bruno-integration-test`) and runs identically against the local compose stack. See [bruno/README.md](bruno/README.md) for the dataspace contract, capability-driven tests and the fixture.
 
 ```sh
-npx bru run bruno/ --env Local            # headless CLI run
+export BRU_ENV="--env CI --env-var access_token=<jwt> --env-var RESERVOIR_DDMS_HOST=http://localhost:8003/Reservoir/v2 \
+  --env-var graphqlHost=http://localhost:8003/graphql --env-var DATA_PARTITION_ID=osdu --env-var ENTITLEMENTS_DOMAIN=example.com"
+devops/scripts/run-bruno-suites.sh reports              # all folders, one bru run, per-folder summary
+devops/scripts/run-bruno-suites.sh reports _Setup Drogon _Cleanup
 ```
 
-Manual workflow: run `_Setup/` requests → test individual endpoints → run `_Cleanup/`.
+Manual workflow (GUI): run `_Setup/` → any folder → `_Cleanup/`.
+
+### Postman collection
+
+`RDDMS_M28.postman_collection.json` is the equivalent collection for Postman users and the `postman-integration-test` CI job:
+
+```sh
+npx newman run RDDMS_M28.postman_collection.json --working-dir . \
+  --global-var RDDMS_URL=http://localhost:8003/Reservoir/v2 --global-var graphql_url=http://localhost:8003/graphql \
+  --global-var access_token=<jwt>
+```
 
 ### Local ETP Server (Docker)
 

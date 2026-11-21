@@ -1,0 +1,72 @@
+meta {
+  name: W02 Store Witsml Well
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{host}}/witsml/store
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:pre-request {
+  function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0;
+      var v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  bru.setVar("witsmlWellGuid", uuid());
+}
+
+body:json {
+  {
+    "dataspace": "{{witsmlDataspaceIdRaw}}",
+    "json": [
+      {
+        "$type": "witsml21.Well",
+        "Uuid": "{{witsmlWellGuid}}",
+        "SchemaVersion": "2.1",
+        "Citation": {
+          "$type": "eml23.Citation",
+          "Title": "Synth WITSML Well",
+          "Originator": "BrunoCLI",
+          "Creation": "2026-01-01T00:00:00Z",
+          "Format": "WITSML v2.1"
+        },
+        "Country": "Norway",
+        "TimeZone": "+01:00"
+      }
+    ]
+  }
+}
+
+docs {
+  WITSML growing-object lifecycle (2/7). Stores a minimal, self-describing WITSML
+  2.1 Well via PUT /witsml/store (JSON form: each object carries $type + Uuid, the
+  proxy converts to Energistics XML and PutDataObjects into the dataspace inside an
+  auto-transaction). This is the reliable anchor object the query in W04 reads back.
+}
+
+tests {
+  test("status is 200 or 201 (well stored)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("store reports success and the Well by uuid", function () {
+    const body = res.getBody();
+    expect(body, JSON.stringify(body)).to.be.an("object");
+    expect(body.success, "success").to.equal(true);
+    expect(body.stored, "stored").to.be.an("array").with.lengthOf(1);
+    expect(body.stored[0].objectType).to.equal("Well");
+    expect(body.stored[0].uuid).to.equal(bru.getVar("witsmlWellGuid"));
+    expect(body.arraysStored).to.equal(0);
+  });
+}

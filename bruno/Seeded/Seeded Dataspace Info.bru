@@ -1,0 +1,38 @@
+meta {
+  name: Seeded Dataspace Info
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{host}}/dataspaces/{{seededDataspaceId}}/info
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Rich read against the deployment-seeded `demo/Drogon` dataspace (the compose
+  init container imports data/Demo_Drogon.epc + .h5 into the ETP server with
+  `openETPServer space --import-epc`). Asserts the dataspace metadata the
+  seeding leaves behind: the canonical uri/path and an unlocked, writable space.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("info describes the seeded dataspace", function () {
+    const b = res.getBody();
+    expect(b.uri).to.equal("eml:///dataspace('" + bru.getEnvVar("seededDataspaceIdRaw") + "')");
+    expect(b.path).to.equal(bru.getEnvVar("seededDataspaceIdRaw"));
+    expect(b.customData).to.be.an("object");
+    expect(b.customData.locked).to.equal(false);
+    expect(b.customData["read-only"]).to.equal(false);
+  });
+}

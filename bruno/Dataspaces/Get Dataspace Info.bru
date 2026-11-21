@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{host}}/dataspaces/{{dataspaceId}}/info
+  url: {{host}}/dataspaces/{{seededDataspaceId}}/info
   body: none
   auth: none
 }
@@ -15,8 +15,19 @@ headers {
   Authorization: Bearer {{access_token}}
 }
 
+docs {
+  Route coverage: GET /dataspaces/{id}/info for the seeded fixture dataspace.
+}
+
 tests {
-  test("status is 200 or 404", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 404]);
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("describes the seeded dataspace", function () {
+    const b = res.getBody();
+    expect(b.path).to.equal(bru.getEnvVar("seededDataspaceIdRaw"));
+    expect(b.uri).to.equal("eml:///dataspace('" + bru.getEnvVar("seededDataspaceIdRaw") + "')");
+    expect(b.customData).to.be.an("object");
   });
 }

@@ -1,11 +1,11 @@
 meta {
   name: Lock Dataspace
   type: http
-  seq: 5
+  seq: 11
 }
 
 post {
-  url: {{host}}/dataspaces/{{testDataspaceId}}/lock
+  url: {{host}}/dataspaces/{{crudDataspaceId}}/lock
   body: none
   auth: none
 }
@@ -15,8 +15,13 @@ headers {
   Authorization: Bearer {{access_token}}
 }
 
+docs {
+  Route coverage: POST /dataspaces/{id}/lock on the folder-private CRUD dataspace.
+}
+
 tests {
-  test("status is 200 or 201 or 404 or 409", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 201, 404, 409]);
+  test("status is 200 and dataspace is locked", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody(), "dataspace locked").to.equal(true);
   });
 }

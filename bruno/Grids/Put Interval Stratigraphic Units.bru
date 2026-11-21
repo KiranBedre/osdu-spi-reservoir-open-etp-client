@@ -1,0 +1,64 @@
+meta {
+  name: Put Interval Stratigraphic Units
+  type: http
+  seq: 12
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:pre-request {
+  const grid = JSON.parse(bru.getVar("gridsGridJson"));
+  grid["IntervalStratigraphicUnits"] = {
+    "StratigraphicOrganization": {
+      "$type": "eml20.DataObjectReference",
+      "ContentType": "application/x-resqml+xml;version=2.0;type=obj_StratigraphicColumnRankInterpretation",
+      "Title": "Stratigraphic column rank",
+      "UUID": bru.getVar("gridsRankUuid")
+    },
+    "UnitIndices": {
+      "$type": "resqml20.IntegerHdf5Array",
+      "NullValue": -1,
+      "Values": {
+        "$type": "eml20.Hdf5Dataset",
+        "PathInHdfFile": "/RESQML/" + bru.getVar("gridsGridUuid") + "/intervalStratigraphicUnits",
+        "HdfProxy": {
+          "$type": "eml20.DataObjectReference",
+          "ContentType": "application/x-resqml+xml;version=2.0;type=obj_EpcExternalPartReference",
+          "Title": "Hdf Proxy",
+          "UUID": bru.getVar("gridsProxyUuid")
+        }
+      }
+    }
+  };
+  bru.setVar("gridsGridJson", JSON.stringify(grid));
+  req.setBody([grid]);
+}
+
+body:json {
+  []
+}
+
+docs {
+  Replaces PUT /grids/{uuid}/stratigraphic-units: buildIntervalStratigraphicUnits
+  child (unitIndices [0] against the column rank from Put Stratigraphic Column)
+  merged onto the grid and rewritten through PUT /resources.
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("store accepted the objects (body is true)", function () {
+    expect(res.getBody()).to.equal(true);
+  });
+}

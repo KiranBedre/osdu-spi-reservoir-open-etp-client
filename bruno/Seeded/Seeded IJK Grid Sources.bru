@@ -1,0 +1,47 @@
+meta {
+  name: Seeded IJK Grid Sources
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{host}}/dataspaces/{{seededDataspaceId}}/resources/resqml20.obj_IjkGridRepresentation/{{seededGridUuid}}/sources
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  P3 getSources of the seeded IJK Grid. The answer must equal the sources recorded for
+  this object in the full graph (Seeded Graph Type Invariants), which makes the
+  per-object route and the whole-graph route agree and - because the graph
+  stores one directed link per reference - verifies A in targets(B) <=> B in
+  sources(A). Type mix: none (leaf)
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("sources match the full-graph adjacency exactly", function () {
+    const uuidOf = function (uri) { return uri.replace(/^.*\(([0-9a-f-]{36})\)$/, "$1"); };
+    const got = res.getBody().map(function (r) { return uuidOf(r.uri); })
+      .filter(function (v, i, a) { return a.indexOf(v) === i; }).sort();
+    const want = JSON.parse(bru.getVar("seededGraphSources"))[bru.getVar("seededGridUuid")];
+    expect(want, "adjacency captured").to.be.an("array");
+    expect(got).to.deep.equal(want);
+  });
+
+  test("sources have the RESQML type mix: none (leaf)", function () {
+    const typeOf = function (uri) { return uri.replace(/^.*\/(?:resqml20|eml20)\.(obj_[A-Za-z0-9]+)\(.*$/, "$1"); };
+    const counts = {};
+    res.getBody().forEach(function (r) { const t = typeOf(r.uri); counts[t] = (counts[t] || 0) + 1; });
+    delete counts.obj_Activity; // auto-import activity references everything it imported
+    expect(counts).to.deep.equal({});
+  });
+}

@@ -1,0 +1,26 @@
+meta {
+  name: Delete Clone Dataspace
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{host}}/dataspaces/{{cloneDataspaceId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Removes the dataspace produced by "Clone Dataspace".
+}
+
+tests {
+  test("clone deleted", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 204]);
+  });
+}

@@ -1,0 +1,62 @@
+meta {
+  name: Put Horizon Control Points
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/seismic/horizons?representation=control-points
+  body: json
+  auth: none
+}
+
+params:query {
+  representation: control-points
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "title": "Bruno Horizon Picks",
+    "hdfUuid": "{{seedHdfUuid}}",
+    "crsUuid": "{{seedCrsUuid}}",
+    "domain": "depth",
+    "interpretationTitle": "Bruno Horizon",
+    "featureTitle": "Bruno Horizon Feature",
+    "points": [456010, 5930010, 1575, 456060, 5930010, 1580, 456010, 5930060, 1584],
+    "originator": "BrunoCLI"
+  }
+}
+
+script:post-response {
+  const b = res.getBody();
+  if (b && b.interpretationUuid) {
+    bru.setVar("seismicHorizonInterpUuid", b.interpretationUuid);
+  }
+}
+
+docs {
+  Route coverage: PUT /dataspaces/:ds/seismic/horizons?representation=control-points - writes
+  a PointSetRepresentation (3 picked XYZ control points, one external array on
+  the seeded HDF proxy) and auto-creates its HorizonInterpretation + boundary
+  feature because no `interpretationUuid` is supplied. Auto-commit.
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("point set, interpretation and feature were created with one array", function () {
+    const b = res.getBody();
+    expect(b.pointSetUuid).to.be.a("string").with.length(36);
+    expect(b.interpretationUuid).to.be.a("string").with.length(36);
+    expect(b.featureUuid).to.be.a("string").with.length(36);
+    expect(b.objects).to.equal(3);
+    expect(b.arrays).to.be.a("number").at.least(1);
+  });
+}

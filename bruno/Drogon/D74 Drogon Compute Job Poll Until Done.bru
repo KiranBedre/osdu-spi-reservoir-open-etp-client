@@ -1,0 +1,75 @@
+meta {
+  name: D74 Drogon Compute Job Poll Until Done
+  type: http
+  seq: 74
+}
+
+get {
+  url: {{host}}/compute/jobs/{{drogonComputeJobId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:pre-request {
+  // Poll the job before the "real" request so the assertions below see a
+  // terminal state. Two single-predicate batches over one Drogon property
+  // finish in well under the 30 s budget on the M28 compute tier.
+  const axios = require("axios");
+  const id = bru.getVar("drogonComputeJobId");
+  const url = bru.getEnvVar("host") + "/compute/jobs/" + id;
+  const token = bru.getVar("access_token") || bru.getEnvVar("access_token");
+  const headers = {
+    "data-partition-id": bru.getEnvVar("data-partition-id"),
+    "Authorization": "Bearer " + token
+  };
+  const terminal = ["succeeded", "failed", "canceled"];
+  const deadline = Date.now() + 30000;
+  let status = "queued";
+  while (Date.now() < deadline) {
+    const r = await axios.get(url, { headers, validateStatus: function () { return true; } });
+    if (r.status !== 200) break;
+    status = r.data.status;
+    if (terminal.indexOf(status) >= 0) break;
+    await new Promise(function (ok) { setTimeout(ok, 500); });
+  }
+  bru.setVar("drogonComputeJobFinalStatus", status);
+}
+
+docs {
+  Route coverage: GET /compute/jobs/:id — polls the D72 job to a terminal state
+  (pre-request loop, max 30 s) and then asserts the final view: status
+  `succeeded`, progress done == total, and one where-multi result per batch
+  with the same shape as the synchronous D48 response.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("job reached a terminal state", function () {
+    expect(res.getBody().status).to.be.oneOf(["succeeded", "failed", "canceled"]);
+  });
+
+  test("job succeeded with full progress", function () {
+    const b = res.getBody();
+    expect(b.status, b.error || "").to.equal("succeeded");
+    expect(b.progress.done).to.equal(b.progress.total);
+    expect(b.progress.total).to.equal(2);
+  });
+
+  test("one where-multi result per batch", function () {
+    const b = res.getBody();
+    expect(b.result).to.be.an("array").with.length(2);
+    b.result.forEach(function (r, i) {
+      expect(r.valid, "batch " + i).to.equal(true);
+      expect(r.arrays, "batch " + i).to.equal(1);
+      expect(r.count, "batch " + i).to.be.a("number").at.least(0);
+    });
+  });
+}

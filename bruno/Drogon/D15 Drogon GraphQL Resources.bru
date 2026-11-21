@@ -1,0 +1,46 @@
+meta {
+  name: D15 Drogon GraphQL Resources
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{graphqlHost}}
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "query": "query { dataspaces { uri name storeCreated } }"
+  }
+}
+
+docs {
+  Drogon lifecycle (10/15). Graph-API cross-check: lists dataspaces via GraphQL and
+  asserts demo/Drogon is visible through the ETP Store-backed resolver, complementing
+  the REST reads above.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("GraphQL resolves and demo/Drogon is listed", function () {
+    const body = res.getBody();
+    expect(body, JSON.stringify(body)).to.be.an("object");
+    expect(body.errors, JSON.stringify(body.errors)).to.equal(undefined);
+    expect(body.data.dataspaces).to.be.an("array");
+    const found = body.data.dataspaces.some(function (d) {
+      const s = (d && (d.uri || d.name)) || "";
+      return s.indexOf("Drogon") !== -1;
+    });
+    expect(found, "demo/Drogon present in GraphQL dataspaces").to.equal(true);
+  });
+}

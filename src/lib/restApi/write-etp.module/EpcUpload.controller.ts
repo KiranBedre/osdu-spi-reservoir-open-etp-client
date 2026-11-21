@@ -58,6 +58,7 @@ import * as os from "os";
 import { XMLParser } from "fast-xml-parser";
 
 import {
+    ArrayByteUuid,
     DataObject,
     DataValue,
     Energistics,
@@ -87,27 +88,20 @@ import {
 
 import { qualifiedTypeRegex } from "../../common/EtpQualifiedType";
 
-import { createManifest, DEFAULT_DATASPACE_TYPE_PATTERNS, DEFAULT_INGEST_EXCLUDE_PATTERNS, PropertyFilter } from "../../jsonTypes/Manifest";
-import { OSDUContext } from "../../jsonTypes/OsduContext";
 import {
-    osduUrl,
     defaultDataspaceOwners,
     defaultDataspaceViewers,
     defaultDataspaceLegalTags,
     defaultDataspaceDataCountries
 } from "../../common/config";
-import { bigIntToString } from "../../mlTypes/XmlJsonUtil";
-import { safeFetch } from "../../common/SafeFetch";
 import {
-    ensureSchemaVersions,
-    isSchemaRegistered,
-    setSchemaRegistered,
-    parseKindIdentity,
-    listRegisteredVersions
-} from "../../jsonTypes/MilestoneKinds";
+    CatalogIngestionResult,
+    parseIngestMode,
+    parseCsvPatterns,
+    parsePropertyFilter,
+    performCatalogIngestion
+} from "./catalogIngestion";
 import { decode, JwtPayload } from "jsonwebtoken";
-import { readFile } from "fs/promises";
-import { join } from "path";
 
 import { ValidatorClient } from "../../client/ValidatorClient";
 import type { ValidationReport } from "../../client/ValidatorClient";
@@ -159,21 +153,16 @@ const ARRAY_FAILURE_THRESHOLD = parseFloat(
     process.env.RDMS_ARRAY_FAILURE_THRESHOLD ?? "0.5"
 );
 
-/** Max decompressed size of a single EPC zip entry (default 500 MB, CWE-409) */
-const MAX_EPC_ENTRY_BYTES = parseInt(
-    process.env.RDMS_EPC_MAX_ENTRY_SIZE_MB ?? "500",
-    10
-) * 1024 * 1024;
+/** Max inflated size of a single EPC zip entry (default 500 MB), CWE-409. */
+const MAX_EPC_ENTRY_BYTES =
+    parseInt(process.env.RDMS_EPC_MAX_ENTRY_SIZE_MB ?? "500", 10) * 1024 * 1024;
 
-/** Max cumulative decompressed size across all EPC entries (default 2 GB) */
-const MAX_EPC_TOTAL_INFLATED_BYTES = parseInt(
-    process.env.RDMS_EPC_MAX_TOTAL_INFLATED_MB ?? "2048",
-    10
-) * 1024 * 1024;
+/** Max total inflated size across all read EPC zip entries (default 2 GB). */
+const MAX_EPC_TOTAL_INFLATED_BYTES =
+    parseInt(process.env.RDMS_EPC_MAX_TOTAL_INFLATED_MB ?? "2048", 10) *
+    1024 *
+    1024;
 
-/**
- * Minimal structural view of an adm-zip entry (adm-zip is dynamically imported).
- */
 interface SafeZipEntry {
     entryName: string;
     header?: { size?: number };
@@ -181,39 +170,30 @@ interface SafeZipEntry {
 }
 
 /**
- * Inflate a single EPC zip entry while enforcing per-entry and cumulative
- * decompressed-size limits to defeat zip-bomb / decompression-amplification
- * attacks (CWE-409). The compressed upload size is already capped elsewhere,
- * but that does not bound the inflated size of the entries inside.
- *
- * @param counter mutable accumulator of total inflated bytes across the upload
+ * Read a zip entry while enforcing per-entry and cumulative inflated-size
+ * caps to prevent decompression-bomb attacks (CWE-409). Both the declared
+ * header size and the actual inflated length are checked.
  */
 function readZipEntrySafely(
     entry: SafeZipEntry,
     counter: { total: number }
 ): Buffer {
-    const declared = entry.header?.size ?? 0;
-    if (declared > MAX_EPC_ENTRY_BYTES) {
+    const declared = entry.header?.size;
+    if (typeof declared === "number" && declared > MAX_EPC_ENTRY_BYTES) {
         throw new BadRequestException({
-            description:
-                `EPC entry '${entry.entryName}' declares an uncompressed size ` +
-                `(${declared} bytes) above the limit of ${MAX_EPC_ENTRY_BYTES} bytes`
+            description: `EPC entry '${entry.entryName}' declares ${declared} bytes, exceeding the ${MAX_EPC_ENTRY_BYTES}-byte limit`
         });
     }
     const data = entry.getData();
     if (data.length > MAX_EPC_ENTRY_BYTES) {
         throw new BadRequestException({
-            description:
-                `EPC entry '${entry.entryName}' inflated to ${data.length} bytes, ` +
-                `above the limit of ${MAX_EPC_ENTRY_BYTES} bytes`
+            description: `EPC entry '${entry.entryName}' inflated to ${data.length} bytes, exceeding the ${MAX_EPC_ENTRY_BYTES}-byte limit`
         });
     }
     counter.total += data.length;
     if (counter.total > MAX_EPC_TOTAL_INFLATED_BYTES) {
         throw new BadRequestException({
-            description:
-                `EPC archive inflates to more than the allowed ` +
-                `${MAX_EPC_TOTAL_INFLATED_BYTES} bytes in total`
+            description: `EPC total inflated size exceeded the ${MAX_EPC_TOTAL_INFLATED_BYTES}-byte limit`
         });
     }
     return data;
@@ -228,70 +208,38 @@ const ARRAY_CONCURRENCY = parseInt(
 /** Batch size for putDataObjects calls */
 const OBJECT_BATCH_SIZE = 100;
 
-/** Batch size for pushing records to OSDU Storage Service */
-const STORAGE_BATCH_SIZE = 500;
-
-/** Valid values for the autoIngest query parameter */
-type IngestMode = "records" | "workflow";
-
-/** Optional directory holding OSDU schema JSON files for auto-registration. */
-const SCHEMA_DIR = process.env.RDMS_SCHEMA_DIR;
+/**
+ * Max data objects committed per ETP transaction (default 49).
+ *
+ * Workaround for an open-etp-server bug: during CommitTransaction the server
+ * auto-creates a RESQML 2.0 "import Activity" referencing every object in the
+ * transaction, internally chunked into <=49 participants. When a chunk contains
+ * a RESQML 2.3 / EML 2.3 object whose CRS / PropertyKind / ActivityTemplate was
+ * committed in an *earlier* transaction, the server fails to resolve that
+ * cross-transaction reference and writes a null-UUID DOR into the auto-import
+ * Activity, surfacing as an "N Missing reference(s)" HTTP 412 at commit (the
+ * same path handles 400+ single-transaction RESQML 2.0 objects fine). We work
+ * around this by (a) committing in dependency-ordered sub-transactions of
+ * <=49 objects and (b) re-including the shared "infrastructure" objects
+ * (CRS / PropertyKind / ActivityTemplate) in every sub-transaction so those
+ * references always resolve within the current transaction. Re-included objects
+ * are idempotent upserts and are de-duplicated by the server's auto-import
+ * Activity, so they do not inflate the committed-object count. Set to 0 to
+ * disable batching and commit everything in a single transaction.
+ */
+const COMMIT_BATCH_SIZE = parseInt(
+    process.env.RDMS_COMMIT_BATCH_SIZE ?? "49",
+    10
+);
 
 /**
- * When a kind is not registered at any version, remap it to a registered generic
- * work-product-component sibling (GenericRepresentation / GenericInterpretation /
- * GenericFeature / GenericProperty) instead of dropping the record. Lossy but
- * keeps the object; the original type is preserved in `data.Type`.
- * Opt out with RDMS_INGEST_GENERIC_FALLBACK=false. Default on.
+ * RESQML/EML object type-name fragments (matched against the EPC dataType,
+ * e.g. "LocalEngineeringCompoundCrs", "PropertyKind", "ActivityTemplate")
+ * whose objects are shared "infrastructure" referenced by many others. These
+ * are re-included in every commit sub-transaction so cross-transaction
+ * references to them resolve. See COMMIT_BATCH_SIZE.
  */
-const GENERIC_FALLBACK = (process.env.RDMS_INGEST_GENERIC_FALLBACK ?? "true") !== "false";
-
-/**
- * Map a work-product-component entityType to an ordered list of candidate
- * generic sibling entityTypes, classified by role and (for representations)
- * geometry. Mirrors the converter's routing preference in the RESQML→OSDU guide:
- * grid-derived representations prefer GenericBinGrid (preserves grid geometry:
- * origin, bin widths, node counts) and fall back to GenericRepresentation.
- * Returns [] for non-WPC groups or kinds that are already generic.
- */
-function genericSiblingsFor(entityType: string): string[] {
-    const m = entityType.match(/^work-product-component--(.+)$/);
-    if (!m) return [];                   // only WPCs have generic siblings
-    const name = m[1];
-    if (name.startsWith("Generic")) return [];
-    if (name.endsWith("Interpretation")) return ["work-product-component--GenericInterpretation"];
-    if (name.endsWith("Feature")) return ["work-product-component--GenericFeature"];
-    if (name.endsWith("Property")) return ["work-product-component--GenericProperty"];
-    // Representation family. Grid-derived types keep grid geometry in GenericBinGrid.
-    if (/BinGrid|Grid2d|StructureMap|SeismicHorizon/i.test(name)) {
-        return [
-            "work-product-component--GenericBinGrid",
-            "work-product-component--GenericRepresentation"
-        ];
-    }
-    return ["work-product-component--GenericRepresentation"];
-}
-
-/** Result of an auto-ingest attempt (returned in the upload response). */
-interface CatalogIngestionResult {
-    status: string;
-    mode?: string;
-    recordCount?: number;
-    workflowRunId?: string;
-    error?: string;
-    /** Kinds skipped because no schema is registered on the target instance (kind → record count). */
-    unsupportedKinds?: Record<string, number>;
-    /** Kinds whose schema was auto-registered during this ingest. */
-    registeredSchemas?: string[];
-    /** Kinds substituted with a fallback kind before ingest (original kind → substituted kind). */
-    remappedKinds?: Record<string, string>;
-    /** Number of records that failed the resilient per-record fallback. */
-    failedCount?: number;
-    /** Sample of per-record failures (capped). */
-    failures?: Array<{ id?: string; kind?: string; status: number; error: string }>;
-    /** Number of reference-data records skipped because they already exist in Storage (not overwritten). */
-    skippedExisting?: number;
-}
+const INFRA_TYPE_FRAGMENTS = ["Crs", "PropertyKind", "ActivityTemplate"];
 
 // ---------------------------------------------------------------------------
 // Multer disk storage - files go to OS temp dir, cleaned up after ingest
@@ -883,7 +831,6 @@ export default class EpcUploadAPI {
             const AdmZip = (await import("adm-zip")).default;
             const zip = new AdmZip(epcFile.path);
             const zipEntries = zip.getEntries();
-            // Tracks cumulative decompressed bytes to enforce a zip-bomb cap (CWE-409)
             const inflatedCounter = { total: 0 };
 
             // Find [Content_Types].xml
@@ -957,13 +904,47 @@ export default class EpcUploadAPI {
 
                 const title = extractTitleFromXml(xmlStr);
 
-                // Normalise domain version: "2.0" → "20", "2.2" → "22"
-                const normalizedVersion = domainVersion.replace(/\./g, "");
+                // Normalise the domain version to the ETP token derived from the
+                // XML *namespace*, not the content-type version string. RESQML 2.2
+                // and 2.3 share the resqmlv2 namespace (ETP token "resqml22"), and
+                // EML/common 2.2 and 2.3 share the commonv2 namespace (ETP token
+                // "eml23"). The open-etp-server keys both object storage and DOR
+                // resolution by these namespace tokens, so RESQML 2.3 (an unreleased
+                // line here) is masked as 2.2 and EML 2.2/2.3 fold to "eml23".
+                const rawVersion = domainVersion.replace(/\./g, "");
+                let normalizedVersion = rawVersion;
+                if (domainFamily === "resqml" && (rawVersion === "22" || rawVersion === "23")) {
+                    normalizedVersion = "22";
+                } else if (domainFamily === "eml" && (rawVersion === "22" || rawVersion === "23")) {
+                    normalizedVersion = "23";
+                }
+
+                // Align the object's own schemaVersion with the canonical version
+                // of its ETP token. The server stores each object's version from
+                // its schemaVersion attribute and resolves DOR tokens to a fixed
+                // canonical version (resqml22→"2.2", eml23→"2.3", …). RESQML 2.3
+                // reuses the resqmlv2 (2.2) namespace, so its objects must present
+                // schemaVersion="2.2" to match incoming references; otherwise every
+                // reference to them resolves as missing.
+                const canonicalSchemaVersion: Record<string, string> = {
+                    resqml22: "2.2",
+                    resqml20: "2.0",
+                    eml23: "2.3",
+                    eml20: "2.0",
+                    witsml21: "2.1",
+                    prodml22: "2.2"
+                };
+                const etpToken = `${domainFamily}${normalizedVersion}`;
+                const wantSchemaVersion = canonicalSchemaVersion[etpToken];
+                const normalizedXml =
+                    wantSchemaVersion !== undefined
+                        ? xmlStr.replace(/(\sschemaVersion=")[^"]*(")/, `$1${wantSchemaVersion}$2`)
+                        : xmlStr;
 
                 epcObjects.push({
                     uuid,
                     title,
-                    xml: xmlStr,
+                    xml: normalizedXml,
                     domainFamily,
                     domainVersion: normalizedVersion,
                     dataType,
@@ -1204,7 +1185,8 @@ export default class EpcUploadAPI {
                 extractToken(request),
                 extractDataPartitionId(request),
                 undefined,
-                transactionId
+                transactionId,
+                extractUserInfo(request)
             );
             if (!c) {
                 throw new InternalServerErrorException({
@@ -1242,18 +1224,9 @@ export default class EpcUploadAPI {
                 logger.warn(`Could not ensure dataspace exists: ${dsErr}`);
             }
 
-            const txId = transactionId
-                ? undefined
-                : await c.startTransaction(false, [dataspaceUri], "EPC upload");
-
-            logger.info(
-                txId
-                    ? "Started internal transaction for EPC upload"
-                    : "Using caller-provided transaction"
-            );
             timings.session = performance.now() - phaseStart;
 
-            // ── 6. Build DataObject records ──
+            // ── 6. Build DataObject records & array work items ──
             phaseStart = performance.now();
             const toDataObject = (obj: EpcObject): DataObject => {
                 const uri = EtpUri.createObjectUri(
@@ -1293,66 +1266,31 @@ export default class EpcUploadAPI {
                 o => o.dataType !== "obj_EpcExternalPartReference"
             );
 
-            // Helper: put a list of DataObjects in batches
-            const putBatched = async (
-                items: DataObject[],
-                label: string
-            ): Promise<number> => {
-                let stored = 0;
-                for (let i = 0; i < items.length; i += OBJECT_BATCH_SIZE) {
-                    checkTimeout("putObjects");
-                    const batch = items.slice(i, i + OBJECT_BATCH_SIZE);
-                    logger.info(
-                        `Putting ${label} batch ${Math.floor(i / OBJECT_BATCH_SIZE) + 1}/${Math.ceil(items.length / OBJECT_BATCH_SIZE)} (${batch.length} objects)`
-                    );
-                    const result = await c!.putDataObjects(batch);
-                    if (!result) {
-                        if (txId) {
-                            await c!.rollbackTransaction(txId).catch(() => { });
-                        }
-                        throw new InternalServerErrorException({
-                            description: `PutDataObjects failed at ${label} batch starting from index ${i}`
-                        });
-                    }
-                    stored += batch.length;
-                }
-                return stored;
-            };
-
-            // 6a. PUT EpcExternalPartReference objects first
-            let objectsStored = 0;
-            if (extPartObjects.length > 0) {
-                const n = await putBatched(
-                    extPartObjects.map(toDataObject),
-                    "EpcExternalPartReference"
-                );
-                objectsStored += n;
-                logger.info(
-                    `Stored ${n} EpcExternalPartReference object(s)`
-                );
+            // Build deduplicated array work items. Each item is keyed to the UUID
+            // of the object that OWNS (references) the array, `ref.objectUuid`, not
+            // to its ETP array container. For v2.0.1 the container is the shared
+            // EpcExternalPartReference, which is committed in the first
+            // sub-transaction; keying on it would push every array into that
+            // batch before its owner object exists and the server would reject
+            // the commit with "N Orphan array(s)". Keying on the owner puts each
+            // array in the same sub-transaction as the object that binds it.
+            // For v2.2/2.3 owner and container are the same object.
+            interface ArrayWorkItem {
+                ref: H5Reference;
+                info: { shape: number[]; typedArrayName: string };
+                ownerUuid: string;
             }
-            timings.putObjects = performance.now() - phaseStart;
-
-            // ── 7. PUT array data from H5 file ──
-            phaseStart = performance.now();
+            const workItems: ArrayWorkItem[] = [];
             let arraysStored = 0;
             let skippedArrays = 0;
             const arrayErrors: string[] = [];
-
             if (h5FileHandle && h5Refs.length > 0) {
-                checkTimeout("putArrays");
-                // Deduplicate - multiple objects may reference the same H5 dataset path
                 const seen = new Set<string>();
-
-                // Build work items (deduplicated)
-                interface ArrayWorkItem {
-                    ref: H5Reference;
-                    info: { shape: number[]; typedArrayName: string };
-                }
-                const workItems: ArrayWorkItem[] = [];
-
                 for (const ref of h5Refs) {
-                    const dedupeKey = `${ref.externalPartUuid}::${ref.pathInHdfFile}`;
+                    // Dedupe per owner: a dataset shared by two objects is put
+                    // once per owner (idempotent upsert) so each owner's batch
+                    // binds it regardless of commit order.
+                    const dedupeKey = `${ref.objectUuid}::${ref.externalPartUuid}::${ref.pathInHdfFile}`;
                     if (seen.has(dedupeKey)) continue;
                     seen.add(dedupeKey);
 
@@ -1362,93 +1300,126 @@ export default class EpcUploadAPI {
                         skippedArrays++;
                         continue;
                     }
-                    workItems.push({ ref, info });
+                    workItems.push({ ref, info, ownerUuid: ref.objectUuid });
+                }
+            }
+
+            // Store a single array (with one retry). Returns true on success.
+            const processArray = async (item: ArrayWorkItem): Promise<boolean> => {
+                const { ref, info } = item;
+                const ds = h5FileHandle!.get(ref.pathInHdfFile);
+                if (!ds || !ds.value) {
+                    warnings.push({ phase: "putArrays", message: `Skipping array ${ref.pathInHdfFile}: could not read values` });
+                    return false;
                 }
 
-                // #11: Process arrays with bounded concurrency
-                const processArray = async (item: ArrayWorkItem): Promise<boolean> => {
-                    const { ref, info } = item;
-                    const ds = h5FileHandle.get(ref.pathInHdfFile);
-                    if (!ds || !ds.value) {
-                        warnings.push({ phase: "putArrays", message: `Skipping array ${ref.pathInHdfFile}: could not read values` });
-                        return false;
-                    }
+                const values = ds.value;
 
-                    const values = ds.value;
-
-                    // v2.0.1: container is the EpcExternalPartReference object
-                    // v2.2:   container is the parent RESQML object itself
-                    let containerUri: string;
-                    if (ref.externalPartUuid === ref.objectUuid) {
-                        // v2.2 - use the parent object's URI
-                        const parentObj = epcObjects.find(o => o.uuid === ref.objectUuid);
-                        containerUri = parentObj
-                            ? EtpUri.createObjectUri(
-                                params.dataspaceId,
-                                parentObj.domainFamily,
-                                parentObj.domainVersion,
-                                parentObj.dataType,
-                                parentObj.uuid
-                            ).uri
-                            : EtpUri.createObjectUri(
-                                params.dataspaceId,
-                                "eml",
-                                "20",
-                                "obj_EpcExternalPartReference",
-                                ref.externalPartUuid
-                            ).uri;
-                    } else {
-                        // v2.0.1 - container is the EpcExternalPartReference
-                        containerUri = EtpUri.createObjectUri(
+                // v2.0.1: container is the EpcExternalPartReference object
+                // v2.2/2.3: container is the parent RESQML object itself
+                let containerUri: string;
+                if (ref.externalPartUuid === ref.objectUuid) {
+                    const parentObj = epcObjects.find(o => o.uuid === ref.objectUuid);
+                    containerUri = parentObj
+                        ? EtpUri.createObjectUri(
+                            params.dataspaceId,
+                            parentObj.domainFamily,
+                            parentObj.domainVersion,
+                            parentObj.dataType,
+                            parentObj.uuid
+                        ).uri
+                        : EtpUri.createObjectUri(
                             params.dataspaceId,
                             "eml",
                             "20",
                             "obj_EpcExternalPartReference",
                             ref.externalPartUuid
                         ).uri;
-                    }
+                } else {
+                    containerUri = EtpUri.createObjectUri(
+                        params.dataspaceId,
+                        "eml",
+                        "20",
+                        "obj_EpcExternalPartReference",
+                        ref.externalPartUuid
+                    ).uri;
+                }
 
-                    const arrayId: IArrayId = {
-                        uri: containerUri,
-                        pathInResource: ref.pathInHdfFile
-                    };
-
-                    // #8: Retry putDataArray once on failure
-                    let lastError: unknown;
-                    for (let attempt = 0; attempt < 2; attempt++) {
-                        try {
-                            await c!.putDataArray(arrayId, info.shape, values);
-                            return true;
-                        } catch (err) {
-                            lastError = err;
-                            if (attempt === 0) {
-                                logger.warn(`putDataArray retry for ${ref.pathInHdfFile}: ${err instanceof Error ? err.message : err}`);
-                            }
-                        }
-                    }
-                    const msg = lastError instanceof Error ? lastError.message : String(lastError);
-                    arrayErrors.push(`${ref.pathInHdfFile}: ${msg}`);
-                    warnings.push({ phase: "putArrays", message: `Failed to store array ${ref.pathInHdfFile} after retry: ${msg}` });
-                    return false;
+                const arrayId: IArrayId = {
+                    uri: containerUri,
+                    pathInResource: ref.pathInHdfFile
                 };
 
-                // Process in batches of ARRAY_CONCURRENCY
-                for (let i = 0; i < workItems.length; i += ARRAY_CONCURRENCY) {
+                let lastError: unknown;
+                for (let attempt = 0; attempt < 2; attempt++) {
+                    try {
+                        await c!.putDataArray(arrayId, info.shape, values);
+                        return true;
+                    } catch (err) {
+                        lastError = err;
+                        if (attempt === 0) {
+                            logger.warn(`putDataArray retry for ${ref.pathInHdfFile}: ${err instanceof Error ? err.message : err}`);
+                        }
+                    }
+                }
+                const msg = lastError instanceof Error ? lastError.message : String(lastError);
+                arrayErrors.push(`${ref.pathInHdfFile}: ${msg}`);
+                warnings.push({ phase: "putArrays", message: `Failed to store array ${ref.pathInHdfFile} after retry: ${msg}` });
+                return false;
+            };
+
+            // Put objects in ETP-sized batches inside the currently open transaction.
+            // On failure the given transaction (if any) is rolled back.
+            const putObjectsBatched = async (
+                items: DataObject[],
+                label: string,
+                rollbackTx: ArrayByteUuid | undefined
+            ): Promise<number> => {
+                let stored = 0;
+                for (let i = 0; i < items.length; i += OBJECT_BATCH_SIZE) {
+                    checkTimeout("putObjects");
+                    const batch = items.slice(i, i + OBJECT_BATCH_SIZE);
+                    try {
+                        await c!.putDataObjects(batch, { throwOnError: true });
+                    } catch (putErr) {
+                        if (rollbackTx) {
+                            await c!.rollbackTransaction(rollbackTx).catch(() => { });
+                        }
+                        // Keep the store's reason (invalid object, dangling
+                        // reference, locked dataspace, ...) and its status.
+                        throw httpErrorFromEtpError(
+                            putErr,
+                            `EPC upload ${label} batch starting from index ${i}`
+                        );
+                    }
+                    stored += batch.length;
+                }
+                return stored;
+            };
+
+            // Put every array whose owner object is in `ownerUuids`, with
+            // bounded concurrency and the same failure-threshold rollback policy.
+            const putArraysForOwners = async (
+                ownerUuids: Set<string>,
+                rollbackTx: ArrayByteUuid | undefined
+            ): Promise<void> => {
+                if (!h5FileHandle || workItems.length === 0) return;
+                const items = workItems.filter(w => ownerUuids.has(w.ownerUuid));
+                for (let i = 0; i < items.length; i += ARRAY_CONCURRENCY) {
                     checkTimeout("putArrays");
-                    const batch = workItems.slice(i, i + ARRAY_CONCURRENCY);
+                    const batch = items.slice(i, i + ARRAY_CONCURRENCY);
                     const results = await Promise.all(batch.map(processArray));
                     for (const ok of results) {
                         if (ok) arraysStored++;
                         else skippedArrays++;
                     }
 
-                    // #3: Check failure threshold - rollback if too many arrays failed
                     const totalProcessed = arraysStored + skippedArrays;
                     if (totalProcessed > 0 && skippedArrays / totalProcessed > ARRAY_FAILURE_THRESHOLD && totalProcessed >= 5) {
                         const msg = `Array failure threshold exceeded: ${skippedArrays}/${totalProcessed} failed (>${(ARRAY_FAILURE_THRESHOLD * 100).toFixed(0)}%)`;
                         logger.error(msg);
-                        if (txId) {
-                            await c!.rollbackTransaction(txId).catch(() => { });
+                        if (rollbackTx) {
+                            await c!.rollbackTransaction(rollbackTx).catch(() => { });
                         }
                         throw new InternalServerErrorException({
                             description: msg,
@@ -1456,54 +1427,184 @@ export default class EpcUploadAPI {
                         });
                     }
                 }
+            };
+
+            // Dependency-order the objects so that, when they are chunked across
+            // sub-transactions, every cross-batch DOR points at an object that was
+            // committed in an earlier (or the same) batch. EpcExternalPartReference
+            // objects are emitted first (array containers); the rest are ordered by
+            // a stable topological sort over their outgoing DOR target UUIDs.
+            const orderObjectsForCommit = (
+                extParts: EpcObject[],
+                rest: EpcObject[]
+            ): EpcObject[] => {
+                const uuidRe = /<(?:[\w]+:)?U[Uu][Ii][Dd]\b[^>]*>\s*([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})\s*<\/(?:[\w]+:)?U[Uu][Ii][Dd]>/g;
+                const lowerToOrig = new Map<string, string>();
+                for (const o of rest) lowerToOrig.set(o.uuid.toLowerCase(), o.uuid);
+
+                const adj = new Map<string, string[]>();   // target -> dependents
+                const indeg = new Map<string, number>();
+                for (const o of rest) { adj.set(o.uuid, []); indeg.set(o.uuid, 0); }
+
+                for (const o of rest) {
+                    const targets = new Set<string>();
+                    let m: RegExpExecArray | null;
+                    uuidRe.lastIndex = 0;
+                    while ((m = uuidRe.exec(o.xml)) !== null) {
+                        const orig = lowerToOrig.get(m[1].toLowerCase());
+                        if (orig && orig !== o.uuid) targets.add(orig);
+                    }
+                    for (const t of targets) {          // edge t -> o (t before o)
+                        adj.get(t)!.push(o.uuid);
+                        indeg.set(o.uuid, indeg.get(o.uuid)! + 1);
+                    }
+                }
+
+                const queue = rest.filter(o => indeg.get(o.uuid) === 0).map(o => o.uuid);
+                const orderedUuids: string[] = [];
+                for (let qi = 0; qi < queue.length; qi++) {
+                    const u = queue[qi];
+                    orderedUuids.push(u);
+                    for (const v of adj.get(u)!) {
+                        indeg.set(v, indeg.get(v)! - 1);
+                        if (indeg.get(v) === 0) queue.push(v);
+                    }
+                }
+                if (orderedUuids.length < rest.length) {
+                    // dependency cycle - append the remainder in original order
+                    const done = new Set(orderedUuids);
+                    for (const o of rest) if (!done.has(o.uuid)) orderedUuids.push(o.uuid);
+                }
+                const restByUuid = new Map(rest.map(o => [o.uuid, o]));
+                return [...extParts, ...orderedUuids.map(u => restByUuid.get(u)!)];
+            };
+
+            let objectsStored = 0;
+
+            if (transactionId) {
+                // ── External (caller-managed) transaction: single flow, no commit ──
+                if (extPartObjects.length > 0) {
+                    objectsStored += await putObjectsBatched(
+                        extPartObjects.map(toDataObject), "EpcExternalPartReference", undefined
+                    );
+                }
+                await putArraysForOwners(new Set(workItems.map(w => w.ownerUuid)), undefined);
+                if (remainingObjects.length > 0) {
+                    objectsStored += await putObjectsBatched(
+                        remainingObjects.map(toDataObject), "objects", undefined
+                    );
+                }
+                logger.info(`Stored ${objectsStored} object(s) total (caller-managed transaction)`);
+                timings.putObjects = performance.now() - phaseStart;
+                timings.putArrays = 0;
+                timings.commit = 0;
+            } else {
+                // ── Internal transaction: commit in dependency-ordered sub-transactions ──
+                // of <= COMMIT_BATCH_SIZE objects each, re-including shared infrastructure
+                // objects (CRS / PropertyKind / ActivityTemplate) in every sub-transaction
+                // so cross-transaction references to them resolve (open-etp-server
+                // auto-import Activity bug - see COMMIT_BATCH_SIZE).
+                const ordered = orderObjectsForCommit(extPartObjects, remainingObjects);
+                const isInfra = (o: EpcObject) =>
+                    INFRA_TYPE_FRAGMENTS.some(f => o.dataType.includes(f));
+                const infraObjects = ordered.filter(isInfra);
+                const nonInfraObjects = ordered.filter(o => !isInfra(o));
+
+                const batchSize = COMMIT_BATCH_SIZE > 0 ? COMMIT_BATCH_SIZE : ordered.length || 1;
+                // Leave room for the re-included infra objects in every chunk. If infra
+                // alone would fill (or overflow) a batch, fall back to at least one
+                // non-infra object per chunk to guarantee forward progress.
+                const perChunkNonInfra = Math.max(1, batchSize - infraObjects.length);
+                const chunks: EpcObject[][] = [];
+                for (let i = 0; i < nonInfraObjects.length; i += perChunkNonInfra) {
+                    chunks.push([...infraObjects, ...nonInfraObjects.slice(i, i + perChunkNonInfra)]);
+                }
+                if (chunks.length === 0 && infraObjects.length > 0) {
+                    chunks.push([...infraObjects]);
+                }
 
                 logger.info(
-                    `Arrays complete: ${arraysStored} stored, ${skippedArrays} skipped`
+                    `Committing ${ordered.length} object(s) (${infraObjects.length} infra re-included per batch) ` +
+                    `in ${chunks.length} transaction(s) of <=${batchSize}`
                 );
-            }
-            timings.putArrays = performance.now() - phaseStart;
 
-            // 6b. PUT remaining objects (after arrays are in place)
-            phaseStart = performance.now();
-            if (remainingObjects.length > 0) {
-                checkTimeout("putRemainingObjects");
-                const n = await putBatched(
-                    remainingObjects.map(toDataObject),
-                    "objects"
+                timings.putObjects = 0;
+                timings.putArrays = 0;
+                timings.commit = 0;
+
+                // Distinct committed UUIDs - infra objects are re-put in every chunk but
+                // counted once so the reported total matches the EPC object count.
+                const committedUuids = new Set<string>();
+
+                for (let ci = 0; ci < chunks.length; ci++) {
+                    checkTimeout("commitBatch");
+                    const chunk = chunks[ci];
+                    const subTx = await c.startTransaction(
+                        false, [dataspaceUri], `EPC upload ${ci + 1}/${chunks.length}`
+                    );
+                    if (!subTx) {
+                        throw new InternalServerErrorException({
+                            description: `Failed to start transaction for batch ${ci + 1}/${chunks.length}`
+                        });
+                    }
+                    try {
+                        let t = performance.now();
+                        await putObjectsBatched(
+                            chunk.map(toDataObject), `batch ${ci + 1}/${chunks.length}`, subTx
+                        );
+                        timings.putObjects += performance.now() - t;
+
+                        // Arrays owned by objects committed in this batch. Infra and
+                        // EpcExternalPartReference objects own no arrays, so including
+                        // them here is a no-op.
+                        t = performance.now();
+                        await putArraysForOwners(new Set(chunk.map(o => o.uuid)), subTx);
+                        timings.putArrays += performance.now() - t;
+
+                        t = performance.now();
+                        await c.commitTransaction(subTx);
+                        timings.commit += performance.now() - t;
+                        for (const o of chunk) committedUuids.add(o.uuid);
+                        logger.info(
+                            `Committed batch ${ci + 1}/${chunks.length} (${chunk.length} objects)`
+                        );
+                    } catch (e) {
+                        await c.rollbackTransaction(subTx).catch(() => { });
+                        throw e;
+                    }
+                }
+
+                objectsStored += committedUuids.size;
+
+                logger.info(`Arrays complete: ${arraysStored} stored, ${skippedArrays} skipped`);
+                logger.info(
+                    `Stored ${objectsStored} object(s) total across ${chunks.length} transaction(s)`
                 );
-                objectsStored += n;
-            }
-            timings.putObjects += performance.now() - phaseStart;
-            logger.info(`Stored ${objectsStored} object(s) total`);
-
-            // ── 8. Commit transaction ──
-            phaseStart = performance.now();
-            if (txId) {
-                logger.info("Committing transaction...");
-                await c.commitTransaction(txId);
-                logger.info("Transaction committed");
             }
 
             if (!transactionId) {
                 await c.closeSession();
             }
-            timings.commit = performance.now() - phaseStart;
 
             // ── 9. Auto-ingest to OSDU catalog (optional) ──
             let catalogIngestion: CatalogIngestionResult | undefined;
 
-            const ingestMode = this.parseIngestMode(autoIngest);
+            const ingestMode = parseIngestMode(autoIngest);
             if (ingestMode && !transactionId) {
                 phaseStart = performance.now();
-                catalogIngestion = await this.performCatalogIngestion(
+                catalogIngestion = await performCatalogIngestion(
                     ingestMode,
                     params.dataspaceId,
-                    request,
+                    {
+                        bearer: extractToken(request),
+                        partition: extractDataPartitionId(request),
+                        collaboration: request?.headers?.["x-collaboration"] as string | undefined
+                    },
                     registerMissingSchemas === "true" || registerMissingSchemas === "1",
                     {
-                        typePatterns: this.parseCsvPatterns(typePatterns),
-                        propertyFilter: this.parsePropertyFilter(propertyFilter),
-                        excludePatterns: this.parseCsvPatterns(excludePatterns)
+                        typePatterns: parseCsvPatterns(typePatterns),
+                        propertyFilter: parsePropertyFilter(propertyFilter),
+                        excludePatterns: parseCsvPatterns(excludePatterns)
                     }
                 );
                 timings.autoIngest = performance.now() - phaseStart;
@@ -1568,603 +1669,4 @@ export default class EpcUploadAPI {
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // Auto-ingest helpers
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private parseIngestMode(autoIngest?: string): IngestMode | undefined {
-        if (!autoIngest || autoIngest === "false") return undefined;
-        if (autoIngest === "true" || autoIngest === "records") return "records";
-        if (autoIngest === "workflow") return "workflow";
-        return undefined;
-    }
-
-    /**
-     * Parse a comma-separated query value into a trimmed pattern list.
-     * Returns undefined when the value is absent (caller applies its default);
-     * returns [] when the value is present but empty (caller: no patterns).
-     */
-    private parseCsvPatterns(value?: string): string[] | undefined {
-        if (value === undefined) return undefined;
-        return value.split(",").map(s => s.trim()).filter(s => s.length > 0);
-    }
-
-    /** Parse the propertyFilter query value, defaulting to undefined when invalid/absent. */
-    private parsePropertyFilter(value?: string): PropertyFilter | undefined {
-        if (value === "canonical" || value === "none" || value === "all") return value;
-        return undefined;
-    }
-
-    private async performCatalogIngestion(
-        mode: IngestMode,
-        dataspaceId: string,
-        request?: express.Request,
-        registerMissing = false,
-        manifestFilter?: {
-            typePatterns?: string[];
-            propertyFilter?: PropertyFilter;
-            excludePatterns?: string[];
-        }
-    ): Promise<CatalogIngestionResult> {
-        const bearer = extractToken(request);
-        const partition = extractDataPartitionId(request);
-        const partitionStr = typeof partition === "string" ? partition : "osdu";
-        // Capture Basic-auth info synchronously for this request so it is not
-        // read from shared module state after the awaits below (CWE-488).
-        const reqUserInfo = extractUserInfo(request);
-
-        if (!osduUrl || osduUrl === "http://localhost") {
-            return {
-                status: "skipped",
-                mode,
-                error: "RDMS_OSDU_URL not configured - cannot push to catalog"
-            };
-        }
-
-        try {
-            // Align stamped kind versions with the live instance using the request
-            // token (the startup init runs unauthenticated and can silently no-op).
-            await ensureSchemaVersions(osduUrl, bearer, partitionStr);
-
-            logger.info(`[autoIngest] Building manifest for dataspace '${dataspaceId}' (mode=${mode})...`);
-
-            // Create a fresh ETP session for manifest building
-            const manifestClient = await createSession(bearer, partition, undefined, undefined, reqUserInfo);
-            if (!manifestClient) {
-                return { status: "failed", mode, error: "Failed to create ETP session for manifest" };
-            }
-
-            const jwt = bearer ? (decode(bearer) as JwtPayload) : {};
-            const context = new OSDUContext(
-                typeof partition === "string" ? partition : "osdu",
-                jwt === null || typeof jwt === "string" ? undefined : jwt?.unique_name,
-                undefined, // tags
-                true,      // createMissingReferences
-                false      // includeArrayData - skip for speed
-            );
-            context.bearer = bearer;
-
-            const collaboration = request?.headers?.["x-collaboration"] as string | undefined;
-            if (collaboration) {
-                context.collaboration = collaboration;
-            }
-
-            const dataspaceUri = `eml:///dataspace('${dataspaceId}')`;
-            // Filter defaults preserve the lean auto-ingest preset, but now also
-            // hard-exclude Activity/ActivityTemplate so canonical property filtering
-            // cannot leave dangling references that fail the OSDU ingestion workflow.
-            const manifest = await createManifest(
-                manifestClient,
-                [dataspaceUri],
-                context,
-                manifestFilter?.typePatterns ?? DEFAULT_DATASPACE_TYPE_PATTERNS,
-                1000,
-                manifestFilter?.propertyFilter ?? "canonical",
-                manifestFilter?.excludePatterns ?? DEFAULT_INGEST_EXCLUDE_PATTERNS
-            );
-            await manifestClient.closeSession();
-
-            // Collect all records from manifest
-            const records = [
-                ...(manifest.Data?.Datasets ?? []),
-                ...(manifest.Data?.WorkProductComponents ?? []),
-                ...(manifest.Data?.WorkProduct ? [manifest.Data.WorkProduct] : []),
-                ...(manifest.MasterData ?? []),
-                ...(manifest.ReferenceData ?? [])
-            ];
-
-            if (records.length === 0) {
-                return { status: "completed", mode, recordCount: 0 };
-            }
-
-            // Guard: drop records whose kind has no schema on the target instance
-            // (optionally auto-registering first) so one unsupported kind cannot
-            // fail the entire atomic batch / workflow.
-            const { pushable, unsupportedKinds, registeredSchemas, remappedKinds } =
-                await this.partitionBySchema(records, bearer, partitionStr, registerMissing);
-
-            const unsupportedCount = records.length - pushable.length;
-            if (unsupportedCount > 0) {
-                logger.warn(
-                    `[autoIngest] Skipping ${unsupportedCount} record(s) with unregistered kinds: `
-                    + `${Object.entries(unsupportedKinds).map(([k, n]) => `${k}×${n}`).join(", ")}`
-                );
-            }
-            if (Object.keys(remappedKinds).length > 0) {
-                logger.info(
-                    `[autoIngest] Remapped ${Object.keys(remappedKinds).length} unregistered kind(s) to fallbacks: `
-                    + `${Object.entries(remappedKinds).map(([k, v]) => `${k}→${v}`).join(", ")}`
-                );
-            }
-
-            const extra: Partial<CatalogIngestionResult> = {};
-            if (Object.keys(unsupportedKinds).length > 0) extra.unsupportedKinds = unsupportedKinds;
-            if (registeredSchemas.length > 0) extra.registeredSchemas = registeredSchemas;
-            if (Object.keys(remappedKinds).length > 0) extra.remappedKinds = remappedKinds;
-
-            if (pushable.length === 0) {
-                return {
-                    status: "skipped",
-                    mode,
-                    recordCount: 0,
-                    error: "No records with a registered schema to ingest",
-                    ...extra
-                };
-            }
-
-            logger.info(`[autoIngest] Manifest built: ${pushable.length}/${records.length} record(s) pushable. Pushing via ${mode}...`);
-
-            if (mode === "workflow") {
-                const pruned = this.pruneManifest(manifest, new Set(pushable));
-                const result = await this.pushViaWorkflow(pruned, bearer, partition);
-                return { ...result, ...extra };
-            } else {
-                const result = await this.pushViaRecords(pushable, bearer, partition);
-                return { ...result, ...extra };
-            }
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : String(err);
-            logger.error(`[autoIngest] Failed: ${msg}`);
-            return { status: "failed", mode, error: msg };
-        }
-    }
-
-    /**
-     * Partition manifest records into those whose OSDU `kind` can be ingested on
-     * the target Schema Service (pushable) and those that cannot (unsupported).
-     *
-     * For each unregistered kind, before giving up, it is resolved via
-     * {@link resolveKindFallback} (nearest registered version, then a registered
-     * generic sibling). When `registerMissing` is set, an unregistered kind is
-     * first offered to {@link tryRegisterSchema}. Records whose kind is remapped
-     * have their `kind` rewritten in place (and `data.Type` stamped for generic
-     * substitutions) so the object is ingested rather than skipped.
-     */
-    private async partitionBySchema(
-        records: unknown[],
-        bearer: string | undefined,
-        partition: string,
-        registerMissing: boolean
-    ): Promise<{
-        pushable: unknown[];
-        unsupportedKinds: Record<string, number>;
-        registeredSchemas: string[];
-        remappedKinds: Record<string, string>;
-    }> {
-        const distinctKinds = [...new Set(
-            records.map((r: any) => r?.kind).filter((k): k is string => typeof k === "string")
-        )];
-
-        type Resolution =
-            | { action: "ok" }
-            | { action: "remap"; newKind: string; genericType?: string }
-            | { action: "unsupported" };
-        const resolution = new Map<string, Resolution>();
-        const registeredSchemas: string[] = [];
-        const remappedKinds: Record<string, string> = {};
-
-        for (const kind of distinctKinds) {
-            // 1) exact schema already registered
-            if (await isSchemaRegistered(kind, osduUrl, bearer, partition)) {
-                resolution.set(kind, { action: "ok" });
-                continue;
-            }
-            // 2) optionally auto-register the exact kind
-            if (registerMissing && await this.tryRegisterSchema(kind, bearer, partition)) {
-                setSchemaRegistered(kind, true);
-                registeredSchemas.push(kind);
-                resolution.set(kind, { action: "ok" });
-                continue;
-            }
-            // 3) fall back to a registered kind (nearest version, then generic sibling)
-            const fb = await this.resolveKindFallback(kind, bearer, partition);
-            if (fb) {
-                resolution.set(kind, { action: "remap", newKind: fb.newKind, genericType: fb.genericType });
-                remappedKinds[kind] = fb.newKind;
-                continue;
-            }
-            resolution.set(kind, { action: "unsupported" });
-        }
-
-        const pushable: unknown[] = [];
-        const unsupportedKinds: Record<string, number> = {};
-        for (const r of records as any[]) {
-            const kind = r?.kind;
-            if (typeof kind !== "string") continue;
-            const res = resolution.get(kind);
-            if (!res || res.action === "unsupported") {
-                unsupportedKinds[kind] = (unsupportedKinds[kind] ?? 0) + 1;
-                continue;
-            }
-            if (res.action === "remap") {
-                r.kind = res.newKind;
-                // Preserve the original type on the generic record so it stays identifiable.
-                if (res.genericType && r.data && typeof r.data === "object" && r.data.Type == null) {
-                    r.data.Type = res.genericType;
-                }
-            }
-            pushable.push(r);
-        }
-        return { pushable, unsupportedKinds, registeredSchemas, remappedKinds };
-    }
-
-    /**
-     * Resolve an unregistered kind to a registered substitute so the record is
-     * not dropped. Tries, in order:
-     *   1. the nearest registered version of the SAME entityType (same major
-     *      first, then highest available) - safe, backward-compatible;
-     *   2. a registered generic sibling of the same WPC role (Representation /
-     *      Interpretation / Feature / Property) - lossy but keeps the object,
-     *      recording the original type in `data.Type` (only when generic fallback
-     *      is enabled via RDMS_INGEST_GENERIC_FALLBACK, default on).
-     * Returns the substitute kind (and generic short-type, if any), or undefined.
-     */
-    private async resolveKindFallback(
-        kind: string,
-        bearer: string | undefined,
-        partition: string
-    ): Promise<{ newKind: string; genericType?: string } | undefined> {
-        const id = parseKindIdentity(kind);
-        if (!id) return undefined;
-
-        // 1) nearest registered version of the same entityType
-        const versions = await listRegisteredVersions(
-            id.entityType, id.authority, id.source, osduUrl, bearer, partition
-        );
-        if (versions.length > 0) {
-            const sameMajor = versions.find((v) => parseInt(v.split(".")[0], 10) === id.schemaVersionMajor);
-            const target = sameMajor ?? versions[0];
-            const newKind = `${id.authority}:${id.source}:${id.entityType}:${target}`;
-            if (newKind !== kind) {
-                logger.info(`[autoIngest] Version fallback: '${kind}' → '${newKind}'`);
-                return { newKind };
-            }
-        }
-
-        // 2) generic sibling (opt out via RDMS_INGEST_GENERIC_FALLBACK=false)
-        if (!GENERIC_FALLBACK) return undefined;
-        for (const genericEntity of genericSiblingsFor(id.entityType)) {
-            const gVersions = await listRegisteredVersions(
-                genericEntity, id.authority, id.source, osduUrl, bearer, partition
-            );
-            if (gVersions.length === 0) continue;
-            const genericType = id.entityType.split("--").pop();
-            const newKind = `${id.authority}:${id.source}:${genericEntity}:${gVersions[0]}`;
-            logger.info(`[autoIngest] Generic fallback: '${kind}' → '${newKind}' (Type='${genericType}')`);
-            return { newKind, genericType };
-        }
-        return undefined;
-    }
-
-    /**
-     * Attempt to register a missing schema on the OSDU Schema Service from a JSON
-     * file under `RDMS_SCHEMA_DIR` (named `<entityType>:<version>.json`).
-     * Returns true if the schema is (now) registered, false if no source is
-     * available or registration failed.
-     */
-    private async tryRegisterSchema(
-        kind: string,
-        bearer: string | undefined,
-        partition: string
-    ): Promise<boolean> {
-        const identity = parseKindIdentity(kind);
-        if (!identity) return false;
-
-        const schema = await this.loadSchemaJson(kind, identity.entityType,
-            `${identity.schemaVersionMajor}.${identity.schemaVersionMinor}.${identity.schemaVersionPatch}`);
-        if (!schema) {
-            logger.warn(
-                `[autoIngest] Cannot auto-register '${kind}': no schema JSON found `
-                + `(set RDMS_SCHEMA_DIR and provide '${identity.entityType}:`
-                + `${identity.schemaVersionMajor}.${identity.schemaVersionMinor}.${identity.schemaVersionPatch}.json'), `
-                + "or register it in the OSDU Schema Service manually."
-            );
-            return false;
-        }
-
-        const body = JSON.stringify({
-            schemaInfo: { schemaIdentity: identity, status: "PUBLISHED" },
-            schema
-        }, bigIntToString);
-
-        try {
-            const res = await safeFetch(`${osduUrl}/api/schema-service/v1/schema`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Content-Length": `${Buffer.byteLength(body)}`,
-                    "Authorization": `Bearer ${bearer}`,
-                    "data-partition-id": partition
-                },
-                body
-            });
-            if (res.status === 200 || res.status === 201) {
-                logger.info(`[autoIngest] Registered schema '${kind}'`);
-                return true;
-            }
-            if (res.status === 409) {
-                logger.info(`[autoIngest] Schema '${kind}' already registered`);
-                return true;
-            }
-            const errText = await res.text().catch(() => "unknown");
-            logger.warn(`[autoIngest] Schema registration failed for '${kind}' (${res.status}): ${errText}`);
-            return false;
-        } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : String(err);
-            logger.warn(`[autoIngest] Schema registration error for '${kind}': ${msg}`);
-            return false;
-        }
-    }
-
-    /** Load a schema JSON body from RDMS_SCHEMA_DIR, if configured and present. */
-    private async loadSchemaJson(
-        kind: string,
-        entityType: string,
-        version: string
-    ): Promise<unknown | undefined> {
-        if (!SCHEMA_DIR) return undefined;
-        const candidates = [
-            `${entityType}:${version}.json`,
-            `${entityType}.${version}.json`,
-            `${kind}.json`
-        ];
-        for (const name of candidates) {
-            try {
-                const raw = await readFile(join(SCHEMA_DIR, name), "utf8");
-                return JSON.parse(raw);
-            } catch { /* try next candidate */ }
-        }
-        return undefined;
-    }
-
-    /** Return a shallow copy of the manifest keeping only the given records. */
-    private pruneManifest(manifest: any, keep: Set<unknown>): unknown {
-        const pruned = { ...manifest, Data: { ...manifest.Data } };
-        if (Array.isArray(pruned.Data?.Datasets)) {
-            pruned.Data.Datasets = pruned.Data.Datasets.filter((r: unknown) => keep.has(r));
-        }
-        if (Array.isArray(pruned.Data?.WorkProductComponents)) {
-            pruned.Data.WorkProductComponents = pruned.Data.WorkProductComponents.filter((r: unknown) => keep.has(r));
-        }
-        if (pruned.Data?.WorkProduct && !keep.has(pruned.Data.WorkProduct)) {
-            delete pruned.Data.WorkProduct;
-        }
-        if (Array.isArray(pruned.MasterData)) {
-            pruned.MasterData = pruned.MasterData.filter((r: unknown) => keep.has(r));
-        }
-        if (Array.isArray(pruned.ReferenceData)) {
-            pruned.ReferenceData = pruned.ReferenceData.filter((r: unknown) => keep.has(r));
-        }
-        return pruned;
-    }
-
-    private async pushViaRecords(
-        records: unknown[],
-        bearer?: string,
-        partition?: string | string[]
-    ): Promise<CatalogIngestionResult> {
-        const partitionStr = typeof partition === "string" ? partition : "osdu";
-        let totalPushed = 0;
-        const failures: Array<{ id?: string; kind?: string; status: number; error: string }> = [];
-
-        // Deduplicate records by id - Storage API rejects batches with duplicate IDs
-        const seenIds = new Set<string>();
-        const uniqueRecords = records.filter((r: any) => {
-            const id = r?.id;
-            if (!id || seenIds.has(id)) return false;
-            seenIds.add(id);
-            return true;
-        });
-        if (uniqueRecords.length < records.length) {
-            logger.info(`[autoIngest] Deduplicated ${records.length - uniqueRecords.length} duplicate record(s)`);
-        }
-
-        // Never overwrite shared reference-data catalog records (e.g. CoordinateReferenceSystem)
-        // that already exist in Storage. The manifest builder synthesizes a low-fidelity
-        // reference-data stub purely so downstream object references resolve; PUTting it over an
-        // authoritative catalog record (loaded by the OSDU datafier from the IOGP manifests)
-        // both clobbers the real content (nulling BaseCRS/PersistableReference/Wgs84Coordinates/…)
-        // and churns the version history, stamping the ingesting user as the modifier. So we only
-        // create reference-data records that are MISSING; existing ones are left untouched.
-        // (Fail-open: if the existence check errors, we still PUT so genuine creates are not lost.)
-        let skippedExisting = 0;
-        const pushRecords: unknown[] = [];
-        {
-            const SKIP_CHECK_CONCURRENCY = 8;
-            const checks: Array<{ rec: unknown; skip: boolean }> = uniqueRecords.map(rec => ({ rec, skip: false }));
-            for (let i = 0; i < checks.length; i += SKIP_CHECK_CONCURRENCY) {
-                const slice = checks.slice(i, i + SKIP_CHECK_CONCURRENCY);
-                await Promise.all(slice.map(async entry => {
-                    if (this.isReferenceDataRecord(entry.rec)) {
-                        entry.skip = await this.referenceDataExists(entry.rec, bearer, partitionStr);
-                    }
-                }));
-            }
-            for (const { rec, skip } of checks) {
-                if (skip) {
-                    skippedExisting += 1;
-                } else {
-                    pushRecords.push(rec);
-                }
-            }
-        }
-        if (skippedExisting > 0) {
-            logger.info(`[autoIngest] Skipped ${skippedExisting} existing reference-data catalog record(s) (not overwriting authoritative content)`);
-        }
-
-        for (let i = 0; i < pushRecords.length; i += STORAGE_BATCH_SIZE) {
-            const batch = pushRecords.slice(i, i + STORAGE_BATCH_SIZE);
-            const res = await this.putRecords(batch, bearer, partitionStr);
-            if (res.ok) {
-                const result = await res.json() as { recordCount?: number };
-                totalPushed += result?.recordCount ?? batch.length;
-                continue;
-            }
-
-            // Storage validates a PUT batch atomically: one bad record fails the
-            // whole batch. Retry each record individually so the valid ones still
-            // land, and capture the offenders for the response.
-            const errText = await res.text().catch(() => "unknown");
-            logger.warn(
-                `[autoIngest] Storage batch ${Math.floor(i / STORAGE_BATCH_SIZE) + 1} failed (${res.status}): `
-                + `${errText.slice(0, 300)} - retrying ${batch.length} record(s) individually`
-            );
-            for (const rec of batch) {
-                const single = await this.putRecords([rec], bearer, partitionStr);
-                if (single.ok) {
-                    totalPushed += 1;
-                } else {
-                    const et = await single.text().catch(() => "unknown");
-                    failures.push({
-                        id: (rec as any)?.id,
-                        kind: (rec as any)?.kind,
-                        status: single.status,
-                        error: et.slice(0, 300)
-                    });
-                }
-            }
-        }
-
-        if (failures.length > 0) {
-            const byKind = failures.reduce<Record<string, number>>((acc, f) => {
-                const k = f.kind ?? "unknown";
-                acc[k] = (acc[k] ?? 0) + 1;
-                return acc;
-            }, {});
-            logger.warn(
-                `[autoIngest] ${failures.length} record(s) rejected by Storage: `
-                + `${Object.entries(byKind).map(([k, n]) => `${k}×${n}`).join(", ")}`
-            );
-        }
-
-        logger.info(`[autoIngest] Pushed ${totalPushed}/${pushRecords.length} records via Storage Service`);
-        return {
-            status: failures.length > 0 ? "partial" : "completed",
-            mode: "records",
-            recordCount: totalPushed,
-            ...(skippedExisting > 0 ? { skippedExisting } : {}),
-            ...(failures.length > 0 ? { failedCount: failures.length, failures: failures.slice(0, 20) } : {})
-        };
-    }
-
-    /** True when the record is an OSDU reference-data catalog record. */
-    private isReferenceDataRecord(rec: unknown): boolean {
-        const kind = (rec as { kind?: unknown })?.kind;
-        return typeof kind === "string" && kind.includes("reference-data--");
-    }
-
-    /**
-     * Return true when the reference-data record already exists in Storage, so it must
-     * NOT be overwritten by the manifest's synthesized stub. Returns false when the record
-     * is missing (404) or the check cannot be made (fail-open so genuine creates still PUT).
-     */
-    private async referenceDataExists(
-        rec: unknown,
-        bearer: string | undefined,
-        partition: string
-    ): Promise<boolean> {
-        const id = (rec as { id?: unknown })?.id;
-        if (typeof id !== "string" || id.length === 0) {
-            return false;
-        }
-        try {
-            const res = await safeFetch(
-                `${osduUrl}/api/storage/v2/records/${encodeURIComponent(id)}`,
-                {
-                    method: "GET",
-                    headers: {
-                        "Authorization": `Bearer ${bearer}`,
-                        "data-partition-id": partition
-                    }
-                }
-            );
-            // 200 → exists (skip); 404 → missing (create); anything else → fail-open (PUT).
-            return res.ok;
-        } catch {
-            return false;
-        }
-    }
-
-    /** PUT a batch of records to the OSDU Storage Service. */
-    private async putRecords(
-        batch: unknown[],
-        bearer: string | undefined,
-        partition: string
-    ): Promise<Response> {
-        const body = JSON.stringify(batch, bigIntToString);
-        return safeFetch(`${osduUrl}/api/storage/v2/records`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                "Content-Length": `${Buffer.byteLength(body)}`,
-                "Authorization": `Bearer ${bearer}`,
-                "data-partition-id": partition
-            },
-            body
-        });
-    }
-
-    private async pushViaWorkflow(
-        manifest: unknown,
-        bearer?: string,
-        partition?: string | string[]
-    ): Promise<CatalogIngestionResult> {
-        const partitionStr = typeof partition === "string" ? partition : "osdu";
-        const workflowBody = JSON.stringify({
-            executionContext: {
-                manifest
-            }
-        }, bigIntToString);
-
-        const res = await safeFetch(
-            `${osduUrl}/api/workflow/v1/workflow/Osdu_ingest/workflowRun`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Content-Length": `${Buffer.byteLength(workflowBody)}`,
-                    "Authorization": `Bearer ${bearer}`,
-                    "data-partition-id": partitionStr
-                },
-                body: workflowBody
-            }
-        );
-
-        if (!res.ok) {
-            const errText = await res.text().catch(() => "unknown");
-            return {
-                status: "failed",
-                mode: "workflow",
-                error: `Workflow service returned ${res.status}: ${errText}`
-            };
-        }
-
-        const result = await res.json() as { runId?: string };
-        logger.info(`[autoIngest] Workflow run submitted: ${result?.runId}`);
-        return {
-            status: "submitted",
-            mode: "workflow",
-            workflowRunId: result?.runId
-        };
-    }
 }

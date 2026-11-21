@@ -1,0 +1,41 @@
+meta {
+  name: D63 Drogon Array Stats Guard Bins Too Many
+  type: http
+  seq: 63
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonPropType}}/{{drogonStatGuid}}/arrays/{{drogonStatArray}}/compute?op=stats&rangeLo=0&rangeHi=1&bins=70000
+  body: none
+  auth: none
+}
+
+params:query {
+  op: stats
+  rangeLo: 0
+  rangeHi: 1
+  bins: 70000
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Array-compute coverage (23/31). Guard: bins above the store ceiling (65536) is rejected with 400 instead
+      of allocating an oversized histogram - protects the store from a
+      memory-amplification request.
+}
+
+tests {
+  test("status is 400", function () {
+        expect(res.getStatus()).to.equal(400);
+      });
+
+      test("error message names the violated rule", function () {
+        const b = res.getBody();
+        const msg = String((b && (b.description || b.message)) || "");
+        expect(msg.toLowerCase()).to.include('bins');
+      });
+}

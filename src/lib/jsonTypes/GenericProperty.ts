@@ -7,6 +7,8 @@ import { IDataSubarray } from "../common/EtpTypes";
 import { OSDUContext } from "./OsduContext";
 import {
   ResqmlWorkProductComponent,
+  collectRealizationIndices,
+  resolveDoubleArrayRef,
   visitDoubleValues,
   visitIntegerValues
 } from "./WorkProductComponent";
@@ -18,6 +20,9 @@ import {
 } from "./Generated/work-product-component/GenericProperty.1.2.0";
 import { GenericRepresentation } from "./Generated/work-product-component/GenericRepresentation.1.2.0";
 import { getPropertyTypeIDFromResqmlAlias } from "./PropertyTypes";
+import logging from "../common/Logging";
+
+const logger = logging.getLogger("EtpClient");
 
 export class GenericPropertyOSDU
   extends ResqmlWorkProductComponent<
@@ -26,6 +31,71 @@ export class GenericPropertyOSDU
   implements GenericProperty {
   public data: Data = {};
   public meta?: FrameOfReferenceMetaDataItem[];
+
+  /**
+   * U6 - realisation-index join key.
+   *
+   * Collect the realisation-index set for a property as a single `number[]`,
+   * unioning the RESQML scalar `RealizationIndex` (2.0.1 / 2.2 / 3.0.0) with any
+   * INLINE `RealizationIndices` array (IntegerConstant / IntegerRange /
+   * IntegerLattice - the legacy 2.0.1 / 2.2 multi-realisation form). HDF5-backed
+   * or multi-dimensional index arrays are not expanded (they are never used for
+   * realisation membership); such a case sets `unresolved` so the caller can warn.
+   */
+  private static realizationIndexSet(
+    xml: SimpleJson<resqml20.AbstractValuesProperty>
+  ): { indices: number[] | undefined; unresolved: boolean } {
+    return collectRealizationIndices(xml);
+  }
+
+  /**
+   * Try to obtain the property's statistics from the store instead of
+   * downloading the array. Restricted to the single-patch, server-backed
+   * continuous case (NaN-null semantics, which matches the store's NaN
+   * skipping); returns undefined for inline / multi-patch arrays or when the
+   * connected store does not support the STATS extension, so the caller falls
+   * back to the client-side reduction.
+   */
+  private async tryServerContinuousStats(
+    dataspaceUri: string,
+    patches: { Values: Parameters<typeof resolveDoubleArrayRef>[1] }[],
+    client: ResqmlClient
+  ): Promise<
+    | {
+      MinValue: number | undefined;
+      MaxValue: number | undefined;
+      MeanValue: number | undefined;
+      StdDeviation: number | undefined;
+      ValueCount: number | undefined;
+    }
+    | undefined
+  > {
+    if (!patches || patches.length !== 1) {
+      return undefined;
+    }
+    if (typeof client.getDataArrayStats !== "function") {
+      return undefined;
+    }
+    const ref = resolveDoubleArrayRef(dataspaceUri, patches[0].Values);
+    if (!ref) {
+      return undefined;
+    }
+    try {
+      const s = await client.getDataArrayStats(ref.uri, ref.pathInResource);
+      if (!s || !s.valid) {
+        return undefined;
+      }
+      return {
+        MinValue: s.minimum,
+        MaxValue: s.maximum,
+        MeanValue: s.mean,
+        StdDeviation: s.stddev,
+        ValueCount: s.count
+      };
+    } catch {
+      return undefined;
+    }
+  }
 
   private async computeStats(
     ReservoirDMSUrl: string,
@@ -76,7 +146,21 @@ export class GenericPropertyOSDU
     };
 
     if (continuous !== undefined) {
-      for await (const patch of xml.PatchOfValues) {
+      const patches = xml.PatchOfValues as {
+        Values: Parameters<typeof resolveDoubleArrayRef>[1];
+      }[];
+      // Fast path: let the store fold a single server-backed array into its
+      // summary (no bulk transfer). Falls back to the client reduction below
+      // for inline / multi-patch arrays or stores without the STATS extension.
+      const serverStats = await this.tryServerContinuousStats(
+        dataspaceUri.uri,
+        patches,
+        client
+      );
+      if (serverStats !== undefined) {
+        return serverStats;
+      }
+      for await (const patch of patches) {
         await visitDoubleValues(
           dataspaceUri.uri,
           patch.Values,
@@ -211,6 +295,17 @@ export class GenericPropertyOSDU
       }))
       : undefined;
 
+    const realization = collectRealizationIndices(xml);
+    if (realization.unresolved) {
+      logger.warn(
+        `[U6] ${xml.$type}${
+          (xml as { uuid?: string }).uuid
+            ? ` ${(xml as { uuid?: string }).uuid}`
+            : ""
+        }: RealizationIndices stored in a non-inline (HDF5) or multi-dimensional array; emitted realisation-index set may be incomplete.`
+      );
+    }
+
     this.data = {
       ...(await this.AbstractCommonResources(context)),
       ...(await this.AbstractWPCGroupType(ReservoirDMSUrl, context)),
@@ -270,9 +365,7 @@ export class GenericPropertyOSDU
         "UnitOfMeasure",
         normalizeUom(continuous ? continuous.UOM : "Euc")
       ),
-      RealizationIndices: xml.RealizationIndex
-        ? [xml.RealizationIndex]
-        : undefined,
+      RealizationIndices: realization.indices,
       StdDeviation,
       TimeIndices: undefined,
       TimeSeriesID: undefined,

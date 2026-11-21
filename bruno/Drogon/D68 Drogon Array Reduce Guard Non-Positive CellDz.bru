@@ -1,0 +1,48 @@
+meta {
+  name: D68 Drogon Array Reduce Guard Non-Positive CellDz
+  type: http
+  seq: 68
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/arrays/compute
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "op": "reduce",
+    "target": {
+      "dataObjectType": "{{drogonPropType}}",
+      "guid": "{{drogonStatGuid}}",
+      "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0"
+    },
+    "reducer": "net",
+    "rangeLo": 0.1,
+    "rangeHi": 0.3,
+    "cellDz": -1
+  }
+}
+
+docs {
+  Array-compute coverage (28/31). Guard: net thickness with a non-positive cell thickness is meaningless;
+      the store rejects dz <= 0 with 400.
+}
+
+tests {
+  test("status is 400", function () {
+        expect(res.getStatus()).to.equal(400);
+      });
+
+      test("error message names the violated rule", function () {
+        const b = res.getBody();
+        const msg = String((b && (b.description || b.message)) || "");
+        expect(msg.toLowerCase()).to.include('dz');
+      });
+}

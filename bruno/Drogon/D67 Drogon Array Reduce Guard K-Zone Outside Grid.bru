@@ -1,0 +1,48 @@
+meta {
+  name: D67 Drogon Array Reduce Guard K-Zone Outside Grid
+  type: http
+  seq: 67
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/arrays/compute
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "op": "reduce",
+    "target": {
+      "dataObjectType": "{{drogonPropType}}",
+      "guid": "{{drogonStatGuid}}",
+      "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0"
+    },
+    "reducer": "mean",
+    "k0": {{drogonNk}},
+    "k1": 99
+  }
+}
+
+docs {
+  Array-compute coverage (27/31). Guard: a K-zone starting at Nk (one past the last layer) lies entirely
+      outside the grid -> 400 from the store naming the layer count. (A k1 beyond
+      Nk with a valid k0 is clamped, not rejected - see D57.)
+}
+
+tests {
+  test("status is 400", function () {
+        expect(res.getStatus()).to.equal(400);
+      });
+
+      test("error message names the violated rule", function () {
+        const b = res.getBody();
+        const msg = String((b && (b.description || b.message)) || "");
+        expect(msg.toLowerCase()).to.include('outside');
+      });
+}

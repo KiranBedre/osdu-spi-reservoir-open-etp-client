@@ -37,7 +37,8 @@ import { ErrorCode, EtpError } from "../lib/common/EtpTypes";
 
 import {
   HasDataPartitionGuard,
-  httpErrorFromEtpError
+  httpErrorFromEtpError,
+  requireProtocol
 } from "../lib/restApi/ControllerUtils";
 
 const getResponse = (e: HttpException): Record<string, unknown> =>
@@ -412,5 +413,44 @@ describe("HasDataPartitionGuard", () => {
     process.env.RDMS_DATA_PARTITION_MODE = "single";
     const guard = HasDataPartitionGuard();
     expect(guard.canActivate(buildContext(undefined))).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// requireProtocol: routes that depend on an optional ETP protocol (Discovery-
+// Query 13, GrowingObject 6, ChannelSubscribe 21, ...) must answer 501 Not
+// Implemented naming the missing protocol when the store did not negotiate it,
+// and be a no-op when it did.
+// ---------------------------------------------------------------------------
+describe("requireProtocol", () => {
+  const clientWith = (supported: number[]) =>
+    ({ isProtocolSupported: (id: number) => supported.includes(id) }) as any;
+
+  it("is a no-op when the protocol was negotiated", () => {
+    expect(() => requireProtocol(clientWith([4, 13]), 13)).not.toThrow();
+  });
+
+  it("throws 501 naming the protocol when it was not negotiated", () => {
+    let caught: unknown;
+    try {
+      requireProtocol(clientWith([4]), 13);
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(NotImplementedException);
+    const e = caught as HttpException;
+    expect(e.getStatus()).toBe(HttpStatus.NOT_IMPLEMENTED);
+    expect(JSON.stringify(e.getResponse())).toMatch(/DiscoveryQuery \(13\)/);
+  });
+
+  it("falls back to a numeric label for protocols without a friendly name", () => {
+    let caught: unknown;
+    try {
+      requireProtocol(clientWith([]), 42);
+    } catch (e) {
+      caught = e;
+    }
+    expect(caught).toBeInstanceOf(NotImplementedException);
+    expect(JSON.stringify((caught as HttpException).getResponse())).toMatch(/Protocol 42/);
   });
 });

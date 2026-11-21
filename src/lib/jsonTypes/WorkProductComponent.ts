@@ -86,6 +86,86 @@ const DBL_LAT_ARRAY = "resqml20.DoubleLatticeArray";
 const INT_CST_ARRAY = "resqml20.IntegerConstantArray";
 const INT_HDF_ARRAY = "resqml20.IntegerHdf5Array";
 
+export interface RealizationIndexResult {
+  indices: number[] | undefined;
+  unresolved: boolean;
+}
+
+/**
+ * U6 - realisation-index join key.
+ *
+ * Collect the realisation-index set for a property as a single `number[]`,
+ * unioning the RESQML scalar `RealizationIndex` (2.0.1 / 2.2 / 3.0.0) with any
+ * INLINE `RealizationIndices` array (IntegerConstant / IntegerRange /
+ * IntegerLattice - the legacy 2.0.1 / 2.2 multi-realisation form, in either the
+ * resqml20 or eml/resqml22 namespace). A raw numeric `RealizationIndices` is
+ * also accepted (loose form). HDF5-backed or multi-dimensional index arrays are
+ * not expanded (they never carry realisation membership) and set `unresolved`
+ * so the caller can warn. Returns `indices: undefined` when no index is present.
+ */
+export function collectRealizationIndices(xml: {
+  RealizationIndex?: unknown;
+  RealizationIndices?: unknown;
+}): RealizationIndexResult {
+  const set = new Set<number>();
+  let unresolved = false;
+
+  const addFinite = (v: unknown): void => {
+    const n = Number(v);
+    if (Number.isFinite(n)) set.add(n);
+  };
+
+  addFinite(xml.RealizationIndex);
+
+  const arr = xml.RealizationIndices;
+  if (
+    typeof arr === "number" ||
+    typeof arr === "bigint" ||
+    typeof arr === "string"
+  ) {
+    addFinite(arr);
+  } else if (arr && typeof arr === "object") {
+    const a = arr as { $type?: string } & Record<string, unknown>;
+    const t = String(a.$type ?? "");
+    if (t.endsWith("IntegerConstantArray")) {
+      addFinite(a.Value);
+    } else if (t.endsWith("IntegerRangeArray")) {
+      const start = Number(a.Value);
+      const count = Number(a.Count);
+      if (Number.isFinite(start) && Number.isFinite(count) && count > 0) {
+        for (let i = 0; i < count; i++) set.add(start + i);
+      } else {
+        unresolved = true;
+      }
+    } else if (t.endsWith("IntegerLatticeArray")) {
+      const start = Number(a.StartValue);
+      const offsets = Array.isArray(a.Offset)
+        ? (a.Offset as Array<{ Value?: unknown; Count?: unknown }>)
+        : [];
+      if (!Number.isFinite(start)) {
+        unresolved = true;
+      } else if (offsets.length === 1) {
+        const step = Number(offsets[0]?.Value);
+        const count = Number(offsets[0]?.Count);
+        if (Number.isFinite(step) && Number.isFinite(count) && count > 0) {
+          for (let i = 0; i < count; i++) set.add(start + i * step);
+        } else {
+          set.add(start);
+        }
+      } else {
+        set.add(start);
+        unresolved = true;
+      }
+    } else if (t) {
+      // HDF5 or other non-inline form - not expanded here.
+      unresolved = true;
+    }
+  }
+
+  const indices = set.size ? Array.from(set).sort((a, b) => a - b) : undefined;
+  return { indices, unresolved };
+}
+
 const DBL_CST_ARRAY22 = "eml23.FloatingPointConstantArray";
 const DBL_HDF_ARRAY22 = "eml23.FloatingPointExternalArray";
 const DBL_LAT_ARRAY22 = "eml23.FloatingPointLatticeArray";
@@ -508,6 +588,48 @@ export const visitDoubleValues = async (
       counts: [xmlArray.CountPerValue]
     });
   }
+};
+
+/**
+ * Resolve the store-side array reference (object uri + path in resource) for
+ * the server-backed variants of an AbstractFloatingPointArray, mirroring the
+ * HDF5 / external branches of {@link visitDoubleValues}. Returns undefined for
+ * inline arrays (constant / lattice / xml) that carry no store array — the
+ * caller should then fall back to a client-side reduction.
+ *
+ * @param {string} dataspaceUri
+ * @param {SimpleJson<resqml20.AbstractDoubleArray|eml23.AbstractFloatingPointArray>} array
+ * @returns {({ uri: string; pathInResource: string } | undefined)}
+ */
+export const resolveDoubleArrayRef = (
+  dataspaceUri: string,
+  array: SimpleJson<
+    resqml20.AbstractDoubleArray | eml23.AbstractFloatingPointArray
+  >
+): { uri: string; pathInResource: string } | undefined => {
+  if (array.$type === DBL_HDF_ARRAY) {
+    const hdfArray = array as resqml20.DoubleHdf5Array;
+    const etpType = new EtpContentType(hdfArray.Values.HdfProxy.ContentType)
+      .dataType;
+    const uri = `${dataspaceUri}/eml20.${etpType}(${hdfArray.Values.HdfProxy.UUID})`;
+    return { uri, pathInResource: hdfArray.Values.PathInHdfFile };
+  } else if (array.$type === DBL_HDF_ARRAY22) {
+    const hdfArray = array as eml23.FloatingPointExternalArray;
+    const etpDataspaceUri = new EtpUri(dataspaceUri).dataSpace;
+    const etpUri = new EtpUri(hdfArray.Values.ExternalDataArrayPart[0].URI);
+    const uri = EtpUri.createTypedObjectUri(
+      etpDataspaceUri,
+      etpUri.dataObjectType,
+      etpUri.uuid,
+      etpUri.version
+    ).uri;
+    return {
+      uri,
+      pathInResource:
+        hdfArray.Values.ExternalDataArrayPart[0].PathInExternalFile
+    };
+  }
+  return undefined;
 };
 
 /**

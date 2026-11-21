@@ -1,0 +1,35 @@
+meta {
+  name: Upload EPC
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{host}}/dataspaces/{{crudDataspaceId}}/epc/upload?autoIngest=false&validate=false
+  body: none
+  auth: none
+}
+
+params:query {
+  autoIngest: false
+  validate: false
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Route coverage (negative): POST /dataspaces/{id}/epc/upload without the
+  required `epc` multipart part must be rejected with 400 by request
+  validation. The happy path (EPC + HDF5 upload, 186 objects / 158 arrays) is
+  Drogon/D02.
+}
+
+tests {
+  test("missing epc part is rejected with 400", function () {
+    expect(res.getStatus()).to.equal(400);
+    expect(JSON.stringify(res.getBody())).to.match(/epc/i);
+  });
+}

@@ -1,0 +1,28 @@
+meta {
+  name: A6 Read Back Int32 Array
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/eml20.obj_EpcExternalPartReference/{{ext_guid}}/arrays/{{i32_array_path_encoded}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("Int32 values and shape round-trip", function () {
+    const body = res.getBody();
+    expect(body.data.dimensions.map(Number)).to.deep.equal([2, 3]);
+    expect(body.data.data).to.deep.equal([10, 20, 30, 40, 50, 60]);
+  });
+}

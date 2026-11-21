@@ -1,6 +1,6 @@
 {
   "parserOptions": {
-    "ecmaVersion": 6,
+    "ecmaVersion": "latest",
     "sourceType": "module",
     "project": "./tsconfig.json"
   },
@@ -18,7 +18,9 @@
     "coverage",
     "src/lib/jsonTypes/Generated/"
   ],
-  "plugins": ["@typescript-eslint"],
+  "plugins": [
+    "@typescript-eslint"
+  ],
   "extends": [
     // Base recommended set of rules
     "eslint:recommended",
@@ -55,6 +57,58 @@
         "argsIgnorePattern": "^_",
         "varsIgnorePattern": "^_"
       }
-    ]
-  }
+    ],
+    // Type-aware promise safety: a floating/misused promise is the usual
+    // symptom of a forgotten `await` on a write/commit/close.
+    "@typescript-eslint/no-floating-promises": "warn",
+    "@typescript-eslint/no-misused-promises": "warn",
+    "@typescript-eslint/await-thenable": "warn"
+    // Note: `require-await` is intentionally NOT enabled - it false-positives on
+    // interface-conformant async signatures (builders / providers that must
+    // return a Promise regardless of whether the body awaits).
+  },
+  "overrides": [
+    {
+      // Demo scripts and manual certification harnesses are not shipped runtime
+      // code; the fire-and-forget promise chains there are intentional.
+      "files": [
+        "src/examples/**",
+        "src/certification/**"
+      ],
+      "rules": {
+        "@typescript-eslint/no-floating-promises": "off",
+        "@typescript-eslint/no-misused-promises": "off"
+      }
+    },
+    {
+      // Library/server boundary (split plan, step 1).
+      // The published `@osdu/open-etp-client` surface is the client graph
+      // (src/lib/client + src/lib/providers and their shared deps). Nothing in
+      // that graph may import the NestJS REST server (src/lib/restApi/**), so
+      // library consumers never pull in the express/NestJS/apollo stack.
+      // The server itself is excluded and may import freely.
+      "files": [
+        "src/lib/**/*.ts"
+      ],
+      "excludedFiles": [
+        "src/lib/restApi/**"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**/restApi",
+                  "**/restApi/**"
+                ],
+                "message": "Client-library code must not import the REST server (src/lib/restApi/**). This boundary keeps the published @osdu/open-etp-client free of the server stack. If you need shared logic, move it into a neutral module such as src/lib/common."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

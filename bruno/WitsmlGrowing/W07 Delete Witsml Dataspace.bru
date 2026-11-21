@@ -1,0 +1,27 @@
+meta {
+  name: W07 Delete Witsml Dataspace
+  type: http
+  seq: 99
+}
+
+delete {
+  url: {{host}}/dataspaces/{{witsmlDataspaceId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  WITSML growing-object lifecycle (7/7). Tears down the test/witsml dataspace so
+  the suite is self-contained and idempotent across CI runs.
+}
+
+tests {
+  test("status is 200/204/404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 204, 404]);
+  });
+}

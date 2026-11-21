@@ -1,0 +1,36 @@
+meta {
+  name: A4 Get Array Content Base64
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/eml20.obj_EpcExternalPartReference/{{ext_guid}}/arrays/{{array_path_encoded}}?format=base64
+  body: none
+  auth: none
+}
+
+params:query {
+  format: base64
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("base64 payload decodes to little-endian Float64 1..9", function () {
+    const body = res.getBody();
+    expect(body.data.data).to.be.a("string");
+    const buf = Buffer.from(body.data.data, "base64");
+    expect(buf.length, "9 doubles").to.equal(9 * 8);
+    const values = [];
+    for (let i = 0; i < 9; i++) values.push(buf.readDoubleLE(i * 8));
+    expect(values).to.deep.equal([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+}

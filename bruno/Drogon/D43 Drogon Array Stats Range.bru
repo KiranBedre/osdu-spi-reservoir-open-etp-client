@@ -1,0 +1,61 @@
+meta {
+  name: D43 Drogon Array Stats Range
+  type: http
+  seq: 43
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonPropType}}/{{drogonStatGuid}}/arrays/{{drogonStatArray}}/compute?op=stats&rangeLo=0.1&rangeHi=0.3
+  body: none
+  auth: none
+}
+
+params:query {
+  op: stats
+  rangeLo: 0.1
+  rangeHi: 0.3
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  // inRangeCount over [0.1, 0.3] is the reference for the WHERE count (D47),
+  // the REDUCE count-map total (D56) and the REDUCE net-map total (D46).
+  if (res.getStatus() === 200) {
+    bru.setVar("drogonInRange", res.getBody().inRangeCount);
+  }
+}
+
+docs {
+  Array-compute coverage (3/31). Stats with an inclusive [rangeLo, rangeHi]
+  window: in the SAME single pass the store also returns inRangeCount (values
+  inside the window) — the net-pay / cut-off primitive. The window must not
+  change the whole-array summary (count/sum/min/max identical to D42).
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("inRangeCount present and within total count", function () {
+    const b = res.getBody();
+    expect(b.inRangeCount).to.be.a("number").at.least(0);
+    expect(b.inRangeCount).to.be.at.most(b.count);
+    expect(b.rangeLo).to.equal(0.1);
+    expect(b.rangeHi).to.equal(0.3);
+    // D32 wrote 0.15 and 0.25 inside [0.1, 0.3].
+    expect(b.inRangeCount).to.equal(2);
+  });
+
+  test("window does not alter the whole-array summary", function () {
+    const b = res.getBody();
+    expect(b.count).to.equal(Number(bru.getVar("drogonStatN")));
+    expect(b.sum).to.equal(Number(bru.getVar("drogonStatSum")));
+    expect(b.minimum).to.equal(Number(bru.getVar("drogonStatMin")));
+    expect(b.maximum).to.equal(Number(bru.getVar("drogonStatMax")));
+  });
+}

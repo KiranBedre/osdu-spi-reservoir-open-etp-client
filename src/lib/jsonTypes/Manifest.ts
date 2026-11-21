@@ -31,6 +31,7 @@ import {
 import { isKnownPwlsProperty } from "./PwlsCurveCatalog";
 
 import { ErrorCode, EtpError } from "../common/EtpTypes";
+import { concurrency } from "../common/Util";
 
 /**
  * S4: Namespace UUID for deterministic dataspace → collaboration UUID mapping.
@@ -167,6 +168,71 @@ export const DEFAULT_INGEST_EXCLUDE_PATTERNS: string[] = [
   "witsml21.Log" // WITSML well logs -> WellLog; same rationale
 ];
 
+/**
+ * Friendly OSDU-ish "kind" shortnames accepted inside `excludePatterns`, each
+ * expanded to the underlying Energistics type-name wildcard patterns before
+ * filtering. Lets callers write `excludePatterns: ["wells","logs"]` instead of
+ * spelling out the raw ETP type patterns. Matching is case-insensitive; any
+ * token that is not a known alias passes through unchanged and is treated as a
+ * literal type pattern (so `["wells","*GridConnectionSet"]` works).
+ *
+ * The values match the Energistics `dataObjectType` (e.g. `witsml21.Well`,
+ * `resqml20.obj_ContinuousProperty`) that filtering sees at enumeration time -
+ * before OSDU conversion - which is why aliases resolve to ETP types, not OSDU
+ * kinds. `*` and `?` follow the same wildcard rules as raw patterns.
+ */
+export const EXCLUDE_ALIASES: Record<string, string[]> = {
+  wells: [
+    "witsml21.Well",
+    "witsml21.Wellbore",
+    "*WellboreInterpretation",
+    "*WellboreTrajectoryRepresentation",
+    "witsml21.Trajectory"
+  ],
+  wellbores: ["witsml21.Wellbore", "*WellboreInterpretation"],
+  logs: ["witsml21.Log", "*WellboreFrameRepresentation"],
+  markers: ["*WellboreMarkerFrameRepresentation"],
+  trajectories: ["*WellboreTrajectoryRepresentation", "witsml21.Trajectory"],
+  properties: [
+    "*ContinuousProperty",
+    "*DiscreteProperty",
+    "*CategoricalProperty"
+  ],
+  activities: ["*Activity", "*ActivityTemplate"],
+  grids: [
+    "*IjkGridRepresentation",
+    "*UnstructuredGridRepresentation",
+    "*GridConnectionSetRepresentation",
+    "*Grid2dRepresentation"
+  ],
+  seismic: ["*SeismicLatticeFeature", "*SeismicLineFeature"],
+  interpretations: ["*Interpretation"],
+  representations: ["*Representation"],
+  features: ["*Feature"]
+};
+
+/**
+ * Expand friendly kind aliases (e.g. `"wells"`) in an `excludePatterns` list to
+ * their underlying Energistics type patterns. Non-alias tokens pass through
+ * unchanged. Idempotent: expanded ETP patterns are never themselves aliases, so
+ * calling this twice is safe.
+ *
+ * @param {string[]} [patterns] Raw excludePatterns (may contain aliases).
+ * @return {string[] | undefined} Expanded pattern list, or the original value when empty/undefined.
+ */
+export function expandExcludeAliases(
+  patterns?: string[]
+): string[] | undefined {
+  if (!patterns || patterns.length === 0) return patterns;
+  const out: string[] = [];
+  for (const p of patterns) {
+    const alias = EXCLUDE_ALIASES[p.toLowerCase()];
+    if (alias) out.push(...alias);
+    else out.push(p);
+  }
+  return out;
+}
+
 /** Property type pattern for secondary filter matching */
 const PROPERTY_TYPE_PATTERN = /Property$/i;
 
@@ -179,7 +245,7 @@ const ALWAYS_INCLUDE_PATTERN = /Crs$/i;
 
 /**
  * Common reservoir-simulation property name abbreviations.
- * These are the short names used by Eclipse, OPM, tNavigator, etc.
+ * These are the short names used by OPM Flow, tNavigator, etc.
  * that don't appear in PWLS or OSDU PropertyType catalogs.
  */
 const RESSIM_PROPERTY_NAMES = new Set([
@@ -323,7 +389,7 @@ export function manifestFilterMatches(
 
   // Hard exclusions win over every inclusion rule below (except CRS above).
   if (excludePatterns && excludePatterns.length > 0) {
-    for (const p of compilePatterns(excludePatterns)) {
+    for (const p of compilePatterns(expandExcludeAliases(excludePatterns)!)) {
       if (dataObjectType.match(p)) return false;
     }
   }
@@ -445,7 +511,14 @@ export const estimateManifestInputCount = async (
  *   - "none": exclude all properties
  * @param {string[]} [excludePatterns] Optional type patterns that HARD-exclude matching
  *   types (e.g. DEFAULT_INGEST_EXCLUDE_PATTERNS to drop Activity records that would
- *   otherwise emit dangling references). CRS is always kept regardless.
+ *   otherwise emit dangling references). Accepts friendly kind aliases (e.g.
+ *   "wells", "logs", "properties" - see EXCLUDE_ALIASES). CRS is always kept regardless.
+ * @param {boolean} [followReferences] When true, explicitly-selected object URIs are
+ *   expanded to their full transitive dependency closure and every referenced object
+ *   is emitted as a first-class record (not just resolved for DOR/CRS purposes). The
+ *   pulled-in references still honour typePatterns/propertyFilter/excludePatterns
+ *   (CRS always kept); the originally-selected URIs are never filtered out. Has no
+ *   effect on whole-dataspace inputs (those already enumerate everything). Default false.
  * @return {Promise<Manifest>}
  */
 export const createManifest = async (
@@ -455,7 +528,8 @@ export const createManifest = async (
   typePatterns?: string[],
   maxManifestSize: number = 1000,
   propertyFilter: PropertyFilter = "canonical",
-  excludePatterns?: string[]
+  excludePatterns?: string[],
+  followReferences: boolean = false
 ): Promise<Manifest> => {
   if (uris.length === 0) {
     return Promise.reject("No URI provided");
@@ -544,6 +618,55 @@ export const createManifest = async (
         dataspaceUris.forEach(r => allUris.add(r.uri));
       } else {
         allUris.add(etpUri.uri);
+      }
+    }
+
+    // followReferences: expand the explicitly-selected objects to their full
+    // transitive dependency closure so every referenced object is emitted as a
+    // first-class record, not merely resolved for DOR/CRS purposes. The pulled-in
+    // references are still subject to typePatterns/propertyFilter/excludePatterns
+    // (CRS is always kept); the originally-selected URIs stay unfiltered. Skipped
+    // for whole-dataspace inputs, which already enumerate every object.
+    if (followReferences) {
+      const explicitObjectUris = [...allUris].filter(
+        u => new EtpUri(u).uuid !== ""
+      );
+      if (explicitObjectUris.length > 0) {
+        const closure = new Map<URI, IResqmlDataObject>();
+        try {
+          await client.getResolvedObjects(explicitObjectUris, closure, false);
+        } catch (e: any) {
+          logger.warn(
+            `followReferences: closure resolution failed - ${e?.message ?? e}`
+          );
+        }
+        let added = 0;
+        for (const [u, o] of closure) {
+          if (allUris.has(u)) continue;
+          const eu = new EtpUri(u);
+          if (eu.uuid === "") continue;
+          const name = (o as any)?.Citation?.Title ?? "";
+          if (
+            manifestFilterMatches(
+              eu.dataObjectType,
+              name,
+              typePatterns,
+              propertyFilter,
+              excludePatterns
+            )
+          ) {
+            allUris.add(u);
+            // Seed the DOR cache so downstream conversion reuses this fetch
+            // instead of issuing another ETP getObjects round-trip.
+            if (o && !context.uriToObject.has(u)) {
+              context.uriToObject.set(u, o);
+            }
+            added++;
+          }
+        }
+        logger.info(
+          `followReferences: added ${added} referenced object(s) to manifest (closure size=${closure.size})`
+        );
       }
     }
 
@@ -689,7 +812,7 @@ export const createManifest = async (
       // For large models (e.g. demo/Volve, ~3300 objects => ~67 batches) the
       // previous one-at-a-time loop serialised that latency and dominated the
       // whole build; running ~8 in flight collapses it into a handful of waves.
-      const FETCH_CONCURRENCY = 8;
+      const FETCH_CONCURRENCY = concurrency.list;
       const fetchBatches: string[][] = [];
       for (let i = 0; i < tmpUris.length; i += BATCH_SIZE) {
         fetchBatches.push(tmpUris.slice(i, i + BATCH_SIZE));
@@ -818,7 +941,7 @@ export const createManifest = async (
               IResqmlDataObject
             >();
             const IDX_BATCH = 50;
-            const IDX_CONCURRENCY = 8;
+            const IDX_CONCURRENCY = concurrency.index;
             const idxBatches: string[][] = [];
             for (let i = 0; i < propUris.length; i += IDX_BATCH) {
               idxBatches.push(propUris.slice(i, i + IDX_BATCH));
@@ -912,11 +1035,7 @@ export const createManifest = async (
       // that latency. Node is single-threaded, so overlapping the awaits is
       // safe for the synchronous Map/Set mutations on the shared context while
       // still cutting wall-clock time dramatically on large models.
-      // 32-way: profiling large models (e.g. demo/Volve) showed the build is
-      // dominated by independent ETP getObjects/getDataArray round-trip LATENCY
-      // rather than CPU, so raising the number of in-flight requests on the
-      // multiplexed ETP session hides more of that latency.
-      const CONVERT_CONCURRENCY = 32;
+      const CONVERT_CONCURRENCY = concurrency.convert;
       // Precompile the exclude patterns once so the per-property
       // supporting-representation check below is a cheap regex test rather than
       // a recompile per object. Empty/undefined -> no suppression.
@@ -962,7 +1081,7 @@ export const createManifest = async (
             const targetType = new EtpUri(target).dataObjectType;
             if (
               targetType &&
-              compiledExcludeForSupport.some((p) => targetType.match(p))
+              compiledExcludeForSupport.some(p => targetType.match(p))
             ) {
               supportExcluded = true;
               break;
@@ -986,7 +1105,12 @@ export const createManifest = async (
         let res: OSDUResourceType | undefined;
         try {
           const tObj = Date.now();
-          res = await c.convert(etpUri.uri, resolvedObjects[i], context, client);
+          res = await c.convert(
+            etpUri.uri,
+            resolvedObjects[i],
+            context,
+            client
+          );
           const convertMs = Date.now() - tObj;
           if (convertMs > 200) {
             logger.warn(
@@ -998,8 +1122,8 @@ export const createManifest = async (
           // silently, so a systemic convert-time failure is diagnosable.
           bumpSkip(convertFailed, etpUri.dataObjectType);
           logger.warn(
-            `[convert] Converter threw for ${etpUri.dataObjectType} (${resObj.Uuid}); no record produced: ${convErr?.message ?? convErr
-            }`
+            `[convert] Converter threw for ${etpUri.dataObjectType} (${resObj.Uuid
+            }); no record produced: ${convErr?.message ?? convErr}`
           );
           return;
         }
@@ -1032,8 +1156,8 @@ export const createManifest = async (
           }
         } catch (kindErr: any) {
           logger.warn(
-            `[enrich] Kind resolution failed for ${etpUri.dataObjectType} (${resObj.Uuid}); keeping converter default kind: ${kindErr?.message ?? kindErr
-            }`
+            `[enrich] Kind resolution failed for ${etpUri.dataObjectType} (${resObj.Uuid
+            }); keeping converter default kind: ${kindErr?.message ?? kindErr}`
           );
         }
 
@@ -1091,7 +1215,8 @@ export const createManifest = async (
             }
           } catch (osduErr: any) {
             logger.warn(
-              `[enrich] OSDU reconciliation failed for ${res.id}; emitting freshly converted record: ${osduErr?.message ?? osduErr
+              `[enrich] OSDU reconciliation failed for ${res.id
+              }; emitting freshly converted record: ${osduErr?.message ?? osduErr
               }`
             );
           }
@@ -1129,7 +1254,9 @@ export const createManifest = async (
     // the requested filter instead of injecting a synthetic Activity.
     const lineageSuppressed =
       !!excludePatterns?.length &&
-      compilePatterns(excludePatterns).some(p => "Activity".match(p));
+      compilePatterns(expandExcludeAliases(excludePatterns)!).some(p =>
+        "Activity".match(p)
+      );
     if (
       context.created.size > 0 &&
       context.generateLineageActivity !== false &&
@@ -1253,7 +1380,7 @@ export const createManifest = async (
         //    Well/log-heavy dataspace can need ~20+ batches per wave, and the
         //    old sequential loop paid every ETP round-trip end to end.
         const FETCH_BATCH = 50;
-        const FETCH_CONCURRENCY = 16;
+        const FETCH_CONCURRENCY = concurrency.fetch;
         if (toResolve.length > 0) {
           const t0 = Date.now();
           const batches: string[][] = [];
@@ -1267,12 +1394,17 @@ export const createManifest = async (
               try {
                 await client.getResolvedObjects(batchUris, objects, false);
               } catch (e: any) {
-                logger.warn(`[perf] Batch ETP fetch failed: ${e?.message ?? e}`);
+                logger.warn(
+                  `[perf] Batch ETP fetch failed: ${e?.message ?? e}`
+                );
               }
             }
           };
           await Promise.all(
-            Array.from({ length: Math.min(FETCH_CONCURRENCY, batches.length) }, () => worker())
+            Array.from(
+              { length: Math.min(FETCH_CONCURRENCY, batches.length) },
+              () => worker()
+            )
           );
           logger.info(
             `[perf] Fetched ${toResolve.length} objects in ${Date.now() - t0}ms`
@@ -1350,8 +1482,6 @@ export const createManifest = async (
 
         // Convert the missing refs with bounded concurrency, overlapping the
         // per-object OSDU existence checks the same way the primary loop does.
-        // Matches the primary loop's 32-way width: reference resolution is the
-        // same latency-bound ETP round-trip workload.
         const REF_CONCURRENCY = 32;
         let refIndex = 0;
         const refWorker = async (): Promise<void> => {
@@ -1817,9 +1947,9 @@ export const createManifest = async (
           // suppressed) so the WorkProduct-centric DAG ingestion stays consistent.
           if (manifests.Data?.WorkProduct?.data) {
             manifests.Data.WorkProduct.data.Components =
-              manifests.Data.WorkProductComponents
-                .filter(rec => typeof (rec as { id?: unknown }).id === "string")
-                .map(rec => `${(rec as { id: string }).id}:`);
+              manifests.Data.WorkProductComponents.filter(
+                rec => typeof (rec as { id?: unknown }).id === "string"
+              ).map(rec => `${(rec as { id: string }).id}:`);
           }
         }
         schemaCompatDiag = {
@@ -1861,7 +1991,9 @@ export const createManifest = async (
         `converter-skipped=${sumMap(skippedConverterUndefined)} [${fmtMap(
           skippedConverterUndefined
         )}] ` +
-        `convert-failed=${sumMap(convertFailed)} [${fmtMap(convertFailed)}] ` +
+        `convert-failed=${sumMap(convertFailed)} [${fmtMap(
+          convertFailed
+        )}] ` +
         `excluded-support=${sumMap(suppressedExcludedSupport)} [${fmtMap(
           suppressedExcludedSupport
         )}]`
@@ -1952,8 +2084,8 @@ export const createManifest = async (
       });
       if (dedupedWpcs.length !== originalCount) {
         logger.warn(
-          `[dedup] Dropped ${originalCount -
-          dedupedWpcs.length} duplicate WorkProductComponent id(s) from manifest`
+          `[dedup] Dropped ${originalCount - dedupedWpcs.length
+          } duplicate WorkProductComponent id(s) from manifest`
         );
         manifests.Data.WorkProductComponents = dedupedWpcs;
         if (manifests.Data?.WorkProduct?.data) {

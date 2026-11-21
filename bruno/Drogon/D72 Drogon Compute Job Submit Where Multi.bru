@@ -1,0 +1,78 @@
+meta {
+  name: D72 Drogon Compute Job Submit Where Multi
+  type: http
+  seq: 72
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/arrays/compute
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "op": "where-multi",
+    "async": true,
+    "batches": [
+      {
+        "predicates": [
+          {
+            "dataObjectType": "resqml20.obj_ContinuousProperty",
+            "guid": "{{drogonStatGuid}}",
+            "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+            "rangeLo": 0.1,
+            "rangeHi": 0.3
+          }
+        ]
+      },
+      {
+        "predicates": [
+          {
+            "dataObjectType": "resqml20.obj_ContinuousProperty",
+            "guid": "{{drogonStatGuid}}",
+            "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+            "rangeLo": 0.05,
+            "rangeHi": 0.2
+          }
+        ]
+      }
+    ]
+  }
+}
+
+script:post-response {
+  const b = res.getBody();
+  if (b && b.id) {
+    bru.setVar("drogonComputeJobId", b.id);
+  }
+}
+
+docs {
+  Route coverage: POST …/arrays/compute with `async: true` — queues an
+  asynchronous batch of where-multi evaluations (two single-predicate batches over the
+  same Drogon property as D48) and returns a job view immediately. The job
+  id is stored in `drogonComputeJobId` for D73 (list), D74 (poll) and D75
+  (cancel / 404 after completion).
+}
+
+tests {
+  test("status is 202 (accepted job)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 202]);
+  });
+
+  test("returns a job view with id, type, status and progress", function () {
+    const b = res.getBody();
+    expect(b.id).to.be.a("string").with.length.greaterThan(0);
+    expect(b.type).to.be.a("string");
+    expect(b.status).to.be.oneOf(["queued", "running", "succeeded", "failed", "canceled"]);
+    expect(b.progress).to.be.an("object");
+    expect(b.progress.done).to.be.a("number").at.least(0);
+    expect(b.progress.total).to.equal(2);
+  });
+}

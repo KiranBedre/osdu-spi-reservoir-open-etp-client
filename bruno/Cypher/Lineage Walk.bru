@@ -1,0 +1,44 @@
+meta {
+  name: Lineage Walk
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/cypher
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "dataspaceUri": "eml:///dataspace('{{seededDataspaceIdRaw}}')",
+    "query": "MATCH (f:Feature)<-[:InterpretedFeature]-(i:Interpretation)<-[:RepresentedInterpretation]-(r) RETURN f, i, r LIMIT 50"
+  }
+}
+
+docs {
+  Route coverage: POST /cypher — openCypher subset over the RESQML/ETP property
+  graph. Walks the canonical lineage chain Feature <- Interpretation <-
+  Representation using inferred DataObjectReference roles. This relationship-
+  centric traversal is the Cypher companion to the field-selection /graphql API.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("tabular result shape", function () {
+    const body = res.getBody();
+    expect(body, JSON.stringify(body)).to.be.an("object");
+    expect(body.columns).to.be.an("array");
+    expect(body.data).to.be.an("array");
+    expect(body.stats).to.be.an("object");
+  });
+}

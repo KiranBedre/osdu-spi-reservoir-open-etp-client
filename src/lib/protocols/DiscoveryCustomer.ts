@@ -193,11 +193,11 @@ export class DiscoveryCustomer extends BaseHandler {
       BigInt(0)
     );
     const getDeletedResources: Energistics.Etp.v12.Protocol.Discovery.GetDeletedResources =
-      {
-        dataspaceUri: encodeURI(dataspaceUri),
-        dataObjectTypes,
-        deleteTimeFilter
-      };
+    {
+      dataspaceUri: encodeURI(dataspaceUri),
+      dataObjectTypes,
+      deleteTimeFilter
+    };
     return this.deletedResourceResults.waitForRequest(
       this.sessionManager.send(header, getDeletedResources)
     );

@@ -18,8 +18,8 @@ headers {
 body:json {
   [
     {
-      "DataspaceId": "test/bruno-collection",
-      "Path": "test/bruno-collection",
+      "DataspaceId": "{{crudDataspaceIdRaw}}",
+      "Path": "{{crudDataspaceIdRaw}}",
       "CustomData": {
         "viewers": ["{{defaultViewers}}"],
         "owners": ["{{defaultOwners}}"],
@@ -30,14 +30,18 @@ body:json {
   ]
 }
 
-script:post-response {
-  if (res.getStatus() === 200 || res.getStatus() === 201) {
-    bru.setVar("testDataspaceId", encodeURIComponent("test/bruno-collection"));
-  }
+docs {
+  Route coverage: POST /dataspaces. Creates the folder-private CRUD dataspace
+  (crudDataspaceId) that the lock/unlock/upload/delete requests below operate
+  on; "Delete Dataspace" removes it again at the end of this folder.
 }
 
 tests {
-  test("status is 200 or 201 or 403 or 409", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 201, 400, 403, 409]);
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("returns the created dataspace uri", function () {
+    expect(res.getBody()).to.include("eml:///dataspace('" + bru.getEnvVar("crudDataspaceIdRaw") + "')");
   });
 }

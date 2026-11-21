@@ -1,0 +1,50 @@
+meta {
+  name: W01 Create Witsml Dataspace
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/dataspaces
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  [
+    {
+      "DataspaceId": "{{witsmlDataspaceIdRaw}}",
+      "Path": "{{witsmlDataspaceIdRaw}}",
+      "CustomData": {
+        "viewers": ["{{defaultViewers}}"],
+        "owners": ["{{defaultOwners}}"],
+        "legaltags": ["{{defaultLegalTag}}"],
+        "otherRelevantDataCountries": ["US"]
+      }
+    }
+  ]
+}
+
+docs {
+  WITSML growing-object lifecycle (1/7). Creates the `test/witsml` dataspace that
+  the rest of this folder populates with a small synthetic WITSML 2.1 dataset
+  (a Well in W02 and a Trajectory - the canonical growing object - in W03), then
+  reads it back (W04) and probes the ETP GrowingObject (Protocol 6) READ routes
+  (W05/W06) before tearing down (W07).
+
+  Scope note: the REST proxy exposes GrowingObject *reads* (parts metadata/range)
+  and WITSML store/query, but has NO endpoint to append parts (PutParts). A true
+  Protocol-6 append round-trip is covered at the ETP layer server-side
+  (open-etp-server GrowingProtoTests). 409 = dataspace already exists (idempotent).
+}
+
+tests {
+  test("status is 200/201/400/403/409 (created or already exists)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 400, 403, 409]);
+  });
+}

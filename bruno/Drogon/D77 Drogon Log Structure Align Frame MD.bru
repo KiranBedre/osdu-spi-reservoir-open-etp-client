@@ -1,0 +1,88 @@
+meta {
+  name: D77 Drogon Log Structure Align Frame MD
+  type: http
+  seq: 77
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/log-structure/align
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:pre-request {
+  // Discover the WellboreFrameRepresentation's NodeMd HDF array (a real 1-D
+  // Protocol 9 array) so the align request below never hard-codes a path.
+  const axios = require("axios");
+  const frameGuid = bru.getVar("drogonWellFrameGuid");
+  const ds = bru.getEnvVar("drogonDataspaceId");
+  const token = bru.getVar("access_token") || bru.getEnvVar("access_token");
+  const headers = {
+    "data-partition-id": bru.getEnvVar("data-partition-id"),
+    "Authorization": "Bearer " + token
+  };
+  const url = bru.getEnvVar("host") + "/dataspaces/" + ds +
+    "/resources/resqml20.obj_WellboreFrameRepresentation/" + frameGuid;
+  const r = await axios.get(url, { headers, validateStatus: function () { return true; } });
+  let mdPath = "";
+  if (r.status === 200) {
+    const obj = Array.isArray(r.data) ? r.data[0] : r.data;
+    const values = obj && obj.NodeMd && obj.NodeMd.Values;
+    if (values && values.PathInHdfFile) {
+      mdPath = values.PathInHdfFile;
+    }
+  }
+  if (!mdPath) {
+    mdPath = "/RESQML/" + frameGuid + "/NodeMd";
+  }
+  bru.setVar("drogonFrameMdPath", mdPath);
+}
+
+body:json {
+  {
+    "index": {
+      "dataObjectType": "resqml20.obj_WellboreFrameRepresentation",
+      "guid": "{{drogonWellFrameGuid}}",
+      "pathInResource": "{{drogonFrameMdPath}}"
+    },
+    "curves": [
+      {
+        "dataObjectType": "resqml20.obj_WellboreFrameRepresentation",
+        "guid": "{{drogonWellFrameGuid}}",
+        "pathInResource": "{{drogonFrameMdPath}}",
+        "name": "MD"
+      }
+    ]
+  }
+}
+
+docs {
+  Route coverage: POST /dataspaces/:ds/log-structure/align — co-indexes curves
+  onto a shared index axis. Index and curve are both the Drogon well frame's
+  NodeMd array (discovered from the frame object in the pre-request), so the
+  server must read the 1-D array through Protocol 9, detect the identical
+  index and answer `aligned: true` with `resampled: false` and rows == the
+  frame's node count — without any resampling.
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("curve shares the index axis without resampling", function () {
+    const b = res.getBody();
+    expect(b.aligned).to.equal(true);
+    expect(b.rows).to.be.a("number").greaterThan(0);
+    expect(b.index).to.be.an("array").with.length(b.rows);
+    expect(b.curves).to.be.an("array").with.length(1);
+    expect(b.curves[0].name).to.equal("MD");
+    expect(b.curves[0].resampled).to.equal(false);
+    expect(b.curves[0].data).to.be.an("array").with.length(b.rows);
+  });
+}

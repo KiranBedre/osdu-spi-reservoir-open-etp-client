@@ -17,6 +17,7 @@
 import {
   Controller,
   Get,
+  NotFoundException,
   Param,
   Query,
   Req,
@@ -68,6 +69,7 @@ import {
   errorMessageSchema,
   extractDataPartitionId,
   extractToken,
+  extractUserInfo,
   getSchemasForType,
   httpErrorFromEtpError,
   partitionPattern,
@@ -88,6 +90,7 @@ import {
 import type { QueryInput } from "../ControllerUtils";
 
 import { bigIntToString } from "../../mlTypes/XmlJsonUtil";
+
 
 import logging from "../../common/Logging";
 
@@ -232,7 +235,7 @@ export class EmlCitationDto {
   @ApiProperty({
     name: "Title",
     pattern: patternString(validNamePattern),
-    example: `My Grid`,
+    example: `Drogon Depth Ijk Grid`,
     description: "User friendly name of the object.",
     maxLength: 2048
   })
@@ -241,7 +244,7 @@ export class EmlCitationDto {
   @ApiProperty({
     name: "Originator",
     pattern: patternString(validNamePattern),
-    example: `me`,
+    example: `open-etp-client`,
     description: "Creator of the object.",
     maxLength: 2048
   })
@@ -259,7 +262,7 @@ export class EmlCitationDto {
   @ApiProperty({
     name: "Format",
     pattern: patternString(validNamePattern),
-    example: `[Vendor:Software:version]`,
+    example: `SenecaOil:open-etp-client:1.3.0`,
     description: "Identify the software that produces the object.",
     maxLength: 2048
   })
@@ -424,7 +427,8 @@ export default class ObjectsReadAPI {
         extractToken(request),
         extractDataPartitionId(request),
         undefined,
-        transactionId
+        transactionId,
+        extractUserInfo(request)
       );
       logger.info("Session created successfully.");
 
@@ -439,6 +443,18 @@ export default class ObjectsReadAPI {
         arrayMetadata
       );
       logger.info("Data object fetched successfully.");
+
+      // A single-object GET must 404 on a missing object instead of
+      // answering 200 with an empty list / empty DataObjects envelope.
+      const empty =
+        typeof b === "string"
+          ? b.trim() === "[]" || /<DataObjects>\s*<\/DataObjects>$/.test(b)
+          : Array.isArray(b) && b.length === 0;
+      if (empty) {
+        throw new NotFoundException({
+          description: `Object not found: ${uris[0]}`
+        });
+      }
 
       if (!transactionId) {
         logger.info("Closing session...");

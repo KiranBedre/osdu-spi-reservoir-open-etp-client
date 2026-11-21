@@ -1,0 +1,49 @@
+meta {
+  name: D30 Drogon Start Props Transaction
+  type: http
+  seq: 30
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/transactions
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  if (res.getStatus() === 200 || res.getStatus() === 201) {
+    const body = res.getBody();
+    const txId = typeof body === "string" ? body.trim().replace(/"/g, "") : (body && body.transactionId);
+    if (txId) bru.setVar("drogonPropsTxnId", txId);
+  }
+}
+
+docs {
+  Geometry/property coverage (1/10). Opens ONE write transaction used to add four
+  brand-new properties on EXISTING Drogon representations: HDF5-backed continuous
+  + discrete on the IjkGridRepresentation (D31 objects, D32 arrays) and
+  constant-array continuous + categorical on a WellboreFrameRepresentation (D33,
+  D34). Committed in D35 and read back in D36-D39, giving
+  {continuous,discrete,categorical} x {IJK grid, well log} write coverage
+  alongside the constant-array IJK round-trip (D17-D20).
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("captured props transactionId", function () {
+    expect(bru.getVar("drogonPropsTxnId"), "props txn id").to.be.a("string").and.not.be.empty;
+  });
+
+  test("discovered well frame and lookup guids", function () {
+    expect(bru.getVar("drogonWellFrameGuid"), "well frame guid").to.be.a("string").and.not.be.empty;
+    expect(bru.getVar("drogonLookupGuid"), "lookup guid").to.be.a("string").and.not.be.empty;
+  });
+}

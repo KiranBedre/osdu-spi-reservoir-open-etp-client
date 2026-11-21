@@ -1,0 +1,283 @@
+meta {
+  name: Put Grid Bindings
+  type: http
+  seq: 8
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:pre-request {
+  function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0;
+      var v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  ["gridsGcsUuid", "gridsBwUuid", "gridsRegionUuid", "gridsRegionLookupUuid", "gridsSubRepUuid"].forEach(function (k) { bru.setVar(k, uuid()); });
+  req.setBody([
+    {
+      "$type": "resqml20.obj_GridConnectionSetRepresentation",
+      "Uuid": bru.getVar("gridsGcsUuid"),
+      "SchemaVersion": "2.0.0.20140822",
+      "Citation": {
+        "Title": "Postman grid connections",
+        "Originator": "RDDMS-CI",
+        "Creation": "2026-11-14T20:48:59.897Z",
+        "Format": "rddms-sdk"
+      },
+      "Count": 2,
+      "CellIndexPairs": {
+        "$type": "resqml20.IntegerHdf5Array",
+        "NullValue": -1,
+        "Values": {
+          "$type": "eml20.Hdf5Dataset",
+          "PathInHdfFile": "/RESQML/" + bru.getVar("gridsGcsUuid") + "/cellIndexPairs",
+          "HdfProxy": {
+            "$type": "eml20.DataObjectReference",
+            "ContentType": "application/x-resqml+xml;version=2.0;type=obj_EpcExternalPartReference",
+            "Title": "Hdf Proxy",
+            "UUID": bru.getVar("gridsProxyUuid")
+          }
+        }
+      },
+      "Grid": [
+        {
+          "$type": "eml20.DataObjectReference",
+          "ContentType": "application/x-resqml+xml;version=2.0;type=obj_IjkGridRepresentation",
+          "Title": "Postman grid connections",
+          "UUID": bru.getVar("gridsGridUuid")
+        }
+      ]
+    },
+    {
+      "$type": "resqml20.obj_BlockedWellboreRepresentation",
+      "Uuid": bru.getVar("gridsBwUuid"),
+      "SchemaVersion": "2.0.0.20140822",
+      "Citation": {
+        "Title": "Postman blocked wellbore",
+        "Originator": "RDDMS-CI",
+        "Creation": "2026-11-14T20:48:59.898Z",
+        "Format": "rddms-sdk"
+      },
+      "Trajectory": {
+        "$type": "eml20.DataObjectReference",
+        "ContentType": "application/x-resqml+xml;version=2.0;type=obj_WellboreTrajectoryRepresentation",
+        "Title": "Postman blocked wellbore",
+        "UUID": bru.getVar("gridsTrajUuid")
+      },
+      "NodeCount": 4,
+      "NodeMd": {
+        "$type": "resqml20.DoubleHdf5Array",
+        "Values": {
+          "$type": "eml20.Hdf5Dataset",
+          "PathInHdfFile": "/RESQML/" + bru.getVar("gridsBwUuid") + "/nodeMd",
+          "HdfProxy": {
+            "$type": "eml20.DataObjectReference",
+            "ContentType": "application/x-resqml+xml;version=2.0;type=obj_EpcExternalPartReference",
+            "Title": "Hdf Proxy",
+            "UUID": bru.getVar("gridsProxyUuid")
+          }
+        }
+      },
+      "CellCount": 2,
+      "CellIndices": {
+        "$type": "resqml20.IntegerHdf5Array",
+        "NullValue": -1,
+        "Values": {
+          "$type": "eml20.Hdf5Dataset",
+          "PathInHdfFile": "/RESQML/" + bru.getVar("gridsBwUuid") + "/cellIndices",
+          "HdfProxy": {
+            "$type": "eml20.DataObjectReference",
+            "ContentType": "application/x-resqml+xml;version=2.0;type=obj_EpcExternalPartReference",
+            "Title": "Hdf Proxy",
+            "UUID": bru.getVar("gridsProxyUuid")
+          }
+        }
+      },
+      "GridIndices": {
+        "$type": "resqml20.IntegerHdf5Array",
+        "NullValue": -1,
+        "Values": {
+          "$type": "eml20.Hdf5Dataset",
+          "PathInHdfFile": "/RESQML/" + bru.getVar("gridsBwUuid") + "/gridIndices",
+          "HdfProxy": {
+            "$type": "eml20.DataObjectReference",
+            "ContentType": "application/x-resqml+xml;version=2.0;type=obj_EpcExternalPartReference",
+            "Title": "Hdf Proxy",
+            "UUID": bru.getVar("gridsProxyUuid")
+          }
+        }
+      },
+      "LocalFacePairPerCellIndices": {
+        "$type": "resqml20.IntegerHdf5Array",
+        "NullValue": -1,
+        "Values": {
+          "$type": "eml20.Hdf5Dataset",
+          "PathInHdfFile": "/RESQML/" + bru.getVar("gridsBwUuid") + "/localFacePairPerCellIndices",
+          "HdfProxy": {
+            "$type": "eml20.DataObjectReference",
+            "ContentType": "application/x-resqml+xml;version=2.0;type=obj_EpcExternalPartReference",
+            "Title": "Hdf Proxy",
+            "UUID": bru.getVar("gridsProxyUuid")
+          }
+        }
+      },
+      "Grid": [
+        {
+          "$type": "eml20.DataObjectReference",
+          "ContentType": "application/x-resqml+xml;version=2.0;type=obj_IjkGridRepresentation",
+          "Title": "Postman blocked wellbore",
+          "UUID": bru.getVar("gridsGridUuid")
+        }
+      ]
+    },
+    {
+      "$type": "resqml20.obj_StringTableLookup",
+      "Uuid": bru.getVar("gridsRegionLookupUuid"),
+      "SchemaVersion": "2.0.0.20140822",
+      "Citation": {
+        "Title": "SATNUM legend",
+        "Originator": "RDDMS-CI",
+        "Creation": "2026-11-14T20:48:59.899Z",
+        "Format": "rddms-sdk"
+      },
+      "Value": [
+        {
+          "$type": "resqml20.StringLookup",
+          "Key": 1,
+          "Value": "Crest"
+        },
+        {
+          "$type": "resqml20.StringLookup",
+          "Key": 2,
+          "Value": "Flank"
+        }
+      ]
+    },
+    {
+      "$type": "resqml20.obj_CategoricalProperty",
+      "Uuid": bru.getVar("gridsRegionUuid"),
+      "SchemaVersion": "2.0.0.20140822",
+      "Citation": {
+        "Title": "SATNUM",
+        "Originator": "RDDMS-CI",
+        "Creation": "2026-11-14T20:48:59.900Z",
+        "Format": "rddms-sdk"
+      },
+      "Count": 1,
+      "IndexableElement": "cells",
+      "PropertyKind": {
+        "$type": "resqml20.StandardPropertyKind",
+        "Kind": "index"
+      },
+      "Lookup": {
+        "$type": "eml20.DataObjectReference",
+        "ContentType": "application/x-resqml+xml;version=2.0;type=obj_StringTableLookup",
+        "Title": "SATNUM",
+        "UUID": bru.getVar("gridsRegionLookupUuid")
+      },
+      "SupportingRepresentation": {
+        "$type": "eml20.DataObjectReference",
+        "ContentType": "application/x-resqml+xml;version=2.0;type=obj_IjkGridRepresentation",
+        "Title": "SATNUM",
+        "UUID": bru.getVar("gridsGridUuid")
+      },
+      "PatchOfValues": [
+        {
+          "RepresentationPatchIndex": 0,
+          "Values": {
+            "$type": "resqml20.IntegerHdf5Array",
+            "NullValue": -1,
+            "Values": {
+              "$type": "eml20.Hdf5Dataset",
+              "PathInHdfFile": "/RESQML/" + bru.getVar("gridsRegionUuid") + "/values_patch0",
+              "HdfProxy": {
+                "$type": "eml20.DataObjectReference",
+                "ContentType": "application/x-resqml+xml;version=2.0;type=obj_EpcExternalPartReference",
+                "Title": "Hdf Proxy",
+                "UUID": bru.getVar("gridsProxyUuid")
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "$type": "resqml20.obj_SubRepresentation",
+      "Uuid": bru.getVar("gridsSubRepUuid"),
+      "SchemaVersion": "2.0.0.20140822",
+      "Citation": {
+        "Title": "Crest cells",
+        "Originator": "RDDMS-CI",
+        "Creation": "2026-11-14T20:48:59.901Z",
+        "Format": "rddms-sdk"
+      },
+      "SupportingRepresentation": {
+        "$type": "eml20.DataObjectReference",
+        "ContentType": "application/x-resqml+xml;version=2.0;type=obj_IjkGridRepresentation",
+        "Title": "Crest cells",
+        "UUID": bru.getVar("gridsGridUuid")
+      },
+      "SubRepresentationPatch": [
+        {
+          "PatchIndex": 0,
+          "Count": 2,
+          "Indices": [
+            {
+              "IndexableElement": "cells",
+              "Indices": {
+                "$type": "resqml20.IntegerHdf5Array",
+                "NullValue": -1,
+                "Values": {
+                  "$type": "eml20.Hdf5Dataset",
+                  "PathInHdfFile": "/RESQML/" + bru.getVar("gridsSubRepUuid") + "/subrep_patch0",
+                  "HdfProxy": {
+                    "$type": "eml20.DataObjectReference",
+                    "ContentType": "application/x-resqml+xml;version=2.0;type=obj_EpcExternalPartReference",
+                    "Title": "Hdf Proxy",
+                    "UUID": bru.getVar("gridsProxyUuid")
+                  }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]);
+}
+
+body:json {
+  []
+}
+
+docs {
+  Replaces the former PUT /grids/connections, PUT /grids/blocked-wellbore and
+  PUT /reservoir/regions routes. Same test data (cellIndexPairs [0,1,1,2] on the
+  GRDECL grid, 4-node blocked wellbore, SATNUM region set with a two-entry legend),
+  now as buildGridConnectionSet / buildBlockedWellbore / buildRegionSet output
+  written through the generic PUT /resources route (auto-commit), plus a
+  2-cell SubRepresentation (cell subset) so every grid-bound representation
+  kind of the RESQML grid model is present: connections, blocked wellbore,
+  property, sub-representation.
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("store accepted the objects (body is true)", function () {
+    expect(res.getBody()).to.equal(true);
+  });
+}

@@ -326,16 +326,61 @@ export const graphToJsonLd = (graph: RdfGraph): Record<string, unknown> => {
     return { "@context": jsonLdContext, "@graph": nodes };
 };
 
-// --- N-Triples --------------------------------------------------------------
+// --- Structured triples -----------------------------------------------------
 
-const ntLiteral = (value: string, datatypeIri?: string): string =>
-    datatypeIri
-        ? `"${escapeLiteral(value)}"^^<${datatypeIri}>`
-        : `"${escapeLiteral(value)}"`;
+/** An RDF object term in a {@link Triple}: an IRI reference or a literal. */
+export type TripleObject =
+    | { kind: "iri"; value: string }
+    | { kind: "literal"; value: string; datatype?: string; lang?: string };
 
-/** Serialize a resource graph to N-Triples (one full-IRI triple per line). */
-export const graphToNTriples = (graph: RdfGraph): string => {
-    const lines: string[] = [];
+/** A single RDF statement with full-IRI subject and predicate. */
+export interface Triple {
+    s: string;
+    p: string;
+    o: TripleObject;
+}
+
+/** Full IRIs of the vocabulary terms minted for the resource graph. */
+export const RDF_TERMS = {
+    type: `${RDF_NS}type`,
+    label: `${RDFS_NS}label`,
+    created: `${DCTERMS_NS}created`,
+    modified: `${DCTERMS_NS}modified`,
+    activeStatus: `${RDDMS_NS}activeStatus`,
+    sourceCount: `${RDDMS_NS}sourceCount`,
+    targetCount: `${RDDMS_NS}targetCount`,
+    dataspace: `${RDDMS_NS}dataspace`,
+    uuid: `${RDDMS_NS}uuid`,
+    objectVersion: `${RDDMS_NS}objectVersion`,
+    references: `${RDDMS_NS}references`,
+    xsdDateTime: `${XSD_NS}dateTime`,
+    xsdInteger: `${XSD_NS}integer`
+} as const;
+
+/** The standard prefix → namespace bindings for the resource-graph vocabulary. */
+export const RDF_PREFIXES: Record<string, string> = {
+    rdf: RDF_NS,
+    rdfs: RDFS_NS,
+    dcterms: DCTERMS_NS,
+    xsd: XSD_NS,
+    rddms: RDDMS_NS,
+    rddmst: RDDMS_TYPE_NS
+};
+
+/**
+ * Project a resource graph into structured RDF triples using the exact same
+ * vocabulary the N-Triples / Turtle / JSON-LD serializers emit. This is the
+ * single triple source shared by the RDF serializers and the SPARQL engine, so
+ * a SPARQL query sees precisely the graph the `/rdf` endpoints publish.
+ */
+export const graphToTriples = (graph: RdfGraph): Triple[] => {
+    const triples: Triple[] = [];
+    const iriObj = (value: string): TripleObject => ({ kind: "iri", value });
+    const litObj = (value: string, datatype?: string): TripleObject => ({
+        kind: "literal",
+        value,
+        datatype
+    });
 
     const outgoing = new Map<string, RdfEdge[]>();
     for (const e of graph.links) {
@@ -345,82 +390,56 @@ export const graphToNTriples = (graph: RdfGraph): string => {
     }
 
     for (const r of graph.resources) {
-        const s = iriRef(r.uri);
+        const s = r.uri;
         const cls = dataObjectClassToken(r.uri);
-        lines.push(
-            `${s} ${iriRef(`${RDF_NS}type`)} ${iriRef(
-                cls ? `${RDDMS_TYPE_NS}${cls}` : `${RDDMS_NS}Resource`
-            )} .`
-        );
-        if (r.name)
-            lines.push(
-                `${s} ${iriRef(`${RDFS_NS}label`)} ${ntLiteral(r.name)} .`
-            );
+        triples.push({
+            s,
+            p: RDF_TERMS.type,
+            o: iriObj(cls ? `${RDDMS_TYPE_NS}${cls}` : `${RDDMS_NS}Resource`)
+        });
+        if (r.name) triples.push({ s, p: RDF_TERMS.label, o: litObj(r.name) });
         const created = toIsoString(r.storeCreated);
         if (created)
-            lines.push(
-                `${s} ${iriRef(`${DCTERMS_NS}created`)} ${ntLiteral(
-                    created,
-                    `${XSD_NS}dateTime`
-                )} .`
-            );
+            triples.push({ s, p: RDF_TERMS.created, o: litObj(created, RDF_TERMS.xsdDateTime) });
         const modified = toIsoString(r.storeLastWrite ?? r.lastChanged);
         if (modified)
-            lines.push(
-                `${s} ${iriRef(`${DCTERMS_NS}modified`)} ${ntLiteral(
-                    modified,
-                    `${XSD_NS}dateTime`
-                )} .`
-            );
+            triples.push({ s, p: RDF_TERMS.modified, o: litObj(modified, RDF_TERMS.xsdDateTime) });
         if (r.activeStatus)
-            lines.push(
-                `${s} ${iriRef(`${RDDMS_NS}activeStatus`)} ${ntLiteral(
-                    r.activeStatus
-                )} .`
-            );
+            triples.push({ s, p: RDF_TERMS.activeStatus, o: litObj(r.activeStatus) });
         if (typeof r.sourceCount === "number")
-            lines.push(
-                `${s} ${iriRef(`${RDDMS_NS}sourceCount`)} ${ntLiteral(
-                    String(r.sourceCount),
-                    `${XSD_NS}integer`
-                )} .`
-            );
+            triples.push({ s, p: RDF_TERMS.sourceCount, o: litObj(String(r.sourceCount), RDF_TERMS.xsdInteger) });
         if (typeof r.targetCount === "number")
-            lines.push(
-                `${s} ${iriRef(`${RDDMS_NS}targetCount`)} ${ntLiteral(
-                    String(r.targetCount),
-                    `${XSD_NS}integer`
-                )} .`
-            );
+            triples.push({ s, p: RDF_TERMS.targetCount, o: litObj(String(r.targetCount), RDF_TERMS.xsdInteger) });
         const parts = parseEtpUri(r.uri);
         if (parts.dataspace)
-            lines.push(
-                `${s} ${iriRef(`${RDDMS_NS}dataspace`)} ${ntLiteral(
-                    parts.dataspace
-                )} .`
-            );
-        if (parts.uuid)
-            lines.push(
-                `${s} ${iriRef(`${RDDMS_NS}uuid`)} ${ntLiteral(parts.uuid)} .`
-            );
+            triples.push({ s, p: RDF_TERMS.dataspace, o: litObj(parts.dataspace) });
+        if (parts.uuid) triples.push({ s, p: RDF_TERMS.uuid, o: litObj(parts.uuid) });
         if (parts.version)
-            lines.push(
-                `${s} ${iriRef(`${RDDMS_NS}objectVersion`)} ${ntLiteral(
-                    parts.version
-                )} .`
-            );
+            triples.push({ s, p: RDF_TERMS.objectVersion, o: litObj(parts.version) });
         for (const e of outgoing.get(r.uri) ?? []) {
-            lines.push(
-                `${s} ${iriRef(`${RDDMS_NS}references`)} ${iriRef(e.target)} .`
-            );
+            triples.push({ s, p: RDF_TERMS.references, o: iriObj(e.target) });
             const pred = edgePredicateName(e.path);
-            if (pred)
-                lines.push(
-                    `${s} ${iriRef(`${RDDMS_NS}${pred}`)} ${iriRef(e.target)} .`
-                );
+            if (pred) triples.push({ s, p: `${RDDMS_NS}${pred}`, o: iriObj(e.target) });
         }
     }
+    return triples;
+};
 
+// --- N-Triples --------------------------------------------------------------
+
+const ntTripleTerm = (o: TripleObject): string => {
+    if (o.kind === "iri") return iriRef(o.value);
+    if (o.lang) return `"${escapeLiteral(o.value)}"@${o.lang}`;
+    return o.datatype
+        ? `"${escapeLiteral(o.value)}"^^<${o.datatype}>`
+        : `"${escapeLiteral(o.value)}"`;
+};
+
+/** Serialize a resource graph to N-Triples (one full-IRI triple per line). */
+export const graphToNTriples = (graph: RdfGraph): string => {
+    const lines = graphToTriples(graph).map(
+        t => `${iriRef(t.s)} ${iriRef(t.p)} ${ntTripleTerm(t.o)} .`
+    );
     return lines.length > 0 ? `${lines.join("\n")}\n` : "";
 };
 

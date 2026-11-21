@@ -225,6 +225,7 @@ export class StructureMap22OSDU
         const crs = crsObj as any;
         const Domain =
           crsObj?.$type === "resqml22.obj_LocalDepth3dCrs" ||
+            crsObj?.$type === "resqml22.LocalDepth3dCrs" ||
             crsObj?.$type === "eml23.LocalEngineeringCompoundCrs"
             ? "Depth"
             : "Time";

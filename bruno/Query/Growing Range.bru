@@ -1,0 +1,43 @@
+meta {
+  name: Growing Range Empty Guid 400
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{host}}/query/growing
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "uri": "eml:///dataspace('{{seededDataspaceIdRaw}}')/witsml21.WellLog()",
+    "startIndex": 2500.0,
+    "endIndex": 3000.0,
+    "includeOverlapping": true
+  }
+}
+
+docs {
+  Negative test: the object URI has an empty UUID (`witsml21.WellLog()`), which
+  the gateway must reject with 400 before opening an ETP session - previously it
+  was forwarded to the store and surfaced as an opaque ETP error. The positive
+  flow with a real growing object lives in WitsmlGrowing/W06 (POST /query/growing with a range).
+}
+
+tests {
+  test("empty object uuid is rejected at the gateway with 400", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+
+  test("error names the uri", function () {
+    const body = res.getBody();
+    expect(JSON.stringify(body)).to.match(/uri must identify a data object/i);
+  });
+}

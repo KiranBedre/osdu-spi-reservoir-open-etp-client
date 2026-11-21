@@ -39,10 +39,12 @@
     "commitlint.config.js",
     "devops",
     "sdk",
+    "localtest",
     "src/examples/sdk",
+    "src/__tests__",
     "tests"
   ],
   "typedocOptions": {
-    "out": "docs"
+    "out": "docs/typedoc"
   }
 }

@@ -1,0 +1,42 @@
+meta {
+  name: Construct References Turtle
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{host}}/sparql
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "dataspaceUri": "eml:///dataspace('{{seededDataspaceIdRaw}}')",
+    "query": "CONSTRUCT { ?s rddms:references ?o } WHERE { ?s rddms:references ?o } LIMIT 100",
+    "format": "turtle"
+  }
+}
+
+docs {
+  Route coverage: POST /sparql — CONSTRUCT form with the body `format`
+  selector. Returns structured `triples` plus an `rdf` Turtle serialization.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("triples plus turtle serialization", function () {
+    const b = res.getBody();
+    expect(b.form).to.equal("CONSTRUCT");
+    expect(b.triples).to.be.an("array");
+    expect(b.rdf).to.be.a("string");
+  });
+}

@@ -1,11 +1,11 @@
 meta {
   name: Delete Object
   type: http
-  seq: 2
+  seq: 4
 }
 
 delete {
-  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/{{dataObjectType}}/{{guid}}?transactionId={{transactionId}}
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/resqml20.obj_TriangulatedSetRepresentation/{{writeSurfaceUuid}}
   body: none
   auth: none
 }
@@ -15,8 +15,13 @@ headers {
   Authorization: Bearer {{access_token}}
 }
 
+docs {
+  Route coverage: DELETE /dataspaces/{dataspaceId}/resources/{type}/{guid} —
+  auto-commit delete of the surface written by seq 1, once its auto-import Activity is gone (seq 2-3).
+}
+
 tests {
-  test("status is 200 or 204 or 404 or 412", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 204, 404, 412]);
+  test("status is 204", function () {
+    expect(res.getStatus()).to.equal(204);
   });
 }

@@ -16,6 +16,7 @@
 // ============================================================================
 
 import {
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -34,6 +35,7 @@ import { Type } from "class-transformer";
 
 import {
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiDefaultResponse,
   ApiForbiddenResponse,
   ApiGoneResponse,
@@ -80,6 +82,7 @@ import {
   errorMessageSchema,
   extractDataPartitionId,
   extractToken,
+  extractUserInfo,
   findResources,
   getSchemasForType,
   graphResources,
@@ -124,6 +127,26 @@ import {
 import { createHash } from "crypto";
 
 const logger = logging.getLogger("EtpClient");
+
+/**
+ * Map a lock / unlock failure to HTTP. The store reports lock-state
+ * conflicts ("Dataspace is already locked", "already unlocked", or a refusal
+ * because a dependent `intoExisting` clone still references the source)
+ * as per-URI errors; those are 409 Conflict, not 404. Everything else keeps
+ * the generic ETP mapping (404 for a missing dataspace, 401/403, ...).
+ */
+const lockStateError = (err: unknown, dataspaceId: string) => {
+  const message =
+    err && typeof err === "object" && "message" in err
+      ? String((err as { message: unknown }).message ?? "")
+      : String(err);
+  if (/already (un)?locked|still locked|locked by|referenced by|depend/i.test(message)) {
+    return new ConflictException({
+      description: `Dataspace ${dataspaceId}: ${message.replace(/^\d+ failures on \d+ request: /, "")}`
+    });
+  }
+  return httpErrorFromEtpError(err);
+};
 
 /**
  * Rejection raised by {@link raceWithTimeout} when a wrapped promise does not
@@ -278,8 +301,6 @@ export const dataspacePathPattern = /^[^\r\n'"]+$/;
 
 export const validNamePattern = /^[^\r\n]+$/;
 
-export const versionPattern = /^[^\r\n]+$/;
-
 export const datePattern =
   /^((?:(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2}(?:.\d+)?))(Z|[+-]\d{2}:\d{2})?)$/;
 
@@ -298,7 +319,7 @@ export class DataspaceDto {
     name: "uri",
     maxLength: 2048,
     pattern: patternString(dataspaceUriPattern),
-    example: "eml:///dataspace('demo/Volve')"
+    example: "eml:///dataspace('demo/drogon')"
   })
   @Matches(dataspaceUriPattern)
   uri!: string;
@@ -306,7 +327,7 @@ export class DataspaceDto {
     name: "path",
     maxLength: 2048,
     pattern: patternString(dataspacePathPattern),
-    example: "demo/Volve"
+    example: "demo/drogon"
   })
   path!: string;
   @ApiProperty({
@@ -345,7 +366,7 @@ class ResourceDto {
   @ApiProperty({
     name: "uri",
     description: "Unique Resource Identifier of the resource",
-    example: `eml:///dataspace('demo/Volve')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)`,
+    example: `eml:///dataspace('demo/drogon')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)`,
     maxLength: 2048,
     pattern: patternString(emlUriPattern)
   })
@@ -366,7 +387,7 @@ class ResourceDto {
   @ApiProperty({
     name: "name",
     description: "Resource title",
-    example: "Depth_Hugin_Fm_Top_t",
+    example: "Depth_TopVolantis",
     maxLength: 2048,
     pattern: patternString(validNamePattern)
   })
@@ -445,7 +466,7 @@ class EdgeDto {
     name: "source",
     description: "Source resource uri",
     example:
-      "eml:///dataspace('demo/Volve')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)",
+      "eml:///dataspace('demo/drogon')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)",
     maxLength: 2048,
     pattern: patternString(emlUriPattern)
   })
@@ -457,7 +478,7 @@ class EdgeDto {
     name: "target",
     description: "Target resource uri",
     example:
-      "eml:///dataspace('demo/Volve')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)",
+      "eml:///dataspace('demo/drogon')/resqml20.obj_TriangulatedSetRepresentation(a3f31b20-c93a-4682-8f6c-71be087202a4)",
     maxLength: 2048,
     pattern: patternString(pathPattern)
   })
@@ -941,6 +962,7 @@ export default class ResourcesReadAPI {
    * @memberof ResourcesReadAPI
    */
   @Post(":dataspaceId/validate")
+  @HttpCode(200)
   @ApiOkResponse({
     description: "Validation report",
     schema: {
@@ -1153,9 +1175,11 @@ export default class ResourcesReadAPI {
     description: "Success",
     type: Boolean
   })
+  @ApiNotFoundResponse(errorMessageSchema("Dataspace not found", 404))
+  @ApiConflictResponse(errorMessageSchema("Dataspace is already locked", 409))
   @ApiOperation({
     summary: "Lock a dataspace",
-    description: `Set a dataspace to read-only. Write operations and delete will be rejected (403) while locked. Use \`DELETE /dataspaces/{dataspaceId}/lock\` to unlock.`,
+    description: `Set a dataspace to read-only. Write operations and delete will be rejected (403) while locked. Use \`DELETE /dataspaces/{dataspaceId}/lock\` to unlock. Locking an already locked dataspace answers 409.`,
     servers: swaggerServers
   })
   public async LockDataspace(
@@ -1173,7 +1197,7 @@ export default class ResourcesReadAPI {
       logger.info("Session created successfully.");
       const uri = EtpUri.createDataSpaceUri(params.dataspaceId);
       logger.info("Locking dataspace...");
-      const success = await c.lockDataspaces([uri.uri]);
+      const success = await c.lockDataspaces([uri.uri], { throwOnError: true });
       logger.info("Dataspace locked successfully.");
       logger.info("Closing session...");
       await c.closeSession();
@@ -1194,7 +1218,7 @@ export default class ResourcesReadAPI {
         `Error occurred while locking dataspace ${params.dataspaceId}: ${err}`
       );
       await c?.closeSession();
-      throw httpErrorFromEtpError(err);
+      throw lockStateError(err, params.dataspaceId);
     }
   }
 
@@ -1208,9 +1232,16 @@ export default class ResourcesReadAPI {
     description: "Success",
     type: Boolean
   })
+  @ApiNotFoundResponse(errorMessageSchema("Dataspace not found", 404))
+  @ApiConflictResponse(
+    errorMessageSchema(
+      "Dataspace is already unlocked, or is still locked by a dependent clone (`intoExisting`) that must be deleted first",
+      409
+    )
+  )
   @ApiOperation({
     summary: "Unlock a dataspace",
-    description: `Remove the read-only lock from a dataspace, allowing write operations again.`,
+    description: `Remove the read-only lock from a dataspace, allowing write operations again. Answers 409 when the dataspace is not locked, or when the store refuses because a dependent dataspace (created with \`intoExisting=true\`) still references it.`,
     servers: swaggerServers
   })
   public async UnlockDataspace(
@@ -1229,7 +1260,7 @@ export default class ResourcesReadAPI {
       const uri = EtpUri.createDataSpaceUri(params.dataspaceId);
       logger.debug(`Generated URI for dataspace: ${uri.uri}`);
       logger.info("Unlocking dataspace...");
-      const success = await c.unlockDataspaces([uri.uri]);
+      const success = await c.unlockDataspaces([uri.uri], { throwOnError: true });
       logger.info("Dataspace unlocked successfully.");
       logger.info("Closing session...");
       await c.closeSession();
@@ -1250,7 +1281,7 @@ export default class ResourcesReadAPI {
         `Error occurred while unlocking dataspace ${params.dataspaceId}: ${err}`
       );
       await c?.closeSession();
-      throw httpErrorFromEtpError(err);
+      throw lockStateError(err, params.dataspaceId);
     }
   }
 
@@ -1294,7 +1325,8 @@ export default class ResourcesReadAPI {
         extractToken(request),
         extractDataPartitionId(request),
         undefined,
-        transactionId
+        transactionId,
+        extractUserInfo(request)
       );
       logger.info("Session created successfully.");
       logger.info("Fetching dataspace types...");
@@ -1389,7 +1421,8 @@ export default class ResourcesReadAPI {
         extractToken(request),
         extractDataPartitionId(request),
         undefined,
-        transactionId
+        transactionId,
+        extractUserInfo(request)
       );
       logger.info("Session created successfully.");
       const wantGraph = edges || output !== undefined;
@@ -1557,7 +1590,8 @@ export default class ResourcesReadAPI {
         extractToken(request),
         extractDataPartitionId(request),
         undefined,
-        transactionId
+        transactionId,
+        extractUserInfo(request)
       );
       logger.info("Session created successfully.");
       logger.info("Fetching resource graph...");
@@ -1664,7 +1698,8 @@ export default class ResourcesReadAPI {
         extractToken(request),
         extractDataPartitionId(request),
         undefined,
-        transactionId
+        transactionId,
+        extractUserInfo(request)
       );
       logger.info("Session created successfully.");
       logger.info("Fetching resources by type...");
@@ -1756,7 +1791,8 @@ export default class ResourcesReadAPI {
         extractToken(request),
         extractDataPartitionId(request),
         undefined,
-        transactionId
+        transactionId,
+        extractUserInfo(request)
       );
       logger.info("Session created successfully.");
       logger.info("Fetching object graph...");
@@ -1862,7 +1898,8 @@ export default class ResourcesReadAPI {
         extractToken(request),
         extractDataPartitionId(request),
         undefined,
-        transactionId
+        transactionId,
+        extractUserInfo(request)
       );
       logger.info("Session created successfully.");
       logger.info(edges ? "Fetching target graph..." : "Fetching targets...");
@@ -1998,7 +2035,8 @@ export default class ResourcesReadAPI {
         extractToken(request),
         extractDataPartitionId(request),
         undefined,
-        transactionId
+        transactionId,
+        extractUserInfo(request)
       );
       logger.info("Session created successfully.");
       logger.info("Fetching target graph...");
@@ -2102,7 +2140,8 @@ export default class ResourcesReadAPI {
         extractToken(request),
         extractDataPartitionId(request),
         undefined,
-        transactionId
+        transactionId,
+        extractUserInfo(request)
       );
       logger.info("Session created successfully.");
       logger.info(edges ? "Fetching source graph..." : "Fetching sources...");
@@ -2236,7 +2275,8 @@ export default class ResourcesReadAPI {
         extractToken(request),
         extractDataPartitionId(request),
         undefined,
-        transactionId
+        transactionId,
+        extractUserInfo(request)
       );
       logger.info("Session created successfully.");
       logger.info("Fetching source graph...");
@@ -2319,7 +2359,8 @@ export default class ResourcesReadAPI {
         extractToken(request),
         extractDataPartitionId(request),
         undefined,
-        transactionId
+        transactionId,
+        extractUserInfo(request)
       );
 
       const dataspaceUri = EtpUri.createDataSpaceUri(params.dataspaceId).uri;

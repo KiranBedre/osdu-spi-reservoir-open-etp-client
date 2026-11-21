@@ -1,0 +1,55 @@
+meta {
+  name: D49 Drogon Array Stats Histogram Tails Outside
+  type: http
+  seq: 49
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonPropType}}/{{drogonStatGuid}}/arrays/{{drogonStatArray}}/compute?op=stats&rangeLo=10&rangeHi=20&bins=10
+  body: none
+  auth: none
+}
+
+params:query {
+  op: stats
+  rangeLo: 10
+  rangeHi: 20
+  bins: 10
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Array-compute coverage (9/31). Histogram window placed ENTIRELY above the data (PORO is a
+      fraction in [0, 0.37]; window [10, 20]). Exercises the "tails" branch of the
+      percentile derivation: every value is underflow, all bins are zero, and the
+      percentiles must still be finite and clamped to [minimum, maximum] rather
+      than extrapolated from an empty histogram (the Bosquet request).
+}
+
+tests {
+  test("status is 200", function () {
+        expect(res.getStatus()).to.equal(200);
+      });
+
+      test("all bins empty, everything is underflow", function () {
+        const b = res.getBody();
+        expect(b.histogram).to.have.lengthOf(10);
+        b.histogram.forEach(function (c) { expect(c).to.equal(0); });
+        expect(b.inRangeCount).to.equal(0);
+        expect(b.histUnderflow).to.equal(b.count);
+        expect(b.histOverflow).to.equal(0);
+      });
+
+      test("percentiles finite and clamped to [min, max]", function () {
+        const b = res.getBody();
+        ["p10", "p50", "p90"].forEach(function (k) {
+          expect(Number.isFinite(b[k]), k).to.equal(true);
+          expect(b[k], k).to.be.at.least(b.minimum);
+          expect(b[k], k).to.be.at.most(b.maximum);
+        });
+      });
+}

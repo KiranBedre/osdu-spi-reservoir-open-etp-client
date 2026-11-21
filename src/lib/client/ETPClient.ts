@@ -250,6 +250,20 @@ export class ETPClient extends ETPCore {
       this.messageQueueDepth = Number(messageQueueDepth);
     }
 
+    // Array-compute capability advertisement. A compute-capable store advertises
+    // `supportedArrayExtensions`; an un-updated M27 store omits it. Record the
+    // explicit tri-state here (the key's presence is the signal; its value is an
+    // advisory extension list) so array-compute routes can refuse to send
+    // stats/reduce/where/where-multi/arith to a known non-compute server up front.
+    const arrayExt = messageBody.endpointCapabilities.get(
+      "supportedArrayExtensions"
+    );
+    this.serverSupportsArrayExtensions = arrayExt !== undefined;
+    this.serverArrayExtensions =
+      typeof arrayExt?.item?._string === "string"
+        ? arrayExt.item._string
+        : undefined;
+
     messageBody.supportedProtocols.forEach(
       (protocol: Energistics.Etp.v12.Datatypes.SupportedProtocol) => {
         const protocolId = protocol.protocol;

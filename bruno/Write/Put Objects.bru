@@ -5,7 +5,7 @@ meta {
 }
 
 put {
-  url: {{host}}/dataspaces/{{testDataspaceId}}/resources?transactionId={{transactionId}}
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources
   body: json
   auth: none
 }
@@ -15,10 +15,23 @@ headers {
   Authorization: Bearer {{access_token}}
 }
 
+script:pre-request {
+  function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random() * 16 | 0;
+      var v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  bru.setVar("writeSurfaceUuid", uuid());
+}
+
 body:json {
   [
     {
       "$type": "resqml20.obj_TriangulatedSetRepresentation",
+      "SchemaVersion": "2.0",
+      "Uuid": "{{writeSurfaceUuid}}",
       "Citation": {
         "Title": "Bruno Test Surface",
         "Originator": "Bruno Collection",
@@ -29,8 +42,14 @@ body:json {
   ]
 }
 
+docs {
+  Route coverage: PUT /dataspaces/{dataspaceId}/resources — generic
+  auto-commit put of a minimal (reference-free) TriangulatedSetRepresentation.
+  Deleted again by seq 4 (after seq 2-3 remove the auto-import Activity that references it).
+}
+
 tests {
-  test("status is 200 or 201 or 400 or 404", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 201, 400, 404]);
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
   });
 }

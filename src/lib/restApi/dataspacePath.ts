@@ -27,7 +27,13 @@ const DATASPACE_SUBRESOURCES = new Set<string>([
     "transactions",
     "objects",
     "epc",
-    "validate"
+    "validate",
+    "seismic",
+    "grids",
+    "reservoir",
+    "arrays",
+    "log-structure",
+    "wells"
 ]);
 
 /**

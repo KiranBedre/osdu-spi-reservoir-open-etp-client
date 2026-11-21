@@ -1,0 +1,28 @@
+meta {
+  name: D35 Drogon Commit Props Transaction
+  type: http
+  seq: 35
+}
+
+put {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/transactions/{{drogonPropsTxnId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Geometry/property coverage (6/10). Commits the write transaction opened in D30,
+  making the four new properties (and the two HDF5 value arrays) durable.
+}
+
+tests {
+  test("status is 200 and the commit succeeded", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody()).to.equal(true);
+  });
+}

@@ -43,16 +43,42 @@ import {
 
 import restApp from "../lib/restApi/App";
 
-import {
-  restApiMainUrl
-} from "../lib/common/config";
+import { etpServerUrl, restApiServerPath } from "../lib/common/config";
 
 const jwt = XmlUtils.createDefaultJWT();
 
 const testDataPartitionId =
   process.env.RDMS_TEST_DATA_PARTITION_ID || "osdu";
+// Validation-only suites use this name (never touched on the server).
 const testDataspace = process.env.RDMS_TEST_DATASPACE || "test/drogon";
+// Functional suites write into a dedicated dataspace created in beforeAll and
+// deleted in afterAll, so the run does not depend on pre-seeded data.
 const testWitsmlDataspace = "test/witsml-" + Date.now().toString(36);
+const testWitsmlDataspaceUri = EtpUri.createDataSpaceUri(
+  testWitsmlDataspace
+).uri;
+
+const createTestWitsmlDataspace = async (): Promise<void> => {
+  const c = new ResqmlClient();
+  await c.openSession(etpServerUrl, jwt, testDataPartitionId);
+  try {
+    expect(
+      await c.findOrCreateDataspace(testWitsmlDataspace, testWitsmlDataspace)
+    ).toBeTruthy();
+  } finally {
+    await c.closeSession();
+  }
+};
+
+const deleteTestWitsmlDataspace = async (): Promise<void> => {
+  const c = new ResqmlClient();
+  await c.openSession(etpServerUrl, jwt, testDataPartitionId);
+  try {
+    await c.deleteDataspaces([testWitsmlDataspaceUri]).catch(() => false);
+  } finally {
+    await c.closeSession();
+  }
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WITSML Store REST API Tests
@@ -68,16 +94,18 @@ describe("WITSML Store - Input Validation", () => {
 
   it("PUT /witsml/store - rejects missing Authorization header", async () => {
     const response = await request(nestAppServer)
-      .put(`${restApiMainUrl}/witsml/store`)
+      .put(`${restApiServerPath}/witsml/store`)
       .set("data-partition-id", testDataPartitionId)
       .send({ dataspace: "test/ds", xml: "<Well/>" });
 
-    expect(response.status).toBe(401);
+    // HasBearerGuard denies -> Nest ForbiddenException (403), consistent with
+    // the other controllers (see TestClient "Get Dataspace Unauthorized").
+    expect(response.status).toBe(403);
   });
 
   it("PUT /witsml/store - rejects missing data-partition-id header", async () => {
     const response = await request(nestAppServer)
-      .put(`${restApiMainUrl}/witsml/store`)
+      .put(`${restApiServerPath}/witsml/store`)
       .set("Authorization", `Bearer ${jwt}`)
       .send({ dataspace: "test/ds", xml: "<Well/>" });
 
@@ -87,7 +115,7 @@ describe("WITSML Store - Input Validation", () => {
 
   it("PUT /witsml/store - rejects empty body", async () => {
     const response = await request(nestAppServer)
-      .put(`${restApiMainUrl}/witsml/store`)
+      .put(`${restApiServerPath}/witsml/store`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
       .send({});
@@ -97,7 +125,7 @@ describe("WITSML Store - Input Validation", () => {
 
   it("PUT /witsml/store - rejects missing xml field", async () => {
     const response = await request(nestAppServer)
-      .put(`${restApiMainUrl}/witsml/store`)
+      .put(`${restApiServerPath}/witsml/store`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
       .send({ dataspace: "test/ds" });
@@ -107,7 +135,7 @@ describe("WITSML Store - Input Validation", () => {
 
   it("PUT /witsml/store - rejects missing dataspace field", async () => {
     const response = await request(nestAppServer)
-      .put(`${restApiMainUrl}/witsml/store`)
+      .put(`${restApiServerPath}/witsml/store`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
       .send({ xml: "<Well/>" });
@@ -117,7 +145,7 @@ describe("WITSML Store - Input Validation", () => {
 
   it("PUT /witsml/store - rejects invalid dataspace pattern", async () => {
     const response = await request(nestAppServer)
-      .put(`${restApiMainUrl}/witsml/store`)
+      .put(`${restApiServerPath}/witsml/store`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
       .send({ dataspace: "invalid dataspace!!!@#$", xml: "<Well/>" });
@@ -127,7 +155,7 @@ describe("WITSML Store - Input Validation", () => {
 
   it("POST /witsml/query - rejects missing dataspace", async () => {
     const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/witsml/query`)
+      .post(`${restApiServerPath}/witsml/query`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
       .send({});
@@ -137,7 +165,7 @@ describe("WITSML Store - Input Validation", () => {
 
   it("PUT /witsml/store - rejects when neither xml nor json is provided", async () => {
     const response = await request(nestAppServer)
-      .put(`${restApiMainUrl}/witsml/store`)
+      .put(`${restApiServerPath}/witsml/store`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
       .send({ dataspace: testDataspace });
@@ -148,7 +176,7 @@ describe("WITSML Store - Input Validation", () => {
 
   it("POST /witsml/query - rejects unknown field (forbidNonWhitelisted)", async () => {
     const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/witsml/query`)
+      .post(`${restApiServerPath}/witsml/query`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
       .send({ dataspace: testDataspace, bogusField: true });
@@ -158,7 +186,7 @@ describe("WITSML Store - Input Validation", () => {
 
   it("POST /witsml/query - rejects non-numeric skip", async () => {
     const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/witsml/query`)
+      .post(`${restApiServerPath}/witsml/query`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
       .send({ dataspace: testDataspace, skip: "not-a-number" });
@@ -168,7 +196,7 @@ describe("WITSML Store - Input Validation", () => {
 
   it("POST /witsml/query - rejects non-array objectTypes", async () => {
     const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/witsml/query`)
+      .post(`${restApiServerPath}/witsml/query`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
       .send({ dataspace: testDataspace, objectTypes: "Well" });
@@ -185,14 +213,21 @@ describe("WITSML Store - Functional", () => {
   let nestAppServer: any;
 
   beforeAll(async () => {
+    await createTestWitsmlDataspace();
     const nestApp = await restApp();
     nestAppServer = (await nestApp.init()).getHttpServer();
   });
 
+  afterAll(async () => {
+    await deleteTestWitsmlDataspace();
+  });
+
+  // ETP requires a canonical UUID: "test-well-<ts>" style ids are rejected 400.
+  const sampleWellUuid = "00000000-0000-0000-0000-0000000000a1";
   const sampleWell = `
     <Well xmlns="http://www.energistics.org/energyml/data/witsmlv2"
           xmlns:eml="http://www.energistics.org/energyml/data/commonv2"
-          schemaVersion="2.1" uuid="test-well-${Date.now()}">
+          schemaVersion="2.1" uuid="${sampleWellUuid}">
       <eml:Citation>
         <eml:Title>Test Well Integration</eml:Title>
         <eml:Originator>test</eml:Originator>
@@ -206,24 +241,26 @@ describe("WITSML Store - Functional", () => {
 
   it("PUT /witsml/store - stores a valid WITSML 2.1 Well", async () => {
     const response = await request(nestAppServer)
-      .put(`${restApiMainUrl}/witsml/store`)
+      .put(`${restApiServerPath}/witsml/store`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
-      .send({ dataspace: testDataspace, xml: sampleWell });
+      .send({ dataspace: testWitsmlDataspace, xml: sampleWell });
 
     // Accept 200 (success) or 502 (ETP server not running in CI)
     expect([200, 502]).toContain(response.status);
     if (response.status === 200) {
-      expect(response.body).toBeDefined();
+      expect(response.body).toHaveProperty("success", true);
+      expect(response.body.stored).toHaveLength(1);
+      expect(response.body.stored[0].uuid).toBe(sampleWellUuid);
     }
   });
 
   it("POST /witsml/query - queries objects in a dataspace", async () => {
     const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/witsml/query`)
+      .post(`${restApiServerPath}/witsml/query`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
-      .send({ dataspace: testDataspace });
+      .send({ dataspace: testWitsmlDataspace });
 
     expect([200, 502]).toContain(response.status);
     if (response.status === 200) {
@@ -235,10 +272,10 @@ describe("WITSML Store - Functional", () => {
 
   it("POST /witsml/query - filters by object type", async () => {
     const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/witsml/query`)
+      .post(`${restApiServerPath}/witsml/query`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
-      .send({ dataspace: testDataspace, objectType: "Well" });
+      .send({ dataspace: testWitsmlDataspace, objectType: "Well" });
 
     expect([200, 502]).toContain(response.status);
     if (response.status === 200) {
@@ -255,8 +292,13 @@ describe("WITSML M27 Enrichments - Functional", () => {
   let nestAppServer: any;
 
   beforeAll(async () => {
+    await createTestWitsmlDataspace();
     const nestApp = await restApp();
     nestAppServer = (await nestApp.init()).getHttpServer();
+  });
+
+  afterAll(async () => {
+    await deleteTestWitsmlDataspace();
   });
 
   const wellUuid = "00000000-0000-0000-0000-0000000000aa";
@@ -277,10 +319,10 @@ describe("WITSML M27 Enrichments - Functional", () => {
 
   it("PUT /witsml/store - accepts JSON body (json array)", async () => {
     const response = await request(nestAppServer)
-      .put(`${restApiMainUrl}/witsml/store`)
+      .put(`${restApiServerPath}/witsml/store`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
-      .send({ dataspace: testDataspace, json: [sampleWellJson] });
+      .send({ dataspace: testWitsmlDataspace, json: [sampleWellJson] });
 
     // 200 success, 400 if builder cannot map the $type, 502 if ETP is down.
     expect([200, 400, 502]).toContain(response.status);
@@ -291,10 +333,10 @@ describe("WITSML M27 Enrichments - Functional", () => {
 
   it("POST /witsml/query - format=json returns parsed content", async () => {
     const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/witsml/query`)
+      .post(`${restApiServerPath}/witsml/query`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
-      .send({ dataspace: testDataspace, format: "json", objectType: "Well" });
+      .send({ dataspace: testWitsmlDataspace, format: "json", objectType: "Well" });
 
     expect([200, 502]).toContain(response.status);
     if (response.status === 200) {
@@ -307,12 +349,12 @@ describe("WITSML M27 Enrichments - Functional", () => {
     }
   });
 
-  it("POST /witsml/query - $format query param overrides body", async () => {
+  it("POST /witsml/query - format query param overrides body", async () => {
     const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/witsml/query?$format=json`)
+      .post(`${restApiServerPath}/witsml/query?format=json`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
-      .send({ dataspace: testDataspace });
+      .send({ dataspace: testWitsmlDataspace });
 
     expect([200, 502]).toContain(response.status);
     if (response.status === 200) {
@@ -324,11 +366,11 @@ describe("WITSML M27 Enrichments - Functional", () => {
 
   it("POST /witsml/query - multiple objectTypes filter", async () => {
     const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/witsml/query`)
+      .post(`${restApiServerPath}/witsml/query`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
       .send({
-        dataspace: testDataspace,
+        dataspace: testWitsmlDataspace,
         objectTypes: ["Well", "Wellbore"]
       });
 
@@ -340,11 +382,11 @@ describe("WITSML M27 Enrichments - Functional", () => {
 
   it("POST /witsml/query - titleContains, uuids, modifiedSince, pagination", async () => {
     const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/witsml/query`)
+      .post(`${restApiServerPath}/witsml/query`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
       .send({
-        dataspace: testDataspace,
+        dataspace: testWitsmlDataspace,
         titleContains: "well",
         uuids: [wellUuid],
         modifiedSince: "2020-01-01T00:00:00.000Z",
@@ -361,11 +403,11 @@ describe("WITSML M27 Enrichments - Functional", () => {
 
   it("POST /witsml/query - relatedTo traversal by bare uuid", async () => {
     const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/witsml/query`)
+      .post(`${restApiServerPath}/witsml/query`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
       .send({
-        dataspace: testDataspace,
+        dataspace: testWitsmlDataspace,
         relatedTo: wellUuid,
         scope: "targets"
       });
@@ -379,11 +421,11 @@ describe("WITSML M27 Enrichments - Functional", () => {
 
   it("POST /witsml/query - relatedTo unknown uuid returns empty set", async () => {
     const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/witsml/query`)
+      .post(`${restApiServerPath}/witsml/query`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
       .send({
-        dataspace: testDataspace,
+        dataspace: testWitsmlDataspace,
         relatedTo: "ffffffff-ffff-ffff-ffff-ffffffffffff"
       });
 
@@ -407,9 +449,9 @@ describe("Query REST API - Input Validation", () => {
     nestAppServer = (await nestApp.init()).getHttpServer();
   });
 
-  it("POST /query/objects/find - rejects missing uri", async () => {
+  it("POST /query/resources/find - rejects missing uri", async () => {
     const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/query/objects/find`)
+      .post(`${restApiServerPath}/query/resources/find`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
       .send({});
@@ -428,20 +470,26 @@ describe("Query REST API - Functional", () => {
     nestAppServer = (await nestApp.init()).getHttpServer();
   });
 
-  it("POST /query/objects/find - retrieves objects with content", async () => {
+  it("POST /query/resources/find includeContent - retrieves objects with content", async () => {
     const response = await request(nestAppServer)
-      .post(`${restApiMainUrl}/query/objects/find`)
+      .post(`${restApiServerPath}/query/resources/find`)
       .set("Authorization", `Bearer ${jwt}`)
       .set("data-partition-id", testDataPartitionId)
       .send({
         uri: testUri,
         scope: "targets",
-        depth: 1
+        depth: 1,
+        includeContent: true
       });
 
-    expect([200, 502]).toContain(response.status);
+    // 404 when RDMS_TEST_DATASPACE is not present on the target server.
+    expect([200, 404, 502]).toContain(response.status);
     if (response.status === 200) {
-      expect(Array.isArray(response.body)).toBe(true);
+      expect(Array.isArray(response.body.resources)).toBe(true);
+      for (const r of response.body.resources) {
+        expect(r).toHaveProperty("format");
+        expect(r).toHaveProperty("data");
+      }
     }
   });
 });

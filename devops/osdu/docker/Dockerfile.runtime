@@ -46,7 +46,7 @@ ARG VERSION=0.1
 ARG DIST=dist.tgz
 
 # Build identity (git commit + build time), injected by the containerize CI job.
-# Same env-var names as open-etp-server so `GET /health/info` reports the build
+# Same env-var names as open-etp-server so `GET /info` reports the build
 # the same way on both services. Default to "unknown" for local docker builds.
 ARG GIT_COMMIT_HASH=unknown
 ARG GIT_COMMIT_TIMESTAMP=unknown

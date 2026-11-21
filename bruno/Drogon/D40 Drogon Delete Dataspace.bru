@@ -1,0 +1,27 @@
+meta {
+  name: D40 Drogon Delete Dataspace
+  type: http
+  seq: 99
+}
+
+delete {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (19/19). Tears down the demo/Drogon dataspace so the suite is
+  self-contained and idempotent across CI runs.
+}
+
+tests {
+  test("status is 200/204/404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 204, 404]);
+  });
+}

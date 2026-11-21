@@ -33,7 +33,7 @@ import Logging from '../../common/Logging';
 
 const logger = Logging.getLogger("EtpClient");
 
-@ApiTags("Metrics")
+@ApiTags("Health")
 @ApiInternalServerErrorResponse(errorMessageSchema(`Unknown Error`, 500))
 @Controller('/metrics')
 export default class MetricsController {

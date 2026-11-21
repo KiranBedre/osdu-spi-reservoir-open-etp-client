@@ -1,0 +1,42 @@
+meta {
+  name: D17 Drogon Start Write Transaction
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/transactions
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  if (res.getStatus() === 200 || res.getStatus() === 201) {
+    const body = res.getBody();
+    const txId = typeof body === "string" ? body.trim().replace(/"/g, "") : (body && body.transactionId);
+    if (txId) bru.setVar("drogonTxnId", txId);
+  }
+}
+
+docs {
+  Drogon lifecycle (12/19). Opens a WRITE transaction. Inside it (D13) we add a
+  brand-new ContinuousProperty on the existing Drogon IJK grid, backed by a
+  constant array (resqml20.DoubleConstantArray) so no HDF5 upload is needed, then
+  commit (D14) and read it back (D15). This is the genuine write round-trip the
+  earlier delete-only transaction was missing.
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("captured transactionId", function () {
+    expect(bru.getVar("drogonTxnId"), "drogon txn id").to.be.a("string").and.not.be.empty;
+  });
+}

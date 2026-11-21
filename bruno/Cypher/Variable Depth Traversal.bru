@@ -1,0 +1,48 @@
+meta {
+  name: Variable Depth Traversal
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/cypher
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "dataspaceUri": "eml:///dataspace('{{seededDataspaceIdRaw}}')",
+    "query": "MATCH p = (g {id: $gridId})-[*1..5]-(x) RETURN p LIMIT 25",
+    "parameters": {
+      "gridId": "{{guid}}"
+    }
+  }
+}
+
+docs {
+  Route coverage: POST /cypher — native variable-length path traversal
+  (*1..5), the query that is awkward to express in GraphQL (fixed resolver
+  nesting). Returns connected objects within 5 hops of a seed grid as path
+  rows. Demonstrates $-parameter binding.
+}
+
+tests {
+  test("status is 200 or 400", function () {
+    // 400 only if the seed guid is not a valid uuid in the dataspace.
+    expect(res.getStatus()).to.be.oneOf([200, 400]);
+  });
+
+  test("path projection when matched", function () {
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body.columns).to.include("p");
+      expect(body.data).to.be.an("array");
+    }
+  });
+}

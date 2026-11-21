@@ -1,0 +1,42 @@
+meta {
+  name: Import Well Log Rejects Missing Id
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/wells/logs/import
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "wellboreUuid": "00000000-0000-0000-0000-000000000000"
+  }
+}
+
+docs {
+  POST /dataspaces/{id}/wells/logs/import pulls a WellLog record from the
+  Wellbore DDMS and stores it as a WITSML ChannelSet. The import itself needs a
+  reachable Wellbore DDMS, so the suite only pins the input contract: a body
+  without the WellLog record `id` must be rejected with 400 before any
+  upstream call is made.
+}
+
+tests {
+  test("status is 400", function () {
+    expect(res.getStatus()).to.equal(400);
+  });
+
+  test("explains that the WellLog id is required", function () {
+    const body = res.getBody();
+    const msg = JSON.stringify(body);
+    expect(msg).to.match(/id/i);
+  });
+}

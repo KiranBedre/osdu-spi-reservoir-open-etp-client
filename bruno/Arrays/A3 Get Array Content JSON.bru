@@ -1,0 +1,28 @@
+meta {
+  name: A3 Get Array Content JSON
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/eml20.obj_EpcExternalPartReference/{{ext_guid}}/arrays/{{array_path_encoded}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns the seeded values 1..9 as a 3x3 array", function () {
+    const body = res.getBody();
+    expect(body.data.dimensions.map(Number)).to.deep.equal([3, 3]);
+    expect(body.data.data).to.deep.equal([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+  });
+}

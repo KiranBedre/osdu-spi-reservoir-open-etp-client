@@ -12,5 +12,11 @@ data:
   RDMS_ETP_HOST: {{ .Values.data.rdmsEtpHost | quote }}
   RDMS_ETP_PORT: {{ .Values.data.rdmsEtpPort | quote }}
   RDMS_ETP_PROTOCOL: {{ .Values.data.rdmsEtpProtocol | quote }}
+  {{- if .Values.data.rdmsEtpComputeHost }}
+  RDMS_ETP_COMPUTE_HOST: {{ .Values.data.rdmsEtpComputeHost | quote }}
+  {{- end }}
+  {{- if .Values.data.rdmsEtpComputePort }}
+  RDMS_ETP_COMPUTE_PORT: {{ .Values.data.rdmsEtpComputePort | quote }}
+  {{- end }}
   CLOUD_PROVIDER: {{ .Values.data.cloudProvider | quote }}
   GOOGLE_LOG_LEVEL: {{ .Values.data.logLevel | quote }}

@@ -1,11 +1,11 @@
 meta {
   name: Delete Dataspace
   type: http
-  seq: 7
+  seq: 18
 }
 
 delete {
-  url: {{host}}/dataspaces/{{testDataspaceId}}
+  url: {{host}}/dataspaces/{{crudDataspaceId}}
   body: none
   auth: none
 }
@@ -15,8 +15,12 @@ headers {
   Authorization: Bearer {{access_token}}
 }
 
+docs {
+  Route coverage: DELETE /dataspaces/{id}; removes the folder-private CRUD dataspace.
+}
+
 tests {
-  test("status is 200 or 204 or 404 or 412", function () {
-    expect(res.getStatus()).to.be.oneOf([200, 204, 400, 404, 412]);
+  test("status is 200 or 204", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 204]);
   });
 }

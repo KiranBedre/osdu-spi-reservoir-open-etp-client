@@ -1,0 +1,44 @@
+meta {
+  name: Seeded Rank Content Matches Graph
+  type: http
+  seq: 15
+}
+
+get {
+  url: {{host}}/dataspaces/{{seededDataspaceId}}/resources/resqml20.obj_StratigraphicColumnRankInterpretation/{{seededRankUuid}}?$format=json
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Content vs. relationship cross-check on the strat column rank: the
+  StratigraphicUnits listed INSIDE the XML must be exactly the
+  StratigraphicUnitInterpretation uuids the store exposes as targets of the
+  rank (graph adjacency captured in Seeded Graph Type Invariants). Catches a
+  graph that is built from the wrong element or drops references.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("StratigraphicUnits in the XML == unit-interpretation targets in the graph", function () {
+    const b = res.getBody();
+    const rank = Array.isArray(b) ? b[0] : b;
+    expect(rank.Uuid).to.equal(bru.getVar("seededRankUuid"));
+    const units = rank.StratigraphicUnits || [];
+    const xmlUuids = units.map(function (u) { return (u.Unit || u.StratigraphicUnitInterpretation || u).UUID || (u.Unit || u).Uuid; })
+      .filter(Boolean).filter(function (v, i, a) { return a.indexOf(v) === i; }).sort();
+    const graph = JSON.parse(bru.getVar("seededGraphTargets"))[bru.getVar("seededRankUuid")];
+    // targets also hold the horizons + organization feature; keep only uuids that are units
+    const unitTargets = graph.filter(function (u) { return xmlUuids.indexOf(u) >= 0; }).sort();
+    expect(xmlUuids.length, "units in XML").to.be.at.least(1);
+    expect(unitTargets, "unit targets found in graph").to.deep.equal(xmlUuids);
+  });
+}

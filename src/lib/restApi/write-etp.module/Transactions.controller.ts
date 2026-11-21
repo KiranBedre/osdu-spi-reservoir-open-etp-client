@@ -40,7 +40,8 @@ import {
   ApiPreconditionFailedResponse,
   ApiProperty,
   ApiTags,
-  ApiTooManyRequestsResponse
+  ApiTooManyRequestsResponse,
+  ApiUnauthorizedResponse
 } from "@nestjs/swagger";
 
 import {
@@ -66,6 +67,7 @@ import {
   errorMessageSchema,
   extractDataPartitionId,
   extractToken,
+  extractUserInfo,
   getSchemasForType,
   httpErrorFromEtpError,
   partitionPattern,
@@ -151,8 +153,9 @@ export class CreateTransactionDto {
   }
 })
 @UseGuards(HasDataPartitionGuard())
-@ApiTags("Transactions")
+@ApiTags("Write")
 @ApiForbiddenResponse(errorMessageSchema("Forbidden", 403))
+@ApiUnauthorizedResponse(errorMessageSchema("Unauthorized", 401))
 @ApiNotFoundResponse(errorMessageSchema("Not found", 404))
 @ApiNotAcceptableResponse(errorMessageSchema("Not acceptable response", 406))
 @ApiTooManyRequestsResponse(errorMessageSchema("Too many request", 429))
@@ -194,6 +197,10 @@ Returns a \`transactionId\` UUID. Pass it to write/array endpoints as a query pa
 
 **Constraint**: Only one transaction can be active per dataspace at a time.
 
+**Authorization**: Reuse, commit and rollback require backend-authenticated
+credentials for the creating principal, issuer and data partition. Renewed JWTs
+for the same principal are accepted; Basic and opaque credentials must match.
+
 **Typical write workflow**:
 \`\`\`
 POST  /dataspaces/{ds}/transactions              → transactionId
@@ -217,7 +224,8 @@ PUT   /dataspaces/{ds}/transactions/{txId}        → commit
       undefined,
       extractDataPartitionId(request),
       requestBody?.TimeoutPeriod ?? 300,
-      requestBody?.Retries ?? 6
+      requestBody?.Retries ?? 6,
+      extractUserInfo(request)
     )
       .then(transactionId => {
         logger.info(`Transaction created: ${transactionId}`);
@@ -248,7 +256,8 @@ PUT   /dataspaces/{ds}/transactions/{txId}        → commit
     servers: swaggerServers
   })
   public async CommitTransaction(
-    @Param() params: TransactionParams
+    @Param() params: TransactionParams,
+    @Req() request?: express.Request
   ): Promise<boolean> {
     logger.info(`Committing transaction ${params.transactionId}...`);
     try {
@@ -256,7 +265,12 @@ PUT   /dataspaces/{ds}/transactions/{txId}        → commit
     } catch (err) {
       throw httpErrorFromEtpError(err);
     }
-    return commitTransaction(params.transactionId)
+    return commitTransaction(
+      params.transactionId,
+      extractToken(request),
+      extractDataPartitionId(request),
+      extractUserInfo(request)
+    )
       .then(result => {
         if (result) {
           logger.info(
@@ -295,7 +309,8 @@ PUT   /dataspaces/{ds}/transactions/{txId}        → commit
     servers: swaggerServers
   })
   public async RollbackTransaction(
-    @Param() params: TransactionParams
+    @Param() params: TransactionParams,
+    @Req() request?: express.Request
   ): Promise<boolean> {
     logger.info(`Rolling back transaction ${params.transactionId}...`);
     try {
@@ -303,7 +318,12 @@ PUT   /dataspaces/{ds}/transactions/{txId}        → commit
     } catch (err) {
       throw httpErrorFromEtpError(err);
     }
-    return rollbackTransaction(params.transactionId)
+    return rollbackTransaction(
+      params.transactionId,
+      extractToken(request),
+      extractDataPartitionId(request),
+      extractUserInfo(request)
+    )
       .then(result => {
         if (result) {
           logger.info(

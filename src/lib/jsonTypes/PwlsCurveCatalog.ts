@@ -9,7 +9,7 @@ import { getPropertyTypeIDFromResqmlAlias } from "./PropertyTypes";
  * plus resolution of curve mnemonics to PWLS properties when a vendor
  * catalog is loaded.
  *
- * Default: SLB catalog (30,201 mnemonics) auto-loaded at startup.
+ * Default: Schlumberger catalog (30,201 mnemonics) auto-loaded at startup.
  * Additional vendor catalogs can be loaded via `loadVendorCatalog()` or
  * the REST endpoint `POST /pwls/catalog`.
  *
@@ -196,6 +196,79 @@ export function loadVendorCatalog(catalog: PwlsVendorCatalog): number {
 }
 
 /**
+ * Curated intuitive-alias → canonical PWLS property map.
+ *
+ * Covers common, unambiguous curve spellings that are NOT present in the vendor
+ * mnemonic catalog but map 1:1 to a standard PWLS v4 property. Each target was
+ * verified to resolve via `/pwls/resolve` (e.g. `INCL`→hole deviation,
+ * `x coordinate`→x coordinate). Keep this list conservative: only add aliases
+ * with a single obvious canonical meaning.
+ */
+const intuitiveAliasMap = new Map<string, string>([
+  ["INC", "hole deviation"],       // inclination; canonical mnemonics INCL/DEVI/GDEV
+  ["INCLINATION", "hole deviation"],
+  ["INCL", "hole deviation"],
+  ["DEVI", "hole deviation"],      // common directional-survey spelling
+  ["AZM", "hole azimuth"],         // canonical mnemonic HAZI
+  ["AZI", "hole azimuth"],
+  ["AZIMUTH", "hole azimuth"],
+  ["HAZI", "hole azimuth"],
+  ["EAST", "x coordinate"],        // projected easting → PWLS "x coordinate"
+  ["EASTING", "x coordinate"],
+  ["NORTH", "y coordinate"],       // projected northing → PWLS "y coordinate"
+  ["NORTHING", "y coordinate"],
+  ["TVD", "true vertical depth"],  // true vertical depth
+  ["TVDSS", "true vertical depth"],
+  ["CAL", "caliper"],              // caliper
+  ["CALI", "caliper"],
+  ["T2_DIST", "transverse relaxation time"], // NMR T2 distribution bins
+  ["T2DIST", "transverse relaxation time"],
+  ["DOD", "radius"],               // depth-of-detection envelope → length "radius"
+  ["PORO", "porosity"],            // modelled/geocellular porosity grid (not in vendor catalog)
+  ["KLOGH", "horizontal permeability"], // horizontal-permeability log/model (Petrel/Eclipse KLOGH)
+  ["NTG", "net gross thickness ratio"], // net-to-gross ratio
+  ["SW_ECL", "water saturation"]   // Eclipse water-saturation grid
+]);
+
+/** How a mnemonic was matched to its canonical PWLS property. */
+export type MnemonicMatchVia = "vendor" | "vendor-ci" | "alias" | "property" | "none";
+
+/** Resolution provenance for a single mnemonic. */
+export interface MnemonicMatch {
+  /** Canonical PWLS property name, if resolved. */
+  property?: string;
+  /** Which lookup tier produced the match. */
+  matchedVia: MnemonicMatchVia;
+  /** The alias key that matched (only when matchedVia === "alias"). */
+  alias?: string;
+}
+
+/**
+ * Resolve a curve mnemonic AND report which lookup tier matched, so callers can
+ * surface the chosen alias for auditability (PWLS §6.4 improvement).
+ *
+ * Tiers, in order: exact vendor catalog → case-insensitive vendor → curated
+ * intuitive-alias map → the mnemonic already being a PWLS property name.
+ */
+export function getMnemonicMatch(mnemonic: string): MnemonicMatch {
+  const exact = mnemonicMap.get(mnemonic);
+  if (exact) return { property: exact, matchedVia: "vendor" };
+
+  const upper = mnemonic.toUpperCase();
+  const ci = mnemonicMapUpper.get(upper);
+  if (ci) return { property: ci, matchedVia: "vendor-ci" };
+
+  const alias = intuitiveAliasMap.get(upper);
+  if (alias) return { property: alias, matchedVia: "alias", alias: upper };
+
+  if (isKnownPwlsProperty(mnemonic)) {
+    return { property: mnemonic.toLowerCase(), matchedVia: "property" };
+  }
+  return { matchedVia: "none" };
+}
+
+
+/**
  * Resolve a curve mnemonic to its PWLS property name.
  * Requires a vendor catalog to be loaded via `loadVendorCatalog()`.
  *
@@ -205,8 +278,12 @@ export function loadVendorCatalog(catalog: PwlsVendorCatalog): number {
 export function getPropertyFromMnemonic(
   mnemonic: string
 ): string | undefined {
-  // Exact match first
-  return mnemonicMap.get(mnemonic) ?? mnemonicMapUpper.get(mnemonic.toUpperCase());
+  // Exact vendor-catalog match first, then the curated intuitive-alias fallback.
+  return (
+    mnemonicMap.get(mnemonic) ??
+    mnemonicMapUpper.get(mnemonic.toUpperCase()) ??
+    intuitiveAliasMap.get(mnemonic.toUpperCase())
+  );
 }
 
 /**
@@ -296,5 +373,5 @@ export function getPwlsStatus(): {
   };
 }
 
-// --- Auto-load default vendor catalog (SLB, 30,201 mnemonics) ---
+// --- Auto-load default vendor catalog (Schlumberger, 30,201 mnemonics) ---
 loadVendorCatalog(PwlsVendorSLB as PwlsVendorCatalog);

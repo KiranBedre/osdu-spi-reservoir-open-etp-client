@@ -1,0 +1,17 @@
+{
+  // Extra-strict type-checking overlay. NOT used by the build; run it via
+  // `npm run typecheck:strict` (noEmit) to surface latent logical/semantic
+  // errors (unchecked index access, optional-field variance, missing
+  // overrides, switch fallthrough, unused locals). Triage incrementally, then
+  // promote flags into the main tsconfig.json once the tree is clean.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
+  }
+}

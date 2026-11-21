@@ -1,0 +1,63 @@
+meta {
+  name: S1 Store Capabilities
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{host}}/health/capabilities
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  // Record what the connected store advertises so later requests can derive
+  // their expectations from capabilities instead of hard-coding one server
+  // version: `storeProtocols` (comma-separated ETP protocol ids) and
+  // `storeArrayExtensions` (comma-separated array-compute extensions, empty
+  // on an M27 store).
+  if (res.getStatus() === 200) {
+    const b = res.getBody();
+    const protocols = (Array.isArray(b.supportedProtocols) ? b.supportedProtocols : [])
+      .map(function (p) { return Number(p.protocol); })
+      .filter(function (n) { return Number.isInteger(n); })
+      .sort(function (x, y) { return x - y; });
+    bru.setVar("storeProtocols", protocols.join(","));
+    const ext = b.endpointCapabilities && b.endpointCapabilities.supportedArrayExtensions;
+    const list = ext && ext.item && typeof ext.item.string === "string" ? ext.item.string : "";
+    bru.setVar("storeArrayExtensions", list);
+    bru.setVar("storeVersion", String(b.applicationVersion || ""));
+  }
+}
+
+docs {
+  Capability probe. GET /health/capabilities proxies the store's
+  `.well-known/etp-server-capabilities` document. The protocol list and the
+  `supportedArrayExtensions` endpoint capability are captured as runtime vars
+  so that the suites assert behaviour relative to what the store advertises
+  (e.g. D79 expects 501 unless `arith` is listed). Must run first; the suites
+  are driven through devops/scripts/run-bruno-suites.sh which does so.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("advertises the ETP baseline the REST surface relies on", function () {
+    const ids = String(bru.getVar("storeProtocols")).split(",").map(Number);
+    [0, 3, 4, 9, 18].forEach(function (id) {
+      expect(ids, "protocol " + id).to.include(id);
+    });
+  });
+
+  test("captured store capabilities", function () {
+    expect(bru.getVar("storeVersion")).to.be.a("string").and.not.be.empty;
+    expect(bru.getVar("storeArrayExtensions")).to.be.a("string");
+  });
+}

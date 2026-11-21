@@ -1,0 +1,41 @@
+meta {
+  name: P03 Get ProdML Value Array Metadata
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{host}}/dataspaces/{{prodmlDataspaceId}}/resources/{{prodmlObjType}}/{{prodmlTsGuid}}/arrays/{{prodmlArrayPath}}/metadata
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Read back the metadata for the externally-stored `Value` array produced by P02
+  at `/PRODML/<uuid>/Value`. When the array was stored, the metadata reports a
+  1-D array of length 4 (one entry per inline sample). Tolerant of 404 so the
+  request also passes against a backend where array extraction is disabled.
+}
+
+tests {
+  test("status is 200 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
+  });
+
+  test("array metadata reports 4 samples when present", function () {
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      const dims =
+        (body && (body.Dimensions || body.dimensions)) || undefined;
+      if (Array.isArray(dims)) {
+        const total = dims.reduce((a, b) => a * Number(b), 1);
+        expect(total).to.equal(4);
+      }
+    }
+  });
+}

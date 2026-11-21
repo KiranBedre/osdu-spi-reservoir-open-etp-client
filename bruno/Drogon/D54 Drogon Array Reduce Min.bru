@@ -1,0 +1,51 @@
+meta {
+  name: D54 Drogon Array Reduce Min
+  type: http
+  seq: 54
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/arrays/compute
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "op": "reduce",
+    "target": {
+      "dataObjectType": "{{drogonPropType}}",
+      "guid": "{{drogonStatGuid}}",
+      "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0"
+    },
+    "reducer": "min"
+  }
+}
+
+docs {
+  Array-compute coverage (14/31). Reduce op=min: per-column minimum. The minimum over the
+      column map must equal the whole-array minimum of D42 exactly (min is
+      idempotent under composition, no rounding allowed), and every column
+      minimum must be >= the global minimum.
+}
+
+tests {
+  test("status is 200", function () {
+        expect(res.getStatus()).to.equal(200);
+      });
+
+      test("min over column mins == whole-array minimum", function () {
+        const b = res.getBody();
+        expect(b.op).to.equal("min");
+        const ref = Number(bru.getVar("drogonStatMin"));
+        const finite = b.map.filter(function (v) { return Number.isFinite(v); });
+        expect(finite.length).to.be.greaterThan(0);
+        expect(Math.min.apply(null, finite)).to.equal(ref);
+        finite.forEach(function (v) { expect(v).to.be.at.least(ref); });
+      });
+}

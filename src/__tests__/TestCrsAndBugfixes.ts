@@ -779,3 +779,43 @@ describe("#125: Graceful shutdown on SIGTERM", () => {
     expect(rolledBack).toStrictEqual(["tx-ok", "tx-ok2"]);
   });
 });
+
+describe("EML 2.3 array container discovery (findDataArrays)", () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { ResqmlClient } = require("../lib/client/ResqmlClient");
+  const owner =
+    "eml:///dataspace('test/ds')/eml23.ColumnBasedTable(6cab1925-0000-4000-8000-000000000001)";
+  const hdf = "d3f1a5c8-9e42-4b70-8a16-5c2e7f0b9d31";
+
+  const collect = (part: Record<string, unknown>) => {
+    const c = new ResqmlClient();
+    const out = new Map<string, { uid: { uri: string; pathInResource: string } }>();
+    c.findDataArrays(owner, part, out);
+    return Array.from(out.values()).map(a => a.uid);
+  };
+
+  it("keys the array on the EpcExternalPartReference named by the part URI, in the owner dataspace", () => {
+    const uids = collect({
+      $type: "eml23.ExternalDataArrayPart",
+      PathInExternalFile: "/RESQML/6cab1925-0000-4000-8000-000000000001/columns/0",
+      URI: `eml:///eml23.EpcExternalPartReference(${hdf})`
+    });
+    expect(uids).toHaveLength(1);
+    expect(uids[0].uri).toBe(
+      `eml:///dataspace('test/ds')/eml23.EpcExternalPartReference(${hdf})`
+    );
+    expect(uids[0].pathInResource).toBe(
+      "/RESQML/6cab1925-0000-4000-8000-000000000001/columns/0"
+    );
+  });
+
+  it("falls back to the owner when the part URI is a plain file name", () => {
+    const uids = collect({
+      $type: "eml23.ExternalDataArrayPart",
+      PathInExternalFile: "/RESQML/x/values",
+      URI: "arrays.h5"
+    });
+    expect(uids).toHaveLength(1);
+    expect(uids[0].uri).toBe(owner);
+  });
+});

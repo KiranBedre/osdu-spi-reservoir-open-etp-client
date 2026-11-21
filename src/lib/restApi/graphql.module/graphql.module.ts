@@ -22,7 +22,7 @@ const logger = logging.getLogger("EtpClient");
     imports: [
         GraphQLModule.forRoot<ApolloDriverConfig>({
             driver: ApolloDriver,
-            autoSchemaFile: true, // code-first: generate schema in memory
+            autoSchemaFile: "src/schema.gql", // code-first: emit a committed, diffable SDL snapshot
             sortSchema: true,
             playground: process.env.NODE_ENV !== "production",
             introspection: true,

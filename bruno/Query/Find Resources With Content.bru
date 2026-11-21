@@ -1,0 +1,52 @@
+meta {
+  name: Find Resources With Content
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/query/resources/find
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "uri": "eml:///dataspace('{{seededDataspaceIdRaw}}')",
+    "scope": "self",
+    "depth": 1,
+    "dataObjectTypes": ["{{dataObjectType}}"],
+    "includeContent": true,
+    "format": "json"
+  }
+}
+
+docs {
+  Route coverage: POST /query/resources/find with `includeContent: true` -
+  the same search as "Find Resources" but each matched resource carries its
+  parsed object in `data` (`format: json`, or raw XML with `format: xml`).
+  Replaces the former /query/objects/find.
+}
+
+tests {
+  test("status is 200 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
+  });
+
+  test("resources carry inline content when 200", function () {
+    if (res.getStatus() === 200) {
+      const b = res.getBody();
+      expect(b.resources).to.be.an("array");
+      b.resources.forEach(function (x) {
+        expect(x).to.have.property("uri");
+        expect(x.format).to.equal("json");
+        expect(x).to.have.property("data");
+      });
+    }
+  });
+}

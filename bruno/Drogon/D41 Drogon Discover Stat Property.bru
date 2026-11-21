@@ -1,0 +1,55 @@
+meta {
+  name: D41 Drogon Discover Stat Property
+  type: http
+  seq: 41
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonPropType}}/{{drogonStatGuid}}/arrays
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  // The /arrays listing echoes the HDF5-backed values array written in D32;
+  // cross-check the dimensions the compute requests rely on ([Nk, Nj, Ni]).
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    const mine = (Array.isArray(body) ? body : []).find(function (a) {
+      return a.uid && a.uid.pathInResource === "/RESQML/" + bru.getVar("drogonStatGuid") + "/values_patch0";
+    });
+    if (mine) bru.setVar("drogonStatDims", JSON.stringify(mine.dimensions));
+  }
+}
+
+docs {
+  Array-compute coverage (1/31). Confirms the HDF5-backed ContinuousProperty
+  written in D31/D32 is listed as a grid-shaped [Nk, Nj, Ni] = [2, 2, 2] array
+  at the canonical /RESQML/<guid>/values_patch0 path used by the stats / reduce
+  / where / where-multi requests that follow. These endpoints fold or mask the
+  array INSIDE the store without transferring any array bytes.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("store advertises the array extensions the compute series (D42-D78) relies on", function () {
+    const ext = String(bru.getVar("storeArrayExtensions") || "").split(",");
+    ["stats", "histogram", "reduce", "where", "wheren"].forEach(function (e) {
+      expect(ext, "supportedArrayExtensions").to.include(e);
+    });
+  });
+
+  test("property array is the 3-D [Nk, Nj, Ni] array written in D32", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("array").with.length.greaterThan(0);
+    expect(bru.getVar("drogonStatDims"), "values_patch0 listed").to.equal("[2,2,2]");
+  });
+}

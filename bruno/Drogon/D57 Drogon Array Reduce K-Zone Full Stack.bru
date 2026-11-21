@@ -1,0 +1,51 @@
+meta {
+  name: D57 Drogon Array Reduce K-Zone Full Stack
+  type: http
+  seq: 57
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/arrays/compute
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "op": "reduce",
+    "target": {
+      "dataObjectType": "{{drogonPropType}}",
+      "guid": "{{drogonStatGuid}}",
+      "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0"
+    },
+    "reducer": "count",
+    "rangeLo": 0.1,
+    "rangeHi": 0.3,
+    "k0": 0,
+    "k1": {{drogonNk}}
+  }
+}
+
+docs {
+  Array-compute coverage (17/31). Reduce with an explicit K-zone [k0, k1) spanning the entire
+      stack [0, Nk). Must give the identical count-map total as the un-zoned
+      request (D56) - an explicit full zone is a no-op, proving the half-open
+      layer range includes layer Nk-1.
+}
+
+tests {
+  test("status is 200", function () {
+        expect(res.getStatus()).to.equal(200);
+      });
+
+      test("full K-zone equals the un-zoned total", function () {
+        const b = res.getBody();
+        const total = b.map.reduce(function (a, c) { return a + c; }, 0);
+        expect(total).to.equal(Number(bru.getVar("drogonInRange")));
+      });
+}

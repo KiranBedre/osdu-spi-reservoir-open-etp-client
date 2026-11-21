@@ -1,0 +1,48 @@
+meta {
+  name: P01 Create ProdML Dataspace
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/dataspaces
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Ensure a dedicated dataspace exists for the ProdML time-series array tests.
+  Idempotent: a 409 (already exists) is treated as success. Sets the
+  `prodmlDataspaceId` / `prodmlDataspaceIdRaw` vars consumed by P02 and P03.
+}
+
+body:json {
+  [
+    {
+      "DataspaceId": "test/prodml",
+      "Path": "test/prodml",
+      "CustomData": {
+        "viewers": ["{{defaultViewers}}"],
+        "owners": ["{{defaultOwners}}"],
+        "legaltags": ["{{defaultLegalTag}}"],
+        "otherRelevantDataCountries": ["US"]
+      }
+    }
+  ]
+}
+
+script:post-response {
+  bru.setVar("prodmlDataspaceIdRaw", "test/prodml");
+  bru.setVar("prodmlDataspaceId", encodeURIComponent("test/prodml"));
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+}

@@ -1,0 +1,36 @@
+meta {
+  name: D09 Drogon Array Content
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonGridType}}/{{drogonGridGuid}}/arrays/{{drogonArrayPath}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (array data). Reads the actual array VALUES (GetDataArray) for
+  the array whose path was captured in D07 — the companion to the D08 metadata
+  read. Tolerant of 400/404 when no array path was captured so the folder stays
+  robust on reduced datasets.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns the 81 coordinate values of the points array", function () {
+    const a = res.getBody();
+    expect(a.uid.pathInResource).to.equal("/RESQML/" + bru.getVar("drogonGridGuid") + "/points");
+    expect(a.data.data).to.be.an("array").with.lengthOf(81);
+    expect(a.data.data[0]).to.equal(1000);
+  });
+}

@@ -1,0 +1,90 @@
+meta {
+  name: D18 Drogon Add Const Property To Grid
+  type: http
+  seq: 18
+}
+
+put {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources?transactionId={{drogonTxnId}}
+  body: json
+  auth: none
+}
+
+params:query {
+  transactionId: {{drogonTxnId}}
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:pre-request {
+  function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0;
+      var v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  bru.setVar("drogonNewPropGuid", uuid());
+  // Fall back to a nominal count if D05 could not read Ni/Nj/Nk (keeps JSON valid).
+  if (!bru.getVar("drogonCellCount")) {
+    bru.setVar("drogonCellCount", "1000");
+  }
+}
+
+body:json {
+  [
+    {
+      "$type": "resqml20.obj_ContinuousProperty",
+      "SchemaVersion": "2.0",
+      "Uuid": "{{drogonNewPropGuid}}",
+      "Citation": {
+        "Title": "Bruno Const Porosity",
+        "Originator": "BrunoCLI",
+        "Creation": "2026-01-01T00:00:00Z",
+        "Format": "[ADME:BrunoCLI:1.0]"
+      },
+      "Count": 1,
+      "IndexableElement": "cells",
+      "UOM": "m3/m3",
+      "SupportingRepresentation": {
+        "$type": "eml20.DataObjectReference",
+        "ContentType": "application/x-resqml+xml;version=2.0;type=obj_IjkGridRepresentation",
+        "Title": "Drogon Grid",
+        "UUID": "{{drogonGridGuid}}"
+      },
+      "PropertyKind": {
+        "$type": "resqml20.StandardPropertyKind",
+        "Kind": "porosity"
+      },
+      "PatchOfValues": [
+        {
+          "$type": "resqml20.PatchOfValues",
+          "RepresentationPatchIndex": 0,
+          "Values": {
+            "$type": "resqml20.DoubleConstantArray",
+            "Value": 0.25,
+            "Count": {{drogonCellCount}}
+          }
+        }
+      ]
+    }
+  ]
+}
+
+docs {
+  Drogon lifecycle (13/19). The core WRITE: adds a new ContinuousProperty
+  ("Bruno Const Porosity") on the existing Drogon IjkGridRepresentation, valued by
+  a constant array (resqml20.DoubleConstantArray, value 0.25 over every cell). The
+  constant array is self-describing, so this needs no HDF5 upload or HDF-proxy - a
+  pure object PUT inside the transaction opened in D12. The property kind uses the
+  standard "porosity" kind and references the grid via SupportingRepresentation.
+}
+
+tests {
+  test("status is 200 or 201 (property written)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+}

@@ -1,0 +1,50 @@
+meta {
+  name: D60 Drogon Array Where Multi Single Equals Where
+  type: http
+  seq: 60
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/arrays/compute
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "op": "where-multi",
+    "predicates": [
+        {
+          "dataObjectType": "{{drogonPropType}}",
+          "guid": "{{drogonStatGuid}}",
+          "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+          "rangeLo": 0.1,
+          "rangeHi": 0.3
+        }
+    ]
+  }
+}
+
+docs {
+  Array-compute coverage (20/31). WHEREN with exactly one predicate must degenerate to the plain
+      WHERE of D47: identical count. Proves the batched path has no off-by-one at
+      the window edges relative to the single-predicate path.
+}
+
+tests {
+  test("status is 200", function () {
+        expect(res.getStatus()).to.equal(200);
+      });
+
+      test("one predicate == plain WHERE count", function () {
+        const b = res.getBody();
+        expect(b.arrays).to.equal(1);
+        expect(b.count).to.equal(Number(bru.getVar("drogonWhereCount")));
+        expect(b.count).to.equal(Number(bru.getVar("drogonInRange")));
+      });
+}

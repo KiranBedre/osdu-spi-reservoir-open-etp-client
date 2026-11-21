@@ -1,0 +1,50 @@
+meta {
+  name: Discover Seed CRS
+  type: http
+  seq: 0
+}
+
+get {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/resources/all
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:post-response {
+  // Resolve the LocalDepth3dCrs seeded by _Setup/S5 so the GRDECL import
+  // references an object that exists (the store rejects dangling references
+  // on auto-commit with 412).
+  const body = res.getBody();
+  const items = Array.isArray(body) ? body : (body && body.resources) || [];
+  const findGuid = (type) => {
+    const re = new RegExp(type + "\\(([0-9a-fA-F-]{36})\\)");
+    for (const item of items) {
+      const hay = (item.uri || "") + " " + (item.name || "");
+      const m = hay.match(re);
+      if (m) return m[1];
+    }
+    return undefined;
+  };
+  const crs = findGuid("LocalDepth3dCrs");
+  if (crs) bru.setVar("seedCrsUuid", crs);
+}
+
+docs {
+  Folder prerequisite: discovers the _Setup-seeded CRS so the Grids chain is
+  self-contained (Bruno runtime vars do not cross folders in CI).
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("seed CRS discovered", function () {
+    expect(bru.getVar("seedCrsUuid")).to.be.a("string").with.length(36);
+  });
+}

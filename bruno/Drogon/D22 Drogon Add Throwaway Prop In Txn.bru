@@ -1,0 +1,87 @@
+meta {
+  name: D22 Drogon Add Throwaway Prop In Txn
+  type: http
+  seq: 22
+}
+
+put {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources?transactionId={{drogonRbTxnId}}
+  body: json
+  auth: none
+}
+
+params:query {
+  transactionId: {{drogonRbTxnId}}
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:pre-request {
+  function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0;
+      var v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  bru.setVar("drogonRbPropGuid", uuid());
+  if (!bru.getVar("drogonCellCount")) {
+    bru.setVar("drogonCellCount", "1000");
+  }
+}
+
+body:json {
+  [
+    {
+      "$type": "resqml20.obj_ContinuousProperty",
+      "SchemaVersion": "2.0",
+      "Uuid": "{{drogonRbPropGuid}}",
+      "Citation": {
+        "Title": "Bruno Rollback Probe",
+        "Originator": "BrunoCLI",
+        "Creation": "2026-01-01T00:00:00Z",
+        "Format": "[ADME:BrunoCLI:1.0]"
+      },
+      "Count": 1,
+      "IndexableElement": "cells",
+      "UOM": "m3/m3",
+      "SupportingRepresentation": {
+        "$type": "eml20.DataObjectReference",
+        "ContentType": "application/x-resqml+xml;version=2.0;type=obj_IjkGridRepresentation",
+        "Title": "Drogon Grid",
+        "UUID": "{{drogonGridGuid}}"
+      },
+      "PropertyKind": {
+        "$type": "resqml20.StandardPropertyKind",
+        "Kind": "porosity"
+      },
+      "PatchOfValues": [
+        {
+          "$type": "resqml20.PatchOfValues",
+          "RepresentationPatchIndex": 0,
+          "Values": {
+            "$type": "resqml20.DoubleConstantArray",
+            "Value": 0.99,
+            "Count": {{drogonCellCount}}
+          }
+        }
+      ]
+    }
+  ]
+}
+
+docs {
+  Drogon lifecycle (rollback 2/4). Writes a throwaway constant-array property
+  ("Bruno Rollback Probe") INSIDE the uncommitted rollback transaction from D21.
+  It is intentionally never committed — D23 rolls it back and D24 proves it is
+  absent.
+}
+
+tests {
+  test("status is 200 or 201 (throwaway written in txn)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+}

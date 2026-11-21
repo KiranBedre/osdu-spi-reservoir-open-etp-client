@@ -1,0 +1,52 @@
+meta {
+  name: Find Resources With Edges
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{host}}/query/resources/find
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "uri": [
+      "eml:///dataspace('{{seededDataspaceIdRaw}}')/{{dataObjectType}}({{guid}})"
+    ],
+    "scope": "targets",
+    "depth": 2,
+    "dataObjectTypes": [],
+    "countObjects": true,
+    "includeSecondaryTargets": false,
+    "includeSecondarySources": false,
+    "includeEdges": true
+  }
+}
+
+docs {
+  Route coverage: POST /query/resources/find with an array `uri` (batch) and
+  `includeEdges: true` - the graph variant that also returns the relationship
+  `links` between the matched resources. Replaces the former
+  /query/graph/search.
+}
+
+tests {
+  test("status is 200 or 404", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 404]);
+  });
+
+  test("returns resources and links", function () {
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body).to.have.property("resources");
+      expect(body).to.have.property("links");
+    }
+  });
+}

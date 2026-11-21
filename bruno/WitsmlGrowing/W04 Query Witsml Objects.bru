@@ -1,0 +1,72 @@
+meta {
+  name: W04 Query Witsml Objects
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{host}}/witsml/query?format=json
+  body: json
+  auth: none
+}
+
+params:query {
+  format: json
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "dataspace": "{{witsmlDataspaceIdRaw}}"
+  }
+}
+
+script:post-response {
+  if (res.getStatus() === 200) {
+    const body = res.getBody();
+    const objects = (body && Array.isArray(body.objects)) ? body.objects : [];
+    // Prefer a genuine growing object for the Protocol-6 reads below; fall back
+    // to the first object (the Well) so W05/W06 always have a uri to probe.
+    const growingTypes = ["Trajectory", "WellLog", "Log", "ChannelSet", "MudLog", "WellboreGeology"];
+    let growing = objects.find(function (o) {
+      const t = (o && o.objectType) || "";
+      return growingTypes.some(function (g) { return t.toLowerCase().indexOf(g.toLowerCase()) !== -1; });
+    });
+    if (!growing && objects.length > 0) growing = objects[0];
+    if (growing && growing.uri) bru.setVar("witsmlGrowingUri", growing.uri);
+    const well = objects.find(function (o) {
+      return ((o && o.objectType) || "").toLowerCase().indexOf("well") !== -1
+        && ((o && o.objectType) || "").toLowerCase().indexOf("wellbore") === -1;
+    });
+    if (well && well.uuid) bru.setVar("witsmlWellGuid", well.uuid);
+  }
+}
+
+docs {
+  WITSML growing-object lifecycle (4/7). Reads the synthetic dataset back with
+  POST /witsml/query (format=json), proving the REST -> ETP -> WITSML round trip.
+  Captures a growing-object uri (Trajectory if present, else the first object) to
+  drive the GrowingObject Protocol-6 read probes in W05/W06.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns a paged objects array with count/total", function () {
+    const body = res.getBody();
+    expect(body, JSON.stringify(body).slice(0, 200)).to.be.an("object");
+    expect(body.objects).to.be.an("array");
+    expect(body).to.have.property("total");
+    expect(body).to.have.property("count");
+  });
+
+  test("captured a uri for the growing-object probes", function () {
+    expect(bru.getVar("witsmlGrowingUri"), "growing uri").to.be.a("string").and.not.be.empty;
+  });
+}

@@ -1,0 +1,46 @@
+meta {
+  name: Put Checkshot
+  type: http
+  seq: 10
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/seismic/checkshots?version=2.2.0
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "title": "Bruno Checkshot",
+    "hdfUuid": "{{seedHdfUuid}}",
+    "trajectoryUuid": "11111111-1111-4111-8111-111111111111",
+    "trajectoryType": "obj_WellboreTrajectoryRepresentation",
+    "mds": [0, 500, 1000, 1500],
+    "times": [0, 320, 640, 980],
+    "seismicReferenceDatum": 30,
+    "weatheringVelocity": 1600
+  }
+}
+
+tests {
+  test("status is 200, 201 or 412 (dangling trajectory reference)", function () {
+    // The seeded test dataspace has no WellboreTrajectoryRepresentation, so
+    // the checkshot references a trajectory that does not exist. The client
+    // builds and writes the object anyway; whether the store accepts a
+    // dangling DOR on a non-transactional put is store policy (M28 rejects
+    // missing references with 412).
+    expect(res.getStatus()).to.be.oneOf([200, 201, 412]);
+  });
+
+  test("a 412 names the missing reference (store reason is propagated)", function () {
+    if (res.getStatus() === 412) {
+      expect(String(res.getBody().description)).to.match(/Missing reference/i);
+    }
+  });
+}

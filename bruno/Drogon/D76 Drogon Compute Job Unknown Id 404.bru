@@ -1,0 +1,27 @@
+meta {
+  name: D76 Drogon Compute Job Unknown Id 404
+  type: http
+  seq: 76
+}
+
+get {
+  url: {{host}}/compute/jobs/00000000-0000-4000-8000-000000000000
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Route coverage: GET /compute/jobs/:id with an unknown id — 404 Not Found
+  (the same guard protects DELETE /compute/jobs/:id).
+}
+
+tests {
+  test("status is 404", function () {
+    expect(res.getStatus()).to.equal(404);
+  });
+}

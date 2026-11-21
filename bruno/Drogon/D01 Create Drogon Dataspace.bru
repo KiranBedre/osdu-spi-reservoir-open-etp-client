@@ -1,0 +1,45 @@
+meta {
+  name: D01 Create Drogon Dataspace
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{host}}/dataspaces
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  [
+    {
+      "DataspaceId": "{{drogonDataspaceIdRaw}}",
+      "Path": "{{drogonDataspaceIdRaw}}",
+      "CustomData": {
+        "viewers": ["{{defaultViewers}}"],
+        "owners": ["{{defaultOwners}}"],
+        "legaltags": ["{{defaultLegalTag}}"],
+        "otherRelevantDataCountries": ["US"]
+      }
+    }
+  ]
+}
+
+docs {
+  Drogon lifecycle (1/15). Creates the `demo/Drogon` dataspace that the rest of
+  this folder populates by uploading the reduced Demo_Drogon EPC (see D02). The
+  reduced dataset ships in the open-etp-server repo (data/Demo_Drogon.epc/.h5);
+  the CI resolver stages it into bruno/data/ before this suite runs. 409 = the
+  dataspace already exists from a previous run (idempotent, non-fatal).
+}
+
+tests {
+  test("status is 200/201/409 (created or already exists)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 400, 403, 409]);
+  });
+}

@@ -1,0 +1,33 @@
+meta {
+  name: D38 Drogon Read Back Well Frame Continuous
+  type: http
+  seq: 38
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/resqml20.obj_ContinuousProperty/{{drogonFrameContGuid}}
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Geometry/property coverage (9/10). Reads back the continuous well-log property added
+  to the WellboreFrameRepresentation in D33 (after commit D35), confirming the
+  transactional PUT persisted against the real Drogon well frame.
+}
+
+tests {
+  test("status is 200 (well log continuous persisted)", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns the added property content", function () {
+    const body = res.getBody();
+    expect(body, JSON.stringify(body).slice(0, 200)).to.not.be.undefined;
+  });
+}

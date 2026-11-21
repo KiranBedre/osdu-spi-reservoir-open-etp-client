@@ -1,0 +1,30 @@
+meta {
+  name: Unlock Clone Source
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/lock
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  A clone shares array data by reference, so the store keeps the SOURCE locked
+  for as long as the clone exists ("Cannot unlock space: it is referenced by
+  another space"). Now that the clone is deleted, release the _Setup scratch
+  dataspace so the write suites that follow can use it. 409 = already unlocked.
+}
+
+tests {
+  test("source unlocked (200) or already unlocked (409)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 409]);
+    if (res.getStatus() === 200) expect(res.getBody()).to.equal(true);
+  });
+}

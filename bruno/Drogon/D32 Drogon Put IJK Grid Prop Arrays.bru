@@ -1,0 +1,75 @@
+meta {
+  name: D32 Drogon Put IJK Grid Prop Arrays
+  type: http
+  seq: 32
+}
+
+put {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/arrays?transactionId={{drogonPropsTxnId}}
+  body: json
+  auth: none
+}
+
+params:query {
+  transactionId: {{drogonPropsTxnId}}
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:pre-request {
+  // Known cell values, C-order over [Nk, Nj, Ni] = [2, 2, 2]. The
+  // array-compute requests assert against these exact numbers:
+  //   porosity: 0.05 0.15 0.25 0.35 | 0.45 0.55 0.65 0.75
+  //     -> count 8, sum 3.2, mean 0.4, min 0.05, max 0.75,
+  //        2 cells in [0.1, 0.3], 2 in [0.05, 0.2], 1 in both.
+  //   zone:     1 1 1 1 | 2 2 2 2  (k = 0 -> zone 1, k = 1 -> zone 2)
+  const nk = 2, nj = 2, ni = 2;
+  bru.setVar("drogonNk", nk);
+  bru.setVar("drogonNj", nj);
+  bru.setVar("drogonNi", ni);
+  bru.setVar("drogonStatCount", nk * nj * ni);
+  bru.setVar("drogonStatSumExpected", 3.2);
+  bru.setVar("drogonStatMeanExpected", 0.4);
+  bru.setVar("drogonStatMinExpected", 0.05);
+  bru.setVar("drogonStatMaxExpected", 0.75);
+  bru.setVar("drogonInRangeExpected", 2);
+}
+
+body:json {
+  [
+    {
+      "ContainerType": "eml20.obj_EpcExternalPartReference",
+      "ContainerUuid": "{{drogonHdfProxyGuid}}",
+      "PathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+      "Dimensions": [2, 2, 2],
+      "Data": [0.05, 0.15, 0.25, 0.35, 0.45, 0.55, 0.65, 0.75],
+      "ArrayType": "Float64Array"
+    },
+    {
+      "ContainerType": "eml20.obj_EpcExternalPartReference",
+      "ContainerUuid": "{{drogonHdfProxyGuid}}",
+      "PathInResource": "/RESQML/{{drogonStatGuid2}}/values_patch0",
+      "Dimensions": [2, 2, 2],
+      "Data": [1, 1, 1, 1, 2, 2, 2, 2],
+      "ArrayType": "Int32Array"
+    }
+  ]
+}
+
+docs {
+  Geometry/property coverage (3/10). Writes the value arrays for the two grid
+  properties added in D31 (Protocol 9 PutDataArrays via the generic
+  `PUT /resources/arrays`), into the fixture's HDF proxy at the canonical
+  /RESQML/<guid>/values_patch0 paths. The contents are fixed, so every
+  downstream statistic is predictable (see the pre-request comment).
+}
+
+tests {
+  test("status is 200 and both arrays accepted", function () {
+    expect(res.getStatus()).to.equal(200);
+    expect(res.getBody()).to.deep.equal([true, true]);
+  });
+}

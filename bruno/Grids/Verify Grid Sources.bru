@@ -1,0 +1,67 @@
+meta {
+  name: Verify Grid Sources
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/graph/resqml20.obj_IjkGridRepresentation/{{gridsGridUuid}}/sources
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Discovery (ETP P3 getSources) on the GRDECL grid after the bindings were
+  written: every grid-bound representation kind must show up as a source, with
+  its RESQML type, and nothing else may point at the grid yet (the strat column
+  / fluid-phase bindings come later and are targets of the grid, not sources).
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("each grid-bound object is a typed source of the grid", function () {
+    const b = res.getBody();
+    const list = Array.isArray(b) ? b : b.resources;
+    expect(list, "resources").to.be.an("array");
+    const typeOf = function (uri) { return uri.replace(/^.*\/(resqml20|eml20)\.(obj_[A-Za-z0-9]+)\(.*$/, "$2"); };
+    const byUuid = {};
+    list.forEach(function (r) { byUuid[r.uri.replace(/^.*\(([0-9a-f-]{36})\)$/, "$1")] = typeOf(r.uri); });
+    const expected = {
+      gridsGcsUuid: "obj_GridConnectionSetRepresentation",
+      gridsBwUuid: "obj_BlockedWellboreRepresentation",
+      gridsRegionUuid: "obj_CategoricalProperty",
+      gridsSubRepUuid: "obj_SubRepresentation"
+    };
+    Object.keys(expected).forEach(function (k) {
+      const uuid = bru.getVar(k);
+      expect(byUuid[uuid], k + " is a source").to.equal(expected[k]);
+    });
+  });
+
+  test("the GRDECL import's ACTNUM is the only property besides SATNUM", function () {
+    const b = res.getBody();
+    const list = Array.isArray(b) ? b : b.resources;
+    const props = list.filter(function (r) { return /obj_(Discrete|Categorical|Continuous)Property\(/.test(r.uri); })
+      .map(function (r) { return r.name; }).sort();
+    expect(props, "properties bound to the grid").to.deep.equal(["ACTNUM", "SATNUM"]);
+  });
+
+  test("no unexpected sources (auto-import Activity aside)", function () {
+    const b = res.getBody();
+    const list = Array.isArray(b) ? b : b.resources;
+    const known = ["gridsGcsUuid", "gridsBwUuid", "gridsRegionUuid", "gridsSubRepUuid"].map(function (k) { return bru.getVar(k); });
+    const extra = list.filter(function (r) {
+      const uuid = r.uri.replace(/^.*\(([0-9a-f-]{36})\)$/, "$1");
+      return known.indexOf(uuid) < 0 && r.uri.indexOf("obj_Activity(") < 0 && r.name !== "ACTNUM";
+    }).map(function (r) { return r.uri; });
+    expect(extra, "unexpected sources").to.deep.equal([]);
+  });
+}

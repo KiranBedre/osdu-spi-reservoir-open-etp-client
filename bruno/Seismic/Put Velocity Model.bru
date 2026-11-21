@@ -1,0 +1,50 @@
+meta {
+  name: Put Velocity Model
+  type: http
+  seq: 9
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/seismic/velocity
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "title": "Bruno Interval Velocity",
+    "hdfUuid": "{{seedHdfUuid}}",
+    "version": "2.0.1",
+    "supportingRepUuid": "{{seismicBinGridUuid}}",
+    "supportingRepType": "obj_Grid2dRepresentation",
+    "velocityKind": "interval",
+    "uom": "m/s",
+    "values": [2500, 2510, 2520, 2530, 2540, 2600, 2610, 2620, 2630, 2640, 2700, 2710, 2720, 2730, 2740, 2800, 2810, 2820, 2830, 2840],
+    "dimensions": [20]
+  }
+}
+
+docs {
+  Route coverage: PUT /dataspaces/:ds/seismic/velocity — writes an interval
+  velocity ContinuousProperty (one external array of 20 node values) on the
+  5x4-node Grid2dRepresentation created by "Put Bin Grid", with its array on
+  the seeded HDF proxy. Auto-commit.
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("velocity property was written with one array", function () {
+    const b = res.getBody();
+    expect(b.uuid).to.be.a("string").with.length(36);
+    expect(b.objects).to.equal(1);
+    expect(b.arrays).to.equal(1);
+  });
+}

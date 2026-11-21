@@ -179,7 +179,7 @@ export class StoreCustomer extends BaseHandler {
         );
         const body =
           messageBody as Energistics.Etp.v12.Protocol.Store.GetDataObjectsResponse;
-        this.onGetDataObjectsResponse(messageHeader, body);
+        void this.onGetDataObjectsResponse(messageHeader, body);
         this.emit(EventName.GET_DATA_OBJECT_RESPONSE, {
           header: messageHeader,
           body
@@ -220,7 +220,7 @@ export class StoreCustomer extends BaseHandler {
         this.logTrace(
           `Received Store.Chunk message for ${messageHeader.correlationId}.`
         );
-        this.onChunk(
+        void this.onChunk(
           messageHeader,
           messageBody as Energistics.Etp.v12.Protocol.Store.Chunk
         );
@@ -477,10 +477,21 @@ export class StoreCustomer extends BaseHandler {
     }
     return Promise.all(promises)
       .then(res => res.flat(1))
-      .catch(() => {
+      .catch(err => {
+        // A scalar ProtocolException rejects the whole batch: keep the store's
+        // reason (e.g. "1 Missing reference(s) in space X") and code instead
+        // of degrading it to a generic message.
         const info = new Energistics.Etp.v12.Datatypes.ErrorInfo();
-        info.code = ErrorCode.EINVALID_STATE;
-        info.message = "Unknown error";
+        info.code =
+          err instanceof EtpError && err.code !== ErrorCode.IS_OK
+            ? err.code
+            : ErrorCode.EINVALID_STATE;
+        info.message =
+          err instanceof Error
+            ? err.message
+            : typeof err === "string"
+              ? err
+              : "Unknown error";
         return Array.from({ length: data.length }, () => info);
       });
   }

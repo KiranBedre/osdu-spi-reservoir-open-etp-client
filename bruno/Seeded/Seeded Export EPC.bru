@@ -1,0 +1,34 @@
+meta {
+  name: Seeded Export EPC
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{host}}/dataspaces/{{seededDataspaceId}}/epc
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Rich read against the deployment-seeded `demo/Drogon` dataspace: exports its
+  contents as an EPC (ZIP) archive. Asserts a real 200 with a zip payload,
+  proving the export path can serialize the imported Drogon objects back out.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("response is a zip (EPC) payload", function () {
+    const ct = String(res.getHeader("content-type") || "");
+    expect(ct).to.match(/zip|octet-stream|epc/i);
+    expect(Number(res.getHeader("content-length") || 1)).to.be.greaterThan(1000);
+  });
+}

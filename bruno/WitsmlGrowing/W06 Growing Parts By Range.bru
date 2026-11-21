@@ -1,0 +1,60 @@
+meta {
+  name: W06 Growing Parts By Range
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{host}}/query/growing
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "uri": "{{witsmlGrowingUri}}",
+    "startIndex": 0,
+    "endIndex": 1000,
+    "includeOverlapping": true
+  }
+}
+
+docs {
+  WITSML growing-object lifecycle (6/7). Fetches growing-object parts within a
+  depth index range [0, 1000] m via POST /query/growing with startIndex/endIndex (ETP GrowingObject
+  Protocol 6, GetPartsByRange). For depth-indexed objects the index is meters; the
+  synthetic Trajectory in W03 spans MD 0-1000 m, so a growing store would return
+  its station parts here.
+
+  Tolerant by design: REST-stored objects may carry no parts (no PutParts route),
+  so 200-empty / 400 / 404 are all documented and non-fatal.
+  Expectation follows `storeProtocols` (_Setup/S1): a store that does not
+  advertise Protocol 6 must be answered with 501 by the gateway.
+}
+
+tests {
+  const protocols = String(bru.getVar("storeProtocols") || "").split(",").map(Number);
+  const storeHasGrowing = protocols.indexOf(6) >= 0;
+
+  test(storeHasGrowing ? "status is 200/400/404 (store supports GrowingObject)" : "status is 501 (store lacks GrowingObject protocol 6)", function () {
+    if (storeHasGrowing) {
+      expect(res.getStatus()).to.be.oneOf([200, 400, 404]);
+    } else {
+      expect(res.getStatus()).to.equal(501);
+      expect(JSON.stringify(res.getBody())).to.match(/GrowingObject/);
+    }
+  });
+
+  test("returns a parts array when 200", function () {
+    if (res.getStatus() === 200) {
+      const body = res.getBody();
+      expect(body.parts).to.be.an("array");
+      expect(body).to.not.have.property("metadata");
+    }
+  });
+}

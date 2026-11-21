@@ -1,0 +1,87 @@
+meta {
+  name: D33 Drogon Add Continuous Prop To Well Frame
+  type: http
+  seq: 33
+}
+
+put {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources?transactionId={{drogonPropsTxnId}}
+  body: json
+  auth: none
+}
+
+params:query {
+  transactionId: {{drogonPropsTxnId}}
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+script:pre-request {
+  function uuid() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0;
+      var v = c === 'x' ? r : (r & 0x3 | 0x8);
+      return v.toString(16);
+    });
+  }
+  bru.setVar("drogonFrameContGuid", uuid());
+  if (!bru.getVar("drogonFrameCount")) {
+    bru.setVar("drogonFrameCount", "100");
+  }
+}
+
+body:json {
+  [
+    {
+      "$type": "resqml20.obj_ContinuousProperty",
+      "SchemaVersion": "2.0",
+      "Uuid": "{{drogonFrameContGuid}}",
+      "Citation": {
+        "Title": "Bruno Well Log Continuous GR",
+        "Originator": "BrunoCLI",
+        "Creation": "2026-01-01T00:00:00Z",
+        "Format": "[ADME:BrunoCLI:1.0]"
+      },
+      "Count": 1,
+      "IndexableElement": "nodes",
+      "UOM": "gAPI",
+      "SupportingRepresentation": {
+        "$type": "eml20.DataObjectReference",
+        "ContentType": "application/x-resqml+xml;version=2.0;type=obj_WellboreFrameRepresentation",
+        "Title": "Drogon Well Frame",
+        "UUID": "{{drogonWellFrameGuid}}"
+      },
+      "PropertyKind": {
+        "$type": "resqml20.StandardPropertyKind",
+        "Kind": "gamma ray API unit"
+      },
+      "PatchOfValues": [
+        {
+          "$type": "resqml20.PatchOfValues",
+          "RepresentationPatchIndex": 0,
+          "Values": {
+            "$type": "resqml20.DoubleConstantArray",
+            "Value": 75.0,
+            "Count": {{drogonFrameCount}}
+          }
+        }
+      ]
+    }
+  ]
+}
+
+docs {
+  Geometry/property coverage (4/10). Adds a NEW ContinuousProperty (a synthetic
+  gamma-ray well log) on the existing Drogon WellboreFrameRepresentation, valued by a
+  constant DoubleConstantArray (75 gAPI over every frame node). Exercises the write
+  path for continuous properties on a well-log frame.
+}
+
+tests {
+  test("status is 200 or 201 (well log continuous written)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+}

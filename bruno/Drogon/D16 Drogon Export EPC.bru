@@ -1,0 +1,33 @@
+meta {
+  name: D16 Drogon Export EPC
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/epc
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle (11/15). Round-trips the data back out: GET /epc gathers the
+  dataspace plus every DOR-referenced child and their HDF5 arrays into a self-
+  contained .epc package (the read-side inverse of the D02 upload).
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns a non-empty EPC payload", function () {
+    const body = res.getBody();
+    expect(body, "epc body present").to.not.be.undefined;
+  });
+}

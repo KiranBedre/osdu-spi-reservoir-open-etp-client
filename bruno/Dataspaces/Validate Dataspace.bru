@@ -1,0 +1,34 @@
+meta {
+  name: Validate Dataspace
+  type: http
+  seq: 15
+}
+
+post {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/validate
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Route coverage: POST /dataspaces/{id}/validate runs XSD / referential
+  validation over the _Setup scratch dataspace (3 objects).
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("validation report covers the seeded objects", function () {
+    const b = res.getBody();
+    expect(b.is_valid).to.be.a("boolean");
+    expect(b.object_count).to.be.a("number").and.to.be.at.least(3);
+    expect(b.errors).to.be.an("array");
+  });
+}

@@ -1,0 +1,70 @@
+meta {
+  name: Put Fault Sticks
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{host}}/dataspaces/{{testDataspaceId}}/seismic/faults?representation=sticks
+  body: json
+  auth: none
+}
+
+params:query {
+  representation: sticks
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "title": "Bruno Fault F1 Sticks",
+    "hdfUuid": "{{seedHdfUuid}}",
+    "crsUuid": "{{seedCrsUuid}}",
+    "version": "2.0.1",
+    "domain": "depth",
+    "interpretationTitle": "Bruno F1",
+    "featureTitle": "Bruno F1 fault",
+    "sticks": [
+      [456100, 5930000, 1560, 456120, 5930000, 1600, 456140, 5930000, 1645],
+      [456100, 5930100, 1558, 456120, 5930100, 1598, 456140, 5930100, 1643]
+    ],
+    "originator": "BrunoCLI"
+  }
+}
+
+script:post-response {
+  const b = res.getBody();
+  if (b && b.interpretationUuid) {
+    bru.setVar("seismicFaultInterpUuid", b.interpretationUuid);
+  }
+  if (b && b.featureUuid) {
+    bru.setVar("seismicFaultFeatureUuid", b.featureUuid);
+  }
+}
+
+docs {
+  Route coverage: PUT /dataspaces/:ds/seismic/faults?representation=sticks - writes a
+  PolylineSetRepresentation (2 fault sticks, external point + node-count
+  arrays) and auto-creates the FaultInterpretation + TectonicBoundaryFeature.
+  The interpretation/feature UUIDs are reused by "Put Fault Control Points" to
+  prove attaching a second representation to an existing interpretation.
+}
+
+tests {
+  test("status is 200 or 201", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("polyline set, interpretation and feature were created with arrays", function () {
+    const b = res.getBody();
+    expect(b.representationUuid).to.be.a("string").with.length(36);
+    expect(b.interpretationUuid).to.be.a("string").with.length(36);
+    expect(b.featureUuid).to.be.a("string").with.length(36);
+    expect(b.objects).to.equal(3);
+    expect(b.arrays).to.be.a("number").at.least(2);
+  });
+}

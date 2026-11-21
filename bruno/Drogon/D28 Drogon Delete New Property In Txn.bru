@@ -1,0 +1,33 @@
+meta {
+  name: D28 Drogon Delete New Property In Txn
+  type: http
+  seq: 28
+}
+
+delete {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/resources/{{drogonPropType}}/{{drogonNewPropGuid}}?transactionId={{drogonTxnId}}
+  body: none
+  auth: none
+}
+
+params:query {
+  transactionId: {{drogonTxnId}}
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Drogon lifecycle. Inside the delete transaction (D25), removes ONLY the
+  constant-array property we added in D18 (its auto-import Activity was removed
+  in D27) - leaving the original Drogon dataset untouched - then commits in D29.
+  Keeps the suite non-destructive and idempotent.
+}
+
+tests {
+  test("status is 204", function () {
+    expect(res.getStatus()).to.equal(204);
+  });
+}

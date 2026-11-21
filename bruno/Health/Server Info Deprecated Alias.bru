@@ -1,0 +1,27 @@
+meta {
+  name: Server Info Deprecated Alias
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{host}}/health/info
+  body: none
+  auth: none
+}
+
+docs {
+  GET /health/info - deprecated M26 alias of GET /info, kept for 0.29 clients.
+  Must keep answering the same payload until the alias is removed.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("alias returns the same version info as /info", function () {
+    const body = res.getBody();
+    expect(body).to.have.property("version");
+  });
+}

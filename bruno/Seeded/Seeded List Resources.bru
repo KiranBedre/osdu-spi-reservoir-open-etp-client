@@ -1,0 +1,53 @@
+meta {
+  name: Seeded List Resources
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{host}}/dataspaces/{{seededDataspaceId}}/resources/all
+  body: none
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Rich read against the deployment-seeded `demo/Drogon` dataspace. The small
+  Drogon fixture (data/Demo_Drogon.epc) ships 186 RESQML 2.0 objects; this
+  asserts the exact per-type counts that are stable across REST upload and
+  `openETPServer --import-epc` seeding, proving the REST -> ETP -> real-RESQML
+  round trip works on real data.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("returns the Drogon fixture objects", function () {
+    const body = res.getBody();
+    expect(body).to.be.an("array");
+    expect(body.length).to.be.at.least(186);
+    const count = function (type) {
+      return body.filter(function (r) { return r.uri.indexOf("." + type + "(") !== -1; }).length;
+    };
+    expect(count("obj_IjkGridRepresentation"), "IjkGrid").to.equal(1);
+    expect(count("obj_WellboreTrajectoryRepresentation"), "trajectories").to.equal(18);
+    expect(count("obj_WellboreFrameRepresentation"), "frames").to.equal(14);
+    expect(count("obj_WellboreMarkerFrameRepresentation"), "marker frames").to.equal(9);
+    expect(count("obj_HorizonInterpretation"), "horizons").to.equal(6);
+    expect(count("obj_FaultInterpretation"), "faults").to.equal(6);
+    expect(count("obj_EpcExternalPartReference"), "hdf proxies").to.equal(1);
+  });
+
+  test("every resource carries a well-formed eml uri", function () {
+    const ds = bru.getEnvVar("seededDataspaceIdRaw");
+    res.getBody().forEach(function (r) {
+      expect(r.uri).to.match(new RegExp("^eml:///dataspace\\('" + ds + "'\\)/(resqml20|eml20)\\.obj_[A-Za-z0-9]+\\([0-9a-f-]{36}\\)$"));
+    });
+  });
+}

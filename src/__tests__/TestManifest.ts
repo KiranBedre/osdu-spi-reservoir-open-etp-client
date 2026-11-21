@@ -105,6 +105,35 @@ describe("Manifest Conversion", () => {
       osdu.data.ExtensionProperties["tags/tag1/tag2"]
     ).toEqual("tag2");
   });
+
+  it("U6: RealizationIndices flows into the built WPC Data", async () => {
+    const context = new OSDUContext("test", "test");
+    const repUri =
+      "eml:///dataspace('test')/resqml20.obj_WellboreFrameRepresentation(2580ddfe-d740-4f5b-bf9c-7fbb9d191d1a)";
+    context.uriToObject.set(repUri, {
+      objectType: "resqml20.obj_WellboreFrameRepresentation",
+      uuid: "2580ddfe-d740-4f5b-bf9c-7fbb9d191d1a",
+      xml: {}
+    } as any);
+
+    const withRealization: SimpleJson<AbstractValuesProperty> = {
+      ...xml,
+      RealizationIndices: {
+        $type: "resqml20.IntegerRangeArray",
+        Value: 0,
+        Count: 3
+      }
+    } as any;
+
+    const osdu = new GenericPropertyOSDU(withRealization, context);
+    await osdu.initData("eml:///dataspace('test')", withRealization, {
+      getDataArrayValues: async () => [],
+      getResolvedObjects: async () => ({}),
+      getObjects: async () => []
+    } as any);
+
+    expect(osdu.data.RealizationIndices).toEqual([0, 1, 2]);
+  });
 });
 
 describe("R4: Converter Registry", () => {

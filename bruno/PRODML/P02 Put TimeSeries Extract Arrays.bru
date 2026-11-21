@@ -1,0 +1,78 @@
+meta {
+  name: P02 Put TimeSeries Extract Arrays
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{host}}/dataspaces/{{prodmlDataspaceId}}/resources?extractChannelArrays=true
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+docs {
+  Store a PRODML 2.3 TimeSeriesData object whose inline `DataValue` samples are
+  extracted into external ETP data arrays (via `?extractChannelArrays=true`).
+
+  The service converts the JSON to Energistics XML, pulls the inline samples out
+  into `/PRODML/<uuid>/Time` and `/PRODML/<uuid>/Value` arrays, replaces them
+  with `ExternalDataArrayPart` references, and stores the arrays through the same
+  domain-neutral pipeline used for WITSML log channels. The fixed Uuid lets P03
+  read the `Value` array metadata back deterministically.
+}
+
+body:json {
+  [
+    {
+      "$type": "prodml23.TimeSeriesData",
+      "Uuid": "6b4f1c2e-3d5a-4b7c-9e8f-0a1b2c3d4ec1",
+      "SchemaVersion": "2.3",
+      "Citation": {
+        "$type": "eml23.Citation",
+        "Title": "Bruno ProdML TimeSeries",
+        "Originator": "Bruno",
+        "Creation": "2026-07-10T00:00:00Z",
+        "Format": "Reservoir DDMS Bruno"
+      },
+      "Uom": "m3/d",
+      "MeasureClass": "volume per time",
+      "DataValue": [
+        { "value": 120.5, "dTim": "2026-01-01T00:00:00Z" },
+        { "value": 133.2, "dTim": "2026-01-02T00:00:00Z" },
+        { "value": 128.7, "dTim": "2026-01-03T00:00:00Z" },
+        { "value": 140.9, "dTim": "2026-01-04T00:00:00Z" }
+      ]
+    }
+  ]
+}
+
+script:post-response {
+  bru.setVar("prodmlObjType", "prodml23.TimeSeriesData");
+  bru.setVar("prodmlTsGuid", "6b4f1c2e-3d5a-4b7c-9e8f-0a1b2c3d4ec1");
+  bru.setVar(
+    "prodmlArrayPath",
+    encodeURIComponent("/PRODML/6b4f1c2e-3d5a-4b7c-9e8f-0a1b2c3d4ec1/Value")
+  );
+}
+
+tests {
+  test("status is 200 or 201 or 400 or 404 or 412", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201, 400, 404, 412]);
+  });
+
+  test("successful store reports success", function () {
+    if (res.getStatus() === 200 || res.getStatus() === 201) {
+      const body = res.getBody();
+      // Endpoint returns either a boolean or { success, validation }.
+      const ok =
+        body === true ||
+        (body && typeof body === "object" && "success" in body);
+      expect(ok).to.equal(true);
+    }
+  });
+}

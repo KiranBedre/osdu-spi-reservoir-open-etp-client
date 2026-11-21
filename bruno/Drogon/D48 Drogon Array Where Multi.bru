@@ -1,0 +1,101 @@
+meta {
+  name: D48 Drogon Array Where Multi
+  type: http
+  seq: 48
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/arrays/compute
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "op": "where-multi",
+    "predicates": [
+      {
+        "dataObjectType": "resqml20.obj_ContinuousProperty",
+        "guid": "{{drogonStatGuid}}",
+        "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+        "rangeLo": 0.1,
+        "rangeHi": 0.3
+      },
+      {
+        "dataObjectType": "resqml20.obj_ContinuousProperty",
+        "guid": "{{drogonStatGuid}}",
+        "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0",
+        "rangeLo": 0.05,
+        "rangeHi": 0.2
+      }
+    ]
+  }
+}
+
+docs {
+  Array-compute coverage (8/31). POST .../arrays/compute (op=where-multi) (the WHEREN extension):
+  ANDs several [rangeLo, rangeHi] predicates over several property arrays
+  (sharing the same [Nk, Nj, Ni] grid shape) INSIDE the store and returns the
+  count of cells satisfying EVERY predicate, their ijk bounding box and centroid.
+
+  This is the endpoint batched by the SQL-grouping change (MR 5b): the per-
+  predicate store calls are grouped into pg_bulk_size-sized SQL round-trips.
+  Two overlapping predicates here guarantee a non-empty intersection so the
+  batched path is exercised with a deterministic positive result.
+
+  Set algebra asserted: both predicates run on the SAME array, so the AND is
+  the window intersection [0.1, 0.2] and its count must be <= the single WHERE
+  count over [0.1, 0.3] (D47); the largest connected body is a subset of the
+  passing set (bodyCount <= count, components >= 1, body bbox inside bbox).
+}
+
+tests {
+  test("status is success (200/201)", function () {
+    expect(res.getStatus()).to.be.oneOf([200, 201]);
+  });
+
+  test("ANDed over both arrays with a non-empty result", function () {
+    const b = res.getBody();
+    expect(b.valid).to.equal(true);
+    expect(b.arrays).to.equal(2);
+    expect(b.count).to.be.a("number").greaterThan(0);
+    ["iMin", "iMax", "jMin", "jMax", "kMin", "kMax"].forEach(function (k) {
+      expect(b[k], k).to.be.a("number");
+    });
+  });
+
+  test("AND of [0.1,0.3] and [0.05,0.2] keeps exactly the 0.15 cell", function () {
+    const b = res.getBody();
+    expect(b.count).to.equal(1);
+    expect([b.iMin, b.iMax, b.jMin, b.jMax, b.kMin, b.kMax]).to.deep.equal([1, 1, 0, 0, 0, 0]);
+  });
+
+  test("AND count <= single-predicate WHERE count", function () {
+    const b = res.getBody();
+    const single = Number(bru.getVar("drogonWhereCount"));
+    if (single > 0) {
+      expect(b.count).to.be.at.most(single);
+    }
+  });
+
+  test("largest connected body is a subset of the passing set", function () {
+    const b = res.getBody();
+    expect(b.components).to.be.a("number").at.least(1);
+    expect(b.bodyCount).to.be.a("number").at.least(1).at.most(b.count);
+    expect(b.biMin).to.be.at.least(b.iMin);
+    expect(b.biMax).to.be.at.most(b.iMax);
+    expect(b.bjMin).to.be.at.least(b.jMin);
+    expect(b.bjMax).to.be.at.most(b.jMax);
+    expect(b.bkMin).to.be.at.least(b.kMin);
+    expect(b.bkMax).to.be.at.most(b.kMax);
+    expect(b.bci).to.be.at.least(b.biMin).at.most(b.biMax);
+    expect(b.bcj).to.be.at.least(b.bjMin).at.most(b.bjMax);
+    expect(b.bck).to.be.at.least(b.bkMin).at.most(b.bkMax);
+  });
+}

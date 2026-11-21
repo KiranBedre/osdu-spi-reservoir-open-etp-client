@@ -36,6 +36,20 @@ describe("normalizeDataspacePath", () => {
         ).toBe(`${prefix}/dataspaces/demo%2FVolve/objects`);
     });
 
+    it("re-encodes for the array compute, log-structure and wells sub-resources", () => {
+        expect(
+            normalizeDataspacePath(`${prefix}/dataspaces/demo/Volve/arrays/compute`)
+        ).toBe(`${prefix}/dataspaces/demo%2FVolve/arrays/compute`);
+        expect(
+            normalizeDataspacePath(
+                `${prefix}/dataspaces/demo/Volve/log-structure/align`
+            )
+        ).toBe(`${prefix}/dataspaces/demo%2FVolve/log-structure/align`);
+        expect(
+            normalizeDataspacePath(`${prefix}/dataspaces/demo/Volve/wells/markers`)
+        ).toBe(`${prefix}/dataspaces/demo%2FVolve/wells/markers`);
+    });
+
     it("re-encodes for the transaction commit route (trailing id)", () => {
         expect(
             normalizeDataspacePath(

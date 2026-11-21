@@ -1,0 +1,74 @@
+meta {
+  name: D46 Drogon Array Reduce Net
+  type: http
+  seq: 46
+}
+
+post {
+  url: {{host}}/dataspaces/{{drogonDataspaceId}}/arrays/compute
+  body: json
+  auth: none
+}
+
+headers {
+  data-partition-id: {{data-partition-id}}
+  Authorization: Bearer {{access_token}}
+}
+
+body:json {
+  {
+    "op": "reduce",
+    "target": {
+      "dataObjectType": "{{drogonPropType}}",
+      "guid": "{{drogonStatGuid}}",
+      "pathInResource": "/RESQML/{{drogonStatGuid}}/values_patch0"
+    },
+    "reducer": "net",
+    "rangeLo": 0.1,
+    "rangeHi": 0.3,
+    "cellDz": 2
+  }
+}
+
+docs {
+  Array-compute coverage (6/31). Reduce op=net: net-thickness per column =
+  (in-range cell count) * cellDz, over the [rangeLo, rangeHi] window. Exercises
+  the range-dependent reduce operators (count/net) and the cellDz parameter.
+
+  No K-zone is given, so the client must emit the explicit "-|-" placeholder
+  in the REDUCE marker (a "0|0" placeholder is rejected by the store as
+  k1 <= k0). Total asserted: sum(map) == inRangeCount(0.1, 0.3) * cellDz, and
+  every column's net thickness is <= Nk * cellDz.
+}
+
+tests {
+  test("status is 200", function () {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("net column map returned", function () {
+    const b = res.getBody();
+    expect(b.op).to.equal("net");
+    expect(b.ni).to.be.a("number").greaterThan(0);
+    expect(b.nj).to.be.a("number").greaterThan(0);
+    expect(b.map).to.be.an("array").with.length.greaterThan(0);
+  });
+
+  test("net total == inRangeCount * cellDz", function () {
+    const b = res.getBody();
+    const inRange = Number(bru.getVar("drogonInRange"));
+    const total = b.map.reduce(function (a, c) { return a + c; }, 0);
+    expect(Math.abs(total - inRange * 2)).to.be.at.most(1e-6 * Math.max(1, total));
+  });
+
+  test("no column exceeds the full stack thickness", function () {
+    const b = res.getBody();
+    const nk = Number(bru.getVar("drogonNk"));
+    if (nk > 0) {
+      b.map.forEach(function (v) {
+        expect(v).to.be.at.least(0);
+        expect(v).to.be.at.most(nk * 2 + 1e-9);
+      });
+    }
+  });
+}

@@ -30,6 +30,7 @@ import {
 
 import { parse } from "./FastActivityParser";
 
+
 import * as cxml from "../cxml/cxml";
 
 import { Abstract, Convert } from "./ResqmlTypes";
@@ -75,7 +76,7 @@ export type SimpleJson<T> = OmitRecursively<T, keyof eml20.HandlerInstance>;
 
 const parser = new cxml.Parser();
 
-const jwtSecret = process.env.RDMS_JWT_SECRET || "osdu-rddms";
+const jwtSecret = process.env.RDMS_JWT_SECRET || "0123456789abcdef";
 
 /**
  * Represents the constraints associated with a number representation
@@ -195,7 +196,12 @@ export const stringToBigInt = (
 /* Compute ETP domain from xsi domain */
 const etpDomainFromXsi = (xsi: string, schemaVersion: string): string => {
   if (xsi.startsWith("resqml")) {
-    return schemaVersion.startsWith("2.0") ? "resqml20" : "resqml22";
+    if (schemaVersion.startsWith("2.0")) {
+      return "resqml20";
+    }
+    // RESQML 2.2 and 2.3 share the resqmlv2 namespace; 2.3 is not a released
+    // line here, so it is masked as "resqml22".
+    return "resqml22";
   } else if (xsi.startsWith("witsml")) {
     return "witsml21";
   } else if (xsi.startsWith("prodml")) {
